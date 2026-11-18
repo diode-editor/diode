@@ -48,13 +48,20 @@ export class ExtensionPageHeaderElement extends TUIElement {
         this.syncStack();
     }
 
-    /** The buttons are new elements: the focus moves to the new button of the same kind, if it can take it. */
     public setContent(content: IExtensionPageContent, buttons: readonly IExtensionButton[]): void {
-        const focusedKind = this.buttons.find((_, i) => this.buttonElements[i].isFocused)?.kind;
         this.content = content;
+        this.rebuildTextRows();
+        this.setButtons(buttons);
+    }
+
+    /**
+     * The buttons alone, the text stays wrapped: a spinner frame or a percent. They are new elements: the focus
+     * moves to the new button of the same kind, if it can take it.
+     */
+    public setButtons(buttons: readonly IExtensionButton[]): void {
+        const focusedKind = this.buttons.find((_, i) => this.buttonElements[i].isFocused)?.kind;
         this.buttons = buttons;
         this.buttonElements = this.buttons.map((button) => this.createButton(button));
-        this.rebuildTextRows();
         this.syncStack();
         const index = this.buttons.findIndex((button) => button.kind === focusedKind);
         if (index >= 0 && this.buttonElements[index].focusable) this.buttonElements[index].focus();

@@ -65,6 +65,9 @@ function splitLongWord(word: string, limit: number): string[] {
 
 /** "Update available" is by `availability`: the target is newer by semver, not just different (US-2.3). */
 export function statusLine(entry: IExtensionListEntry): string {
+    // The operation is the news: what is installed now is about to change.
+    if (entry.operation === "installing") return "Installing…";
+    if (entry.operation === "uninstalling") return "Uninstalling…";
     if (entry.availability === "incompatible") return "Incompatible with this build of Diode";
     if (entry.installedVersion === null) return "Not installed";
     if (entry.availability === "outdated") {

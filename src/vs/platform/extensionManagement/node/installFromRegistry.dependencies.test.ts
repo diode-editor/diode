@@ -171,6 +171,99 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual(["acme.base@1.0.0", "acme.plugin@1.0.0"]);
     });
 
+    describe("download progress", () => {
+        /** The file source with a download that reports `chunks` of `total` bytes, or nothing without a total. */
+        function downloading(chunks: readonly number[], total?: number): IExtensionRegistrySource {
+            const files = source();
+            return {
+                getIndex: () => files.getIndex(),
+                getMeta: (id) => files.getMeta(id),
+                fetchArtifact: (version, tempDir, onProgress) => {
+                    let received = 0;
+                    for (const chunk of chunks) {
+                        received += chunk;
+                        if (total !== undefined) onProgress?.(received, total);
+                    }
+                    return files.fetchArtifact(version, tempDir);
+                },
+            };
+        }
+
+        it("each file counts from its own start, only new whole percents, and clears after its download", async () => {
+            await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base"] } });
+            await seed("acme.base");
+            const reports: (number | null)[] = [];
+
+            await installFromRegistry(downloading([10, 1, 1, 488, 500], 1000), "acme.plugin", {
+                extensionsDir,
+                host: HOST,
+                onDownloadProgress: (percent) => reports.push(percent),
+            });
+
+            // 10 → 1%, 11 and 12 → still 1%, 500 → 50%, 1000 → 100%; then the dependency from its own start.
+            const one = [1, 50, 100, null];
+            expect(reports).toEqual([...one, ...one]);
+        });
+
+        it("more bytes than declared stop at 100%", async () => {
+            await seed("acme.plugin");
+            const reports: (number | null)[] = [];
+
+            await installFromRegistry(downloading([50, 50, 50], 100), "acme.plugin", {
+                extensionsDir,
+                host: HOST,
+                onDownloadProgress: (percent) => reports.push(percent),
+            });
+
+            expect(reports).toEqual([50, 100, null]);
+        });
+
+        it("a download without a known size reports nothing, not even the end", async () => {
+            await seed("acme.plugin");
+            const reports: (number | null)[] = [];
+
+            await installFromRegistry(downloading([50, 50]), "acme.plugin", {
+                extensionsDir,
+                host: HOST,
+                onDownloadProgress: (percent) => reports.push(percent),
+            });
+
+            expect(reports).toEqual([]);
+        });
+
+        it("nobody listening: a measured download installs all the same (the CLI's install)", async () => {
+            await seed("acme.plugin");
+
+            await installFromRegistry(downloading([500, 500], 1000), "acme.plugin", { extensionsDir, host: HOST });
+
+            expect(installed()).toEqual(["acme.plugin@1.0.0"]);
+        });
+
+        it("a failed download clears its percent too", async () => {
+            await seed("acme.plugin");
+            const files = source();
+            const reports: (number | null)[] = [];
+            const failing: IExtensionRegistrySource = {
+                getIndex: () => files.getIndex(),
+                getMeta: (id) => files.getMeta(id),
+                fetchArtifact: (_version, _tempDir, onProgress) => {
+                    onProgress?.(30, 100);
+                    return Promise.reject(new Error("connection reset"));
+                },
+            };
+
+            await expect(
+                installFromRegistry(failing, "acme.plugin", {
+                    extensionsDir,
+                    host: HOST,
+                    onDownloadProgress: (percent) => reports.push(percent),
+                }),
+            ).rejects.toThrow("connection reset");
+
+            expect(reports).toEqual([30, null]);
+        });
+    });
+
     it("artifacts download into a recognizably named temp directory under os.tmpdir(), one per extension", async () => {
         await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base"] } });
         await seed("acme.base");

@@ -49,6 +49,10 @@ export interface IExtensionPageActions {
     /** `extensions.autoUpdate` is `on`: otherwise the toggle is disabled. */
     isAutoUpdateEnabled(): boolean;
     onDidChangeAutoUpdate(listener: () => void): IDisposable;
+    /** The shared progress ticker's frame, for the page's `Installing` button: no ticker of its own. */
+    spinner(): string;
+    /** Every progress change, ticks included. */
+    onDidChangeSpinner(listener: () => void): IDisposable;
 }
 
 /** What the page needs from the scheduler. */
@@ -81,11 +85,25 @@ export class ExtensionPageActions implements IExtensionPageActions {
         private readonly autoUpdate: IExtensionAutoUpdateControl,
     ) {}
 
-    /** Indeterminate progress: artifact download has no percentage channel. */
+    /**
+     * The download percent rides on the title, our deviation (upstream has none): a platform `.vsix` is 100+ MB.
+     * It goes away once the download is done — unpacking has no percentage.
+     */
     public async install(id: string, options?: IExtensionInstallOptions): Promise<IExtensionInstallResult> {
         // Stryker disable next-line StringLiteral: ProgressService only distinguishes "view"; any other location is the window, so replacing the string changes nothing
-        const result = await this.progress.withProgress({ location: "window", title: `Installing ${id}` }, () =>
-            this.service.install(id, options),
+        const result = await this.progress.withProgress(
+            { location: "window", title: `Installing ${id}` },
+            async (p) => {
+                // Any id: the same percent again is no change to the progress.
+                const listener = this.service.onDidChangeDownloadProgress(() => {
+                    p.report({ percent: this.service.getDownloadProgress(id) ?? undefined });
+                });
+                try {
+                    return await this.service.install(id, options);
+                } finally {
+                    listener.dispose();
+                }
+            },
         );
         if (result.ok) {
             this.notice(`Installed ${id}@${result.version} — reload window to activate`);
@@ -136,6 +154,14 @@ export class ExtensionPageActions implements IExtensionPageActions {
 
     public onDidChangeAutoUpdate(listener: () => void): IDisposable {
         return this.autoUpdate.onDidChangeAutoUpdate(listener);
+    }
+
+    public spinner(): string {
+        return this.progress.spinner();
+    }
+
+    public onDidChangeSpinner(listener: () => void): IDisposable {
+        return this.progress.onDidChange(listener);
     }
 
     /**

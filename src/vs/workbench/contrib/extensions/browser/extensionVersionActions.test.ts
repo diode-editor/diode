@@ -51,6 +51,7 @@ function entry(id: string, overrides: Partial<IExtensionListEntry> = {}): IExten
         categories: [],
         tags: [],
         needsReload: false,
+        operation: null,
         ...overrides,
     };
 }
@@ -102,6 +103,9 @@ function harness(
         getCompatibleVersions: () => Promise.resolve([]),
         install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true }),
+        getDownloadProgress: () => null,
+        getOperationError: () => null,
+        onDidChangeDownloadProgress: () => ({ dispose: () => {} }),
         onDidChange: (listener) => {
             listeners.add(listener);
             return { dispose: () => listeners.delete(listener) };
@@ -124,6 +128,8 @@ function harness(
         setAutoUpdate: () => Promise.resolve({ ok: true }),
         isAutoUpdateEnabled: () => true,
         onDidChangeAutoUpdate: () => ({ dispose: () => undefined }),
+        spinner: () => "⠋",
+        onDidChangeSpinner: () => ({ dispose: () => undefined }),
     };
     const container = new Container();
     const commands = new CommandRegistry();

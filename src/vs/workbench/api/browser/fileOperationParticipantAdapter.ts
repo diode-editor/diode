@@ -1,5 +1,5 @@
 import type { IConfigurationService } from "../../../platform/configuration/common/iConfigurationService.ts";
-import type { ProgressService } from "../../../platform/progress/common/progressService.ts";
+import type { IIndeterminateProgressService } from "../../../platform/progress/common/progressService.ts";
 import type {
     FileOperationKind,
     IFileOperationPair,
@@ -26,7 +26,7 @@ export class FileOperationParticipantAdapter implements IFileOperationParticipan
     public constructor(
         private readonly host: Pick<FileOperationsCustomer, "willRunFileOperation" | "didRunFileOperation">,
         private readonly config: IConfigurationService,
-        private readonly progress: Pick<ProgressService, "withProgress">,
+        private readonly progress: IIndeterminateProgressService,
     ) {}
 
     public async willRun(operation: FileOperationKind, files: readonly IFileOperationPair[]): Promise<BulkEdit | null> {

@@ -46,6 +46,7 @@ function entry(id: string, overrides: Partial<IExtensionListEntry> = {}): IExten
         categories: [],
         tags: [],
         needsReload: false,
+        operation: null,
         ...overrides,
     };
 }

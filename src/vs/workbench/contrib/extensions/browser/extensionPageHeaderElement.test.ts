@@ -26,6 +26,7 @@ const ENTRY: IExtensionListEntry = {
     categories: [],
     tags: [],
     needsReload: false,
+    operation: null,
 };
 
 function content(overrides: Partial<IExtensionPageContent> = {}): IExtensionPageContent {

@@ -13,7 +13,7 @@ const GAP = "  ";
 export const EXTENSION_ROW_HEIGHT = 3;
 
 /** `available` carries no badge. */
-export type ExtensionRowBadge = "installed" | "update" | "incompatible" | "reload";
+export type ExtensionRowBadge = "installed" | "update" | "incompatible" | "reload" | "installing" | "uninstalling";
 
 export const PARTIAL_SUPPORT_BADGE = "Partial";
 
@@ -59,6 +59,9 @@ export function describeExtensionRow(entry: IExtensionListEntry): IExtensionRowL
 function badgeTextOf(entry: IExtensionListEntry): { text: string; kind: ExtensionRowBadge } | null {
     // "Waiting for reload" overrides everything: the state on disk and in the running editor differ.
     if (entry.needsReload) return { text: "Reload", kind: "reload" };
+    // The row has no buttons: the badge is upstream's `Installing` label. No percent: the page and status bar have it.
+    if (entry.operation === "installing") return { text: "Installing", kind: "installing" };
+    if (entry.operation === "uninstalling") return { text: "Uninstalling", kind: "uninstalling" };
     if (entry.availability === "incompatible") return { text: "Incompatible", kind: "incompatible" };
     if (entry.installedVersion === null) return null;
     if (entry.availability === "outdated") {
@@ -96,6 +99,8 @@ const BADGE_COLOR: Record<ExtensionRowBadge, keyof IExtensionRowStyles> = {
     incompatible: "warningFg",
     // Reload is an available action, just like an update.
     reload: "updateFg",
+    installing: "updateFg",
+    uninstalling: "updateFg",
 };
 
 function paintRow(row: TextLabelElement, layout: IExtensionRowLayout, styles: IExtensionRowStyles): void {
