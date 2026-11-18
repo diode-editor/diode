@@ -9,11 +9,12 @@ import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
-import { Emitter, Event } from "../../../../base/common/event.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IMenuEntryGroup, ResolvedMenuEntry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { GroupCornerStack } from "../../../browser/parts/editor/groupCornerStack.ts";
 import { State } from "../common/debug.ts";
 
+import { FOCUS_SESSION_ID } from "./debugCommands.ts";
 import { DebugToolbar } from "./debugToolbar.ts";
 
 const GO: ResolvedMenuEntry = { label: "Go", id: "go", icon: "▶", enabled: true };
@@ -40,6 +41,8 @@ function setup(initial: Partial<IFakes> = {}) {
     const menu = new Emitter<void>();
     const corners = new GroupCornerStack();
     const configuration = createTestConfigurationService();
+    const select = new SelectBoxElement();
+    const selectChanged = new Emitter<void>();
     const toolbar = new DebugToolbar(
         {
             get state() {
@@ -60,7 +63,7 @@ function setup(initial: Partial<IFakes> = {}) {
         { onDidChange: contextKeys.event },
         configuration,
         { onDidChange: icons.event },
-        { element: new SelectBoxElement(), onDidChange: Event.None },
+        { element: select, onDidChange: selectChanged.event },
     );
     return {
         fakes,
@@ -78,6 +81,14 @@ function setup(initial: Partial<IFakes> = {}) {
         },
         menuChanged: () => {
             menu.fire();
+        },
+        /** The select's options change (a session started, ended or renamed) and it says so. */
+        setSessions: (names: readonly string[]) => {
+            select.setOptions(
+                names.map((text) => ({ text })),
+                0,
+            );
+            selectChanged.fire();
         },
     };
 }
@@ -154,6 +165,16 @@ describe("DebugToolbar on fakes", () => {
         fakes.groups = [{ group: "navigation", entries: [{ ...GO, icon: "→" }] }];
         iconsChanged();
         expect(await screen(fakes.host)).toContain("→ Go");
+    });
+
+    it("the select of sessions growing (a session renamed) widens the toolbar to its new name", async () => {
+        const focus: ResolvedMenuEntry = { label: "Focus Session", id: FOCUS_SESSION_ID, icon: "≡", enabled: true };
+        const { fakes, setSessions } = setup({ groups: [{ group: "navigation", entries: [GO, focus] }] });
+        setSessions(["app"]);
+        expect(await screen(fakes.host)).toContain("app");
+
+        setSessions(["application server"]);
+        expect(await screen(fakes.host)).toContain("application server");
     });
 
     it("dispose takes the toolbar away and gives the corner back", async () => {

@@ -59,12 +59,8 @@ async function changeDebugConsoleFocus(
             currSession = currSession.parentSession;
         }
 
-        const currIndex = sessions.indexOf(currSession);
-        if (next) {
-            nextIndex = currIndex === sessions.length - 1 ? 0 : currIndex + 1;
-        } else {
-            nextIndex = currIndex === 0 ? sessions.length - 1 : currIndex - 1;
-        }
+        // Round: past the last is the first, and `at(-1)` before the first is the last.
+        nextIndex = (sessions.indexOf(currSession) + (next ? 1 : -1)) % sessions.length;
     }
     await debugService.focusStackFrame(undefined, undefined, sessions.at(nextIndex), { explicit: true });
     showReplIfHidden(views);
