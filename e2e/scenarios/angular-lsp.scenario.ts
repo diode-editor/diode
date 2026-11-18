@@ -18,7 +18,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "angular-lsp",
-    title: "Angular from the marketplace: ngtsc squiggle in a template, member completion, F12 into the component",
+    title: "Angular from the marketplace: ngtsc squiggle in a template, member completion, F12 into the component, hover in an inline template",
     open: [sampleDir, templateFile],
     installVsix: ["Angular.ng-template"],
     network: true,
@@ -34,18 +34,24 @@ export default defineScenario({
         return Promise.resolve();
     },
     async run(editor) {
+        const squiggle = (describe: string) =>
+            waitUntil(
+                () => editor.captureFrame(),
+                (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
+                { describe, timeoutMs: 180_000, intervalMs: 500 },
+            );
+        const goTo = async (lineColumn: string) => {
+            await editor.sendKey("Ctrl+G");
+            await editor.sendText(lineColumn);
+            await editor.sendKey("Enter");
+        };
+
         await editor.waitForText((t) => t.includes("missingProp"));
-        await waitUntil(
-            () => editor.captureFrame(),
-            (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "the squiggle under missingProp", timeoutMs: 180_000, intervalMs: 500 },
-        );
+        await squiggle("the squiggle under missingProp");
         await editor.capture("ngtsc diagnostic in the template");
 
         // `Clicked {{ count }} times`, line 2: Ctrl+Space at the start of `count` offers the component's members.
-        await editor.sendKey("Ctrl+G");
-        await editor.sendText("2:42");
-        await editor.sendKey("Enter");
+        await goTo("2:42");
         await editor.sendKey("Ctrl+Space");
         await editor.waitForNode("#suggestWidget", { timeoutMs: 60_000 });
         await editor.waitForText((t) => t.includes("increment  method"), { timeoutMs: 60_000 });
@@ -53,13 +59,26 @@ export default defineScenario({
 
         // `(click)="increment()"`, line 2: F12 opens the component on the method.
         await editor.sendKey("Escape");
-        await editor.sendKey("Ctrl+G");
-        await editor.sendText("2:19");
-        await editor.sendKey("Enter");
+        await goTo("2:19");
         await editor.sendKey("F12");
         await editor.waitForText((t) => t.includes("hello.component.ts") && t.includes("Ln 10,"), {
             timeoutMs: 60_000,
         });
         await editor.capture("definition in the component");
+
+        // `{{ title.toUpperCase() }}` in the inline template of app.component.ts, line 9: Ctrl+K Ctrl+U on `title`.
+        // Angular's hover middleware asks `vscode.executeHoverProvider` for the embedded HTML first.
+        await editor.sendKey("Ctrl+P");
+        await editor.sendText("app.component.ts");
+        await editor.waitForText((t) => t.includes("app.component.ts"));
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("title.toUpperCase()"), { timeoutMs: 30_000 });
+        // The squiggle under `nope` says Angular has taken the inline template.
+        await squiggle("the squiggle under nope");
+        await goTo("9:20");
+        await editor.sendKey("Ctrl+k");
+        await editor.sendKey("Ctrl+u");
+        await editor.waitForText((t) => t.includes("(property) AppComponent.title: string"), { timeoutMs: 60_000 });
+        await editor.capture("hover in the inline template");
     },
 });

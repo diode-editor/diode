@@ -29,9 +29,11 @@ import { snippetText } from "./extHostSnippetInsert.ts";
 import {
     Diagnostic,
     EndOfLine,
+    Hover,
     InlineValueEvaluatableExpression,
     InlineValueText,
     InlineValueVariableLookup,
+    MarkdownString,
     ParameterInformation,
     Position,
     Range,
@@ -357,6 +359,40 @@ function readHoverBlock(block: unknown): string | null {
     // Legacy `MarkedString` goes into a fence so the UI can tell code from prose.
     if (typeof b.language !== "string" || b.language === "") return b.value;
     return `\`\`\`${b.language}\n${b.value}\n\`\`\``;
+}
+
+/**
+ * Upstream's `HoverAdapter.provideHover` and the `Hover.from`/`Hover.to` round trip: no contents is no hover,
+ * a missing range is the word at the position or an empty range there, contents become MarkdownStrings.
+ */
+export function toApiHover(raw: unknown, document: vscode.TextDocument, position: vscode.Position): Hover | null {
+    const { contents, range } = (raw ?? {}) as { contents?: unknown; range?: unknown };
+    if (!Array.isArray(contents) || contents.length === 0) return null;
+    const given = rangeFrom(range);
+    return new Hover(
+        contents.map(toApiMarkdown),
+        given === null
+            ? (document.getWordRangeAtPosition(position) ?? new Range(position, position))
+            : toVscodeRange(given),
+    );
+}
+
+/**
+ * Upstream's `MarkdownString.from` then `.to`. Not `readHoverBlock`: that one makes text for our own hover widget
+ * (icon escapes undone, blank blocks dropped), while an extension gets back what upstream gives it.
+ */
+function toApiMarkdown(block: unknown): MarkdownString {
+    if (typeof block === "string") return new MarkdownString(block);
+    const { language, value } = (block ?? {}) as { language?: unknown; value?: unknown };
+    if (typeof language === "string" && typeof value === "string") {
+        return new MarkdownString(`\`\`\`${language}\n${value}\n\`\`\`\n`);
+    }
+    if (!(block instanceof MarkdownString)) return new MarkdownString();
+    const copy = new MarkdownString(block.value, block.supportThemeIcons);
+    copy.isTrusted = block.isTrusted;
+    copy.supportHtml = block.supportHtml;
+    copy.baseUri = block.baseUri;
+    return copy;
 }
 
 /**

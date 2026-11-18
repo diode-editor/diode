@@ -2,6 +2,12 @@
     "$comment": "Known flaky tests, unit and e2e: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. A screenshot scenario is keyed by its *.scenario.ts file and name (e2e/scenarios/suite.ts); optional platforms limits an entry to those process.platform values. Process and details: docs/TODO/TestFlakes.md.",
     "flakes": [
         {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.settingsCompletion.test.ts",
+            "test": "diode-settings — quotes and values (e2e via subprocess) > the range covers both quotes when the key is already closed",
+            "action": "retry",
+            "note": "the completion item had no range (expected undefined to deeply equal the quotes range) under coverage on CI (run 44214863415, PR #1209, whose diff is vscode.executeHoverProvider and the tie order of the execute*Provider commands, which this suite does not call); green locally 12/12"
+        },
+        {
             "file": "src/vs/workbench/contrib/debug/browser/debugContextMenus.app.test.ts",
             "test": "Run and Debug: the context menus of the rows > a frame: Restart Frame and Copy Call Stack, which copies every frame of the thread",
             "action": "retry",

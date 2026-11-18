@@ -11,6 +11,7 @@ function setup(): { open: (...args: unknown[]) => Promise<unknown>; deps: IApiCo
         openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
         executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
         executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+        executeHoverProvider: vi.fn(() => Promise.resolve([])),
         getActiveTextEditor: () => undefined,
         executeHostCommand: vi.fn(() => Promise.resolve(undefined)),
     };
@@ -113,6 +114,7 @@ describe("apiCommands — editor.action.insertSnippet", () => {
             openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+            executeHoverProvider: vi.fn(() => Promise.resolve([])),
             getActiveTextEditor: () => editor,
             executeHostCommand: vi.fn(() => Promise.resolve(undefined)),
         };
@@ -157,6 +159,7 @@ describe("apiCommands — vscode.execute*", () => {
             openTextDocument: vi.fn(() => Promise.resolve(doc)),
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+            executeHoverProvider: vi.fn(() => Promise.resolve([])),
             getActiveTextEditor: () => undefined,
             executeHostCommand: vi.fn(() => Promise.resolve(undefined)),
         };
@@ -190,6 +193,19 @@ describe("apiCommands — vscode.execute*", () => {
         expect(deps.executeCodeActionProvider).toHaveBeenNthCalledWith(2, doc, selection, undefined, undefined);
     });
 
+    it.each(["vscode.executeHoverProvider", "vscode.experimental.executeHoverProvider_recursive"])(
+        "[api:commands.executeCommand] %s opens the document and passes the position",
+        async (id) => {
+            const { call, deps } = run(id);
+            const position = new Position(1, 2);
+
+            await expect(call(uri, position)).resolves.toEqual([]);
+
+            expect(deps.openTextDocument).toHaveBeenCalledWith(uri);
+            expect(deps.executeHoverProvider).toHaveBeenCalledWith(doc, position);
+        },
+    );
+
     it("vscode.executeLinkProvider answers an empty list: not wired to the link providers", async () => {
         await expect(run("vscode.executeLinkProvider").call(uri)).resolves.toEqual([]);
         await expect(run("vscode.executeLinkProvider").call(uri, 5)).resolves.toEqual([]);
@@ -206,6 +222,14 @@ describe("apiCommands — vscode.execute*", () => {
         ["vscode.executeCodeActionProvider", [uri, 1], "rangeOrSelection", "1"],
         ["vscode.executeCodeActionProvider", [uri, new Range(0, 0, 0, 1), 1], "kind", "1"],
         ["vscode.executeCodeActionProvider", [uri, new Range(0, 0, 0, 1), "k", "x"], "itemResolveCount", "x"],
+        ["vscode.executeHoverProvider", ["nope"], "uri", "nope"],
+        [
+            "vscode.executeHoverProvider",
+            [uri, { line: 0, character: 0 }],
+            "position",
+            '{\n\t"line": 0,\n\t"character": 0\n}',
+        ],
+        ["vscode.experimental.executeHoverProvider_recursive", [uri, 1], "position", "1"],
     ])("%s refuses a bad argument %#", async (id, args, name, received) => {
         const { call, deps } = run(id);
 
@@ -224,6 +248,7 @@ describe("apiCommands — vscode.diff", () => {
             openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+            executeHoverProvider: vi.fn(() => Promise.resolve([])),
             getActiveTextEditor: () => undefined,
             executeHostCommand: vi.fn(() => Promise.resolve("host result")),
         };
