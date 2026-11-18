@@ -36,6 +36,7 @@ export const DEFAULT_DEBUG_CONFIGURATION: IDebugServiceConfiguration = {
     console: { closeOnEnd: false },
     allowBreakpointsEverywhere: false,
     focusEditorOnBreak: true,
+    showSubSessionsInToolBar: false,
 };
 
 export interface ITestSessionServices extends IDebugSessionServices {
@@ -126,6 +127,7 @@ export function testDebugService(model: DebugModel): TestDebugService {
         sendAllBreakpoints: vi.fn().mockResolvedValue(undefined),
         sendBreakpoints: vi.fn().mockResolvedValue(undefined),
         addBreakpoints: vi.fn().mockResolvedValue([]),
+        runTo: vi.fn().mockResolvedValue(undefined),
         enableOrDisableBreakpoints: vi.fn().mockResolvedValue(undefined),
         setBreakpointsActivated: vi.fn().mockResolvedValue(undefined),
         removeBreakpoints: vi.fn().mockResolvedValue(undefined),

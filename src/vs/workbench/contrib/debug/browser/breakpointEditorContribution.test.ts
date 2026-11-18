@@ -15,6 +15,7 @@ import type {
     IGlyphMarginDecoration,
     ILineHighlightDecoration,
 } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
+import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { type IDebugSession, type IStackFrame, type IThread, State } from "../common/debug.ts";
 
@@ -33,6 +34,7 @@ const TEXT = "int a;\n    int b;\nint c;\nint d;\n";
 interface IFakeEditor extends IBreakpointEditor {
     glyphs: readonly IGlyphMarginDecoration[];
     highlights: readonly ILineHighlightDecoration[];
+    insertions: readonly IInlineInsertion[];
     reserved: boolean;
     languageId: string;
     readonly document: TextDocument;
@@ -54,6 +56,7 @@ function fakeEditor(uri = FILE, languageId = "cpp"): IFakeEditor {
         viewState: { document },
         glyphs: [],
         highlights: [],
+        insertions: [],
         reserved: false,
         setGlyphMarginDecorations: (owner, decorations) => {
             expect(owner).toBe(DEBUG_GLYPH_OWNER);
@@ -64,6 +67,10 @@ function fakeEditor(uri = FILE, languageId = "cpp"): IFakeEditor {
         },
         setLineHighlightDecorations: (decorations) => {
             editor.highlights = decorations;
+        },
+        setOwnedInlineInsertions: (owner, insertions) => {
+            expect(owner).toBe(DEBUG_GLYPH_OWNER);
+            editor.insertions = insertions;
         },
         onDidClickGlyphMargin: (listener) => clicks.event(listener),
         onDidChangeContent: (listener) => content.event(listener),

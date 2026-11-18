@@ -426,6 +426,27 @@ describe("Repl", () => {
         expect(rows[echo + 1]).toContain(START_DEBUG_FIRST.slice(0, 30));
     });
 
+    it("Evaluate in Debug Console's input is evaluated in the shown session and joins the history; not in an ended one", async () => {
+        const session = await start("s");
+        repl.sendReplInput("sum");
+        await shows("> sum");
+        await vi.waitFor(() => {
+            expect(session.getReplElements().map((e) => e.toString())).toContain("sum");
+        });
+        repl.focus();
+        app.sendKey("ArrowUp");
+        expect(repl.input.inputState.value).toBe("sum");
+        app.sendKey("Escape");
+
+        await fx.service.stopSession(undefined);
+        await vi.waitFor(() => {
+            expect(session.state).toBe(State.Inactive);
+        });
+        const before = session.getReplElements().length;
+        repl.sendReplInput("count");
+        expect(session.getReplElements()).toHaveLength(before);
+    });
+
     it("a refresh leaves nothing pending: showing the console or waiting does not read it again", async () => {
         const session = await start("s");
         await shows("Launching:");

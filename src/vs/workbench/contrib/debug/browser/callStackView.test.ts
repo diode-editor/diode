@@ -104,7 +104,7 @@ describe("CallStackDataSource", () => {
         sessions: IDebugSession[];
         view: { multi: boolean };
         dataSource: CallStackDataSource;
-        session: (name: string, threadCount: number, parentSession?: IDebugSession) => IDebugSession;
+        session: (name: string, threadCount: number, parentSession?: IDebugSession, compact?: boolean) => IDebugSession;
     } {
         const sessions: IDebugSession[] = [];
         const view = { multi: false };
@@ -112,12 +112,18 @@ describe("CallStackDataSource", () => {
             getModel: () => ({ getSessions: () => sessions }),
             getViewModel: () => ({ isMultiSessionView: () => view.multi }),
         } as unknown as IDebugService;
-        const session = (name: string, threadCount: number, parentSession?: IDebugSession): IDebugSession => {
+        const session = (
+            name: string,
+            threadCount: number,
+            parentSession?: IDebugSession,
+            compact = false,
+        ): IDebugSession => {
             const threads: Thread[] = [];
             const created = mockSession({
                 getId: () => name,
                 getAllThreads: () => threads,
                 parentSession,
+                compact,
                 capabilities: {},
             });
             for (let id = 1; id <= threadCount; id++) {
@@ -152,6 +158,49 @@ describe("CallStackDataSource", () => {
         expect(await dataSource.getRoots()).toEqual([parent]);
         expect(await dataSource.getChildren(parent)).toEqual([main, child]);
         expect(await dataSource.getChildren(child)).toEqual(child.getAllThreads());
+    });
+
+    it("a session whose only child is a compact session shows as that child, as upstream's compressed tree", async () => {
+        const { dataSource, session } = setup();
+        const launcher = session("launcher", 0);
+        const program = session("program", 2, launcher, true);
+        const worker = session("worker", 2, program);
+
+        // The launcher (no threads) and its compact program are one row: the program's.
+        expect(await dataSource.getRoots()).toEqual([program]);
+        expect(await dataSource.getChildren(program)).toEqual([...program.getAllThreads(), worker]);
+
+        // A second child: the launcher has two rows under it, nothing to compress.
+        const other = session("other", 1, launcher);
+        expect(await dataSource.getRoots()).toEqual([launcher]);
+        expect(await dataSource.getChildren(launcher)).toEqual([program, other]);
+    });
+
+    it("a session with threads of its own keeps its row over a lone compact child", async () => {
+        const { dataSource, session } = setup();
+        const parent = session("parent", 2);
+        const program = session("program", 0, parent, true);
+
+        expect(await dataSource.getRoots()).toEqual([parent]);
+        expect(await dataSource.getChildren(parent)).toEqual([...parent.getAllThreads(), program]);
+    });
+
+    it("a lone child that is not compact keeps its parent's row; a compact parent folds into its lone child", async () => {
+        const { dataSource, session } = setup();
+        const parent = session("parent", 0);
+        const child = session("child", 0, parent);
+        expect(await dataSource.getRoots()).toEqual([parent]);
+        expect(await dataSource.getChildren(parent)).toEqual([child]);
+
+        const compactParent = session("compact parent", 0, undefined, true);
+        const lone = session("lone", 0, compactParent);
+        // `lone` is not compact and has no compact child: it stays a row of its own under its parent.
+        expect(await dataSource.getRoots()).toEqual([parent, compactParent]);
+        expect(await dataSource.getChildren(compactParent)).toEqual([lone]);
+
+        const grandChild = session("grand child", 0, lone, true);
+        // Now `lone` is the parent of a compact session: the chain folds to its last row.
+        expect(await dataSource.getRoots()).toEqual([parent, grandChild]);
     });
 
     it("a session is told apart from the other rows and from no row at all", () => {

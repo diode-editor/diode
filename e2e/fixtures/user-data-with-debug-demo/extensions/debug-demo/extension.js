@@ -18,6 +18,8 @@
  *   long line; the adapter completes the console's input (`completions`);
  * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
  *   Debug Console, as does the focused frame;
+ * - F10 goes to the next line; `./crash` throws `SIGSEGV` on F10 at `printf` (the exception's info has a stack trace);
+ *   Continue goes to the next breakpoint below the line where a condition holds, without one the program exits;
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint;
  * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it; `argv` has the program and its
  *   arguments as children; a step over (`next`) goes to the next line, and `sum` is `argc` times the `sum += argc`
@@ -27,7 +29,10 @@
  * - in the debug-inline-values folder its inline values provider for C looks up `sum` and `argc` where a line up to the stop
  *   names them;
  * - the menu of a call stack frame has "Show Frame in Status": the argument it gets goes to the `dbg:` item; the
- *   debug toolbar has a bell button that counts its clicks there.
+ *   debug toolbar has a bell button that counts its clicks there;
+ * - `./workers` has child processes, as js-debug sees a Node program with workers: its adapter asks the client to
+ *   `startDebugging` an `attach` session for "worker 1" and "worker 2" (the reverse request), each stops on entry
+ *   with its own console; stopping the program ends its workers.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -46,7 +51,7 @@ exports.activate = function activate(context) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand("debugDemo.pickProgram", () =>
-            vscode.window.showQuickPick(["./hello", "./world", "./tests"], {
+            vscode.window.showQuickPick(["./hello", "./world", "./tests", "./crash", "./workers"], {
                 placeHolder: "Pick the program to debug",
             }),
         ),
@@ -153,9 +158,13 @@ exports.activate = function activate(context) {
     );
 };
 
+/** The adapters of the running sessions: a worker ends with the program that started it. */
+const adapters = [];
+
 /** A pretend debugger of `program`: just enough DAP for a session that stops on entry. */
 class DemoAdapter {
     constructor(vscode, configuration, source) {
+        this.id = adapters.push(this) - 1;
         this.configuration = configuration;
         this.source = source;
         this.emitter = new vscode.EventEmitter();
@@ -185,7 +194,7 @@ class DemoAdapter {
             success: true,
             body,
         });
-        if (request.command === "launch") this.event("initialized");
+        if (request.command === "launch" || request.command === "attach") this.event("initialized");
         if (request.command === "configurationDone") {
             const { program, args } = this.configuration;
             this.event("output", { category: "stdout", output: `Hello from ${program} ${args.join(" ")}\n` });
@@ -195,17 +204,54 @@ class DemoAdapter {
             const reason = this.breakpoints.length > 0 ? "breakpoint" : "entry";
             if (this.breakpoints.length > 0) this.line = this.breakpoints[0];
             this.event("stopped", { reason, threadId: 1, allThreadsStopped: true });
+            if (program === "./workers") this.startWorkers();
         }
         if (request.command === "next") {
-            this.line++;
-            this.event("stopped", { reason: "step", threadId: 1, allThreadsStopped: true });
+            if (this.configuration.program === "./crash" && (this.lines[this.line - 1] ?? "").includes("printf")) {
+                this.event("output", { category: "stderr", output: "Segmentation fault in printf\n" });
+                this.event("stopped", { reason: "exception", text: "SIGSEGV", threadId: 1, allThreadsStopped: true });
+            } else {
+                this.line++;
+                this.event("stopped", { reason: "step", threadId: 1, allThreadsStopped: true });
+            }
         }
-        if (request.command === "disconnect") this.event("terminated");
+        if (request.command === "continue") {
+            this.runBreakpoints(false);
+            const next = this.breakpoints.find((line) => line > this.line);
+            if (next === undefined) {
+                this.event("exited", { exitCode: 0 });
+                this.event("terminated");
+            } else {
+                this.line = next;
+                this.event("stopped", { reason: "breakpoint", threadId: 1, allThreadsStopped: true });
+            }
+        }
+        if (request.command === "disconnect") {
+            this.event("terminated");
+            for (const worker of adapters) {
+                if (worker.configuration.workerOf === this.id) worker.event("terminated");
+            }
+        }
+    }
+
+    /** js-debug's child processes: the reverse `startDebugging` request, a session per worker. */
+    startWorkers() {
+        for (const name of ["worker 1", "worker 2"]) {
+            this.emitter.fire({
+                seq: this.seq++,
+                type: "request",
+                command: "startDebugging",
+                arguments: { request: "attach", configuration: { name, program: "./worker", workerOf: this.id } },
+            });
+        }
     }
 
     /** The program passes its breakpoints in line order: logpoints log while it runs, the breakpoints whose condition holds stop it. */
     runBreakpoints(running) {
-        const locals = { argc: this.configuration.args.length + 1, program: JSON.stringify(this.configuration.program) };
+        const locals = {
+            argc: this.configuration.args.length + 1,
+            program: JSON.stringify(this.configuration.program),
+        };
         const stops = [];
         for (const bp of this.sourceBreakpoints.slice().sort((a, b) => a.line - b.line)) {
             // The program stops at the first breakpoint: what is past it does not run.
@@ -245,6 +291,7 @@ class DemoAdapter {
                     supportsSetVariable: true,
                     supportsConditionalBreakpoints: true,
                     supportsLogPoints: true,
+                    supportsExceptionInfoRequest: true,
                 };
             case "setBreakpoints": {
                 const lines = (request.arguments.breakpoints || []).map((bp) => bp.line);
@@ -257,6 +304,15 @@ class DemoAdapter {
             }
             case "demoInfo":
                 return { pid: 4242 };
+            case "continue":
+                return { allThreadsContinued: true };
+            case "exceptionInfo":
+                return {
+                    exceptionId: "SIGSEGV",
+                    description: "Invalid read of size 1 at address 0x0",
+                    breakMode: "always",
+                    details: { stackTrace: `    at printf\n    at main (${this.source}:4)` },
+                };
             case "completions": {
                 // The locals and `cfg` whose names start with the word before the cursor (`line` and `column` are
                 // 1-based, in the input's lines).
@@ -337,5 +393,7 @@ function conditionHolds(condition, argc) {
     const match = /^\s*argc\s*(==|!=|<=|>=|<|>)\s*(\d+)\s*$/u.exec(condition);
     if (!match) return true;
     const n = Number(match[2]);
-    return { "==": argc === n, "!=": argc !== n, "<=": argc <= n, ">=": argc >= n, "<": argc < n, ">": argc > n }[match[1]];
+    return { "==": argc === n, "!=": argc !== n, "<=": argc <= n, ">=": argc >= n, "<": argc < n, ">": argc > n }[
+        match[1]
+    ];
 }

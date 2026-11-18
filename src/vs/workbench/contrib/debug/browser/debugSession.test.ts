@@ -250,7 +250,10 @@ describe("DebugSession", () => {
                 id: "std::out_of_range",
                 description: "vector::_M_range_check: __n (which is 1000) >= this->size() (which is 1000)",
                 breakMode: "always",
-                details: undefined,
+                details: {
+                    typeName: "std::out_of_range",
+                    stackTrace: expect.stringContaining("at accumulate(std::vector<int> const&)") as unknown,
+                },
             });
             expect(main.lastSteppingGranularity).toBeUndefined();
         });

@@ -35,4 +35,25 @@ describe("EditorComponent — setInlineInsertions", () => {
         app.render();
         expect(app.backend.getTextAt(new Point(gutterW, 0), 20)).toBe("a { color: #fff; }  ");
     });
+
+    it("an owner's insertions go first at their offset and stay beside the others' and another owner's", () => {
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(ws.writeFile("a.css", "a { color: #fff; }")));
+        const app = TestApp.createWithContent(ctrl.view, new Size(30, 3));
+        const gutterW = 6;
+        const text = (): string => {
+            app.render();
+            return app.backend.getTextAt(new Point(gutterW, 0), 24).trimEnd();
+        };
+
+        ctrl.component.setInlineInsertions([{ line: 0, offset: 11, text: "■ " }]);
+        ctrl.setOwnedInlineInsertions("debug", [{ line: 0, offset: 11, text: "●" }]);
+        ctrl.setOwnedInlineInsertions("other", [{ line: 0, offset: 0, text: "»" }]);
+        expect(text()).toBe("»a { color: ●■ #fff; }");
+
+        ctrl.setOwnedInlineInsertions("debug", []);
+        expect(text()).toBe("»a { color: ■ #fff; }");
+        ctrl.component.setInlineInsertions([]);
+        expect(text()).toBe("»a { color: #fff; }");
+    });
 });

@@ -9,9 +9,9 @@
 // after the resource argument, as upstream; from a key or the palette it acts on the focused thread. Deviations: Open
 // 'launch.json' is in the palette without upstream's `debugUx != 'simple'` precondition; Add Configuration (and Open
 // 'launch.json' with `addNew`) inserts an empty line in `configurations` without the snippet suggestions (milestone
-// 2), and not into a launch.json it has just created, whose configurations are fresh; Focus Session does not open the
-// frame in the editor (#1148); the instruction stepping of the disassembly view is not planned. The editor's, the
-// views' and the console's commands come with their tasks.
+// 2), and not into a launch.json it has just created, whose configurations are fresh; the instruction stepping of the
+// disassembly view is not planned. Focus Session is upstream's select of the sessions in the toolbar (`debugToolbar.ts`
+// renders it). The editor's, the views' and the console's commands come with their tasks.
 
 import { findNodeAtLocation, modify, parseTree } from "jsonc-parser";
 
@@ -28,9 +28,11 @@ import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/work
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
+import { ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import { containerMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { openExtensionsSearch } from "../../extensions/browser/extensionsSearch.ts";
@@ -54,6 +56,7 @@ import { rowMenuItem } from "./debugContextMenus.ts";
 import { BREAKPOINT_EDITOR_ACTIONS, showDebugHoverAction } from "./debugEditorActions.ts";
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
+import { showDebugSessionMenu } from "./debugSessionPicker.ts";
 import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
 import { REPL_ACTIONS } from "./replActions.ts";
 import { VARIABLES_ACTIONS } from "./variablesActions.ts";
@@ -69,6 +72,7 @@ export const STOP_ID = "workbench.action.debug.stop";
 export const RESTART_FRAME_ID = "workbench.action.debug.restartFrame";
 export const CONTINUE_ID = "workbench.action.debug.continue";
 export const FOCUS_SESSION_ID = "workbench.action.debug.focusProcess";
+export const SELECT_DEBUG_SESSION_ID = "workbench.action.debug.selectDebugSession";
 export const DEBUG_START_COMMAND_ID = "workbench.action.debug.start";
 export const DEBUG_RUN_COMMAND_ID = "workbench.action.debug.run";
 export const CALLSTACK_TOP_ID = "workbench.action.debug.callStackTop";
@@ -283,11 +287,23 @@ function sessionOf(debugService: IDebugService, context: unknown): IDebugSession
         : debugService.getViewModel().focusedSession;
 }
 
+/**
+ * Stop and Restart should be sent to the root parent session while `debug.showSubSessionsInToolBar` is off: the
+ * toolbar shows the roots only.
+ */
+function lifecycleRoot(accessor: ServiceAccessor, session: IDebugSession): IDebugSession {
+    const showSubSessions = accessor.get(DebugServicePortsDIToken).debugConfiguration().showSubSessionsInToolBar;
+    let root = session;
+    while (!showSubSessions && root.lifecycleManagedByParent && root.parentSession) {
+        root = root.parentSession;
+    }
+    return root;
+}
+
 async function stopHandler(accessor: ServiceAccessor, context: unknown, disconnect: boolean): Promise<void> {
     const debugService = accessor.get(DebugServiceDIToken);
     const session = sessionOf(debugService, context);
-    // Child sessions (milestone 3) send the stop to the root parent while `debug.showSubSessionsInToolBar` is off.
-    await debugService.stopSession(session, disconnect);
+    await debugService.stopSession(session && lifecycleRoot(accessor, session), disconnect);
 }
 
 export const restartSessionAction: CommandAction = {
@@ -310,8 +326,9 @@ export const restartSessionAction: CommandAction = {
             const { launch, name } = debugService.getConfigurationManager().selectedConfiguration;
             await debugService.startDebugging(launch, name, { noDebug: false, startedByUser: true });
         } else {
-            session.removeReplExpressions();
-            await debugService.restartSession(session);
+            const root = lifecycleRoot(accessor, session);
+            root.removeReplExpressions();
+            await debugService.restartSession(root);
         }
     },
 };
@@ -547,11 +564,43 @@ export const startFromConfigAction: CommandAction = {
 export const focusSessionAction: CommandAction = {
     id: FOCUS_SESSION_ID,
     title: "Focus Session",
-    menus: HIDDEN_FROM_PALETTE,
+    menus: [
+        ...HIDDEN_FROM_PALETTE,
+        // Upstream `registerDebugToolBarItem(FOCUS_SESSION_ID, …, 100, Codicon.listTree, multiSessionDebug && !commandCenter)`.
+        {
+            menuId: MenuId.DebugToolBar,
+            when: "multiSessionDebug",
+            title: "Focus Session",
+            group: "navigation",
+            order: 100,
+            icon: codicon("list-tree"),
+        },
+    ],
     async run(accessor, session) {
         const debugService = accessor.get(DebugServiceDIToken);
         const toFocus = resolveChildSession(session as IDebugSession, debugService.getModel().getSessions());
+        // Upstream then opens the focused frame in the editor without the focus: `focusStackFrame` has done it.
         await debugService.focusStackFrame(undefined, undefined, toFocus, { explicit: true });
+    },
+};
+
+export const selectDebugSessionAction: CommandAction = {
+    id: SELECT_DEBUG_SESSION_ID,
+    title: "Debug: Select Debug Session",
+    menus: paletteItem(),
+    async run(accessor) {
+        const views = accessor.get(ViewsServiceDIToken);
+        const commands = accessor.get(CommandRegistryDIToken);
+        await showDebugSessionMenu(
+            {
+                debugService: accessor.get(DebugServiceDIToken),
+                quickInput: accessor.get(QuickInputServiceDIToken),
+                icons: accessor.get(ProductIconServiceDIToken),
+                views,
+                execute: (id) => commands.execute(id),
+            },
+            SELECT_AND_START_ID,
+        );
     },
 };
 
@@ -807,6 +856,7 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     callStackDownAction,
     startFromConfigAction,
     focusSessionAction,
+    selectDebugSessionAction,
     installAdditionalDebuggersAction,
     ...BREAKPOINT_EDITOR_ACTIONS,
     ...BREAKPOINT_EDIT_ACTIONS,

@@ -12,13 +12,16 @@
 // dot over the frame's arrow); the lane is there only in a file where breakpoints can be set or that has glyphs
 // (upstream's glyph margin is always on); the condition, the log message and the trigger are typed in a quick input
 // (decision 2026-11-14, the breakpoint widget comes with conditions and logpoints), so is the "lose the condition?" question a modal message;
-// no hint glyph on hover, no hover messages, no inline breakpoints and candidates, no gutter context menu, no column
-// of the stack frame (the `debug-top-stack-frame-column` decoration).
+// an inline breakpoint and a candidate location (`debug.showInlineBreakpointCandidates`) are a glyph cell before
+// their column that a click does not reach (upstream's `InlineBreakpointWidget` toggles on a click and has a context
+// menu: here Shift+F9 at the column does it); no hint glyph on hover, no hover messages, no gutter context menu, no
+// column of the stack frame (the `debug-top-stack-frame-column` decoration).
 
+import { distinct } from "../../../../base/common/arrays.ts";
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
-import { firstNonWhitespaceIndex } from "../../../../base/common/strings.ts";
+import { firstNonWhitespaceIndex, lastNonWhitespaceIndex } from "../../../../base/common/strings.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { createRange, type IRange, rangesEqual } from "../../../../editor/common/core/iRange.ts";
 import type {
@@ -26,6 +29,7 @@ import type {
     IGlyphMarginDecoration,
     ILineHighlightDecoration,
 } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
+import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
 import type { ITextDocument } from "../../../../editor/common/model/iTextDocument.ts";
 import { TrackedRangeStickiness } from "../../../../editor/common/model/trackedDecorations.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -63,6 +67,7 @@ export interface IBreakpointEditor {
     setGlyphMarginDecorations(owner: string, decorations: readonly IGlyphMarginDecoration[]): void;
     setGlyphMarginReserved(reserved: boolean): void;
     setLineHighlightDecorations(decorations: readonly ILineHighlightDecoration[]): void;
+    setOwnedInlineInsertions(owner: string, insertions: readonly IInlineInsertion[]): void;
     onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable;
     onDidChangeContent(listener: () => void): IDisposable;
     onDidChangeLanguage(listener: () => void): IDisposable;
@@ -88,6 +93,16 @@ interface IAttachedEditor {
     readonly editor: IBreakpointEditor;
     readonly subscriptions: readonly IDisposable[];
     breakpointDecorations: readonly IBreakpointDecoration[];
+    /** The glyphs of the candidate locations, from the last answer of the adapter. */
+    candidates: readonly IInlineInsertion[];
+    /** A later request for the candidates wins over an earlier one still waiting for the adapter. */
+    candidatesGeneration: number;
+}
+
+/** Upstream `BreakpointsForLine`. */
+interface IBreakpointsForLine {
+    readonly lineNumber: number;
+    readonly positions: readonly { readonly lineNumber: number; readonly column: number }[];
 }
 
 /** The glyph and the highlight of a stack frame shown in an editor (upstream `createDecorationsForStackFrame`). */
@@ -140,6 +155,7 @@ export class BreakpointEditorContribution extends Disposable {
             configuration.onDidChangeConfiguration((event) => {
                 if (
                     event.affectsConfiguration("debug.showBreakpointsInOverviewRuler") ||
+                    event.affectsConfiguration("debug.showInlineBreakpointCandidates") ||
                     event.affectsConfiguration("debug.allowBreakpointsEverywhere")
                 ) {
                     this.queueRefresh();
@@ -175,6 +191,8 @@ export class BreakpointEditorContribution extends Disposable {
                     }),
                 ],
                 breakpointDecorations: [],
+                candidates: [],
+                candidatesGeneration: 0,
             };
             this.attached.set(editor, state);
             this.refresh(state);
@@ -187,6 +205,7 @@ export class BreakpointEditorContribution extends Disposable {
             state.breakpointDecorations.map((decoration) => decoration.decorationId),
             [],
         );
+        state.editor.setOwnedInlineInsertions(DEBUG_GLYPH_OWNER, []);
         this.attached.delete(state.editor);
     }
 
@@ -239,6 +258,116 @@ export class BreakpointEditorContribution extends Disposable {
             this.debugService.getAdapterManager().hasEnabledDebuggers() &&
                 this.debugService.canSetBreakpointsIn(editor.languageId),
         );
+        this.publishInlineGlyphs(state);
+        this.requestCandidates(state).catch(onUnexpectedError);
+    }
+
+    /** The inline breakpoints' glyphs, then the candidates' at the columns no inline breakpoint takes. */
+    private publishInlineGlyphs(state: IAttachedEditor): void {
+        const inline = state.breakpointDecorations
+            .filter((decoration) => this.rendersInline(state, decoration))
+            .map((decoration) => this.inlineGlyph(decoration.range.start, this.breakpointIcon(decoration.breakpoint)));
+        state.editor.setOwnedInlineInsertions(DEBUG_GLYPH_OWNER, [...inline, ...state.candidates]);
+    }
+
+    private breakpointIcon(breakpoint: IBreakpoint): string {
+        const model = this.debugService.getModel();
+        return getBreakpointIcon(this.debugService.state, model.areBreakpointsActivated(), breakpoint, model);
+    }
+
+    private inlineGlyph(position: { line: number; character: number }, icon: string): IInlineInsertion {
+        return {
+            line: position.line,
+            offset: position.character,
+            text: this.icons.codicon(icon),
+            colorToken: breakpointIconColor(icon),
+            // The terminal's block caret stays on the character, not on the glyph.
+            caretSide: "right",
+        };
+    }
+
+    /**
+     * Upstream's `renderInline`: a column breakpoint shows before its column when the line has other breakpoints or
+     * the column is past the line's first non-whitespace character.
+     */
+    private rendersInline(state: IAttachedEditor, decoration: IBreakpointDecoration): boolean {
+        const { breakpoint } = decoration;
+        if (!breakpoint.column) return false;
+        const hasOtherBreakpointsOnLine = state.breakpointDecorations.some(
+            (other) => other !== decoration && other.breakpoint.lineNumber === breakpoint.lineNumber,
+        );
+        const content = state.editor.viewState.document.getLineContent(breakpoint.lineNumber - 1);
+        return hasOtherBreakpointsOnLine || breakpoint.column > firstNonWhitespaceIndex(content) + 1;
+    }
+
+    /**
+     * Upstream `requestBreakpointCandidateLocations`: with `debug.showInlineBreakpointCandidates`, the focused
+     * session's breakpoint locations on the lines with breakpoints.
+     */
+    private async requestCandidates(state: IAttachedEditor): Promise<void> {
+        // Stryker disable next-line UpdateOperator: equivalent, the counter only needs a new value per request
+        const generation = ++state.candidatesGeneration;
+        const session = this.debugService.getViewModel().focusedSession;
+        const lineNumbers = distinct(state.breakpointDecorations.map((decoration) => decoration.range.start.line + 1));
+        let lineBreakpoints: IBreakpointsForLine[] = [];
+        if (
+            this.configuration.get("debug.showInlineBreakpointCandidates") &&
+            session?.capabilities.supportsBreakpointLocationsRequest
+        ) {
+            const uri = state.editor.uri;
+            lineBreakpoints = await Promise.all(
+                lineNumbers.map(async (lineNumber) => {
+                    try {
+                        return { lineNumber, positions: await session.breakpointsLocations(uri, lineNumber) };
+                    } catch {
+                        return { lineNumber, positions: [] };
+                    }
+                }),
+            );
+        }
+        if (generation !== state.candidatesGeneration || !this.attached.has(state.editor)) return;
+        state.candidates = this.candidateGlyphs(state, lineBreakpoints);
+        this.publishInlineGlyphs(state);
+    }
+
+    /** Upstream `createCandidateDecorations`. */
+    private candidateGlyphs(
+        state: IAttachedEditor,
+        lineBreakpoints: readonly IBreakpointsForLine[],
+    ): IInlineInsertion[] {
+        const document = state.editor.viewState.document;
+        const result: IInlineInsertion[] = [];
+        for (const { positions, lineNumber } of lineBreakpoints) {
+            if (lineNumber > document.lineCount) continue;
+            const content = document.getLineContent(lineNumber - 1);
+            // Upstream's 1-based columns: of the first non-whitespace character, after the last one.
+            const firstColumn = firstNonWhitespaceIndex(content) + 1;
+            const lastColumn = lastNonWhitespaceIndex(content) + 2;
+            for (const p of positions) {
+                // Do not render candidates on the start of the line if there's no other breakpoint on the line.
+                if (
+                    (p.column <= firstColumn &&
+                        !state.breakpointDecorations.some(
+                            (bp) =>
+                                bp.range.start.character + 1 > firstColumn && bp.range.start.line + 1 === p.lineNumber,
+                        )) ||
+                    p.column > lastColumn
+                ) {
+                    continue;
+                }
+
+                const breakpointAtPosition = state.breakpointDecorations.find(
+                    (bpd) => bpd.range.start.line + 1 === p.lineNumber && bpd.range.start.character + 1 === p.column,
+                );
+                // Space already occupied, do not render candidate.
+                if (breakpointAtPosition && this.rendersInline(state, breakpointAtPosition)) continue;
+                const icon = breakpointAtPosition
+                    ? this.breakpointIcon(breakpointAtPosition.breakpoint)
+                    : "debug-breakpoint-disabled";
+                result.push(this.inlineGlyph({ line: p.lineNumber - 1, character: p.column - 1 }, icon));
+            }
+        }
+        return result;
     }
 
     /** One glyph per line: a frame's (combined with a breakpoint of the line), else the line's first breakpoint's. */
