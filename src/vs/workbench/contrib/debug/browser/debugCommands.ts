@@ -57,7 +57,7 @@ import { BREAKPOINT_EDITOR_ACTIONS, showDebugHoverAction } from "./debugEditorAc
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 import { showDebugSessionMenu } from "./debugSessionPicker.ts";
-import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
+import { DEBUG_VIEW_ACTIONS, showRunAndDebugAction } from "./debugViewActions.ts";
 import { REPL_ACTIONS } from "./replActions.ts";
 import { VARIABLES_ACTIONS } from "./variablesActions.ts";
 
@@ -833,6 +833,21 @@ export const runAction: CommandAction = {
     },
 };
 
+/**
+ * Upstream's F5 without a debugger: opens Run and Debug, whose Run and Debug button offers to find a debugger for the
+ * active editor's language in the Marketplace (no debugger is bundled, so this is the way to js-debug).
+ */
+export const openViewAction: CommandAction = {
+    id: "debug.openView",
+    title: "Open Run and Debug",
+    keybindings: [
+        { keys: parseKeybinding("f5"), when: "!debuggersAvailable", weight: KeybindingWeight.WorkbenchContrib },
+        { keys: parseKeybinding("mod+f5"), when: "!debuggersAvailable", weight: KeybindingWeight.WorkbenchContrib },
+    ],
+    menus: HIDDEN_FROM_PALETTE,
+    run: (accessor) => showRunAndDebugAction.run(accessor),
+};
+
 export const DEBUG_ACTIONS: readonly CommandAction[] = [
     startAction,
     runAction,
@@ -858,6 +873,7 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     focusSessionAction,
     selectDebugSessionAction,
     installAdditionalDebuggersAction,
+    openViewAction,
     ...BREAKPOINT_EDITOR_ACTIONS,
     ...BREAKPOINT_EDIT_ACTIONS,
     showDebugHoverAction,

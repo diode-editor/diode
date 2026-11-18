@@ -57,6 +57,7 @@
             "workbench.action.debug.focusProcess",
             "workbench.action.debug.selectDebugSession",
             "debug.installAdditionalDebuggers",
+            "debug.openView",
             "debug.jumpToCursor",
             "debug.jumpToCursor",
             "workbench.action.debug.stepIntoTarget",
