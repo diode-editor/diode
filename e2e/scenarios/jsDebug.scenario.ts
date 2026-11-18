@@ -70,7 +70,9 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Toggle Auto Attach"));
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Auto attach when running scripts that aren't in a node_modules"));
-        await editor.sendText("Smart");
+        // The cursor starts on the current state, Disabled, the last of Always, Smart, Only With Flag, Disabled.
+        await editor.sendKey("ArrowUp");
+        await editor.sendKey("ArrowUp");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Auto Attach: Smart"), { timeoutMs: 30_000 });
 
