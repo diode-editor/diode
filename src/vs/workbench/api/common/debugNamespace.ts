@@ -37,6 +37,7 @@ import type {
 } from "./debugWireTypes.ts";
 import { DirectDebugAdapter, type ExtHostDebugAdapter, type ExtHostNodeDebugAdapters } from "./extHostDebugAdapter.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import { testRunMetadata } from "./extHostTestRun.ts";
 import { callWithVscodeToken } from "./vscodeCancellation.ts";
 import type { ExtensionOwner } from "./vscodeHostContext.ts";
 import { DisposableImpl, EventEmitter, Location, Position } from "./vscodeTypes.ts";
@@ -531,6 +532,7 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
             suppressDebugView:
                 options.suppressDebugView ??
                 (options as { readonly debugUI?: { readonly simple?: boolean } }).debugUI?.simple,
+            testRun: options.testRun && testRunMetadata.get(options.testRun),
         };
         return await rpc.request("debug.startDebugging", {
             ...(folder === undefined ? {} : { folder: folder.uri.toString() }),
@@ -543,7 +545,16 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         await rpc.request("debug.stopDebugging", session === undefined ? {} : { sessionId: session.id });
     }
 
+    // Proposed (`debugVisualization`), not declared: VARIABLES has no visualizers (upstream draws them in a webview or a
+    // tree of their own). Accepted as no-ops so that an extension registering one in `activate()` (debugpy) starts;
+    // the providers are never asked.
+    const proposed = {
+        registerDebugVisualizationProvider: (): vscode.Disposable => new DisposableImpl(() => undefined),
+        registerDebugVisualizationTreeProvider: (): vscode.Disposable => new DisposableImpl(() => undefined),
+    };
+
     return {
+        ...proposed,
         get activeDebugSession(): vscode.DebugSession | undefined {
             return activeSession;
         },

@@ -2,7 +2,7 @@
 // to the workspace, tildified outside it, under its host for a URL — how folders of one child fold into one row, the
 // order of a session's rows, removal, and the tree over it with the events of the sessions.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { mockSession } from "../../../../../TestUtils/mockDebug.ts";
 import { Emitter } from "../../../../base/common/event.ts";
@@ -12,6 +12,7 @@ import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWo
 import type { IDebugService, IDebugSession, LoadedSourceEvent } from "../common/debug.ts";
 import { Source } from "../common/debugSource.ts";
 
+import type { IBreakpointSources } from "./breakpointsView.ts";
 import {
     type BaseTreeItem,
     LOADED_SCRIPTS_REFRESH_DELAY_MS,
@@ -160,7 +161,7 @@ describe("LoadedScriptsView", () => {
     let newSession: Emitter<IDebugSession>;
     let endSession: Emitter<{ session: IDebugSession; restart: boolean }>;
     let sessions: IDebugSession[];
-    let openSource: ReturnType<typeof vi.fn>;
+    let openSource: Mock<IBreakpointSources["openSource"]>;
     let label: string;
 
     beforeEach(() => {
@@ -169,7 +170,7 @@ describe("LoadedScriptsView", () => {
         renamed = new Emitter();
         newSession = new Emitter();
         endSession = new Emitter();
-        openSource = vi.fn().mockResolvedValue(undefined);
+        openSource = vi.fn<IBreakpointSources["openSource"]>().mockResolvedValue(undefined);
         label = "first";
         sessions = [
             mockSession({

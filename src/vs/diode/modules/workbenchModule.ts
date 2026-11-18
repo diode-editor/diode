@@ -1,3 +1,4 @@
+import { onUnexpectedError } from "../../base/common/errors.ts";
 import { getSystemShell } from "../../base/node/shell.ts";
 import {
     ContextMenuController as EditorContextMenuController,
@@ -489,6 +490,7 @@ import {
     TestProfileService,
     TestProfileServiceDIToken,
 } from "../../workbench/contrib/testing/common/testProfileService.ts";
+import type { IResolvedTestRunRequest } from "../../workbench/contrib/testing/common/testResult.ts";
 import {
     TestResultService,
     TestResultServiceDIToken,
@@ -856,6 +858,19 @@ export const workbenchModule: ContainerModule = (container) => {
             },
             closeSessionEditors: (sessionId) => {
                 closeSessionEditors(container.get(EditorServiceDIToken), sessionId);
+            },
+            // Looked up when used: the test service debugs tests through this service.
+            testing: {
+                getResult: (runId) => container.get(TestResultServiceDIToken).getResult(runId),
+                cancelTestRun: (runId) => {
+                    container.get(TestServiceDIToken).cancelTestRun(runId);
+                },
+                runResolvedTests: (request) => {
+                    container
+                        .get(TestServiceDIToken)
+                        .runResolvedTests(request as IResolvedTestRunRequest)
+                        .catch(onUnexpectedError);
+                },
             },
         };
     });

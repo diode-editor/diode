@@ -36,6 +36,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["tree", "list"],
     },
     {
+        key: "debug.closeReadonlyTabsOnEnd",
+        type: "boolean",
+        default: false,
+        description:
+            "At the end of a debug session, all the read-only tabs associated with that session will be closed",
+    },
+    {
         key: "debug.confirmOnExit",
         type: "string",
         default: "never",
@@ -101,6 +108,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls if the lines should wrap in the Debug Console.",
     },
     {
+        key: "debug.disassemblyView.showSourceCode",
+        type: "boolean",
+        default: true,
+        description: "Show Source Code in Disassembly View.",
+    },
+    {
         key: "debug.enableStatusBarColor",
         type: "boolean",
         default: true,
@@ -111,6 +124,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "boolean",
         default: true,
         description: "Controls whether the editor should be focused when the debugger breaks.",
+    },
+    {
+        key: "debug.focusWindowOnBreak",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the workbench window should be focused when the debugger breaks.",
     },
     {
         key: "debug.gutterMiddleClickAction",
@@ -159,6 +178,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         default: "openOnDebugBreak",
         description: "Controls when the debug view should open.",
         enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart", "openOnDebugBreak"],
+    },
+    {
+        key: "debug.openExplorerOnEnd",
+        type: "boolean",
+        default: false,
+        description: "Automatically open the explorer view at the end of a debug session.",
     },
     {
         key: "debug.saveBeforeStart",

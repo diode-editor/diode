@@ -195,6 +195,21 @@ export interface LoadedSourceEvent {
 
 export type IDebugSessionReplMode = "separate" | "mergeWithParent";
 
+/** Upstream `IDebugTestRunReference`: the task of a test run an extension started the session for. */
+export interface IDebugTestRunReference {
+    readonly runId: string;
+    readonly taskId: string;
+}
+
+/** What a session reads of its test run (upstream's `LiveTestResult`). */
+export interface ICorrelatedTestRun {
+    readonly id: string;
+    readonly completedAt: number | undefined;
+    readonly onComplete: Event<void>;
+    /** The run's request, to run the same tests again. */
+    readonly request: unknown;
+}
+
 export interface IDebugSessionOptions {
     noDebug?: boolean;
     parentSession?: IDebugSession;
@@ -207,6 +222,7 @@ export interface IDebugSessionOptions {
     suppressDebugStatusbar?: boolean;
     suppressDebugView?: boolean;
     compoundRoot?: DebugCompoundRoot;
+    testRun?: IDebugTestRunReference;
 }
 
 export interface IDataBreakpointInfoResponse {
@@ -272,6 +288,8 @@ export interface IDebugSession extends ITreeElement, IDisposable {
     readonly suppressDebugStatusbar: boolean;
     readonly suppressDebugView: boolean;
     readonly lifecycleManagedByParent: boolean;
+    /** The test run the session was started for (or its parent's), while the core has it. */
+    readonly correlatedTestRun?: ICorrelatedTestRun;
 
     setSubId(subId: string | undefined): void;
 
@@ -320,6 +338,8 @@ export interface IDebugSession extends ITreeElement, IDisposable {
     initialize(dbgr: IDebugger): Promise<void>;
     launchOrAttach(config: IConfig): Promise<void>;
     restart(): Promise<void>;
+    /** Terminate any linked test run. */
+    cancelCorrelatedTestRun(): void;
     terminate(restart?: boolean /* false */): Promise<void>;
     disconnect(restart?: boolean /* false */, suspend?: boolean): Promise<void>;
 

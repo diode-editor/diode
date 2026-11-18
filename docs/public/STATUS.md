@@ -10,9 +10,11 @@ differently is on [Differences from VS Code](DIFFERENCES.md).
   `.diode/launch.json` with its `preLaunchTask` (with completion of the debuggers' attributes and configuration
   snippets, no validation yet), breakpoints in the gutter (F9) with conditions, hit counts, log messages and
   triggers, function, exception and data breakpoints, inline breakpoints (Shift+F9), stepping, Run to Cursor, Jump
-  to Cursor, Step Into Target, the exception shown after its line, Variables, Watch, Call Stack, Breakpoints, the
-  Debug Console and the debug toolbar. Not there yet: hovering a variable for its value, inline values,
-  conditions edited in place (they go through a quick input), the disassembly and memory views.
+  to Cursor, Step Into Target, the exception shown after its line, the debug hover and inline values, Variables,
+  Watch, Call Stack, Loaded Scripts, Breakpoints, the Debug Console and the debug toolbar; every `debug.*` setting
+  of VS Code is there. Conditions are edited in a quick input, not in place. Not there: the debug visualizers of
+  extensions, the font settings of the Debug Console (it is the terminal's), and the disassembly and memory views,
+  which are not planned.
 - **Snippets** from extensions are not read; **file icon themes** are not applied.
 - **Source control extensions.** Built-in git works (diffs, commit graph, staging); an extension
   that brings another version control system has no API to plug into yet.
@@ -34,7 +36,7 @@ No dates promised, in the order that seems right today.
 - `.gitignore` honoured in the file tree, as it already is in search and Quick Open.
 - Snippets and file icon themes from extensions.
 - More languages in the store: Rust and C# next, then on demand.
-- The rest of debugging: hover and inline values, the breakpoint widget, Node.js through js-debug.
+- The rest of debugging: Node.js through js-debug.
 
 ## Won't happen
 

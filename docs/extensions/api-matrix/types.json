@@ -140,8 +140,7 @@
       "note": "needs the Testing surface"
     },
     "Breakpoint": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "Breakpoint.condition": {
       "class": "ok"
@@ -1226,128 +1225,97 @@
       "note": "not declared in vscode.d.ts"
     },
     "DebugAdapter.handleMessage": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapter.onDidSendMessage": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterDescriptorFactory.createDebugAdapterDescriptor": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterExecutable": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterExecutable.args": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterExecutable.command": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterExecutable.options": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterExecutableOptions.cwd": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterExecutableOptions.env": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterInlineImplementation": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterNamedPipeServer": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterNamedPipeServer.path": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterServer": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterServer.host": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterServer.port": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterTracker.onDidSendMessage": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterTracker.onError": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterTracker.onExit": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterTracker.onWillReceiveMessage": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterTracker.onWillStartSession": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterTracker.onWillStopSession": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugAdapterTrackerFactory.createDebugAdapterTracker": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConfiguration.name": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConfiguration.request": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConfiguration.type": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConfigurationProvider.provideDebugConfigurations": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConfigurationProvider.resolveDebugConfiguration": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConfigurationProvider.resolveDebugConfigurationWithSubstitutedVariables": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConfigurationProviderTriggerKind": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConfigurationProviderTriggerKind.Dynamic": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConfigurationProviderTriggerKind.Initial": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConsole.append": {
       "class": "ok"
@@ -1356,16 +1324,13 @@
       "class": "ok"
     },
     "DebugConsoleMode": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConsoleMode.MergeWithParent": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConsoleMode.Separate": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSession.configuration": {
       "class": "ok"
@@ -1401,44 +1366,34 @@
       "class": "ok"
     },
     "DebugSessionOptions.compact": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.consoleMode": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.lifecycleManagedByParent": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.noDebug": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.parentSession": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.suppressDebugStatusbar": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.suppressDebugToolbar": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.suppressDebugView": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.suppressSaveBeforeStart": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.testRun": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugStackFrame": {
       "class": "ok"
@@ -2393,8 +2348,7 @@
       "class": "ok"
     },
     "FunctionBreakpoint": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "FunctionBreakpoint.functionName": {
       "class": "ok"
@@ -4606,8 +4560,7 @@
       "note": "in a WorkspaceEdit the snippet goes in as plain text, without a snippet session"
     },
     "SourceBreakpoint": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "SourceBreakpoint.location": {
       "class": "ok"

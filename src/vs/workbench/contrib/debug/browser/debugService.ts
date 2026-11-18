@@ -20,7 +20,7 @@ import { raceTimeout, RunOnceScheduler } from "../../../../base/common/async.ts"
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { isCancellationError } from "../../../../base/common/errorSerialization.ts";
-import { Emitter, type Event } from "../../../../base/common/event.ts";
+import { Emitter, Event } from "../../../../base/common/event.ts";
 import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri as uri } from "../../../../base/common/uri.ts";
 import { generateUuid } from "../../../../base/common/uuid.ts";
@@ -76,7 +76,12 @@ import type { IReplConsoleConfiguration } from "../common/replModel.ts";
 
 import { AdapterManager, type IDebuggerGuessPorts } from "./debugAdapterManager.ts";
 import { ConfigurationManager, type IConfigurationManagerPorts } from "./debugConfigurationManager.ts";
-import { DebugSession, type IDebugServiceConfiguration, type IDebugSessionServices } from "./debugSession.ts";
+import {
+    DebugSession,
+    type IDebugServiceConfiguration,
+    type IDebugSessionServices,
+    type IDebugTestingPorts,
+} from "./debugSession.ts";
 import { DebugTaskRunner, type IDebugTaskRunnerPorts, TaskRunResult } from "./debugTaskRunner.ts";
 
 export const DebugServiceDIToken = token<DebugService>("DebugService");
@@ -110,6 +115,8 @@ export interface IDebugServicePorts {
     readonly openExplorer: () => void;
     /** Closes the tabs of the session's `debug:` documents (`debug.closeReadonlyTabsOnEnd`). */
     readonly closeSessionEditors: (sessionId: string) => void;
+    /** The test runs a session started for a test is tied to. */
+    readonly testing: IDebugTestingPorts;
     /** Upstream's `openView(REPL_VIEW_ID, false)`: shows the Debug Console without taking the focus. */
     readonly openRepl: () => void;
     /** Upstream's `closeViewContainer` of the Debug Console's container when it is visible. */
@@ -204,6 +211,7 @@ export class DebugService implements IDebugService {
             replConfiguration: ports.replConfiguration,
             debugConfiguration: ports.debugConfiguration,
             openViewlet: ports.openViewlet,
+            testing: ports.testing,
         };
 
         this.disposables.add(
@@ -1026,6 +1034,18 @@ export class DebugService implements IDebugService {
         // Stryker disable next-line ObjectLiteral,BooleanLiteral: a breakpoint without a trigger never reads the flag
         for (const breakpoint of this.model.getBreakpoints({ triggeredOnly: true })) {
             breakpoint.setSessionDidTrigger(session.getId(), false);
+        }
+
+        // For debug sessions spawned by test runs, cancel the test run and stop
+        // the session, then start the test run again; tests have no notion of restarts.
+        if (session.correlatedTestRun) {
+            if (!session.correlatedTestRun.completedAt) {
+                session.cancelCorrelatedTestRun();
+                await Event.toPromise(session.correlatedTestRun.onComplete);
+            }
+
+            this.ports.testing.runResolvedTests(session.correlatedTestRun.request);
+            return;
         }
 
         if (session.capabilities.supportsRestartRequest) {
