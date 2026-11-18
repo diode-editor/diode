@@ -1,0 +1,279 @@
+{
+    "debug.showVariableTypes": {
+        "type": "boolean",
+        "description": "Show variable type in variable pane during debug session",
+        "default": false
+    },
+    "debug.allowBreakpointsEverywhere": {
+        "type": "boolean",
+        "description": "Allow setting breakpoints in any file.",
+        "default": false
+    },
+    "debug.gutterMiddleClickAction": {
+        "type": "string",
+        "enum": [
+            "logpoint",
+            "conditionalBreakpoint",
+            "triggeredBreakpoint",
+            "none"
+        ],
+        "description": "Controls the action to perform when clicking the editor gutter with the middle mouse button.",
+        "enumDescriptions": [
+            "Add Logpoint.",
+            "Add Conditional Breakpoint.",
+            "Add Triggered Breakpoint.",
+            "Don't perform any action."
+        ],
+        "default": "logpoint"
+    },
+    "debug.openExplorerOnEnd": {
+        "type": "boolean",
+        "description": "Automatically open the explorer view at the end of a debug session.",
+        "default": false
+    },
+    "debug.closeReadonlyTabsOnEnd": {
+        "type": "boolean",
+        "description": "At the end of a debug session, all the read-only tabs associated with that session will be closed",
+        "default": false
+    },
+    "debug.inlineValues": {
+        "type": "string",
+        "enum": [
+            "on",
+            "off",
+            "auto"
+        ],
+        "description": "Show variable values inline in editor while debugging.",
+        "enumDescriptions": [
+            "Always show variable values inline in editor while debugging.",
+            "Never show variable values inline in editor while debugging.",
+            "Show variable values inline in editor while debugging when the language supports inline value locations."
+        ],
+        "default": "auto"
+    },
+    "debug.toolBarLocation": {
+        "enum": [
+            "floating",
+            "docked",
+            "commandCenter",
+            "hidden"
+        ],
+        "markdownDescription": "Controls the location of the debug toolbar. Either `floating` in all views, `docked` in the debug view, `commandCenter` (requires `#window.commandCenter#`), or `hidden`.",
+        "default": "floating",
+        "markdownEnumDescriptions": [
+            "Show debug toolbar in all views.",
+            "Show debug toolbar only in debug views.",
+            "`(Experimental)` Show debug toolbar in the command center.",
+            "Do not show debug toolbar."
+        ]
+    },
+    "debug.showInStatusBar": {
+        "enum": [
+            "never",
+            "always",
+            "onFirstSessionStart"
+        ],
+        "enumDescriptions": [
+            "Never show debug item in status bar",
+            "Always show debug item in status bar",
+            "Show debug item in status bar only after debug was started for the first time"
+        ],
+        "description": "Controls when the debug status bar item should be visible.",
+        "default": "onFirstSessionStart"
+    },
+    "debug.internalConsoleOptions": {
+        "enum": [
+            "neverOpen",
+            "openOnSessionStart",
+            "openOnFirstSessionStart"
+        ],
+        "default": "openOnFirstSessionStart",
+        "description": "Controls when the internal Debug Console should open."
+    },
+    "debug.console.closeOnEnd": {
+        "type": "boolean",
+        "description": "Controls if the Debug Console should be automatically closed when the debug session ends.",
+        "default": false
+    },
+    "debug.terminal.clearBeforeReusing": {
+        "type": "boolean",
+        "description": "Before starting a new debug session in an integrated or external terminal, clear the terminal.",
+        "default": false
+    },
+    "debug.openDebug": {
+        "enum": [
+            "neverOpen",
+            "openOnSessionStart",
+            "openOnFirstSessionStart",
+            "openOnDebugBreak"
+        ],
+        "default": "openOnDebugBreak",
+        "description": "Controls when the debug view should open."
+    },
+    "debug.showSubSessionsInToolBar": {
+        "type": "boolean",
+        "description": "Controls whether the debug sub-sessions are shown in the debug tool bar. When this setting is false the stop command on a sub-session will also stop the parent session.",
+        "default": false
+    },
+    "debug.console.fontSize": {
+        "type": "number",
+        "description": "Controls the font size in pixels in the Debug Console.",
+        "default": 14
+    },
+    "debug.console.fontFamily": {
+        "type": "string",
+        "description": "Controls the font family in the Debug Console.",
+        "default": "default"
+    },
+    "debug.console.lineHeight": {
+        "type": "number",
+        "description": "Controls the line height in pixels in the Debug Console. Use 0 to compute the line height from the font size.",
+        "default": 0
+    },
+    "debug.console.wordWrap": {
+        "type": "boolean",
+        "description": "Controls if the lines should wrap in the Debug Console.",
+        "default": true
+    },
+    "debug.console.historySuggestions": {
+        "type": "boolean",
+        "description": "Controls if the Debug Console should suggest previously typed input.",
+        "default": true
+    },
+    "debug.console.collapseIdenticalLines": {
+        "type": "boolean",
+        "description": "Controls if the Debug Console should collapse identical lines and show a number of occurrences with a badge.",
+        "default": true
+    },
+    "debug.console.acceptSuggestionOnEnter": {
+        "enum": [
+            "off",
+            "on"
+        ],
+        "description": "Controls whether suggestions should be accepted on Enter in the Debug Console. Enter is also used to evaluate whatever is typed in the Debug Console.",
+        "default": "off"
+    },
+    "debug.console.maximumLines": {
+        "type": "number",
+        "description": "Controls the maximum number of lines in the Debug Console.",
+        "default": 10000
+    },
+    "launch": {
+        "type": "object",
+        "description": "Global debug launch configuration. Should be used as an alternative to 'launch.json' that is shared across workspaces.",
+        "default": {
+            "configurations": [],
+            "compounds": []
+        },
+        "$ref": "vscode://schemas/launch",
+        "disallowConfigurationDefault": true
+    },
+    "debug.focusWindowOnBreak": {
+        "type": "boolean",
+        "description": "Controls whether the workbench window should be focused when the debugger breaks.",
+        "default": true
+    },
+    "debug.focusEditorOnBreak": {
+        "type": "boolean",
+        "description": "Controls whether the editor should be focused when the debugger breaks.",
+        "default": true
+    },
+    "debug.onTaskErrors": {
+        "enum": [
+            "debugAnyway",
+            "showErrors",
+            "prompt",
+            "abort"
+        ],
+        "enumDescriptions": [
+            "Ignore task errors and start debugging.",
+            "Show the Problems view and do not start debugging.",
+            "Prompt user.",
+            "Cancel debugging."
+        ],
+        "description": "Controls what to do when errors are encountered after running a preLaunchTask.",
+        "default": "prompt"
+    },
+    "debug.showBreakpointsInOverviewRuler": {
+        "type": "boolean",
+        "description": "Controls whether breakpoints should be shown in the overview ruler.",
+        "default": false
+    },
+    "debug.breakpointsView.presentation": {
+        "type": "string",
+        "description": "Controls whether breakpoints are displayed in a tree view grouped by file, or as a flat list.",
+        "enum": [
+            "tree",
+            "list"
+        ],
+        "default": "list"
+    },
+    "debug.showInlineBreakpointCandidates": {
+        "type": "boolean",
+        "description": "Controls whether inline breakpoints candidate decorations should be shown in the editor while debugging.",
+        "default": true
+    },
+    "debug.saveBeforeStart": {
+        "description": "Controls what editors to save before starting a debug session.",
+        "enum": [
+            "allEditorsInActiveGroup",
+            "nonUntitledEditorsInActiveGroup",
+            "none"
+        ],
+        "enumDescriptions": [
+            "Save all editors in the active group before starting a debug session.",
+            "Save all editors in the active group except untitled ones before starting a debug session.",
+            "Don't save any editors before starting a debug session."
+        ],
+        "default": "allEditorsInActiveGroup",
+        "scope": "language-overridable"
+    },
+    "debug.confirmOnExit": {
+        "description": "Controls whether to confirm when the window closes if there are active debug sessions.",
+        "type": "string",
+        "enum": [
+            "never",
+            "always"
+        ],
+        "enumDescriptions": [
+            "Never confirm.",
+            "Always confirm if there are debug sessions."
+        ],
+        "default": "never"
+    },
+    "debug.disassemblyView.showSourceCode": {
+        "type": "boolean",
+        "default": true,
+        "description": "Show Source Code in Disassembly View."
+    },
+    "debug.autoExpandLazyVariables": {
+        "type": "string",
+        "enum": [
+            "auto",
+            "on",
+            "off"
+        ],
+        "default": "auto",
+        "enumDescriptions": [
+            "When in screen reader optimized mode, automatically expand lazy variables.",
+            "Always automatically expand lazy variables.",
+            "Never automatically expand lazy variables."
+        ],
+        "description": "Controls whether variables that are lazily resolved, such as getters, are automatically resolved and expanded by the debugger."
+    },
+    "debug.enableStatusBarColor": {
+        "type": "boolean",
+        "description": "Color of the status bar when the debugger is active.",
+        "default": true
+    },
+    "debug.hideLauncherWhileDebugging": {
+        "type": "boolean",
+        "markdownDescription": "Hide 'Start Debugging' control in title bar of 'Run and Debug' view while debugging is active. Only relevant when `#debug.toolBarLocation#` is not `docked`.",
+        "default": false
+    },
+    "debug.hideSlowPreLaunchWarning": {
+        "type": "boolean",
+        "markdownDescription": "Hide the warning shown when a `preLaunchTask` has been running for a while.",
+        "default": false
+    }
+}

@@ -142,6 +142,7 @@ import {
     DebugConsoleQuickAccessDIToken,
 } from "../../workbench/contrib/debug/browser/debugConsoleQuickAccess.ts";
 import {
+    closeSessionEditors,
     DebugContentProvider,
     DebugContentProviderDIToken,
 } from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
@@ -211,6 +212,7 @@ import {
     AutoRevealContributionDIToken,
 } from "../../workbench/contrib/files/browser/autoRevealContribution.ts";
 import {
+    EXPLORER_VIEWLET_ID,
     ExplorerComponent,
     ExplorerComponentDIToken,
 } from "../../workbench/contrib/files/browser/explorerComponent.ts";
@@ -823,6 +825,8 @@ export const workbenchModule: ContainerModule = (container) => {
                 allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
                 focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
                 showSubSessionsInToolBar: configuration.get("debug.showSubSessionsInToolBar"),
+                openExplorerOnEnd: configuration.get("debug.openExplorerOnEnd"),
+                closeReadonlyTabsOnEnd: configuration.get("debug.closeReadonlyTabsOnEnd"),
             }),
             openStackFrame: (stackFrame, options) =>
                 openStackFrame(
@@ -844,6 +848,14 @@ export const workbenchModule: ContainerModule = (container) => {
             closeRepl: () => {
                 // Hides the panel only while the console is its active view, as upstream's visibility check.
                 container.get(ViewsServiceDIToken).closeView(REPL_VIEW_ID);
+            },
+            openExplorer: () => {
+                if (container.get(LayoutServiceDIToken).isSidebarVisible()) {
+                    container.get(SidebarServiceDIToken).showViewlet(EXPLORER_VIEWLET_ID, true, false);
+                }
+            },
+            closeSessionEditors: (sessionId) => {
+                closeSessionEditors(container.get(EditorServiceDIToken), sessionId);
             },
         };
     });

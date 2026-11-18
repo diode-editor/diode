@@ -82,6 +82,10 @@ export interface IDebugServiceFixture {
     /** How many times the Debug Console was shown, and asked to close. */
     replOpenings: number;
     replClosings: number;
+    /** How many times Explorer was shown at the end of the debugging. */
+    explorerOpenings: number;
+    /** The sessions whose `debug:` tabs were closed. */
+    readonly closedSessionEditors: string[];
     /** The stack frames opened in the editor: `name@line` with the options. */
     readonly openedFrames: { frame: string; preserveFocus: boolean; sideBySide: boolean }[];
     /** Fires the save of a text file. */
@@ -148,6 +152,8 @@ export function createDebugServiceFixture(
         viewletOpenings: 0,
         replOpenings: 0,
         replClosings: 0,
+        explorerOpenings: 0,
+        closedSessionEditors: [] as string[],
         extensions: [] as IExtension[],
         activeEditor: undefined as { resource: string; languageId: string; languageName?: string } | undefined,
         pickLabel: undefined as string | string[] | undefined,
@@ -293,6 +299,8 @@ export function createDebugServiceFixture(
             allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
             focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
             showSubSessionsInToolBar: configuration.get("debug.showSubSessionsInToolBar"),
+            openExplorerOnEnd: configuration.get("debug.openExplorerOnEnd"),
+            closeReadonlyTabsOnEnd: configuration.get("debug.closeReadonlyTabsOnEnd"),
         }),
         guess: {
             activeLanguage: () =>
@@ -318,6 +326,12 @@ export function createDebugServiceFixture(
         },
         closeRepl: () => {
             fixture.replClosings++;
+        },
+        openExplorer: () => {
+            fixture.explorerOpenings++;
+        },
+        closeSessionEditors: (sessionId) => {
+            fixture.closedSessionEditors.push(sessionId);
         },
         openStackFrame: (stackFrame, options) => {
             fixture.openedFrames.push({

@@ -7,7 +7,7 @@
 // configuration or compound, resolution by the providers, variable substitution, the pre-launch task, resolution with
 // substituted variables, then the session. A configuration without a type gets the debugger chosen for the active
 // editor's file before, else a guessed one, and a session started so remembers the choice for that file. Not here yet:
-// data breakpoints, `debug.openExplorerOnEnd`, removing the breakpoints of a deleted file. The focused frame opens
+// data breakpoints, removing the breakpoints of a deleted file. The focused frame opens
 // through the `openStackFrame` port (upstream `stackFrame.openInEditor`), and the positions the editor moved
 // breakpoints to are sent on the file's save (upstream: on its change on disk). The
 // activity badge of the view container (active sessions) is not here: the container switcher has no badges. Errors
@@ -106,6 +106,10 @@ export interface IDebugServicePorts {
     readonly activeEditorResource: () => string | undefined;
     /** Upstream's `openPaneComposite(VIEWLET_ID, Sidebar)`: shows Run and Debug without taking the focus. */
     readonly openViewlet: () => void;
+    /** Upstream's `openPaneComposite(EXPLORER_VIEWLET_ID, Sidebar)` while the side bar is visible. */
+    readonly openExplorer: () => void;
+    /** Closes the tabs of the session's `debug:` documents (`debug.closeReadonlyTabsOnEnd`). */
+    readonly closeSessionEditors: (sessionId: string) => void;
     /** Upstream's `openView(REPL_VIEW_ID, false)`: shows the Debug Console without taking the focus. */
     readonly openRepl: () => void;
     /** Upstream's `closeViewContainer` of the Debug Console's container when it is visible. */
@@ -896,6 +900,9 @@ export class DebugService implements IDebugService {
         // Stryker disable next-line CallExpression: letting go of a token nothing listens to
         this.sessionCancellationTokens.delete(session.getId());
 
+        if (this.ports.debugConfiguration().closeReadonlyTabsOnEnd) {
+            this.ports.closeSessionEditors(session.getId());
+        }
         this.onDidEndSessionEmitter.fire({ session, restart: this.restartingSessions.has(session) });
 
         const focusedSession = this.viewModel.focusedSession;
@@ -912,6 +919,10 @@ export class DebugService implements IDebugService {
 
         if (this.model.getSessions().length === 0) {
             this.viewModel.setMultiSessionView(false);
+
+            if (this.ports.debugConfiguration().openExplorerOnEnd) {
+                this.ports.openExplorer();
+            }
 
             // Data breakpoints that can not be persisted should be cleared when a session ends
             const dataBreakpoints = this.model.getDataBreakpoints().filter((dbp) => !dbp.canPersist);

@@ -66,6 +66,8 @@ export type IDebugServiceConfiguration = Pick<
     | "allowBreakpointsEverywhere"
     | "focusEditorOnBreak"
     | "showSubSessionsInToolBar"
+    | "openExplorerOnEnd"
+    | "closeReadonlyTabsOnEnd"
 > & { readonly console: Pick<IDebugConfiguration["console"], "closeOnEnd"> };
 
 export interface IDebugSessionServices {
