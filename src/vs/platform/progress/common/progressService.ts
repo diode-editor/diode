@@ -43,6 +43,11 @@ export interface IProgress {
     report(step: { readonly percent: number | undefined }): void;
 }
 
+/** The status bar's percent suffix, ` (47%)`, shared by window progress and extension progress; empty without one. */
+export function formatProgressPercent(percent: number | undefined): string {
+    return percent === undefined ? "" : ` (${String(Math.round(percent))}%)`;
+}
+
 export interface IProgressServiceOptions {
     readonly delayMs?: number;
     readonly minVisibleMs?: number;
@@ -203,7 +208,7 @@ export class ProgressService extends Disposable {
     }
 
     private frameOf(entry: ProgressEntry): IProgressFrame {
-        const frame = { spinner: SPINNER_FRAMES[this.frame], title: entry.title };
+        const frame = { spinner: this.spinner(), title: entry.title };
         return entry.percent === undefined ? frame : { ...frame, percent: entry.percent };
     }
 

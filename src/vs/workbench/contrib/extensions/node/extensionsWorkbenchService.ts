@@ -216,7 +216,6 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         } catch (error) {
             return { ok: false, error: messageOf(error) };
         } finally {
-            this.setDownloadProgress(id, null);
             this.endOperation(id);
         }
     }
@@ -227,9 +226,8 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
     public readonly onDidChangeDownloadProgress = this.onDidChangeDownloadProgressEmitter.event;
 
-    /** `installFromRegistry` reports only changes; the end of an install that measured nothing is not one either. */
+    /** `installFromRegistry` reports only changes, and `null` after every download it measured, a failed one too. */
     private setDownloadProgress(id: string, percent: number | null): void {
-        if (this.getDownloadProgress(id) === percent) return;
         if (percent === null) this.downloads.delete(id);
         else this.downloads.set(id, percent);
         this.onDidChangeDownloadProgressEmitter.fire(id);

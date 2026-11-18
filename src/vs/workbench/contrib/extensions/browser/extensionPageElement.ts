@@ -51,7 +51,7 @@ export class ExtensionPageElement extends TUIElement {
 
     /** The header alone: a spinner frame or a percent must not rewrap the readme. */
     public setButtons(buttons: readonly IExtensionButton[]): void {
-        this.header.setContent(this.content, buttons);
+        this.header.setButtons(buttons);
     }
 
     public override focus(): void {

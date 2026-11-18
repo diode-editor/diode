@@ -1,7 +1,7 @@
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ProgressService } from "../../../../platform/progress/common/progressService.ts";
-import { ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
+import { formatProgressPercent, ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
@@ -45,9 +45,7 @@ export class ProgressStatusBarContribution extends Disposable implements IWorkbe
             this.clear();
             return;
         }
-        // The format of extension progress (`progressStatusBarAdapter`): `⠴ Installing x (47%)`.
-        const percent = frame.percent === undefined ? "" : ` (${String(frame.percent)}%)`;
-        const text = `${frame.spinner} ${frame.title}${percent}`;
+        const text = `${frame.spinner} ${frame.title}${formatProgressPercent(frame.percent)}`;
         if (this.handle === null) {
             this.handle = this.statusBar.addEntry({
                 id: "status.progress",
