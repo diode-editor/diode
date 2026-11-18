@@ -20,5 +20,6 @@
   // files from upstream that are known not to compile in our project
   // (foreign imports, own extensions). There is no reason or way to compile them.
   // TS defaults are listed too: an explicit `exclude` overrides them.
-  "exclude": ["node_modules", "dist", "**/__fixtures__/**"]
+  // The vendored HTML language features compile with their own tsconfig (upstream's compiler options).
+  "exclude": ["node_modules", "dist", "**/__fixtures__/**", "extensions/html-language-features"]
 }

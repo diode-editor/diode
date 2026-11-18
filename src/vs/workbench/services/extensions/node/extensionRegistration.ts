@@ -15,6 +15,32 @@ export interface IExtensionRegistrationEnv {
 }
 
 /**
+ * An installed extension without code (a language pack): nothing to activate, but other extensions see it in
+ * `extensions.all` with its `packageJSON`, as upstream (the HTML client reads `htmlLanguageParticipants` there).
+ */
+export interface IDeclarativeExtension {
+    readonly id: string;
+    readonly manifest: IExtensionRegistration["manifest"];
+    readonly extensionPath: string;
+}
+
+export function toDeclarativeExtension(ext: IExtension, env: IExtensionRegistrationEnv): IDeclarativeExtension {
+    return {
+        id: ext.id,
+        manifest: ext.manifest,
+        // A builtin's root is virtual (`/extensions/<name>`), like the `filename` of one with code.
+        extensionPath: ext.isBuiltin
+            ? `/${joinVirtualPath(ext.location, "").slice(0, -1)}`
+            : userExtensionPath(ext, env),
+    };
+}
+
+function userExtensionPath(ext: IExtension, env: IExtensionRegistrationEnv): string {
+    // `path.resolve` strips the location's trailing `/` itself.
+    return path.resolve(env.userExtensionsDir, ext.location.slice(env.userPrefix.length));
+}
+
+/**
  * Shared by the app and test fixtures: tests register exactly like prod. `null` for a declarative extension without
  * `main`.
  */
@@ -44,8 +70,7 @@ export async function toExtensionRegistration(
             filename: `/${virtualPath}`,
         };
     }
-    // `path.resolve` strips the location's trailing `/` itself.
-    const extensionPath = path.resolve(env.userExtensionsDir, ext.location.slice(env.userPrefix.length));
+    const extensionPath = userExtensionPath(ext, env);
     return { ...common, mainPath: path.resolve(extensionPath, main), extensionPath };
 }
 

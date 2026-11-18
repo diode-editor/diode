@@ -118,16 +118,61 @@ const FILES = [
         "services",
     ].map((name) => `extensions/merge-conflict/src/${name}.ts`),
 
+    // Built-in HTML language features: upstream's `vscode.html-language-features`, client and server (its manifest
+    // is in MANIFESTS). `extensions/html-language-features/main.ts` replaces upstream's `client/src/node/htmlClientMain.ts`
+    // (it reads its own package.json from disk and finds the server next to itself; a builtin has no files on disk);
+    // `build-extensions.mjs` bundles the server from `server/src/node/htmlServerNodeMain.ts`.
+    ...["autoInsertion", "customData", "htmlClient", "languageParticipants", "requests", "node/nodeFs"].map(
+        (name) => `extensions/html-language-features/client/src/${name}.ts`,
+    ),
+    ...[
+        "customData",
+        "htmlServer",
+        "languageModelCache",
+        "requests",
+        "modes/cssMode",
+        "modes/embeddedSupport",
+        "modes/formatting",
+        "modes/htmlFolding",
+        "modes/htmlMode",
+        "modes/javascriptLibs",
+        "modes/javascriptMode",
+        "modes/javascriptSemanticTokens",
+        "modes/languageModes",
+        "modes/selectionRanges",
+        "modes/semanticTokens",
+        "node/htmlServerMain",
+        "node/htmlServerNodeMain",
+        "node/nodeFs",
+        "utils/arrays",
+        "utils/documentContext",
+        "utils/positions",
+        "utils/runner",
+        "utils/strings",
+        "utils/validation",
+    ].map((name) => `extensions/html-language-features/server/src/${name}.ts`),
     // Built-in Node Debug Auto-attach: upstream's `vscode.debug-auto-launch`, the status bar item and the toggle of
     // js-debug's auto attach (its manifest is in MANIFESTS; `extensions/debug-auto-launch/main.ts` is the entry).
     "extensions/debug-auto-launch/src/extension.ts",
+
+    // The proposed `extensions.allAcrossExtensionHosts` the HTML client reads (`enabledApiProposals` of its manifest).
+    "src/vscode-dts/vscode.proposed.extensionsAny.d.ts",
+];
+
+/**
+ * Files copied byte for byte, without the transform: data, not TypeScript under the MIT header. The `jquery.d.ts`
+ * the server's JavaScript mode loads as a library, and the JSON schema the manifest's `jsonValidation` points at.
+ */
+const AS_IS = [
+    "extensions/html-language-features/server/lib/jquery.d.ts",
+    "extensions/html-language-features/schemas/package.schema.json",
 ];
 
 /**
  * Manifests of vendored builtin extensions with code. `package.nls.json` is copied as is, `package.json` goes through
  * `builtinManifest`. Upstream path == our path.
  */
-const MANIFESTS = ["extensions/merge-conflict", "extensions/debug-auto-launch"];
+const MANIFESTS = ["extensions/merge-conflict", "extensions/html-language-features", "extensions/debug-auto-launch"];
 
 /**
  * Upstream's manifest turned into a builtin one: `main` points at what `build-extensions.mjs` compiles, and the fields
@@ -179,6 +224,8 @@ const SPARSE_PATHS = [
     "/src/vs/editor/contrib/snippet/browser/snippetParser.ts",
     "/src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
     "extensions/merge-conflict",
+    "extensions/html-language-features",
+    "/src/vscode-dts/vscode.proposed.extensionsAny.d.ts",
     "extensions/debug-auto-launch",
     FIXTURES_FROM,
 ];
@@ -189,6 +236,16 @@ const SPARSE_PATHS = [
  * Each one carries a justification; the list aims to stay short.
  */
 const EXCISIONS = {
+    "extensions/html-language-features/server/src/modes/javascriptLibs.ts": [
+        {
+            // TypeScript's `lib.*.d.ts` are looked for in `../../node_modules` of the server folder: VS Code's own
+            // `extensions/node_modules`, which diode has no counterpart of. The PRELUDE takes the folder of wherever
+            // the `typescript` package resolves from the server bundle instead: the repo's `node_modules` in dev, the
+            // unpacked `ts-server.bundle` in the binary (the same TypeScript the bundled tsserver runs).
+            from: "const TYPESCRIPT_LIB_SOURCE = join(serverFolder, '../../node_modules/typescript/lib');",
+            to: "SELF",
+        },
+    ],
     "src/vs/editor/common/diff/rangeMapping.ts": [
         {
             // The only consumer of the IChange type from legacyLinesDiffComputer.
@@ -253,6 +310,11 @@ const EXCISIONS = {
  * (it also gives the test `this.timeout()`, which the fuzzing cases call).
  */
 const PRELUDES = {
+    "extensions/html-language-features/server/src/modes/javascriptLibs.ts": [
+        "// diode: see EXCISIONS in scripts/import-vscode-editor.mjs.",
+        "import { createRequire } from 'module';",
+        "const TYPESCRIPT_LIB_SOURCE = dirname(createRequire(import.meta.url).resolve('typescript'));",
+    ],
     "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts": [
         "import { suite, test } from '../../../../../../TestUtils/mochaCompat.ts';",
     ],
@@ -481,6 +543,11 @@ function regen() {
         }
         console.error(`[vendor] imported files: ${FILES.length}`);
 
+        for (const path of AS_IS) {
+            mkdirSync(dirname(join(repoRoot, path)), { recursive: true });
+            cpSync(join(cloneDir, path), join(repoRoot, path));
+        }
+
         for (const [path, content] of manifestFiles(cloneDir)) writeFileSync(join(repoRoot, path), content);
         console.error(`[vendor] imported manifests: ${MANIFESTS.length}`);
 
@@ -516,6 +583,12 @@ function check() {
             problems.push(
                 `drift: ${upstreamPath}:${at + 1}\n    file:     ${JSON.stringify(gotLines[at])}\n    upstream: ${JSON.stringify(wantLines[at])}`,
             );
+        }
+
+        for (const path of AS_IS) {
+            const target = join(repoRoot, path);
+            if (!existsSync(target)) problems.push(`missing: ${path}`);
+            else if (!readFileSync(target).equals(readFileSync(join(cloneDir, path)))) problems.push(`drift: ${path}`);
         }
 
         for (const [path, want] of manifestFiles(cloneDir)) {

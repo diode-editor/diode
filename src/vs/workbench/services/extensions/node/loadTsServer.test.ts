@@ -1,3 +1,6 @@
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const assets = vi.hoisted(() => ({
@@ -57,5 +60,36 @@ describe("ensureTsServer", () => {
         await ensureTsServer();
 
         expect(assets.extracted).toEqual([{ bundle, cacheDir: "/cache/ts-server/abc" }]);
+    });
+});
+
+describe("bundledTsServerTarget", () => {
+    beforeEach(() => {
+        assets.cacheDir = null;
+    });
+
+    async function loadTarget() {
+        vi.resetModules();
+        return (await import("./loadTsServer.ts")).bundledTsServerTarget();
+    }
+
+    it("from the packaged bundle the HTML server lies in its cache, beside the bundled TypeScript", async () => {
+        assets.cacheDir = "/cache/ts-server/abc";
+
+        const target = await loadTarget();
+
+        expect(target?.htmlServerPath).toBe(
+            "/cache/ts-server/abc/html-language-features/server/out/node/htmlServerMain.mjs",
+        );
+        expect(target?.tsserverPath).toBe("/cache/ts-server/abc/node_modules/typescript/lib/tsserver.js");
+    });
+
+    it("in dev the HTML server is the one build-extensions.mjs builds in the repo", async () => {
+        const target = await loadTarget();
+
+        const repoRoot = fileURLToPath(new URL("../../../../../..", import.meta.url));
+        expect(target?.htmlServerPath).toBe(
+            path.join(repoRoot, "extensions/html-language-features/server/out/node/htmlServerMain.mjs"),
+        );
     });
 });
