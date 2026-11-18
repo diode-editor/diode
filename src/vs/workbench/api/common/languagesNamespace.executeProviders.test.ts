@@ -314,7 +314,14 @@ describe("vscode.executeHoverProvider", () => {
         trusted.baseUri = Uri.file("/ws");
         languages.registerHoverProvider(
             "typescript",
-            hovers(new Hover(["plain", { language: "ts", value: "let a" }, trusted, 42 as unknown as string])),
+            hovers(
+                new Hover([
+                    "plain",
+                    { language: "ts", value: "let a" },
+                    trusted,
+                    ...([42, null, { value: "not a MarkdownString" }, { language: "ts" }] as unknown as string[]),
+                ]),
+            ),
         );
 
         const [hover] = await executeProviders.hovers(doc, new Position(0, 8));
@@ -327,6 +334,9 @@ describe("vscode.executeHoverProvider", () => {
             new MarkdownString("plain"),
             new MarkdownString("```ts\nlet a\n```\n"),
             expected,
+            new MarkdownString(""),
+            new MarkdownString(""),
+            new MarkdownString(""),
             new MarkdownString(""),
         ]);
     });
