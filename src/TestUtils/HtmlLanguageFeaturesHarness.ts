@@ -26,12 +26,18 @@ const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const EXTENSION_DIR = path.join(REPO_ROOT, "extensions/html-language-features");
 const SERVER = path.join(EXTENSION_DIR, "server/out/node/htmlServerMain.mjs");
 
+/** The setting `main.ts` of the app passes: where the client finds the server `build-extensions.mjs` built. */
+export const HTML_SERVER_CONFIGURATION = { diode: { html: { bundledServerPath: SERVER } } };
+
 /** By the file name, as the language registry does: `.hbs` is handlebars, the rest html. */
 function languageIdOf(filePath: string): string {
     return filePath.endsWith(".hbs") ? "handlebars" : "html";
 }
 
-const HTML_LANGUAGE_SERVICE: ILanguageService = { ...NULL_LANGUAGE_SERVICE, getLanguageIdForResource: languageIdOf };
+export const HTML_LANGUAGE_SERVICE: ILanguageService = {
+    ...NULL_LANGUAGE_SERVICE,
+    getLanguageIdForResource: languageIdOf,
+};
 
 /** Builds the client and the server once per file: `beforeAll(buildHtmlLanguageFeatures, 120_000)`. */
 export async function buildHtmlLanguageFeatures(): Promise<void> {
@@ -99,7 +105,7 @@ export async function openHtmlDocument(
         ...options,
         languageService: HTML_LANGUAGE_SERVICE,
         activateEvents: [],
-        configuration: { ...options.configuration, diode: { html: { bundledServerPath: SERVER } } },
+        configuration: { ...options.configuration, ...HTML_SERVER_CONFIGURATION },
         extensions: [htmlLanguageFeaturesRegistration(), ...(options.extensions ?? [])],
     });
     harness.host.registerDeclarativeExtension(handlebarsDeclarative());

@@ -98,7 +98,15 @@ function parseStartOptions(raw: unknown): IWireDebugStartOptions {
         suppressDebugStatusbar: optionalBoolean(p.suppressDebugStatusbar),
         suppressDebugToolbar: optionalBoolean(p.suppressDebugToolbar),
         suppressDebugView: optionalBoolean(p.suppressDebugView),
+        testRun: parseTestRunReference(p.testRun),
     };
+}
+
+function parseTestRunReference(raw: unknown): IWireDebugStartOptions["testRun"] {
+    const p = fields(raw);
+    return typeof p?.runId === "string" && typeof p.taskId === "string"
+        ? { runId: p.runId, taskId: p.taskId }
+        : undefined;
 }
 
 export function parseWireDebugStartDebugging(raw: unknown): IWireDebugStartDebugging | null {

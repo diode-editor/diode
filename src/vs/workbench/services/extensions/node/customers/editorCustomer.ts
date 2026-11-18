@@ -211,7 +211,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
             rpc.handleRequest("languages.getLanguageOfDocument", (params) => {
                 const p: { uri?: unknown } = params;
                 if (typeof p.uri !== "string") throw new Error("languages.getLanguageOfDocument: malformed params");
-                return { languageId: this.editorLayout.getLanguageOfDocument(p.uri) };
+                return { languageId: this.editorLayout.openDocumentWithoutModel(p.uri) };
             }),
         );
         // The model's `onDidChangeLanguage` sends `editor.didClose`/`editor.didOpen` synchronously: the reply doesn't overtake them.

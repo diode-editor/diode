@@ -406,9 +406,11 @@
   Есть модель — смена в ней даёт `editor.didClose`/`editor.didOpen`. Нет — ответ `applied: false`,
   пару событий выдаёт сам субпроцесс, а хост держит выбор до появления вкладки
   (`EditorLayoutServiceAdapter.pendingLanguages`). Язык документа без модели субпроцесс тоже
-  спрашивает у хоста (`languages.getLanguageOfDocument`), иначе там был бы `plaintext`.
+  спрашивает у хоста (`languages.getLanguageOfDocument`), иначе там был бы `plaintext`; ответ заодно запрашивает
+  языковые фичи (`onLanguage:<id>`), как создание модели в `$tryOpenDocument` эталона.
 - **API-команды `vscode.execute*`** (`apiCommands.ts`): как `vscode.open`, живут в субпроцессе и в
-  `getCommands` не входят. Completion и code action спрашивают провайдеров этого же субпроцесса и
+  `getCommands` не входят. Документ команда держит ссылкой (`referenceDocument`, `createModelReference` эталона):
+  документ провайдера содержимого, который до неё никто не открывал, закрывается с ней. Completion и code action спрашивают провайдеров этого же субпроцесса и
   отдают их объекты; `vscode.executeLinkProvider` всегда отдаёт `[]`: к провайдерам ссылок команда пока не подключена.
   `workspace.openTextDocument` по такой схеме спрашивает провайдера локально, без RPC, — он живёт в
   том же субпроцессе. Неудача открытия (схемы никто не обслуживает, провайдер отказался или
@@ -1676,6 +1678,13 @@ Runtime-значение может опережать типовую декла
 публичную матрицу** [docs/public/API-COVERAGE.md](../public/API-COVERAGE.md): она ведётся руками и
 держится актуальной именно этой дисциплиной; генератор для неё не заводим (решение человека:
 дисциплина, а не автоматика).
+
+Тем же PR правь **классы матрицы расширение × API** (`docs/extensions/api-matrix/<namespace>.json`
+и `types.json`, затем `npm run api-matrix`): член заработал — класс `ok` или сужение `note` до того, что
+осталось; заработала поверхность (Testing, Debug, Comments, …) — пройди все члены и типы с её `note`
+(«needs the Testing surface» и т. п.). Гейт `npm run api-matrix -- --check` устаревший класс не видит,
+а рейтинг пробелов по нему ведёт следующую волну работы: так после Testing класс C простоял на
+`tests.*` и `Test*` и выводил давно сделанное в верх рейтинга.
 
 **Bounded member-level uncommenting.** Для «тяжёлого по closure» блока (namespace/интерфейс/класс,
 чьё полное upstream-тело тянет непрактичное дерево зависимостей) можно раскомментировать

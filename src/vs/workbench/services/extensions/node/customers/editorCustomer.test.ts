@@ -67,7 +67,7 @@ function setup() {
             return Promise.resolve({ uri: "untitled:Untitled-1" });
         },
         getLanguages: () => [],
-        getLanguageOfDocument: () => null,
+        openDocumentWithoutModel: () => null,
         changeDocumentLanguage: () => ({ applied: false }),
         closeGroups: (params) => {
             log.push(["closeGroups", params]);
@@ -412,7 +412,7 @@ describe("EditorCustomer — languages", () => {
     function attach() {
         const layout = {
             getLanguages: () => ["plaintext", "json"],
-            getLanguageOfDocument: vi.fn(() => "json"),
+            openDocumentWithoutModel: vi.fn(() => "json"),
             changeDocumentLanguage: vi.fn(() => ({ applied: true })),
             onDidChangeLayout: () => ({ dispose: () => undefined }),
         };
@@ -443,7 +443,7 @@ describe("EditorCustomer — languages", () => {
         await expect(peer.request("languages.getLanguageOfDocument", { uri: "file:///a" })).resolves.toEqual({
             languageId: "json",
         });
-        expect(layout.getLanguageOfDocument).toHaveBeenCalledWith("file:///a");
+        expect(layout.openDocumentWithoutModel).toHaveBeenCalledWith("file:///a");
     });
 
     it("languages.changeLanguage passes uri and language on and returns the result", async () => {

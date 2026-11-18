@@ -2,6 +2,7 @@ import * as nodePath from "node:path";
 
 import type * as vscode from "vscode";
 
+import { toDisposable } from "../../../base/common/lifecycle.ts";
 import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { workspaceFileLabel } from "../../../platform/workspace/common/workspaceFile.ts";
@@ -152,15 +153,34 @@ function parseConfigurationTarget(arg: unknown): WireConfigurationTarget | undef
     return undefined;
 }
 
+/** Upstream `IReference<ITextModel>` of `createModelReference`, on the extension host's side. */
+export interface IDocumentReference {
+    readonly document: vscode.TextDocument;
+    dispose(): void;
+}
+
 /**
  * `registerTaskProvider` comes from outside: `tasks` is built after `workspace`
  * and waits for its folders.
  */
 export function createWorkspaceNamespace(
     ctx: IVscodeHostContext,
+    registerTaskProvider?: (type: string, provider: vscode.TaskProvider) => vscode.Disposable,
+): typeof vscode.workspace {
+    return createWorkspace(ctx, registerTaskProvider).workspace;
+}
+
+/**
+ * The namespace and, kept off it, upstream's `createModelReference` for the API commands
+ * (`vscode.executeCompletionItemProvider`, ...): the document is opened for the command. A content provider's document
+ * that nobody had open closes when its last reference goes, as upstream disposes a model nobody holds, and the next
+ * command reads the provider again: Angular's embedded templates rely on it, their provider has no `onDidChange`.
+ */
+export function createWorkspace(
+    ctx: IVscodeHostContext,
     registerTaskProvider: (type: string, provider: vscode.TaskProvider) => vscode.Disposable = () =>
         new DisposableImpl(() => undefined),
-): typeof vscode.workspace {
+): { workspace: typeof vscode.workspace; referenceDocument: (uri: vscode.Uri) => Promise<IDocumentReference> } {
     const { rpc, registry, documentSync, configStore } = ctx;
     registry.saver = async (uri) => (await rpc.request("workspace.save", { uri: uri.toString() })) !== null;
 
@@ -233,7 +253,8 @@ export function createWorkspaceNamespace(
 
     /**
      * Virtual documents opened by an extension but shown in no tab, so the core re-reads nothing for them.
-     * Deviation: upstream closes such a model after a while, here it lives until the tab that shows it closes.
+     * Deviation: upstream closes such a model after a while, here one an extension opened lives until the tab that
+     * shows it closes; one an API command opened closes with the command ({@link referenceDocument}).
      */
     const documentsWithoutModel = new Set<string>();
     /** Upstream `_documentLoader`: one load per uri in flight, a virtual document's or a model's. */
@@ -282,6 +303,35 @@ export function createWorkspaceNamespace(
             });
         documentLoads.set(key, opened);
         return opened;
+    }
+
+    /** Live references of the content providers' documents that the references opened. */
+    const commandReferences = new Map<string, { count: number }>();
+
+    async function referenceDocument(uri: vscode.Uri): Promise<IDocumentReference> {
+        const key = uri.toString();
+        const open = registry.get(uri);
+        const owned = commandReferences.has(key) || open === undefined || open.isClosed;
+        const document = await openTextDocument(uri);
+        if (!owned || !documentsWithoutModel.has(key)) return { document, dispose: () => undefined };
+        const references = commandReferences.get(key) ?? { count: 0 };
+        commandReferences.set(key, references);
+        references.count++;
+        const release = toDisposable(() => {
+            references.count--;
+            // The extension opened it meanwhile (`openTextDocumentOfExtension`): the document is its own now.
+            if (references.count > 0 || commandReferences.get(key) !== references) return;
+            // Stryker disable next-line CallExpression: equivalent: frees memory; a zero entry is reused by the next reference, and an extension's open drops it
+            commandReferences.delete(key);
+            // A tab that showed it meanwhile owns the document now.
+            if (documentsWithoutModel.delete(key)) documentSync.close(uri);
+        });
+        return {
+            document,
+            dispose: () => {
+                release.dispose();
+            },
+        };
     }
 
     rpc.handleRequest(
@@ -526,6 +576,16 @@ export function createWorkspaceNamespace(
         return p;
     }
 
+    /** As upstream, the extension's own `$tryOpenDocument` holds the document: a command's reference no longer closes it. */
+    async function openTextDocumentOfExtension(
+        uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
+        options?: { encoding?: string },
+    ): Promise<vscode.TextDocument> {
+        const document = await openTextDocument(uriOrPathOrOptions, options);
+        commandReferences.delete(document.uri.toString());
+        return document;
+    }
+
     async function openTextDocument(
         uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
         options?: { encoding?: string },
@@ -727,7 +787,7 @@ export function createWorkspaceNamespace(
         getConfiguration,
         asRelativePath,
         // Cast to the three d.ts overloads: the implementation tells the shape apart at runtime.
-        openTextDocument: openTextDocument as unknown as typeof vscode.workspace.openTextDocument,
+        openTextDocument: openTextDocumentOfExtension as unknown as typeof vscode.workspace.openTextDocument,
         decode,
         encode,
 
@@ -905,5 +965,5 @@ export function createWorkspaceNamespace(
         },
     };
 
-    return implementsApi<typeof vscode.workspace>()(workspaceNs);
+    return { workspace: implementsApi<typeof vscode.workspace>()(workspaceNs), referenceDocument };
 }

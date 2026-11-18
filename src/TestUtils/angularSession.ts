@@ -13,7 +13,13 @@ import {
     linkAngularLibrary,
 } from "./angularFixture.ts";
 import { CLIENT_CRASH_PATTERNS, until } from "./basedpyrightFixture.ts";
-import { createExtensionTestHarness, documentVersion, type IExtensionHarness } from "./ExtensionTestHarness.ts";
+import {
+    activatingLanguageService,
+    createExtensionTestHarness,
+    documentVersion,
+    type IExtensionHarness,
+    type IExtensionHarnessOptions,
+} from "./ExtensionTestHarness.ts";
 
 export const HELLO_HTML = "src/app/hello.component.html";
 export const HELLO_TS = "src/app/hello.component.ts";
@@ -40,21 +46,32 @@ export interface IAngularSession {
     frameHas(...texts: readonly string[]): Promise<void>;
 }
 
+/** What the server reports once the project is loaded and the client knows the file is an Angular one. */
+const READY_MARKER = { [HELLO_HTML]: "missingProp", [APP_TS]: "nope" } as const;
+
+export interface IAngularSessionOptions extends Pick<IExtensionHarnessOptions, "configuration" | "extensions"> {
+    /** The file opened first, `hello.component.html` by default. */
+    readonly entry?: keyof typeof READY_MARKER;
+}
+
 /**
- * Writes the sample with the Angular library linked in, opens `hello.component.html` and activates the extension
- * the way an `.html` file does. The session starts once the server reports `missingProp` in the template: the
- * project is loaded and the client knows it is an Angular one. A converter crash in the output fails the test.
+ * Writes the sample with the Angular library linked in, opens the entry file and activates the extensions the way
+ * its language does. As in the app, a model of a language, the extension host's documents without one included,
+ * activates `onLanguage:<id>`. The session starts once the server reports the entry's unknown name. A converter
+ * crash in the output fails the test. `options` registers more extensions next to Angular (the built-in HTML
+ * language features).
  */
 export async function withAngularProject(
     installed: IInstalledAngular,
     nodeModules: string,
     run: (session: IAngularSession) => Promise<void>,
+    options: IAngularSessionOptions = {},
 ): Promise<void> {
     const files = angularSampleFiles();
     const output: string[] = [];
     const published = new Map<string, readonly WireMarker[]>();
     const harness = await createExtensionTestHarness({
-        languageService: ANGULAR_LANGUAGE_SERVICE,
+        languageService: activatingLanguageService(ANGULAR_LANGUAGE_SERVICE),
         activateEvents: [],
         diagnosticsSink: (_owner, resource, markers) => published.set(resource, markers),
         outputSink: {
@@ -63,7 +80,8 @@ export async function withAngularProject(
             show: () => undefined,
             /* v8 ignore stop */
         },
-        extensions: [installed.registration],
+        configuration: options.configuration,
+        extensions: [installed.registration, ...(options.extensions ?? [])],
     });
     try {
         linkAngularLibrary(harness.tmpDir, nodeModules);
@@ -79,9 +97,9 @@ export async function withAngularProject(
             until(`"${message}" in ${name}`, () =>
                 Promise.resolve(published.get(uriOf(name))?.find((marker) => marker.message.includes(message)) ?? null),
             );
-        open(HELLO_HTML);
-        await harness.host.activateByEvent("onLanguage:html");
-        await markerSaying(HELLO_HTML, "missingProp");
+        const entry = options.entry ?? HELLO_HTML;
+        open(entry);
+        await markerSaying(entry, READY_MARKER[entry]);
         await run({
             harness,
             activeEditor: () => {

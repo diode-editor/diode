@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { createApiCommands, type IApiCommandsDeps } from "./apiCommands.ts";
@@ -8,7 +8,9 @@ function setup(): { open: (...args: unknown[]) => Promise<unknown>; deps: IApiCo
     const deps: IApiCommandsDeps = {
         showTextDocument: vi.fn(() => Promise.resolve({})),
         openExternal: vi.fn(() => Promise.resolve(true)),
-        openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
+        referenceDocument: vi.fn(() =>
+            Promise.resolve({ document: {} as vscode.TextDocument, dispose: () => undefined }),
+        ),
         executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
         executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
         executeHoverProvider: vi.fn(() => Promise.resolve([])),
@@ -111,7 +113,9 @@ describe("apiCommands — editor.action.insertSnippet", () => {
         const deps: IApiCommandsDeps = {
             showTextDocument: vi.fn(() => Promise.resolve({})),
             openExternal: vi.fn(() => Promise.resolve(true)),
-            openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
+            referenceDocument: vi.fn(() =>
+                Promise.resolve({ document: {} as vscode.TextDocument, dispose: () => undefined }),
+            ),
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
             executeHoverProvider: vi.fn(() => Promise.resolve([])),
@@ -151,12 +155,17 @@ describe("apiCommands — editor.action.insertSnippet", () => {
 describe("apiCommands — vscode.execute*", () => {
     const uri = Uri.file("/ws/a.json");
     const doc = {} as vscode.TextDocument;
+    const released = vi.fn();
+
+    beforeEach(() => {
+        released.mockClear();
+    });
 
     function run(id: string): { call: (...args: unknown[]) => Promise<unknown>; deps: IApiCommandsDeps } {
         const deps: IApiCommandsDeps = {
             showTextDocument: vi.fn(() => Promise.resolve({})),
             openExternal: vi.fn(() => Promise.resolve(true)),
-            openTextDocument: vi.fn(() => Promise.resolve(doc)),
+            referenceDocument: vi.fn(() => Promise.resolve({ document: doc, dispose: released })),
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
             executeHoverProvider: vi.fn(() => Promise.resolve([])),
@@ -175,9 +184,10 @@ describe("apiCommands — vscode.execute*", () => {
         await expect(call(uri, position, ".", 3)).resolves.toEqual({ items: [] });
         await call(uri, position, null, null);
 
-        expect(deps.openTextDocument).toHaveBeenCalledWith(uri);
+        expect(deps.referenceDocument).toHaveBeenCalledWith(uri);
         expect(deps.executeCompletionItemProvider).toHaveBeenNthCalledWith(1, doc, position, ".", 3);
         expect(deps.executeCompletionItemProvider).toHaveBeenNthCalledWith(2, doc, position, undefined, undefined);
+        expect(released).toHaveBeenCalledTimes(2);
     });
 
     it("vscode.executeCodeActionProvider opens the document and passes the arguments, a Selection is a Range", async () => {
@@ -188,9 +198,10 @@ describe("apiCommands — vscode.execute*", () => {
         await expect(call(uri, range, "quickfix", 2)).resolves.toEqual([]);
         await call(uri, selection);
 
-        expect(deps.openTextDocument).toHaveBeenCalledWith(uri);
+        expect(deps.referenceDocument).toHaveBeenCalledWith(uri);
         expect(deps.executeCodeActionProvider).toHaveBeenNthCalledWith(1, doc, range, "quickfix", 2);
         expect(deps.executeCodeActionProvider).toHaveBeenNthCalledWith(2, doc, selection, undefined, undefined);
+        expect(released).toHaveBeenCalledTimes(2);
     });
 
     it.each(["vscode.executeHoverProvider", "vscode.experimental.executeHoverProvider_recursive"])(
@@ -201,10 +212,25 @@ describe("apiCommands — vscode.execute*", () => {
 
             await expect(call(uri, position)).resolves.toEqual([]);
 
-            expect(deps.openTextDocument).toHaveBeenCalledWith(uri);
+            expect(deps.referenceDocument).toHaveBeenCalledWith(uri);
             expect(deps.executeHoverProvider).toHaveBeenCalledWith(doc, position);
+            expect(released).toHaveBeenCalledTimes(1);
         },
     );
+
+    it("the document is released after the providers are done, a failing provider too", async () => {
+        const { call, deps } = run("vscode.executeHoverProvider");
+        let releasedWhileRunning = true;
+        vi.mocked(deps.executeHoverProvider).mockImplementation(() => {
+            releasedWhileRunning = released.mock.calls.length > 0;
+            return Promise.reject(new Error("provider failed"));
+        });
+
+        await expect(call(uri, new Position(0, 0))).rejects.toThrow("provider failed");
+
+        expect(releasedWhileRunning).toBe(false);
+        expect(released).toHaveBeenCalledTimes(1);
+    });
 
     it("vscode.executeLinkProvider answers an empty list: not wired to the link providers", async () => {
         await expect(run("vscode.executeLinkProvider").call(uri)).resolves.toEqual([]);
@@ -236,7 +262,7 @@ describe("apiCommands — vscode.execute*", () => {
         await expect(call(...args)).rejects.toThrow(
             `Invalid argument '${name}' when running '${id}', received: ${received} `,
         );
-        expect(deps.openTextDocument).not.toHaveBeenCalled();
+        expect(deps.referenceDocument).not.toHaveBeenCalled();
     });
 });
 
@@ -245,7 +271,9 @@ describe("apiCommands — vscode.diff", () => {
         const deps: IApiCommandsDeps = {
             showTextDocument: vi.fn(() => Promise.resolve({})),
             openExternal: vi.fn(() => Promise.resolve(true)),
-            openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
+            referenceDocument: vi.fn(() =>
+                Promise.resolve({ document: {} as vscode.TextDocument, dispose: () => undefined }),
+            ),
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
             executeHoverProvider: vi.fn(() => Promise.resolve([])),
