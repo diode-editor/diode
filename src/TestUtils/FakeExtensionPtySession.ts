@@ -22,8 +22,8 @@ export class FakeExtensionPtySession extends FakeTerminalSurface implements IExt
         this.emitExit(code ?? 0);
     }
 
-    public override write(data: string): void {
-        super.write(data);
+    protected override sendInput(data: string): void {
+        super.sendInput(data);
         this.options.onInput(data);
     }
 

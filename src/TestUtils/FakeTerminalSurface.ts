@@ -65,9 +65,14 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
             this.inputAfterExit.fire();
             return false;
         }
-        super.write(data);
+        this.sendInput(data);
         this.input.fire();
         return true;
+    }
+
+    /** Where both `write` and `sendText` deliver the input; recorded in `writes`. */
+    protected sendInput(data: string): void {
+        super.write(data);
     }
 
     /** Output lines as the emulator would report them. */
