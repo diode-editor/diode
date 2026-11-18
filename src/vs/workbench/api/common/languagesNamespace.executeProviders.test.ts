@@ -308,17 +308,20 @@ describe("vscode.executeHoverProvider", () => {
     it("contents become MarkdownStrings as upstream: a string as is, a code block fenced, flags kept, junk empty", async () => {
         const { languages, executeProviders, documentSync } = setup();
         const doc = openTs(documentSync);
-        const trusted = new MarkdownString("$(gear) **b**", true);
-        trusted.isTrusted = true;
-        trusted.supportHtml = true;
-        trusted.baseUri = Uri.file("/ws");
+        const flagged = () => {
+            const markdown = new MarkdownString("$(gear) **b**", true);
+            markdown.isTrusted = true;
+            markdown.supportHtml = true;
+            markdown.baseUri = Uri.file("/ws");
+            return markdown;
+        };
         languages.registerHoverProvider(
             "typescript",
             hovers(
                 new Hover([
                     "plain",
                     { language: "ts", value: "let a" },
-                    trusted,
+                    flagged(),
                     ...([42, null, { value: "not a MarkdownString" }, { language: "ts" }] as unknown as string[]),
                 ]),
             ),
@@ -326,14 +329,10 @@ describe("vscode.executeHoverProvider", () => {
 
         const [hover] = await executeProviders.hovers(doc, new Position(0, 8));
 
-        const expected = new MarkdownString("$(gear) **b**", true);
-        expected.isTrusted = true;
-        expected.supportHtml = true;
-        expected.baseUri = Uri.file("/ws");
         expect(hover.contents).toStrictEqual([
             new MarkdownString("plain"),
             new MarkdownString("```ts\nlet a\n```\n"),
-            expected,
+            flagged(),
             new MarkdownString(""),
             new MarkdownString(""),
             new MarkdownString(""),

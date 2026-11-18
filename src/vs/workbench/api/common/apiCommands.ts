@@ -34,12 +34,10 @@ export function createApiCommands(deps: IApiCommandsDeps): ReadonlyMap<string, A
         ["vscode.executeLinkProvider", (...args) => executeLinkProvider(args)],
         ["vscode.executeCompletionItemProvider", (...args) => executeCompletionItemProvider(deps, args)],
         ["vscode.executeCodeActionProvider", (...args) => executeCodeActionProvider(deps, args)],
-        ["vscode.executeHoverProvider", (...args) => executeHoverProvider(deps, "vscode.executeHoverProvider", args)],
         // Upstream's `recursive` only stops an `exclusive` selector from hiding the others; ours never hides them.
-        [
-            "vscode.experimental.executeHoverProvider_recursive",
-            (...args) => executeHoverProvider(deps, "vscode.experimental.executeHoverProvider_recursive", args),
-        ],
+        ...["vscode.executeHoverProvider", "vscode.experimental.executeHoverProvider_recursive"].map(
+            (id): [string, ApiCommandHandler] => [id, (...args) => executeHoverProvider(deps, id, args)],
+        ),
         ["editor.action.insertSnippet", (...args) => insertSnippet(deps, args)],
     ]);
 }

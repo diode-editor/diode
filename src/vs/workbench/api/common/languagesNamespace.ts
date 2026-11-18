@@ -59,6 +59,7 @@ import {
     serializeTextEdit,
     serializeWorkspaceSymbol,
     serializeWorkspaceSymbolLocation,
+    toApiHover,
     toVscodeDiagnostic,
     toVscodeRange,
     toVscodeSignatureHelp,
@@ -76,10 +77,8 @@ import {
     CompletionTriggerKind,
     DisposableImpl,
     EventEmitter,
-    Hover,
     InlineCompletionTriggerKind,
     InlineValueContext,
-    MarkdownString,
     Position,
     Range,
     SignatureHelpTriggerKind,
@@ -452,37 +451,6 @@ export interface ILanguageProviderExecutors {
         itemResolveCount: number | undefined,
     ): Promise<(vscode.CodeAction | vscode.Command)[]>;
     hovers(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover[]>;
-}
-
-/**
- * Upstream's `HoverAdapter.provideHover` and the `Hover.from`/`Hover.to` round trip: no contents is no hover,
- * a missing range is the word at the position or an empty range there, contents become MarkdownStrings.
- */
-function toApiHover(raw: unknown, document: vscode.TextDocument, position: vscode.Position): Hover | null {
-    const { contents, range } = (raw ?? {}) as { contents?: unknown; range?: unknown };
-    if (!Array.isArray(contents) || contents.length === 0) return null;
-    const given = rangeFrom(range);
-    return new Hover(
-        contents.map(toApiMarkdown),
-        given === null
-            ? (document.getWordRangeAtPosition(position) ?? new Range(position, position))
-            : toVscodeRange(given),
-    );
-}
-
-/** Upstream's `MarkdownString.from` then `.to`. */
-function toApiMarkdown(block: unknown): MarkdownString {
-    if (typeof block === "string") return new MarkdownString(block);
-    const { language, value } = (block ?? {}) as { language?: unknown; value?: unknown };
-    if (typeof language === "string" && typeof value === "string") {
-        return new MarkdownString(`\`\`\`${language}\n${value}\n\`\`\`\n`);
-    }
-    if (!(block instanceof MarkdownString)) return new MarkdownString();
-    const copy = new MarkdownString(block.value, block.supportThemeIcons);
-    copy.isTrusted = block.isTrusted;
-    copy.supportHtml = block.supportHtml;
-    copy.baseUri = block.baseUri;
-    return copy;
 }
 
 /** What is not an edit is dropped; anything but an array is no edits. */
