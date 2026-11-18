@@ -251,6 +251,17 @@ describe("Event.once", () => {
     });
 });
 
+describe("Event.toPromise", () => {
+    it("resolves with the next event and unsubscribes", async () => {
+        const emitter = new Emitter<number>();
+        const next = Event.toPromise(emitter.event);
+        emitter.fire(1);
+        emitter.fire(2);
+        await expect(next).resolves.toBe(1);
+        expect(emitter.hasListeners()).toBe(false);
+    });
+});
+
 describe("trackSetChanges", () => {
     it("handles the initial items, then only the added ones, and disposes the removed ones", () => {
         const changed = new Emitter<void>();

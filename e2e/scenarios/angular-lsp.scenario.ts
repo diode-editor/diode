@@ -18,7 +18,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "angular-lsp",
-    title: "Angular from the marketplace: ngtsc squiggle in a template, member completion, F12 into the component, hover in an inline template",
+    title: "Angular from the marketplace: ngtsc squiggle in a template, member completion, F12 into the component, hover and HTML completion in an inline template",
     open: [sampleDir, templateFile],
     installVsix: ["Angular.ng-template"],
     network: true,
@@ -80,5 +80,17 @@ export default defineScenario({
         await editor.sendKey("Ctrl+u");
         await editor.waitForText((t) => t.includes("(property) AppComponent.title: string"), { timeoutMs: 60_000 });
         await editor.capture("hover in the inline template");
+
+        // A new `<di` line in the inline template: the built-in HTML server answers through Angular's virtual
+        // document, `div` and `dialog` next to the components. Ctrl+Space: the first request may come before the HTML
+        // extension it wakes is ready, as upstream.
+        await editor.sendKey("Escape");
+        await goTo("10:100");
+        await editor.sendKey("Enter");
+        await editor.sendText("<di");
+        await editor.sendKey("Ctrl+Space");
+        await editor.waitForNode("#suggestWidget", { timeoutMs: 60_000 });
+        await editor.waitForText((t) => t.includes("dialog"), { timeoutMs: 60_000 });
+        await editor.capture("HTML elements in the inline template");
     },
 });

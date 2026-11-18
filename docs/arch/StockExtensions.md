@@ -213,12 +213,18 @@
   падал с `ERR_UNSUPPORTED_DIR_IMPORT`. Запись уже была опубликована с гейтом 0.18.0, а опубликованную версию не
   правят; решение человека — запись не снимать, исправление выходит в следующей версии. Смоук магазина ставит
   расширение бинарём, поэтому ловит именно это. Пределы:
-    - В completion нет обычных HTML-тегов (`div`, `span`): в VS Code их даёт встроенный `html-language-features`, в том
-      числе для встроенного шаблона через виртуальный документ `angular-embedded-content` и
-      `vscode.executeCompletionItemProvider`, а HTML-сервера у diode нет (#1202).
-    - Интеграция встроенных шаблонов с HTML целиком — #1203. Hover во встроенном `template:` работает: middleware
-      расширения сначала спрашивает `vscode.executeHoverProvider` у виртуального документа
-      `angular-embedded-content`, HTML-провайдеров нет, пустой ответ пропускает hover самого Angular.
+    - HTML во встроенном `template:` (#1203) — как в VS Code: middleware расширения кладёт весь текст `.ts` в
+      виртуальный документ `angular-embedded-content://html/<uri>.html` своего `TextDocumentContentProvider` и
+      сливает ответ Angular с `vscode.executeCompletionItemProvider`/`vscode.executeHoverProvider` по нему; отвечает
+      встроенный `html-language-features`. Hover — ответ Angular, если он есть (на элементе это `(element) span:
+      HTMLSpanElement`), иначе HTML (MDN на статическом атрибуте). Две детали ядра, обе калька эталона: документ
+      без модели запрашивает языковые фичи (`openDocumentWithoutModel`, в эталоне так делает создание модели в
+      `$tryOpenDocument`) — это и будит HTML-расширение по `onLanguage:html`, когда открыт только `.ts`; API-команда
+      держит документ ссылкой на время вызова (`referenceDocument`, `createModelReference` эталона), и документ
+      провайдера, который никто не открывал, закрывается вместе с ней — у провайдера Angular нет `onDidChange`, и
+      следующий вызов обязан перечитать текст. Активация в эталоне не ждётся, поэтому самый первый запрос, который
+      будит HTML-расширение, может прийти без HTML-тегов. Сьют — `extensionHost.angular.embeddedHtml.test.ts`,
+      герметичный близнец — `extensionHost.htmlLsp.virtualDocument.test.ts`.
     - Find All References из `.ts` показывает `.ts`-места дважды: отвечают встроенный TypeScript и Angular. Эталон
       дедуплицирует в `goToSymbol.ts` (`_sortedAndDeduped`), `getReferences.ts` — нет (#1200).
     - Rename из `.ts` не доходит до шаблона, **в VS Code так же**: `rename.ts` эталона берёт провайдер, чей
@@ -348,7 +354,7 @@ JavaScript…», ответ ищет в магазине `@category:debuggers Ja
   `configurationDefaults` эталона для html. `html.mirrorCursorOnMatchingTag` устарел и в эталоне ни на что не влияет.
 - **Тесты** — `extensionHost.htmlLsp*.test.ts` против собранного сервера (completion, hover, авто-вставка, формат,
   символы, folding, ссылки, `<style>`/`<script>`, валидация, handlebars, виртуальный документ через
-  `vscode.executeCompletionItemProvider`), демо — `e2e/scenarios/html-language-features.scenario.ts`.
+  `vscode.executeCompletionItemProvider`/`vscode.executeHoverProvider`), демо — `e2e/scenarios/html-language-features.scenario.ts`.
   `formulahendry.auto-close-tag` смоук проверяет на `.xml`: на `.html` закрывали бы оба, как и в VS Code.
 
 ## TypeScript: встроенный `diode-lsp-typescript` (typescript-language-server)

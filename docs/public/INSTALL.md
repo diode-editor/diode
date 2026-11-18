@@ -3,7 +3,8 @@
 Every channel below delivers the same single-file binary from
 [GitHub Releases](https://github.com/diode-editor/diode/releases): Linux x64/arm64, macOS
 x64/arm64, Windows x64. The Node.js runtime, the TypeScript language server and ripgrep are
-inside. On Linux it needs glibc (musl distros such as Alpine are not supported), libstdc++ and
+inside. On Linux it needs glibc 2.34 or newer (Ubuntu 22.04, Debian 12, RHEL 9 and later; musl
+distros such as Alpine are not supported), libstdc++ and
 libatomic; the `.deb` pulls them in, minimal images may lack `libatomic1`.
 
 ## Quick install (Linux, macOS)

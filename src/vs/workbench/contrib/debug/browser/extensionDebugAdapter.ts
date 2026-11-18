@@ -239,6 +239,7 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
             suppressDebugStatusbar: options.suppressDebugStatusbar,
             suppressDebugToolbar: options.suppressDebugToolbar,
             suppressDebugView: options.suppressDebugView,
+            testRun: options.testRun,
         };
         return this.debugService.startDebugging(
             launch,

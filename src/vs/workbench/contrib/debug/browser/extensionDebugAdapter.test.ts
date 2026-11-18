@@ -124,6 +124,7 @@ describe("ExtensionDebugAdapter — upstream MainThreadDebugService over the deb
                     suppressDebugStatusbar: true,
                     suppressDebugToolbar: false,
                     suppressDebugView: true,
+                    testRun: { runId: "r", taskId: "t" },
                 },
             }),
         ).resolves.toBe(true);
@@ -144,6 +145,7 @@ describe("ExtensionDebugAdapter — upstream MainThreadDebugService over the deb
                     suppressDebugStatusbar: true,
                     suppressDebugToolbar: false,
                     suppressDebugView: true,
+                    testRun: { runId: "r", taskId: "t" },
                 },
                 false,
             ],

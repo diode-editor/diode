@@ -1,3 +1,4 @@
+import { onUnexpectedError } from "../../base/common/errors.ts";
 import { getSystemShell } from "../../base/node/shell.ts";
 import {
     ContextMenuController as EditorContextMenuController,
@@ -142,6 +143,7 @@ import {
     DebugConsoleQuickAccessDIToken,
 } from "../../workbench/contrib/debug/browser/debugConsoleQuickAccess.ts";
 import {
+    closeSessionEditors,
     DebugContentProvider,
     DebugContentProviderDIToken,
 } from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
@@ -211,6 +213,7 @@ import {
     AutoRevealContributionDIToken,
 } from "../../workbench/contrib/files/browser/autoRevealContribution.ts";
 import {
+    EXPLORER_VIEWLET_ID,
     ExplorerComponent,
     ExplorerComponentDIToken,
 } from "../../workbench/contrib/files/browser/explorerComponent.ts";
@@ -487,6 +490,7 @@ import {
     TestProfileService,
     TestProfileServiceDIToken,
 } from "../../workbench/contrib/testing/common/testProfileService.ts";
+import type { IResolvedTestRunRequest } from "../../workbench/contrib/testing/common/testResult.ts";
 import {
     TestResultService,
     TestResultServiceDIToken,
@@ -823,6 +827,8 @@ export const workbenchModule: ContainerModule = (container) => {
                 allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
                 focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
                 showSubSessionsInToolBar: configuration.get("debug.showSubSessionsInToolBar"),
+                openExplorerOnEnd: configuration.get("debug.openExplorerOnEnd"),
+                closeReadonlyTabsOnEnd: configuration.get("debug.closeReadonlyTabsOnEnd"),
             }),
             openStackFrame: (stackFrame, options) =>
                 openStackFrame(
@@ -844,6 +850,27 @@ export const workbenchModule: ContainerModule = (container) => {
             closeRepl: () => {
                 // Hides the panel only while the console is its active view, as upstream's visibility check.
                 container.get(ViewsServiceDIToken).closeView(REPL_VIEW_ID);
+            },
+            openExplorer: () => {
+                if (container.get(LayoutServiceDIToken).isSidebarVisible()) {
+                    container.get(SidebarServiceDIToken).showViewlet(EXPLORER_VIEWLET_ID, true, false);
+                }
+            },
+            closeSessionEditors: (sessionId) => {
+                closeSessionEditors(container.get(EditorServiceDIToken), sessionId);
+            },
+            // Looked up when used: the test service debugs tests through this service.
+            testing: {
+                getResult: (runId) => container.get(TestResultServiceDIToken).getResult(runId),
+                cancelTestRun: (runId) => {
+                    container.get(TestServiceDIToken).cancelTestRun(runId);
+                },
+                runResolvedTests: (request) => {
+                    container
+                        .get(TestServiceDIToken)
+                        .runResolvedTests(request as IResolvedTestRunRequest)
+                        .catch(onUnexpectedError);
+                },
             },
         };
     });

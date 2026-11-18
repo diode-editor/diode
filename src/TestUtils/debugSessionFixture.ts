@@ -13,6 +13,7 @@ import {
 } from "../vs/workbench/contrib/debug/browser/debugSession.ts";
 import type {
     IConfig,
+    ICorrelatedTestRun,
     IDebugService,
     IDebugSessionOptions,
     IStackFrame,
@@ -37,6 +38,8 @@ export const DEFAULT_DEBUG_CONFIGURATION: IDebugServiceConfiguration = {
     allowBreakpointsEverywhere: false,
     focusEditorOnBreak: true,
     showSubSessionsInToolBar: false,
+    openExplorerOnEnd: false,
+    closeReadonlyTabsOnEnd: false,
 };
 
 export interface ITestSessionServices extends IDebugSessionServices {
@@ -46,6 +49,9 @@ export interface ITestSessionServices extends IDebugSessionServices {
     configuration: IDebugServiceConfiguration;
     /** How many times Run and Debug was shown. */
     readonly viewletOpenings: number;
+    /** The test runs of the core by id, and what was asked of them. */
+    readonly testRuns: Map<string, ICorrelatedTestRun>;
+    readonly cancelledTestRuns: string[];
 }
 
 export function testSessionServices(
@@ -67,6 +73,12 @@ export function testSessionServices(
         debugConfiguration: () => services.configuration,
         openViewlet: () => {
             services.viewletOpenings++;
+        },
+        testRuns: new Map<string, ICorrelatedTestRun>(),
+        cancelledTestRuns: [] as string[],
+        testing: {
+            getResult: (runId: string) => services.testRuns.get(runId),
+            cancelTestRun: (runId: string) => services.cancelledTestRuns.push(runId),
         },
     };
     return services;

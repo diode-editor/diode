@@ -1,6 +1,7 @@
 // The commands of the Run and Debug viewlet with upstream's ids, titles, keys and `when`: showing it
 // (`debug.contribution.ts`), Collapse All of VARIABLES (`variablesView.ts`), the WATCH title and keys
-// (`watchExpressionsView.ts`, `debugCommands.ts`), Collapse All of CALL STACK (`callStackView.ts`), the BREAKPOINTS
+// (`watchExpressionsView.ts`, `debugCommands.ts`), Collapse All of CALL STACK (`callStackView.ts`) and of LOADED
+// SCRIPTS (`loadedScriptsView.ts`), the BREAKPOINTS
 // title, its keys and the palette commands of the breakpoints (`breakpointsView.ts`, `debugCommands.ts`).
 // Deviations: Ctrl+Shift+D and Ctrl+Enter reach only terminals with extended keys; Ctrl+K B shows the viewlet
 // everywhere (Ctrl+K D, the free letter of the other viewlets, is Compare with Saved); the name of a new function
@@ -23,6 +24,7 @@ import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.t
 import {
     BREAKPOINTS_VIEW_ID,
     CALLSTACK_VIEW_ID,
+    LOADED_SCRIPTS_VIEW_ID,
     VARIABLES_VIEW_ID,
     VIEWLET_ID,
     WATCH_VIEW_ID,
@@ -398,6 +400,24 @@ export const toggleBreakpointsPresentationAction: CommandAction = {
     },
 };
 
+export const collapseLoadedScriptsAction: CommandAction = {
+    id: "loadedScripts.collapse",
+    title: "Collapse All",
+    menus: [
+        ...HIDDEN_FROM_PALETTE,
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: 30,
+            icon: COLLAPSE_ICON,
+            visible: viewMenuVisible(LOADED_SCRIPTS_VIEW_ID),
+        },
+    ],
+    run(accessor) {
+        accessor.get(DebugViewletComponentDIToken).loadedScripts?.collapseAll();
+    },
+};
+
 export const DEBUG_VIEW_ACTIONS: readonly CommandAction[] = [
     showRunAndDebugAction,
     collapseVariablesAction,
@@ -408,6 +428,7 @@ export const DEBUG_VIEW_ACTIONS: readonly CommandAction[] = [
     renameWatchExpressionAction,
     removeWatchExpressionAction,
     collapseCallStackAction,
+    collapseLoadedScriptsAction,
     toggleBreakpointAction,
     removeFocusedBreakpointAction,
     removeBreakpointAction,

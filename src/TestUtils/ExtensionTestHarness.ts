@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CancellationTokenNone, type ICancellationToken } from "../vs/base/common/cancellation.ts";
+import { Emitter } from "../vs/base/common/event.ts";
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
 import { curatedConfigInjection } from "../vs/diode/curatedConfigInjection.ts";
@@ -143,6 +144,18 @@ export function extensionFixture(id: string, file: string): IExtensionRegistrati
         manifest: { name: id, publisher: "test", version: "0.0.1" },
         mainPath: path.join(EXTENSION_FIXTURES_DIR, file),
         activationEvents: ["*"],
+    };
+}
+
+/** `base` whose `requestLanguageFeatures` fires `onDidRequestLanguageFeatures`, as the app's language registry. */
+export function activatingLanguageService(base: ILanguageService): ILanguageService {
+    const requests = new Emitter<string>();
+    return {
+        ...base,
+        requestLanguageFeatures: (languageId) => {
+            requests.fire(languageId);
+        },
+        onDidRequestLanguageFeatures: requests.event,
     };
 }
 
@@ -421,6 +434,14 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     for (const reg of options.extensions ?? []) {
         host.registerExtension(testRegistration(reg));
     }
+    // As the app (`extensionHostModule.ts`): a model of a language, or a document the extension host opens without
+    // one, activates `onLanguage:<id>`. Only a language service from `activatingLanguageService` fires it.
+    const languageRequests = (options.languageService ?? NULL_LANGUAGE_SERVICE).onDidRequestLanguageFeatures(
+        (languageId) => {
+            void host.activateByEvent(`onLanguage:${languageId}`);
+            void host.activateByEvent("onLanguage");
+        },
+    );
     for (const event of options.activateEvents ?? ["*"]) {
         await host.activateByEvent(event);
     }
@@ -434,6 +455,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const dispose = async (): Promise<void> => {
         // Wait for the subprocess to exit, not a fixed window: while alive it writes to `tmpDir`, and removal
         // either fails or its `mkdir` resurrects the directory — that is how gigabytes of `diode-ext-*` piled up.
+        languageRequests.dispose();
         await host.shutdown();
         groupComponent.dispose();
         group.dispose();

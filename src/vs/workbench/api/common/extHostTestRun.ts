@@ -23,6 +23,12 @@ import { CancellationTokenSource, EventEmitter } from "./vscodeTypes.ts";
 /** Upstream `RUN_CANCEL_DEADLINE`: after a cancellation the run's `TestRun`s are ended this much later. */
 export const RUN_CANCEL_DEADLINE = 10_000;
 
+/**
+ * Upstream `ExtHostTesting.getMetadataForRun`: the run and the task of an extension's `TestRun`, for a debug session
+ * started for it (`DebugSessionOptions.testRun`).
+ */
+export const testRunMetadata = new WeakMap<vscode.TestRun, { readonly runId: string; readonly taskId: string }>();
+
 /** Upstream `TestId.fromExtHostTestItem`: the path of ids from the controller down to the item. */
 export function fullTestId(item: TestItemImpl, controllerId: string): string {
     const ids: string[] = [];
@@ -127,7 +133,7 @@ export class TestRunTracker {
         }
     }
 
-    /** Upstream `createRun`: the extension's `TestRun`, a task of the run. */
+    /** Upstream `createRun`: the extension's `TestRun`, a task of the run ({@link testRunMetadata} names it). */
     public createRun(name: string | undefined, persist: boolean): vscode.TestRun {
         const runId = this.id;
         const { controllerId } = this.controller;
@@ -235,6 +241,7 @@ export class TestRunTracker {
             controllerId,
             name: name ?? this.controller.defaultTaskName,
         });
+        testRunMetadata.set(run, { runId, taskId });
         return run;
     }
 

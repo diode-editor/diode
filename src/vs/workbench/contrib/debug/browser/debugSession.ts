@@ -25,6 +25,7 @@ import {
     type AdapterEndEvent,
     type IBreakpoint,
     type IConfig,
+    type ICorrelatedTestRun,
     type IDataBreakpoint,
     type IDataBreakpointInfoResponse,
     type IDebugConfiguration,
@@ -66,6 +67,8 @@ export type IDebugServiceConfiguration = Pick<
     | "allowBreakpointsEverywhere"
     | "focusEditorOnBreak"
     | "showSubSessionsInToolBar"
+    | "openExplorerOnEnd"
+    | "closeReadonlyTabsOnEnd"
 > & { readonly console: Pick<IDebugConfiguration["console"], "closeOnEnd"> };
 
 export interface IDebugSessionServices {
@@ -78,6 +81,16 @@ export interface IDebugSessionServices {
     readonly debugConfiguration: () => IDebugServiceConfiguration;
     /** Shows Run and Debug without taking the focus (`openOnDebugBreak`). */
     readonly openViewlet: () => void;
+    /** A session cancels its run; the service runs it again. */
+    readonly testing: Pick<IDebugTestingPorts, "getResult" | "cancelTestRun">;
+}
+
+/** The test runs of the core (upstream `ITestResultService.getResult`, `ITestService.cancelTestRun`). */
+export interface IDebugTestingPorts {
+    readonly getResult: (runId: string) => ICorrelatedTestRun | undefined;
+    readonly cancelTestRun: (runId: string) => void;
+    /** Upstream `runResolvedTests` of a run's request: the same tests again. */
+    readonly runResolvedTests: (request: unknown) => void;
 }
 
 function noDebugAdapter(what: string): Error {
@@ -95,6 +108,9 @@ class Queue {
 
 export class DebugSession implements IDebugSession {
     public parentSession: IDebugSession | undefined;
+    public readonly correlatedTestRun: ICorrelatedTestRun | undefined;
+    /** Whether we terminated the correlated run yet. Used so a 2nd terminate request goes through to the underlying session. */
+    private didTerminateTestRun = false;
     public rememberedCapabilities?: DebugProtocol.Capabilities;
 
     private subIdValue: string | undefined;
@@ -168,6 +184,19 @@ export class DebugSession implements IDebugSession {
         this.passFocusScheduler = new RunOnceScheduler(() => {
             this.passFocus();
         }, 800);
+
+        this.correlatedTestRun = this.options.testRun
+            ? services.testing.getResult(this.options.testRun.runId)
+            : this.parentSession?.correlatedTestRun;
+
+        if (this.correlatedTestRun) {
+            // Listen to the test completing because the user might have taken the cancel action rather than stopping the session.
+            toDispose.add(
+                this.correlatedTestRun.onComplete(() => {
+                    void this.terminate();
+                }),
+            );
+        }
 
         const compoundRoot = this.options.compoundRoot;
         if (compoundRoot) {
@@ -439,6 +468,16 @@ export class DebugSession implements IDebugSession {
     }
 
     /**
+     * Terminate any linked test run.
+     */
+    public cancelCorrelatedTestRun(): void {
+        if (this.correlatedTestRun && !this.correlatedTestRun.completedAt) {
+            this.didTerminateTestRun = true;
+            this.services.testing.cancelTestRun(this.correlatedTestRun.id);
+        }
+    }
+
+    /**
      * terminate the current debug adapter session
      */
     public async terminate(restart = false): Promise<void> {
@@ -450,6 +489,8 @@ export class DebugSession implements IDebugSession {
         this.cancelAllRequests();
         if (this.options.lifecycleManagedByParent && this.parentSession) {
             await this.parentSession.terminate(restart);
+        } else if (this.correlatedTestRun && !this.correlatedTestRun.completedAt && !this.didTerminateTestRun) {
+            this.cancelCorrelatedTestRun();
         } else if (this.raw) {
             if (this.raw.capabilities.supportsTerminateRequest && this.configuration.request === "launch") {
                 await this.raw.terminate(restart);

@@ -1,14 +1,16 @@
 // `debug:` documents: the content of a source an adapter gives by reference, asked from the session in the uri's
 // query (else the focused one) with the `source` request; a failure is the document's text and marks the source
-// unavailable.
+// unavailable. At the end of a session its `debug:` tabs can be closed.
 
 import { describe, expect, it, vi } from "vitest";
 
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
+import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { IDebugService, IDebugSession } from "../common/debug.ts";
 
-import { DebugContentProvider } from "./debugContentProvider.ts";
+import { closeSessionEditors, DebugContentProvider } from "./debugContentProvider.ts";
 
 const REF = Uri.from({ scheme: "debug", path: "/lib/futex.S", query: "session=s1&ref=7" });
 
@@ -85,5 +87,27 @@ describe("DebugContentProvider", () => {
 
         await expect(t.provide(REF)).resolves.toBe("Could not load source '/lib/futex.S'.");
         expect(t.sourceIsNotAvailable).toHaveBeenCalledWith(REF);
+    });
+});
+
+describe("closeSessionEditors", () => {
+    it("closes, in every group, the debug: tabs of the session and nothing else", () => {
+        const pane = (uri: Uri): IEditorPane => ({ uri }) as IEditorPane;
+        const ofS1 = pane(REF);
+        const ofS2 = pane(Uri.from({ scheme: "debug", path: "/lib/a.S", query: "session=s2&ref=8" }));
+        const file = pane(Uri.file("/lib/futex.S"));
+        // Another scheme's document whose query names the session is not the session's.
+        const other = pane(Uri.from({ scheme: "git", path: "/lib/futex.S", query: "session=s1&ref=7" }));
+        const alsoOfS1 = pane(Uri.from({ scheme: "debug", path: "/lib/b.S", query: "session=s1&ref=9" }));
+        const left = { getPanes: () => [ofS1, ofS2, file, other] } as unknown as EditorGroup;
+        const right = { getPanes: () => [alsoOfS1] } as unknown as EditorGroup;
+        const closeEditors = vi.fn(() => Promise.resolve(true));
+
+        closeSessionEditors({ editorGroups: { groups: [left, right] } as never, closeEditors }, "s1");
+
+        expect(closeEditors.mock.calls).toEqual([
+            [left, [ofS1]],
+            [right, [alsoOfS1]],
+        ]);
     });
 });
