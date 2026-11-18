@@ -10,7 +10,7 @@ import type {
 } from "../../../../api/common/iEditorOptionsService.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
-import type { IWireEditorLayout } from "../../../../api/common/wireTypes.ts";
+import type { IWireEditorLayout, IWireEditorPropertiesChanged } from "../../../../api/common/wireTypes.ts";
 
 import { EditorCustomer } from "./editorCustomer.ts";
 
@@ -31,6 +31,7 @@ function setup() {
     const activeEditor = new Emitter<IActiveEditorMeta>();
     const selection = new Emitter<IActiveEditorSelections>();
     const layout = new Emitter<IWireEditorLayout>();
+    const properties = new Emitter<IWireEditorPropertiesChanged>();
     const editorOptions = {
         getActiveEditorOptions: () => ({ tabSize: 4, insertSpaces: true }),
         setActiveEditorOptions: vi.fn(),
@@ -50,6 +51,7 @@ function setup() {
         getLayoutSnapshot: () => LAYOUT,
         onDidChangeLayout: (cb) => layout.event(cb),
         flushPendingLayout: () => log.push("flush"),
+        onDidChangeEditorProperties: (cb) => properties.event(cb),
         openTextDocument: (params) => {
             log.push(["openTextDocument", params]);
             return Promise.resolve(null);
@@ -77,14 +79,28 @@ function setup() {
     const customer = new EditorCustomer(editorOptions, editorLayout);
     const [a, b] = createInProcessChannelPair();
     const peer = new RpcEndpoint(b);
-    for (const method of ["editor.layoutChanged", "editor.activeEditorChanged", "editor.selectionChanged"]) {
+    for (const method of [
+        "editor.layoutChanged",
+        "editor.activeEditorChanged",
+        "editor.selectionChanged",
+        "editor.propertiesChanged",
+    ]) {
         peer.handleNotification(method, (params) => log.push([method, params]));
     }
     const attachTo = () => customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
-    return { customer, editorOptions, log, peer, attachTo, activeEditor, selection, layout };
+    return { customer, editorOptions, log, peer, attachTo, activeEditor, selection, layout, properties };
 }
 
 describe("EditorCustomer — editor seeds and events", () => {
+    it("editor properties go out after the layout flush: the extension knows the editor by its tab", async () => {
+        const h = setup();
+        h.attachTo();
+        const changed: IWireEditorPropertiesChanged = { uri: "file:///a.ts", groupId: 1, visibleRanges: [RANGE] };
+        h.properties.fire(changed);
+        await flushMicrotasks();
+        expect(h.log).toEqual(["flush", ["editor.propertiesChanged", changed]]);
+    });
+
     it("seeds: the group strip, then the active editor — only to a live spawn", async () => {
         const h = setup();
         h.customer.pushInitialState();
@@ -415,6 +431,7 @@ describe("EditorCustomer — languages", () => {
             getLanguageOfDocument: vi.fn(() => "json"),
             changeDocumentLanguage: vi.fn(() => ({ applied: true })),
             onDidChangeLayout: () => ({ dispose: () => undefined }),
+            onDidChangeEditorProperties: () => ({ dispose: () => undefined }),
         };
         const options = {
             onActiveEditorChanged: () => ({ dispose: () => undefined }),

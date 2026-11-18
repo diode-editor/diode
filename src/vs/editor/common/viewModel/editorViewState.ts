@@ -688,6 +688,45 @@ export class EditorViewState {
         return this.buildProjection().firstRowOfDocLine(line) >= 0;
     }
 
+    /**
+     * Upstream `getVisibleRanges`: the document lines whose every row is on screen, from the start of the first to the
+     * end of the last, split around collapsed folds. A wrapped line cut by the viewport edge is left out; when no line
+     * fits whole (one line taller than the viewport), the line at the top stands in, so the result is never empty.
+     */
+    public getVisibleRanges(): IRange[] {
+        const projection = this.buildProjection();
+        const top = this.scrollTop;
+        const bottom = top + Math.max(this.viewportHeight, 1);
+        const ranges: IRange[] = [];
+        let first = -1;
+        let last = -1;
+        for (let row = top; row < bottom; row++) {
+            const line = projection.docLineOfRow(row);
+            if (line < 0 || projection.firstRowOfDocLine(line) < top) continue;
+            let lastRow = row;
+            while (projection.docLineOfRow(lastRow + 1) === line) lastRow++;
+            if (lastRow >= bottom) break;
+            row = lastRow;
+            if (first < 0) first = line;
+            else if (line !== last + 1) {
+                // A collapsed fold hides the lines in between.
+                ranges.push(this.linesRange(first, last));
+                first = line;
+            }
+            last = line;
+        }
+        if (first < 0) {
+            const line = this.docLineForViewLine(top);
+            return [this.linesRange(line, line)];
+        }
+        ranges.push(this.linesRange(first, last));
+        return ranges;
+    }
+
+    private linesRange(first: number, last: number): IRange {
+        return createRange(first, 0, last, this.document.getLineLength(last));
+    }
+
     public viewLineKind(viewLine: number): ViewLineKind {
         const row = this.buildProjection().docLineOfRow(viewLine);
         if (row === -1) return "none";

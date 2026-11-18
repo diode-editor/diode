@@ -6000,8 +6000,7 @@
       "class": "ok"
     },
     "TextEditor.visibleRanges": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorCursorStyle": {
       "class": "ok"
@@ -6124,12 +6123,10 @@
       "class": "ok"
     },
     "TextEditorVisibleRangesChangeEvent.textEditor": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorVisibleRangesChangeEvent.visibleRanges": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextLine.firstNonWhitespaceCharacterIndex": {
       "class": "ok"

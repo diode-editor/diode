@@ -201,9 +201,12 @@ export class EditorElement extends TUIElement implements IScrollable {
     public languageConfigurationSource: (() => IResolvedLanguageConfiguration | undefined) | null = null;
 
     private readonly onDidTypeEmitter = new Emitter<string>();
-    private readonly onDidChangeViewportHeightEmitter = new Emitter<void>();
-    /** The view state's height is a plain field written during layout: whoever asks by the visible lines listens here. */
-    public readonly onDidChangeViewportHeight = this.onDidChangeViewportHeightEmitter.event;
+    private readonly onDidChangeViewportSizeEmitter = new Emitter<void>();
+    /**
+     * The view state's size is plain fields written during layout: whoever asks by the visible lines listens here. A
+     * width change counts only under wrap, where it moves the rows.
+     */
+    public readonly onDidChangeViewportSize = this.onDidChangeViewportSizeEmitter.event;
     private readonly onDidClickCodeLensEmitter = new Emitter<CodeLensCommand>();
     /** A left click on the title of a code lens. */
     public readonly onDidClickCodeLens = this.onDidClickCodeLensEmitter.event;
@@ -834,15 +837,17 @@ export class EditorElement extends TUIElement implements IScrollable {
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         const textWidth = size.width - this.gutterWidth;
-        const changed = this.viewState.viewportWidth !== textWidth || this.viewState.viewportHeight !== size.height;
-        if (this.viewState.viewportHeight !== size.height) {
+        const heightChanged = this.viewState.viewportHeight !== size.height;
+        const changed = this.viewState.viewportWidth !== textWidth || heightChanged;
+        const rowsMoved = changed && this.viewState.isWordWrapActive;
+        if (heightChanged || rowsMoved) {
             queueMicrotask(() => {
-                this.onDidChangeViewportHeightEmitter.fire();
+                this.onDidChangeViewportSizeEmitter.fire();
             });
         }
         this.viewState.viewportWidth = textWidth;
         this.viewState.viewportHeight = size.height;
-        if (changed && this.viewState.isWordWrapActive) {
+        if (rowsMoved) {
             queueMicrotask(() => {
                 this.markDirty();
             });

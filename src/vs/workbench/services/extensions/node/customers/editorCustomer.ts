@@ -255,6 +255,13 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 rpc.notify("editor.selectionChanged", selections);
             }),
         );
+        // The editor must already be in the extension's layout: its properties are keyed by its tab.
+        store.add(
+            this.editorLayout.onDidChangeEditorProperties((properties) => {
+                this.editorLayout.flushPendingLayout();
+                rpc.notify("editor.propertiesChanged", properties);
+            }),
+        );
         store.add({
             dispose: () => {
                 this.rpc = null;

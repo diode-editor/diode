@@ -148,6 +148,7 @@ import type {
     IWireDocumentSymbolParams,
     IWireDocumentSyncSnapshot,
     IWireEditorLayout,
+    IWireEditorPropertiesChanged,
     IWireEnvInitialize,
     IWireEnvironmentVariableCollections,
     IWireEvaluatableExpression,
@@ -451,6 +452,8 @@ export interface IHostToSubprocess {
         readonly "editor.activeEditorChanged": IActiveEditorMeta;
         readonly "editor.selectionChanged": IActiveEditorSelections;
         readonly "editor.layoutChanged": IWireEditorLayout;
+        /** Upstream `$acceptEditorPropertiesChanged`: after the `editor.layoutChanged` that made the editor visible. */
+        readonly "editor.propertiesChanged": IWireEditorPropertiesChanged;
 
         readonly "window.themeChanged": IWireColorTheme;
         readonly "window.quickPick.event": IWireQuickPickEvent;

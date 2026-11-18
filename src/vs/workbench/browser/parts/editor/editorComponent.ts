@@ -204,6 +204,8 @@ export class EditorComponent extends Component {
     private readonly onDidChangeIndentOptionsEmitter = new Emitter<void>();
     private readonly onDidTypeEmitter = new Emitter<string>();
     private readonly onDidTypeNewLineEmitter = new Emitter<void>();
+    /** `wordWrap` is a plain field of the view state: turning wrap on or off moves the rows without a scroll. */
+    private readonly onDidChangeWrappingEmitter = new Emitter<void>();
 
     public get editTarget(): ITextEditTarget {
         return this.editTargetValue;
@@ -490,11 +492,12 @@ export class EditorComponent extends Component {
         };
     }
 
-    /** Fires on a scroll and on a change of the editor's height. */
+    /** Fires on a scroll, a fold, a change of the editor's size and of wrapping. */
     public onDidChangeVisibleRange(listener: () => void): IDisposable {
         return combinedDisposable(
             this.editorViewState.onDidChangeView(listener),
-            this.editor.onDidChangeViewportHeight(listener),
+            this.editor.onDidChangeViewportSize(listener),
+            this.onDidChangeWrappingEmitter.event(listener),
         );
     }
 
@@ -726,6 +729,7 @@ export class EditorComponent extends Component {
         if (mode !== "off") viewState.scrollLeft = 0;
         viewState.ensurePrimaryCursorVisible();
         this.editor.markDirty();
+        this.onDidChangeWrappingEmitter.fire();
     }
 
     /** `currentIndex` is the active match, or -1. */

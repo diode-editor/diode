@@ -442,6 +442,12 @@ declare module "vscode" {
 		selections: readonly Selection[];
 
 		/**
+		 * The current visible ranges in the editor (vertically).
+		 * This accounts only for vertical scrolling, and not for horizontal scrolling.
+		 */
+		readonly visibleRanges: readonly Range[];
+
+		/**
 		 * Text editor options.
 		 */
 		options: TextEditorOptions;
@@ -917,6 +923,11 @@ declare module "vscode" {
 		 * An {@link Event} which fires when the selection in an editor has changed.
 		 */
 		export const onDidChangeTextEditorSelection: Event<TextEditorSelectionChangeEvent>;
+
+		/**
+		 * An {@link Event} which fires when the visible ranges of an editor has changed.
+		 */
+		export const onDidChangeTextEditorVisibleRanges: Event<TextEditorVisibleRangesChangeEvent>;
 
 		/**
 		 * An {@link Event} which fires when the view column of an editor has changed.
@@ -2448,6 +2459,20 @@ declare module "vscode" {
 		 * event. Can be `undefined`.
 		 */
 		readonly kind: TextEditorSelectionChangeKind | undefined;
+	}
+
+	/**
+	 * Represents an event describing the change in a {@link TextEditor.visibleRanges text editor's visible ranges}.
+	 */
+	export interface TextEditorVisibleRangesChangeEvent {
+		/**
+		 * The {@link TextEditor text editor} for which the visible ranges have changed.
+		 */
+		readonly textEditor: TextEditor;
+		/**
+		 * The new value for the {@link TextEditor.visibleRanges text editor's visible ranges}.
+		 */
+		readonly visibleRanges: readonly Range[];
 	}
 
 	/**
