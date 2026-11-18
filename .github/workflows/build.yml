@@ -86,6 +86,8 @@ jobs:
           floor=2.34
           found=0
           for f in $(find node_modules/node-pty -name '*.node'); do
+            # node-pty also ships Windows/macOS prebuilds; only ELF files link glibc.
+            [ "$(od -An -tx1 -N4 "$f" | tr -d ' ')" = 7f454c46 ] || continue
             found=1
             need=$(objdump -T "$f" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -1)
             echo "$f needs glibc $need (floor $floor)"
