@@ -55,6 +55,7 @@
             "workbench.action.debug.callStackDown",
             "debug.startFromConfig",
             "workbench.action.debug.focusProcess",
+            "workbench.action.debug.selectDebugSession",
             "debug.installAdditionalDebuggers",
             "debug.jumpToCursor",
             "debug.jumpToCursor",
@@ -89,6 +90,10 @@
             "debug.replCopy",
             "workbench.debug.action.copyAll",
             "debug.replPaste",
+            "workbench.action.debug.selectRepl",
+            "workbench.action.debug.selectDebugConsole",
+            "workbench.action.debug.nextConsole",
+            "workbench.action.debug.prevConsole",
             "extensions.actions.searchByCategory.AI",
             "extensions.actions.searchByCategory.Azure",
             "extensions.actions.searchByCategory.Chat",
@@ -172,7 +177,8 @@
             "workbench.action.debug.stepOut",
             "workbench.action.debug.restart",
             "workbench.action.debug.disconnect",
-            "workbench.action.debug.stop"
+            "workbench.action.debug.stop",
+            "workbench.action.debug.focusProcess"
         ]
     },
     "DebugVariablesContext": {

@@ -760,8 +760,10 @@ export class DebugService implements IDebugService {
             }
 
             this.viewModel.firstSessionStart = false;
-            // `debug.showSubSessionsInToolBar` (#1147) is off: only the root sessions count.
-            if (this.model.getSessions().filter((s) => !s.parentSession).length > 1) {
+            const showSubSessions = this.ports.debugConfiguration().showSubSessionsInToolBar;
+            const sessions = this.model.getSessions();
+            const shownSessions = showSubSessions ? sessions : sessions.filter((s) => !s.parentSession);
+            if (shownSessions.length > 1) {
                 this.viewModel.setMultiSessionView(true);
             }
 

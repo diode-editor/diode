@@ -138,6 +138,10 @@ import { BreakpointInput, BreakpointInputDIToken } from "../../workbench/contrib
 import { BreakpointSources, openStackFrame } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
 import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
 import {
+    DebugConsoleQuickAccess,
+    DebugConsoleQuickAccessDIToken,
+} from "../../workbench/contrib/debug/browser/debugConsoleQuickAccess.ts";
+import {
     DebugContentProvider,
     DebugContentProviderDIToken,
 } from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
@@ -171,6 +175,8 @@ import {
 import {
     DebugToolbar,
     DebugToolbarDIToken,
+    DebugToolbarSessionSelect,
+    DebugToolbarSessionSelectDIToken,
     DockedDebugToolbarItems,
     DockedDebugToolbarItemsDIToken,
 } from "../../workbench/contrib/debug/browser/debugToolbar.ts";
@@ -664,6 +670,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickAccessProvidersDIToken, () => [
         ...QUICK_ACCESS_PROVIDERS,
         { prefix: StartDebugQuickAccessProvider.PREFIX, provider: DebugQuickAccessProviderDIToken },
+        { prefix: DebugConsoleQuickAccess.PREFIX, provider: DebugConsoleQuickAccessDIToken },
     ]);
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);
     container.bind(QuickOpenServiceDIToken, QuickOpenService);
@@ -815,6 +822,7 @@ export const workbenchModule: ContainerModule = (container) => {
                 console: { closeOnEnd: configuration.get("debug.console.closeOnEnd") },
                 allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
                 focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
+                showSubSessionsInToolBar: configuration.get("debug.showSubSessionsInToolBar"),
             }),
             openStackFrame: (stackFrame, options) =>
                 openStackFrame(
@@ -840,7 +848,9 @@ export const workbenchModule: ContainerModule = (container) => {
         };
     });
     container.bind(DebugQuickAccessProviderDIToken, StartDebugQuickAccessProvider);
+    container.bind(DebugConsoleQuickAccessDIToken, DebugConsoleQuickAccess);
     container.bind(DebugLifecycleDIToken, DebugLifecycle);
+    container.bind(DebugToolbarSessionSelectDIToken, DebugToolbarSessionSelect);
     container.bind(DebugToolbarDIToken, DebugToolbar);
     container.bind(DockedDebugToolbarItemsDIToken, DockedDebugToolbarItems);
     container.bind(StatusBarColorProviderDIToken, StatusBarColorProvider);

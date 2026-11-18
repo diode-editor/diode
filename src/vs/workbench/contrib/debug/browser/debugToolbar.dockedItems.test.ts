@@ -8,6 +8,7 @@ import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybi
 import type { ViewContainerMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { VIEWLET_ID } from "../common/debug.ts";
 
+import { FOCUS_SESSION_ID, SELECT_DEBUG_SESSION_ID } from "./debugCommands.ts";
 import { DockedDebugToolbarItems } from "./debugToolbar.ts";
 
 describe("DockedDebugToolbarItems", () => {
@@ -59,5 +60,22 @@ describe("DockedDebugToolbarItems", () => {
         expect(inTitle(VIEWLET_ID)).toEqual(["Stop"]);
         docked.dispose();
         expect(inTitle(VIEWLET_ID)).toEqual([]);
+    });
+
+    it("the twin of Focus Session opens Select Debug Session: the title has no select of the sessions", () => {
+        const { menus } = setup();
+        menus.appendMenuItem({
+            menuId: MenuId.DebugToolBar,
+            command: FOCUS_SESSION_ID,
+            title: "Focus Session",
+            group: "navigation",
+            order: 100,
+        });
+        new DockedDebugToolbarItems(menus);
+
+        const twins = menus
+            .getContributions(MenuId.ViewContainerTitle)
+            .map((item) => ("command" in item ? item.command : ""));
+        expect(twins).toEqual(["builtin.stop", SELECT_DEBUG_SESSION_ID]);
     });
 });

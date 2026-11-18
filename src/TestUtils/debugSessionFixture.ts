@@ -36,6 +36,7 @@ export const DEFAULT_DEBUG_CONFIGURATION: IDebugServiceConfiguration = {
     console: { closeOnEnd: false },
     allowBreakpointsEverywhere: false,
     focusEditorOnBreak: true,
+    showSubSessionsInToolBar: false,
 };
 
 export interface ITestSessionServices extends IDebugSessionServices {

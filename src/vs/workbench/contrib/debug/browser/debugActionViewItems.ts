@@ -9,8 +9,9 @@
 // launch. The types with dynamic configurations are asked when they may have changed (a configuration provider came
 // or went), which activates nothing. Deviations: the dropdown is a select box with separators between upstream's
 // categories, without its filter box and hovers; a dropdown row that selects nothing (a picker cancelled, Add
-// Configuration) leaves the selection as it was. Not here: `FocusSessionActionViewItem` (the session picker of the
-// docked toolbar), the accessibility labels.
+// Configuration) leaves the selection as it was. `FocusSessionActionViewItem` is in
+// `focusSessionActionViewItem.ts` (the docked toolbar has a button that opens Select Debug Session instead). Not
+// here: the accessibility labels.
 
 import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
