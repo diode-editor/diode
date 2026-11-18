@@ -203,7 +203,7 @@ import {
     parseWireOpenExternalResult,
 } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
-import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
+import { createWorkspace } from "./workspaceNamespace.ts";
 
 export interface IVscodeHost {
     readonly namespace: typeof vscode;
@@ -251,12 +251,14 @@ export function buildVscodeNamespace(
     const showWithoutOpening = window.showTextDocument;
     window.showTextDocument = openBeforeShow(showWithoutOpening, (uri) => workspace.openTextDocument(uri));
     // Deferred call: `tasks` is not built yet (it needs the `workspace` folders).
-    const workspace = createWorkspaceNamespace(ctx, (type, provider) => tasks.registerTaskProvider(type, provider));
+    const { workspace, referenceDocument } = createWorkspace(ctx, (type, provider) =>
+        tasks.registerTaskProvider(type, provider),
+    );
     // Built BEFORE languages: applyCodeAction runs the actions' commands.
     const apiCommands = createApiCommands({
         showTextDocument: (uri, options) => showWithoutOpening(uri, options),
         openExternal: (target) => env.openExternal(target),
-        openTextDocument: (uri) => workspace.openTextDocument(uri),
+        referenceDocument,
         // Deferred call: providers live in `languages`, whose code actions run `commands`.
         executeCompletionItemProvider: (...args) => executeProviders.completionItems(...args),
         executeCodeActionProvider: (...args) => executeProviders.codeActions(...args),
