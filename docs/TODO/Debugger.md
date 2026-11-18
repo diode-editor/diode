@@ -200,6 +200,12 @@
   отступление в `debugSession.ts`). Как в эталоне и оставлено:
   «Load More Stack Frames» после шага, Debug Console поверх терминала `runInTerminal`. После влития — выпуск minor.
 
+- #1161: приёмка вехи 3 — стоковый js-debug (заметки — [StockExtensions.md](../arch/StockExtensions.md#отладка-nodejs-ms-vscodejs-debug-javascript-debugger)).
+  Запись магазина `ms-vscode.js-debug` (сайт#59, гейт `>=0.18.2`), сценарий `js-debug`. Что всплыло и починено:
+  Debug Terminal висел на `workspace.requestWorkspaceTrust` (предложенный API) — теперь `true`; авто-аттача не было
+  вовсе — встроенное `vscode.debug-auto-launch` эталона дословно; F5 без отладчиков молчал — `debug.openView` эталона
+  открывает Run and Debug, кнопка ведёт к поиску отладчика в магазине.
+
 - ~~Противоречие в доках~~ (Extensions.md «DAP не планируется» против STATUS.md «planned») снято в #1149: оба описывают
   настоящий отладчик.
 

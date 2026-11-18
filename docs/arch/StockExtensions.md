@@ -262,6 +262,40 @@
   `refreshTopOfCallstack` эталона не шлёт события. Debug Console открывается после ответа на `launch` — уже после
   того, как `runInTerminal` показал терминал, поэтому поверх оказывается консоль.
 
+## Отладка Node.js: `ms-vscode.js-debug` (JavaScript Debugger)
+
+Приёмка вехи 3 эпика отладчика — #1161. Запись магазина — `proxy-openvsx` 1.140.1, universal, `support: partial`,
+гейт `engines.diode: ">=0.18.2"` (дочерние сессии #1159 и правки #1161 вышли после 0.18.1). В комплекте js-debug нет
+(решение человека 2026-11-14), поэтому путь пользователя — F5 на `.js`: без отладчиков F5 и Ctrl+F5 открывают Run and
+Debug (`debug.openView` эталона), кнопка Run and Debug спрашивает «You don't have an extension for debugging
+JavaScript…», ответ ищет в магазине `@category:debuggers JavaScript`. После установки F5 предлагает Node.js первым в
+списке отладчиков и стартует без `launch.json`.
+
+- **Проверено живьём** (`drive --install`): `launch` с брейкпоинтом (сессия-родитель «Launch Program» и дочерняя
+  `app.js [pid]` — js-debug всегда отлаживает через дочернюю сессию), `child_process.fork` — брейкпоинт в дочернем процессе, его сессия в CALL STACK под родителем,
+  `attach` к `node --inspect`, JavaScript Debug Terminal, npm-скрипты (`Node.js...` в Select and Start Debugging —
+  динамические конфигурации, «Run Script: start» идёт через `node-terminal`), авто-аттач в режиме smart.
+- **JavaScript Debug Terminal** перед каждым подключением зовёт `workspace.requestWorkspaceTrust` — API из предложения
+  `workspaceTrust` (оно у js-debug в `enabledApiProposals`). Без члена `node app.js` в терминале висел неподключённым;
+  теперь он есть в рантайме и отвечает `true` (модели доверия нет). Остальное из предложения (`portsAttributes`,
+  `tunnels`) js-debug проверяет на `typeof` и обходится без них.
+- **Авто-аттач** у эталона — не js-debug, а встроенное `vscode.debug-auto-launch` (Node Debug Auto-attach): пункт
+  статус-бара «Auto Attach: Smart», команда `Debug: Toggle Auto Attach`, IPC-сервер, через который процессы из
+  терминала просят js-debug подключиться (`extension.js-debug.setAutoAttachVariables` кладёт переменные в
+  `environmentVariableCollection`). Оно у нас встроенное, код эталона дословно (`scripts/import-vscode-editor.mjs`):
+  вендорный файл не проходит наш `tsc` (эталон собирает его с `@types/node` 24, где `data` сокета — `Buffer`), поэтому
+  прелюдия `// @ts-nocheck`. По умолчанию `debug.javascript.autoAttachFilter` — `disabled`, пункта статус-бара нет;
+  переменные достаются только новым терминалам, как в эталоне.
+- Сценарий — `js-debug` (`e2e/scenarios/jsDebug.scenario.ts`, `network: true`): F5 без `launch.json`, Debug Terminal,
+  Toggle Auto Attach → Smart и `node app.js` в новом терминале.
+- **Не работает:** отчёт `Debug: Diagnose Breakpoint Problems` — вебвью. Отладка в браузере (Chrome, Edge,
+  встроенный браузер) не проверялась.
+- **Как в эталоне, хотя выглядит странно:** в Select and Start Debugging → Node.js... «JavaScript Debug Terminal» и
+  «Run Current File» стоят дважды — для папки и для пользовательского launch (`getDynamicConfigurationsByType` эталона
+  спрашивает провайдер по каждому launch). Сессия «Run Script: …» не кончается вместе со скриптом — её закрывает Stop,
+  и вместе с ней js-debug закрывает свой терминал. В узком сайдбаре имя дочерней сессии в CALL STACK съедает метка
+  состояния справа (`PAUSED ON BREAKPOINT`), как ellipsis у эталона.
+
 ## Merge Conflict: встроенный `vscode.merge-conflict`
 
 У эталона это часть продукта, поэтому у нас он встроенный, а не запись магазина. Сначала был прокси на
