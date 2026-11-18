@@ -27,11 +27,11 @@ const EXTENSION_DIR = path.join(REPO_ROOT, "extensions/html-language-features");
 const SERVER = path.join(EXTENSION_DIR, "server/out/node/htmlServerMain.mjs");
 
 /** By the file name, as the language registry does: `.hbs` is handlebars, the rest html. */
-const HTML_LANGUAGE_SERVICE: ILanguageService = {
-    ...NULL_LANGUAGE_SERVICE,
-    getLanguageIdForResource: (filePath) => (filePath.endsWith(".hbs") ? "handlebars" : "html"),
-    getLanguageDisplayName: () => undefined,
-};
+function languageIdOf(filePath: string): string {
+    return filePath.endsWith(".hbs") ? "handlebars" : "html";
+}
+
+const HTML_LANGUAGE_SERVICE: ILanguageService = { ...NULL_LANGUAGE_SERVICE, getLanguageIdForResource: languageIdOf };
 
 /** Builds the client and the server once per file: `beforeAll(buildHtmlLanguageFeatures, 120_000)`. */
 export async function buildHtmlLanguageFeatures(): Promise<void> {
@@ -93,25 +93,22 @@ function handlebarsDeclarative(): IDeclarativeExtension {
 export async function openHtmlDocument(
     fileName: string,
     content: string,
-    options: Pick<IExtensionHarnessOptions, "configuration" | "extensions" | "outputSink" | "diagnosticsSink"> = {},
+    options: Pick<IExtensionHarnessOptions, "configuration" | "extensions" | "diagnosticsSink"> = {},
 ): Promise<IHtmlDocument> {
     const harness = await createExtensionTestHarness({
+        ...options,
         languageService: HTML_LANGUAGE_SERVICE,
         activateEvents: [],
         configuration: { ...options.configuration, diode: { html: { bundledServerPath: SERVER } } },
         extensions: [htmlLanguageFeaturesRegistration(), ...(options.extensions ?? [])],
-        ...(options.outputSink === undefined ? {} : { outputSink: options.outputSink }),
-        ...(options.diagnosticsSink === undefined ? {} : { diagnosticsSink: options.diagnosticsSink }),
     });
     harness.host.registerDeclarativeExtension(handlebarsDeclarative());
     const filePath = harness.writeFile(fileName, content);
     const uri = Uri.file(filePath).toString();
-    const languageId = HTML_LANGUAGE_SERVICE.getLanguageIdForResource(filePath) ?? "html";
+    const languageId = languageIdOf(filePath);
     harness.group.openFile(filePath);
     await harness.host.activateByEvent(`onLanguage:${languageId}`);
-    const pane = harness.group.editorGroups.groups[0].getPane(0);
-    if (!(pane instanceof TextEditorPane)) throw new Error("no text editor");
-    const editor = pane as TextEditorPane;
+    const editor = harness.group.editorGroups.groups[0].getPane(0) as TextEditorPane;
     const document = () => ({ uri, languageId, versionId: documentVersion(harness, uri) });
     return {
         harness,
@@ -127,7 +124,9 @@ export async function openHtmlDocument(
 export async function until(what: string, probe: () => Promise<boolean>, timeoutMs = 30_000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (!(await probe())) {
+        /* v8 ignore start -- test helper: only a failing test reaches the deadline */
         if (Date.now() > deadline) throw new Error(`until(${what}) timed out after ${String(timeoutMs)}ms`);
+        /* v8 ignore stop */
         await settle(200);
     }
 }
