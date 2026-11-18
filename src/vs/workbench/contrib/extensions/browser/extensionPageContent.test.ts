@@ -140,9 +140,9 @@ describe("statusLine", () => {
     });
 
     it("uninstalling", () => {
-        expect(statusLine(entry({ availability: "installed", installedVersion: "1.0.0", operation: "uninstalling" }))).toBe(
-            "Uninstalling…",
-        );
+        expect(
+            statusLine(entry({ availability: "installed", installedVersion: "1.0.0", operation: "uninstalling" })),
+        ).toBe("Uninstalling…");
     });
 });
 

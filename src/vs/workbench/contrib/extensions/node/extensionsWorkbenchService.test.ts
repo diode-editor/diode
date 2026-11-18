@@ -643,10 +643,10 @@ describe("ExtensionsWorkbenchService", () => {
             class GatedSource extends FakeSource {
                 public fetches = 0;
                 public chunks: readonly number[] = [];
-                private gate = Promise.withResolvers<void>();
+                private gate = Promise.withResolvers<undefined>();
 
                 public release(): void {
-                    this.gate.resolve();
+                    this.gate.resolve(undefined);
                 }
 
                 public override async fetchArtifact(

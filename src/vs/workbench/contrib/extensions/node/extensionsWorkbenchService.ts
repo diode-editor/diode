@@ -26,11 +26,11 @@ import type {
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type {
     ExtensionAvailability,
+    ExtensionOperation,
     IExtensionCheckOptions,
     IExtensionInstallOptions,
     IExtensionInstallResult,
     IExtensionListEntry,
-    ExtensionOperation,
     IExtensionOperationResult,
     IExtensionsWorkbenchService,
     IExtensionUpdateAllResult,

@@ -157,7 +157,11 @@ describe("describeExtensionButtons", () => {
         });
 
         it("uninstalling takes Uninstall's place, all disabled", () => {
-            const entryValue = entry({ installedVersion: "1.0.0", availability: "installed", operation: "uninstalling" });
+            const entryValue = entry({
+                installedVersion: "1.0.0",
+                availability: "installed",
+                operation: "uninstalling",
+            });
             expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
                 { ...ANOTHER_VERSION, enabled: false },
                 { kind: "uninstalling", label: "⠴ Uninstalling", enabled: false },

@@ -132,7 +132,8 @@ async function fetchWithProgress(
     report: ((percent: number | null) => void) | undefined,
 ): Promise<string> {
     if (report === undefined) return source.fetchArtifact(version, artifactDir);
-    let last: number | null = null;
+    // -1: nothing reported yet. A closure assignment doesn't widen a `null` start for the `finally` check.
+    let last = -1;
     try {
         return await source.fetchArtifact(version, artifactDir, (received, total) => {
             const percent = Math.min(100, Math.floor((received * 100) / total));
@@ -141,7 +142,7 @@ async function fetchWithProgress(
             report(percent);
         });
     } finally {
-        if (last !== null) report(null);
+        if (last !== -1) report(null);
     }
 }
 

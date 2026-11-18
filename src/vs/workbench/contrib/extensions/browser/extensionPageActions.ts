@@ -91,16 +91,19 @@ export class ExtensionPageActions implements IExtensionPageActions {
      */
     public async install(id: string, options?: IExtensionInstallOptions): Promise<IExtensionInstallResult> {
         // Stryker disable next-line StringLiteral: ProgressService only distinguishes "view"; any other location is the window, so replacing the string changes nothing
-        const result = await this.progress.withProgress({ location: "window", title: `Installing ${id}` }, async (p) => {
-            const listener = this.service.onDidChangeDownloadProgress((changed) => {
-                if (changed === id) p.report({ percent: this.service.getDownloadProgress(id) ?? undefined });
-            });
-            try {
-                return await this.service.install(id, options);
-            } finally {
-                listener.dispose();
-            }
-        });
+        const result = await this.progress.withProgress(
+            { location: "window", title: `Installing ${id}` },
+            async (p) => {
+                const listener = this.service.onDidChangeDownloadProgress((changed) => {
+                    if (changed === id) p.report({ percent: this.service.getDownloadProgress(id) ?? undefined });
+                });
+                try {
+                    return await this.service.install(id, options);
+                } finally {
+                    listener.dispose();
+                }
+            },
+        );
         if (result.ok) {
             this.notice(`Installed ${id}@${result.version} — reload window to activate`);
         }
