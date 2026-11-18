@@ -74,15 +74,16 @@ describe("workspace — document references of the API commands", () => {
         expect(events).toEqual(["open one", "close one"]);
     });
 
-    it("a document the extension opened itself stays open", async () => {
+    it("a document the extension opened itself stays open, after a command's own open and close too", async () => {
         const { workspace, referenceDocument, events } = setup();
+        (await referenceDocument(FOO)).dispose();
         const opened = await workspace.openTextDocument(FOO);
 
         const reference = await referenceDocument(FOO);
         expect(reference.document).toBe(opened);
         reference.dispose();
 
-        expect(events).toEqual(["open one"]);
+        expect(events).toEqual(["open one", "close one", "open one"]);
         expect(workspace.textDocuments).toContain(opened);
     });
 
