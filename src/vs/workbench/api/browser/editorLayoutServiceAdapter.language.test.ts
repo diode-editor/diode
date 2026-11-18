@@ -19,9 +19,14 @@ import { ThemeService } from "../../services/themes/common/themeService.ts";
 
 import { EditorLayoutServiceAdapter } from "./editorLayoutServiceAdapter.ts";
 
+const requested: string[] = [];
+
 const LANGUAGES = {
     getRegisteredLanguageIds: () => ["plaintext", "json", "python"],
     getLanguageIdForResource: (path: string) => (path.endsWith(".py") ? "python" : undefined),
+    requestLanguageFeatures: (languageId: string) => {
+        requested.push(languageId);
+    },
 };
 
 describe("EditorLayoutServiceAdapter — language of a document", () => {
@@ -30,6 +35,7 @@ describe("EditorLayoutServiceAdapter — language of a document", () => {
     let adapter: EditorLayoutServiceAdapter;
 
     beforeEach(() => {
+        requested.length = 0;
         ws = createTempWorkspace({ prefix: "diode-layout-language-", files: { "a.txt": "alpha", "b.txt": "beta" } });
         const dialogs = new DialogService();
         dialogs.attachHost(new BodyElement());
@@ -97,18 +103,18 @@ describe("EditorLayoutServiceAdapter — language of a document", () => {
         );
 
         expect(activeLanguage()).toBe(before);
-        expect(adapter.getLanguageOfDocument(uriOf("b.txt"))).toBeNull();
+        expect(adapter.openDocumentWithoutModel(uriOf("b.txt"))).toBeNull();
     });
 
     it("a document without a model keeps the language until a tab shows it, once", async () => {
         const uri = uriOf("a.txt");
 
         expect(adapter.changeDocumentLanguage({ uri, languageId: "json" })).toEqual({ applied: false });
-        expect(adapter.getLanguageOfDocument(uri)).toBe("json");
+        expect(adapter.openDocumentWithoutModel(uri)).toBe("json");
 
         await adapter.showTextDocument({ uri });
         expect(activeLanguage()).toBe("json");
-        expect(adapter.getLanguageOfDocument(uri)).toBeNull();
+        expect(adapter.openDocumentWithoutModel(uri)).toBeNull();
 
         // The choice is spent: a language picked later is not overwritten by the next show.
         adapter.changeDocumentLanguage({ uri, languageId: "python" });
@@ -122,7 +128,7 @@ describe("EditorLayoutServiceAdapter — language of a document", () => {
         service.openFile(ws.path("a.txt"));
 
         expect(activeLanguage()).toBe("json");
-        expect(adapter.getLanguageOfDocument(uriOf("a.txt"))).toBeNull();
+        expect(adapter.openDocumentWithoutModel(uriOf("a.txt"))).toBeNull();
     });
 
     it("showing another document leaves a waiting language alone", async () => {
@@ -131,12 +137,22 @@ describe("EditorLayoutServiceAdapter — language of a document", () => {
         await adapter.showTextDocument({ uri: uriOf("b.txt") });
 
         expect(activeLanguage()).not.toBe("json");
-        expect(adapter.getLanguageOfDocument(uriOf("a.txt"))).toBe("json");
+        expect(adapter.openDocumentWithoutModel(uriOf("a.txt"))).toBe("json");
     });
 
-    it("the language of a document without a model comes from its path", () => {
-        expect(adapter.getLanguageOfDocument("foo://auth/dir/x.py")).toBe("python");
-        expect(adapter.getLanguageOfDocument("file:///x.unknown")).toBeNull();
+    it("the language of a document without a model comes from its path and its features start", () => {
+        expect(adapter.openDocumentWithoutModel("foo://auth/dir/x.py")).toBe("python");
+        expect(adapter.openDocumentWithoutModel("file:///x.unknown")).toBeNull();
+        expect(requested).toEqual(["python"]);
+    });
+
+    it("a language set on a document without a model starts its features, and so does the next open", () => {
+        adapter.changeDocumentLanguage({ uri: "foo://auth/x.py", languageId: "json" });
+        expect(requested).toEqual(["json"]);
+
+        adapter.openDocumentWithoutModel("foo://auth/x.py");
+
+        expect(requested).toEqual(["json", "json"]);
     });
 
     it("the default language service knows plaintext only", () => {

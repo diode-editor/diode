@@ -1,13 +1,15 @@
 import type * as vscode from "vscode";
 
 import { Position, Range, SnippetString, Uri } from "./vscodeTypes.ts";
+import type { IDocumentReference } from "./workspaceNamespace.ts";
 
 type ApiCommandHandler = (...args: unknown[]) => unknown;
 
 export interface IApiCommandsDeps {
     showTextDocument(uri: vscode.Uri, options?: vscode.TextDocumentShowOptions): Thenable<unknown>;
     openExternal(target: vscode.Uri): Thenable<boolean>;
-    openTextDocument(uri: vscode.Uri): Thenable<vscode.TextDocument>;
+    /** Upstream `createModelReference`: the document for one command, released when it is done. */
+    referenceDocument(uri: vscode.Uri): Promise<IDocumentReference>;
     executeCompletionItemProvider(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -111,7 +113,20 @@ function executeLinkProvider(args: readonly unknown[]): Promise<readonly never[]
     return Promise.resolve([]);
 }
 
-/** The document is opened as upstream's `createModelReference`: the command works on a file nobody opened. */
+/** For one command, as upstream's `createModelReference`: the command works on a file nobody opened. */
+async function withDocument<T>(
+    deps: IApiCommandsDeps,
+    uri: unknown,
+    run: (document: vscode.TextDocument) => Promise<T>,
+): Promise<T> {
+    const reference = await deps.referenceDocument(uri as vscode.Uri);
+    try {
+        return await run(reference.document);
+    } finally {
+        reference.dispose();
+    }
+}
+
 async function executeCompletionItemProvider(
     deps: IApiCommandsDeps,
     args: readonly unknown[],
@@ -122,11 +137,13 @@ async function executeCompletionItemProvider(
     validate("position", position, position instanceof Position);
     validate("triggerCharacter", triggerCharacter, isOptional(triggerCharacter, "string"));
     validate("itemResolveCount", itemResolveCount, isOptional(itemResolveCount, "number"));
-    return deps.executeCompletionItemProvider(
-        await deps.openTextDocument(uri as vscode.Uri),
-        position as vscode.Position,
-        (triggerCharacter ?? undefined) as string | undefined,
-        (itemResolveCount ?? undefined) as number | undefined,
+    return withDocument(deps, uri, (document) =>
+        deps.executeCompletionItemProvider(
+            document,
+            position as vscode.Position,
+            (triggerCharacter ?? undefined) as string | undefined,
+            (itemResolveCount ?? undefined) as number | undefined,
+        ),
     );
 }
 
@@ -140,11 +157,13 @@ async function executeCodeActionProvider(
     validate("rangeOrSelection", rangeOrSelection, rangeOrSelection instanceof Range);
     validate("kind", kind, isOptional(kind, "string"));
     validate("itemResolveCount", itemResolveCount, isOptional(itemResolveCount, "number"));
-    return deps.executeCodeActionProvider(
-        await deps.openTextDocument(uri as vscode.Uri),
-        rangeOrSelection as vscode.Range,
-        (kind ?? undefined) as string | undefined,
-        (itemResolveCount ?? undefined) as number | undefined,
+    return withDocument(deps, uri, (document) =>
+        deps.executeCodeActionProvider(
+            document,
+            rangeOrSelection as vscode.Range,
+            (kind ?? undefined) as string | undefined,
+            (itemResolveCount ?? undefined) as number | undefined,
+        ),
     );
 }
 
@@ -157,7 +176,7 @@ async function executeHoverProvider(
     const validate = validatorOf(command);
     validate("uri", uri, Uri.isUri(uri));
     validate("position", position, position instanceof Position);
-    return deps.executeHoverProvider(await deps.openTextDocument(uri as vscode.Uri), position as vscode.Position);
+    return withDocument(deps, uri, (document) => deps.executeHoverProvider(document, position as vscode.Position));
 }
 
 /** Upstream's `ApiCommandArgument.optional()`: `null` passes too. */

@@ -1,36 +1,53 @@
 "use strict";
 
 /**
- * An `.html` document served by a `TextDocumentContentProvider`, as Angular's embedded templates are: the HTML client's
- * selector is not limited to the `file` scheme, so `vscode.executeCompletionItemProvider` on the virtual document
- * reaches the HTML server (extensionHost.htmlLsp.embedded.test.ts).
+ * Angular's embedded templates in miniature: `.html` documents served by a `TextDocumentContentProvider` without
+ * `onDidChange`, whose text changes before each `vscode.executeCompletionItemProvider` /
+ * `vscode.executeHoverProvider`. The HTML client's selector is not limited to the `file` scheme, so the commands reach
+ * the HTML server (extensionHost.htmlLsp.virtualDocument.test.ts).
  */
+const contents = new Map();
+
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
     context.subscriptions.push(
         vscode.workspace.registerTextDocumentContentProvider("embedded-html", {
-            provideTextDocumentContent: function () {
-                return "<di\n";
+            provideTextDocumentContent: function (uri) {
+                return contents.get(uri.path);
             },
         }),
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand("fixture.completeVirtualHtml", async function () {
+        vscode.commands.registerCommand("fixture.completeVirtualHtml", async function (text, character) {
             const uri = vscode.Uri.parse("embedded-html:/template.html");
-            const document = await vscode.workspace.openTextDocument(uri);
+            contents.set(uri.path, text);
             const list = await vscode.commands.executeCommand(
                 "vscode.executeCompletionItemProvider",
                 uri,
-                new vscode.Position(0, 3),
+                new vscode.Position(0, character),
             );
-            return {
-                languageId: document.languageId,
-                labels: list.items.map(function (item) {
-                    return typeof item.label === "string" ? item.label : item.label.label;
-                }),
-            };
+            return list.items.map(function (item) {
+                return typeof item.label === "string" ? item.label : item.label.label;
+            });
+        }),
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("fixture.hoverVirtualHtml", async function (text, character) {
+            const uri = vscode.Uri.parse("embedded-html:/hover.html");
+            contents.set(uri.path, text);
+            const hovers = await vscode.commands.executeCommand(
+                "vscode.executeHoverProvider",
+                uri,
+                new vscode.Position(0, character),
+            );
+            return hovers.flatMap(function (hover) {
+                return hover.contents.map(function (content) {
+                    return typeof content === "string" ? content : content.value;
+                });
+            });
         }),
     );
 };
