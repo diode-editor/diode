@@ -10,7 +10,11 @@ import { PanelServiceDIToken } from "../../../../browser/parts/panel/panelServic
 import { EditorGroupsServiceDIToken } from "../../../../services/editor/common/editorGroupsService.ts";
 import { PROBLEMS_VIEW_ID } from "../../../markers/browser/problemsComponent.ts";
 import { TerminalEditorServiceDIToken } from "../../../terminal/browser/terminalEditorService.ts";
-import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "../../../terminal/browser/terminalService.ts";
+import {
+    type ITerminalInstance,
+    TERMINAL_VIEW_ID,
+    TerminalServiceDIToken,
+} from "../../../terminal/browser/terminalService.ts";
 
 describe("Developer: Write Data to Terminal — target terminal", () => {
     let ws: ITempWorkspace;
@@ -43,7 +47,8 @@ describe("Developer: Write Data to Terminal — target terminal", () => {
     }
 
     const terminals = () => h.container.get(TerminalServiceDIToken);
-    const printed = (index: number) => (terminals().getInstances()[index].session as FakeTerminalSurface).printed;
+    const fake = (instance: ITerminalInstance) => instance.session as FakeTerminalSurface;
+    const printed = (index: number) => fake(terminals().getInstances()[index]).printed;
 
     it("the active panel terminal: the panel is shown again, no new terminal, the text goes to the emulator", async () => {
         boot();
@@ -55,7 +60,7 @@ describe("Developer: Write Data to Terminal — target terminal", () => {
         expect(terminals().getInstances()).toHaveLength(2);
         expect(printed(0)).toStrictEqual(["a\nb"]);
         expect(printed(1)).toStrictEqual([]);
-        expect((terminals().getInstances()[0].session as FakeTerminalSurface).writes).toStrictEqual([]);
+        expect(fake(terminals().getInstances()[0]).writes).toStrictEqual([]);
         expect(h.container.get(PanelServiceDIToken).getActiveViewId()).toBe(TERMINAL_VIEW_ID);
     });
 
@@ -64,7 +69,7 @@ describe("Developer: Write Data to Terminal — target terminal", () => {
         await writeData("x");
         const [instance] = terminals().getEditorInstances();
         expect(terminals().getEditorInstances()).toHaveLength(1);
-        expect((instance.session as FakeTerminalSurface).printed).toStrictEqual(["x"]);
+        expect(fake(instance).printed).toStrictEqual(["x"]);
     });
 
     it("the active terminal is an editor tab: its tab is revealed again", async () => {
@@ -75,7 +80,7 @@ describe("Developer: Write Data to Terminal — target terminal", () => {
         const groups = h.container.get(EditorGroupsServiceDIToken);
         expect(groups.activeGroup.activePane).not.toBe(editorTerminals.paneOf(instance.id));
         await writeData("y");
-        expect((instance.session as FakeTerminalSurface).printed).toStrictEqual(["y"]);
+        expect(fake(instance).printed).toStrictEqual(["y"]);
         expect(terminals().getInstances()).toHaveLength(0);
         expect(groups.activeGroup.activePane).toBe(editorTerminals.paneOf(instance.id));
     });

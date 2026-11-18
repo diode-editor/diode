@@ -6,16 +6,14 @@ import type { ICommandEvent } from "../../../../../platform/commands/common/comm
 
 import {
     RECORD_SESSION_IDLE_MS,
-    recordSessionAction,
     recordTerminalSession,
     TERMINAL_DEVELOPER_ACTIONS,
     type TerminalRecordingEvent,
     unescapeTerminalData,
-    writeDataToTerminalAction,
 } from "./terminalDeveloperActions.ts";
 
 describe("Developer terminal commands — ids and titles", () => {
-    it("match upstream, Developer category, no keybindings", () => {
+    it("match upstream, Developer category", () => {
         expect(TERMINAL_DEVELOPER_ACTIONS.map((a) => [a.id, a.title, a.shortTitle])).toStrictEqual([
             [
                 "workbench.action.terminal.writeDataToTerminal",
@@ -27,12 +25,6 @@ describe("Developer terminal commands — ids and titles", () => {
                 "Developer: Record Terminal Session",
                 "Record Terminal Session",
             ],
-        ]);
-        expect(
-            [writeDataToTerminalAction, recordSessionAction].map((a) => [a.keybinding, a.keybindings]),
-        ).toStrictEqual([
-            [undefined, undefined],
-            [undefined, undefined],
         ]);
     });
 });

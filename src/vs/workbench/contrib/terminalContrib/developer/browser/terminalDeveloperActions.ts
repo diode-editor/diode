@@ -67,21 +67,18 @@ export function recordTerminalSession(
             record({ type: "command", id: event.commandId });
         }),
     );
-    store.add(
-        session.onWillData((data) => {
-            record({ type: "output", data });
-        }),
-    );
-    store.add(
-        session.onDidSendText((data) => {
-            record({ type: "sendText", data });
-        }),
-    );
-    store.add(
-        session.onDidWriteData((data) => {
-            record({ type: "input", data });
-        }),
-    );
+    const dataEvents = [
+        ["output", session.onWillData],
+        ["sendText", session.onDidSendText],
+        ["input", session.onDidWriteData],
+    ] as const;
+    for (const [type, event] of dataEvents) {
+        store.add(
+            event((data) => {
+                record({ type, data });
+            }),
+        );
+    }
 }
 
 /** Upstream `getActiveOrCreateInstance` + `revealActiveTerminal`. */
