@@ -231,6 +231,14 @@ describe("installFromRegistry — extensionDependencies", () => {
             expect(reports).toEqual([]);
         });
 
+        it("nobody listening: a measured download installs all the same (the CLI's install)", async () => {
+            await seed("acme.plugin");
+
+            await installFromRegistry(downloading([500, 500], 1000), "acme.plugin", { extensionsDir, host: HOST });
+
+            expect(installed()).toEqual(["acme.plugin@1.0.0"]);
+        });
+
         it("a failed download clears its percent too", async () => {
             await seed("acme.plugin");
             const files = source();

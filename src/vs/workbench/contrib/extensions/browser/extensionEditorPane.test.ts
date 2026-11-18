@@ -467,9 +467,10 @@ describe("ExtensionEditorPane", () => {
             expect(buttonLabels(pane)[0]).toBe("⠙ Installing");
 
             update([entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true })]);
-            const idle = buttonLabels(pane);
+            const idle = pane.view.querySelector("#extensionPageButton-reload");
             actions.tick("⠹");
-            expect(buttonLabels(pane)).toEqual(idle);
+            // The same element, not a rebuilt one: a tick ten times a second must not reset an idle page's buttons.
+            expect(pane.view.querySelector("#extensionPageButton-reload")).toBe(idle);
         });
 
         it("a spinner tick does not rewrap the readme", () => {
