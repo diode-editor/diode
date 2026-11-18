@@ -25,6 +25,12 @@ describe("completeSettingsSections", () => {
         expect(completeSettingsSections(["js/ts"], [{ implicitProjectConfig: "x" }])).toEqual([
             { implicitProjectConfig: "x" },
         ]);
+        expect(completeSettingsSections(["js/ts"], [{ implicitProjectConfig: ["x"] }])).toEqual([
+            { implicitProjectConfig: ["x"] },
+        ]);
+        expect(completeSettingsSections(["js/ts"], [{ implicitProjectConfig: null }])).toEqual([
+            { implicitProjectConfig: null },
+        ]);
     });
 
     it("an answer without a section name is only made non-null", () => {

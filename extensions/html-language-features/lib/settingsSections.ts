@@ -6,9 +6,9 @@
 // would send: an empty section (every lint rule at its default) and upstream's defaults of the keys the server reads.
 
 /** Upstream defaults (`typescript-language-features` manifest) of the keys the server dereferences. */
-const UPSTREAM_DEFAULTS: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
-    "js/ts": { implicitProjectConfig: { experimentalDecorators: false, strictNullChecks: true } },
-};
+const UPSTREAM_DEFAULTS: ReadonlyMap<string | undefined, Readonly<Record<string, unknown>>> = new Map([
+    ["js/ts", { implicitProjectConfig: { experimentalDecorators: false, strictNullChecks: true } }],
+]);
 
 /** `workspace/configuration` answer, `sections[i]` for the section `names[i]`, completed with the defaults. */
 export function completeSettingsSections(
@@ -16,8 +16,7 @@ export function completeSettingsSections(
     sections: readonly unknown[],
 ): unknown[] {
     return sections.map((section, i) => {
-        const name = names.at(i);
-        return withDefaults((name === undefined ? undefined : UPSTREAM_DEFAULTS[name]) ?? {}, section ?? {});
+        return withDefaults(UPSTREAM_DEFAULTS.get(names.at(i)) ?? {}, section ?? {});
     });
 }
 
