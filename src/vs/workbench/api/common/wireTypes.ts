@@ -1653,25 +1653,49 @@ export function parseWireClipboardText(raw: unknown): IWireClipboardText {
     return { text: typeof text === "string" ? text : "" };
 }
 
-/** Arrives before the first activation: `env.machineId`, `env.shell` and `env.appRoot` are synchronous and read already in `activate()`. */
+/** Arrives before the first activation: `env.machineId`, `env.shell`, `env.appRoot` and `env.logLevel` are synchronous and read already in `activate()`. */
 export interface IWireEnvInitialize {
     readonly machineId: string;
     readonly shell: string;
     readonly appRoot: string;
+    /** In the API's `LogLevel` numbering (Off 0 … Error 5), not the core's. */
+    readonly logLevel: number;
 }
 
 /** A non-string becomes an empty string, like upstream's "unknown". */
 export function parseWireEnvInitialize(raw: unknown): IWireEnvInitialize {
-    const { machineId, shell, appRoot } = (typeof raw === "object" && raw !== null ? raw : {}) as {
+    const { machineId, shell, appRoot, logLevel } = (typeof raw === "object" && raw !== null ? raw : {}) as {
         machineId?: unknown;
         shell?: unknown;
         appRoot?: unknown;
+        logLevel?: unknown;
     };
     return {
         machineId: typeof machineId === "string" ? machineId : "",
         shell: typeof shell === "string" ? shell : "",
         appRoot: typeof appRoot === "string" ? appRoot : "",
+        logLevel: parseApiLogLevel(logLevel),
     };
+}
+
+/** `env.didChangeLogLevel`: the window's new level, in the API's numbering. */
+export interface IWireEnvLogLevel {
+    readonly logLevel: number;
+}
+
+export function parseWireEnvLogLevel(raw: unknown): IWireEnvLogLevel {
+    const { logLevel } = (typeof raw === "object" && raw !== null ? raw : {}) as { logLevel?: unknown };
+    return { logLevel: parseApiLogLevel(logLevel) };
+}
+
+const API_LOG_LEVEL_INFO = 3;
+const API_LOG_LEVEL_MAX = 5;
+
+/** Anything but an API `LogLevel` (an integer Off 0 … Error 5) becomes upstream's default, Info. */
+function parseApiLogLevel(raw: unknown): number {
+    return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) <= API_LOG_LEVEL_MAX
+        ? (raw as number)
+        : API_LOG_LEVEL_INFO;
 }
 
 export interface IWireEnvironmentVariableCollections {

@@ -25,6 +25,13 @@ Output UI, `createOutputChannel` для расширений) описано в 
   откладывал его бесконечно. Снижение `DEFAULT_LEVEL` до `Info` (Phase 6)
   петлю тоже рвёт.
 
+- [ ] **Уровни отдельных каналов** (отложено из #1227). «Developer: Set Log Level...» сейчас
+  показывает только раздел «All» (глобальный уровень = `env.logLevel`). Нет: разделов каналов в
+  квикпике (эталон `logsActions.ts` — «Extension Logs» и «Logs»), кнопки «Set as Default Log Level»
+  с сохранением между запусками (эталон — `argv.json`, `IDefaultLogLevelsService`),
+  `LogOutputChannel.logLevel`/`onDidChangeLogLevel` (захардкожен `Info`, событие не стреляет —
+  `windowNamespace.ts`; по эталону дефолт канала — `env.logLevel`).
+
 - [ ] **Output UI — хвосты**: фильтр по уровню, Clear Output (сейчас `clear`/`replace`
   расширений — no-op, журнал ретенционный), scroll-lock как команда, персист
   выбранного канала.

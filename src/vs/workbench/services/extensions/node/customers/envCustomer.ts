@@ -1,7 +1,9 @@
+import { Event } from "../../../../../base/common/event.ts";
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { getMachineId } from "../../../../../base/node/id.ts";
 import { getSystemShell } from "../../../../../base/node/shell.ts";
 import type { IClipboard } from "../../../../../platform/clipboard/common/iClipboard.ts";
+import { LogLevel } from "../../../../../platform/log/common/logLevel.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IWireClipboardText } from "../../../../api/common/wireTypes.ts";
 import type { IExternalOpener } from "../../../externalOpener/common/iExternalOpener.ts";
@@ -16,16 +18,26 @@ export interface IExtensionHostEnvironment {
     readonly defaultShell: () => string;
     /** `env.appRoot`: an existing directory with VS Code's layout (rg), or `""`. */
     readonly appRoot: () => string;
+    /** `env.logLevel`: the window's level, `ILogService.getWindowLevel`. */
+    readonly logLevel: () => LogLevel;
+    readonly onDidChangeLogLevel: Event<LogLevel>;
 }
 
-/** The machine id doesn't survive across runs, the shell is the system one. */
+/** The machine id doesn't survive across runs, the shell is the system one, the log level is upstream's default Info. */
 export function fallbackExtensionHostEnvironment(): IExtensionHostEnvironment {
     let machineId: string | undefined;
     return {
         machineId: () => (machineId ??= getMachineId()),
         defaultShell: () => getSystemShell(),
         appRoot: loadRipgrepAppRoot,
+        logLevel: () => LogLevel.Info,
+        onDidChangeLogLevel: Event.None,
     };
+}
+
+/** The core's numbering is the API's times ten: Off 0, Trace 10 … Error 50 against Off 0, Trace 1 … Error 5. */
+function toApiLogLevel(level: LogLevel): number {
+    return level / 10;
 }
 
 export class EnvCustomer implements IExtensionHostCustomer {
@@ -38,20 +50,27 @@ export class EnvCustomer implements IExtensionHostCustomer {
     ) {}
 
     /**
-     * `env.machineId`/`env.shell`/`env.appRoot` are synchronous — seeded before the first activation. The shell never changes
-     * (we have no terminal profiles), so there are no repeated seeds.
+     * `env.machineId`/`env.shell`/`env.appRoot`/`env.logLevel` are synchronous — seeded before the first activation. The
+     * shell never changes (we have no terminal profiles); a log level change goes as `env.didChangeLogLevel`.
      */
     public pushInitialState(): void {
         this.rpc?.notify("env.initialize", {
             machineId: this.environment.machineId(),
             shell: this.environment.defaultShell(),
             appRoot: this.environment.appRoot(),
+            logLevel: toApiLogLevel(this.environment.logLevel()),
         });
     }
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
         this.rpc = rpc;
         const store = new DisposableStore();
+        // Upstream `$setLogLevel` without a resource: every spawn alive at the change hears it.
+        store.add(
+            this.environment.onDidChangeLogLevel((level) => {
+                rpc.notify("env.didChangeLogLevel", { logLevel: toApiLogLevel(level) });
+            }),
+        );
         store.add(
             rpc.handleRequest("env.clipboard.readText", async (): Promise<IWireClipboardText> => {
                 return { text: (await this.clipboard?.readText()) ?? "" };

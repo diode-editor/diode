@@ -200,6 +200,7 @@ import {
     type IWireExtensionDescription,
     parseWireClipboardText,
     parseWireEnvInitialize,
+    parseWireEnvLogLevel,
     parseWireOpenExternalResult,
 } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
@@ -282,9 +283,17 @@ export function buildVscodeNamespace(
     });
 
     // The `env.initialize` seed arrives before the first activation; there are no terminal profiles, so `onDidChangeShell` never fires.
-    let hostEnvironment: IWireEnvInitialize = { machineId: "", shell: "", appRoot: "" };
+    let hostEnvironment: IWireEnvInitialize = { machineId: "", shell: "", appRoot: "", logLevel: LogLevel.Info };
     rpc.handleNotification("env.initialize", (params) => {
         hostEnvironment = parseWireEnvInitialize(params);
+    });
+    const onDidChangeLogLevel = new EventEmitter<vscode.LogLevel>();
+    rpc.handleNotification("env.didChangeLogLevel", (params) => {
+        const { logLevel } = parseWireEnvLogLevel(params);
+        if (logLevel === hostEnvironment.logLevel) return;
+        // The getter answers the new level by the time listeners run, as upstream.
+        hostEnvironment = { ...hostEnvironment, logLevel };
+        onDidChangeLogLevel.fire(logLevel);
     });
 
     // Frozen as upstream: assigning `env.language` and the like throws in strict code.
@@ -300,6 +309,10 @@ export function buildVscodeNamespace(
             return hostEnvironment.appRoot;
         },
         onDidChangeShell: new EventEmitter<string>().event,
+        get logLevel(): vscode.LogLevel {
+            return hostEnvironment.logLevel;
+        },
+        onDidChangeLogLevel: onDidChangeLogLevel.event,
         appName: "Diode",
         appHost: "desktop",
         language: UI_LOCALE,

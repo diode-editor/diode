@@ -66,6 +66,7 @@
     "workbench.profiles.actions.createProfile",
     "workbench.profiles.actions.deleteProfile",
     "workbench.action.url.openUrl",
+    "workbench.action.setLogLevel",
     "workbench.action.editor.changeEncoding",
     "workbench.action.editor.changeEOL",
     "cursorLeft",

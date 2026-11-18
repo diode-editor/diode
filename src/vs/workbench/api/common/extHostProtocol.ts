@@ -150,6 +150,7 @@ import type {
     IWireEditorLayout,
     IWireEnvInitialize,
     IWireEnvironmentVariableCollections,
+    IWireEnvLogLevel,
     IWireEvaluatableExpression,
     IWireEvaluatableExpressionParams,
     IWireExecuteCommandParams,
@@ -437,6 +438,8 @@ export interface IHostToSubprocess {
 
         readonly "workspace.initialize": IWireWorkspaceInitialize;
         readonly "env.initialize": IWireEnvInitialize;
+        /** Upstream `$setLogLevel` without a resource: the window level changed. */
+        readonly "env.didChangeLogLevel": IWireEnvLogLevel;
         readonly "workspace.configurationChanged": IWireConfigurationChanged;
         readonly "workspace.didSaveTextDocument": IWireDidSaveParams;
         /** Upstream `$onDidRunFileOperation`. */

@@ -7,6 +7,7 @@ import { LogLevel } from "./logLevel.ts";
 
 const WILDCARD = "*";
 const DEFAULT_LEVEL: LogLevel = LogLevel.Trace;
+const DEFAULT_WINDOW_LEVEL: LogLevel = LogLevel.Info;
 
 /** A logger caches its channel level until `setLevel`, which bumps the version so the logger re-resolves. */
 export class LogService implements ILogService {
@@ -19,6 +20,8 @@ export class LogService implements ILogService {
     private readonly channels = new Map<string, ILogChannelDescriptor>();
     private readonly onDidRegisterChannelEmitter = new Emitter<ILogChannelDescriptor>();
     public readonly onDidRegisterChannel = this.onDidRegisterChannelEmitter.event;
+    private readonly onDidChangeWindowLevelEmitter = new Emitter<LogLevel>();
+    public readonly onDidChangeWindowLevel = this.onDidChangeWindowLevelEmitter.event;
     private version = 0;
 
     public createLogger(channel: string, options?: ILoggerOptions): ILogger {
@@ -36,8 +39,14 @@ export class LogService implements ILogService {
     }
 
     public setLevel(channelOrWildcard: string, level: LogLevel): void {
+        const windowLevel = this.getWindowLevel();
         this.levels.set(channelOrWildcard, level);
         this.version++;
+        if (this.getWindowLevel() !== windowLevel) this.onDidChangeWindowLevelEmitter.fire(level);
+    }
+
+    public getWindowLevel(): LogLevel {
+        return this.levels.get(WILDCARD) ?? DEFAULT_WINDOW_LEVEL;
     }
 
     public getLevel(channel: string): LogLevel {
