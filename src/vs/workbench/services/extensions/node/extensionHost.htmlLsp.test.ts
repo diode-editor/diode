@@ -69,12 +69,16 @@ describe("ExtensionHost — built-in HTML language features: completion and hove
         expect(items.find((item) => item.label === "href")?.insertText).toBe('href=""');
     });
 
-    it("`html.completion.attributeDefaultValue: empty` offers the attribute without quotes", { timeout: 60_000 }, async () => {
-        const items = await completionsAt("<a h></a>\n", 0, 4, "href", {
-            html: { completion: { attributeDefaultValue: "empty" } },
-        });
-        expect(items.find((item) => item.label === "href")?.insertText).toBe("href=");
-    });
+    it(
+        "`html.completion.attributeDefaultValue: empty` offers the attribute without quotes",
+        { timeout: 60_000 },
+        async () => {
+            const items = await completionsAt("<a h></a>\n", 0, 4, "href", {
+                html: { completion: { attributeDefaultValue: "empty" } },
+            });
+            expect(items.find((item) => item.label === "href")?.insertText).toBe("href=");
+        },
+    );
 
     it('`<input type="` offers the values the service knows', { timeout: 60_000 }, async () => {
         const items = await completionsAt('<input type="">\n', 0, 13, "checkbox");

@@ -91,7 +91,12 @@ describe("ExtensionService", () => {
         const logger = recordingLogger();
         const service = new ExtensionService(
             host,
-            [ext("a", "a.js"), ext("decl", undefined), ext("git", "out/e.cjs", true), ext("handlebars", undefined, true)],
+            [
+                ext("a", "a.js"),
+                ext("decl", undefined),
+                ext("git", "out/e.cjs", true),
+                ext("handlebars", undefined, true),
+            ],
             ENV,
             logger,
         );

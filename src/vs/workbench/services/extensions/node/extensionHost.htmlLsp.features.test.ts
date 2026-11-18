@@ -13,9 +13,10 @@ import {
     openHtmlDocument,
     until,
 } from "../../../../../TestUtils/HtmlLanguageFeaturesHarness.ts";
+import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import type { ICoreDocumentSymbol } from "../../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { ILink } from "../../../../editor/common/languages/iLinkSource.ts";
-import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
+import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 // Formatting, outline, folding, links and the embedded CSS/JavaScript of the built-in HTML language features.
 
@@ -56,12 +57,16 @@ describe("ExtensionHost — built-in HTML language features: document features",
         expect(await formatted(doc)).toBe("<div>\n    <p>a</p>\n    <p>b</p>\n</div>");
     });
 
-    it("`html.format.wrapAttributes: force` puts every attribute but the first on its own line", { timeout: 60_000 }, async () => {
-        const doc = await open('<a href="x" title="y" id="z">t</a>\n', "index.html", {
-            html: { format: { wrapAttributes: "force" } },
-        });
-        expect(await formatted(doc)).toBe('<a href="x"\n    title="y"\n    id="z">t</a>');
-    });
+    it(
+        "`html.format.wrapAttributes: force` puts every attribute but the first on its own line",
+        { timeout: 60_000 },
+        async () => {
+            const doc = await open('<a href="x" title="y" id="z">t</a>\n', "index.html", {
+                html: { format: { wrapAttributes: "force" } },
+            });
+            expect(await formatted(doc)).toBe('<a href="x"\n    title="y"\n    id="z">t</a>');
+        },
+    );
 
     it("the outline lists the elements as a tree", { timeout: 60_000 }, async () => {
         const doc = await open('<html>\n<body>\n<div id="main"><p>x</p></div>\n</body>\n</html>\n');
@@ -85,7 +90,12 @@ describe("ExtensionHost — built-in HTML language features: document features",
             }));
             return regions.length > 0;
         });
-        expect(regions).toEqual(expect.arrayContaining([{ start: 0, end: 3 }, { start: 1, end: 2 }]));
+        expect(regions).toEqual(
+            expect.arrayContaining([
+                { start: 0, end: 3 },
+                { start: 1, end: 2 },
+            ]),
+        );
     });
 
     it("`href` and `src` are document links", { timeout: 60_000 }, async () => {
@@ -141,6 +151,26 @@ describe("ExtensionHost — built-in HTML language features: document features",
             return text !== "";
         });
         expect(text).toContain("var document: Document");
+    });
+
+    it("`<style>` and `<script>` are validated together", { timeout: 60_000 }, async () => {
+        // Diode ships neither `css-language-features` nor upstream's `typescript-language-features`: the `css` and
+        // `js/ts` settings sections the server reads are nobody's, which must not break the validation.
+        let markers: readonly WireMarker[] = [];
+        const doc = await openHtmlDocument(
+            "index.html",
+            "<style>\np { colr: red; }\n</style>\n<script>\nlet x = ;\n</script>\n",
+            {
+                diagnosticsSink: (_owner, _resource, published) => {
+                    markers = published;
+                },
+            },
+        );
+        html = doc;
+        await until("diagnostics", () => Promise.resolve(markers.length >= 2));
+        expect(markers.map((marker) => marker.message)).toEqual(
+            expect.arrayContaining([expect.stringContaining("colr"), "Expression expected."]),
+        );
     });
 
     it("a handlebars file gets the same features", { timeout: 60_000 }, async () => {

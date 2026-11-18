@@ -280,6 +280,43 @@
 показывает. Тест — `e2e/mergeConflict.test.ts` (линза в кадре, `Compare` с обеими сторонами, клик
 `Accept Incoming`, байты файла), сценарий-демо — `e2e/scenarios/merge-conflict.scenario.ts`.
 
+## HTML: встроенный `vscode.html-language-features`
+
+Решение человека 2026-11-17 (#1202): код эталона — клиент и сервер — лежит дословно в
+`extensions/html-language-features/{client,server}/` (`scripts/import-vscode-editor.mjs`, `--check` следит за
+дрейфом), а не `vscode-langservers-extracted` со своим клиентом. Своё — только `main.ts` вместо эталонного
+`client/src/node/htmlClientMain.ts` (тот ищет сервер рядом со своим `package.json` на диске, а у builtin файлов на
+диске нет) и `lib/settingsSections.ts`. Активация `onLanguage:html`/`onLanguage:handlebars`, сервер стартует лениво
+на первом документе.
+
+- **Сборка и поставка.** `build-extensions.mjs` собирает сервер одним ESM-файлом
+  `server/out/node/htmlServerMain.mjs` (≈3.3 МБ, `typescript` — внешний), `pack-ts-server.mjs` кладёт его в
+  `ts-server.bundle` рядом с `node_modules/typescript` и `jquery.d.ts`: режим `<script>` берёт TypeScript и
+  `lib.*.d.ts` того же пакета, что и встроенный tsserver (ассет вырос на ≈3.4 МБ, своей копии TypeScript нет).
+  Путь хост отдаёт переопределением дефолта `diode.html.bundledServerPath` (`builtinConfigInjection`, как у TS);
+  запуск — эталонный `{ module, transport: ipc }`: `fork` берёт `process.execPath` хоста расширений, под SEA это
+  бинарь в node-режиме. Единственная вырезка в коде эталона — каталог `lib.*.d.ts` в `javascriptLibs.ts`: эталон
+  ищет его в `../../node_modules` (свои `extensions/node_modules` VS Code), у нас — там, куда резолвится
+  `typescript`. Вендоренный код компилируется своим `tsconfig.json` (опции эталона: импорты типов без
+  `import type`), корневой его исключает, `npm run typecheck` и `check:diff` гоняют оба.
+- **Секции настроек чужих builtin'ов.** Сервер читает секции `css` (`css.lint` целиком в CSS-валидатор) и
+  `js/ts` (`implicitProjectConfig.strictNullChecks` без проверки), которые в VS Code всегда объявлены
+  `css-language-features` и `typescript-language-features`. У нас их нет, клиент отвечает `null`, и валидация
+  всего документа падала на каждой правке. Middleware `workspace/configuration` в `main.ts` дополняет ответ:
+  пустая секция и дефолты эталона для ключей, которые сервер разыменовывает.
+- **handlebars** подключается, как в эталоне, через `contributes.htmlLanguageParticipants` своего манифеста —
+  клиент читает его из `extensions.allAcrossExtensionHosts` (proposed `extensionsAny`, у нас один хост — это
+  `extensions.all`). Для этого декларативные расширения теперь в каталоге `extensions.all` с `packageJSON`.
+- **Отступления.** Сниппеты в подсказках вставляются текстом (`href="$1"` → `href=""`, каретка после кавычек)
+  — сниппет-сессии в подсказках нет (#1035); авто-вставка `html/autoInsert` идёт через `insertSnippet`, там каретка
+  встаёт как в VS Code. Картинка Baseline в hover элемента рисуется подписью `!Baseline icon` — markdown движка
+  картинок не знает. `editor.suggest.insertMode` у нас нет, ядро и так берёт `replacing`-диапазон — как
+  `configurationDefaults` эталона для html. `html.mirrorCursorOnMatchingTag` устарел и в эталоне ни на что не влияет.
+- **Тесты** — `extensionHost.htmlLsp*.test.ts` против собранного сервера (completion, hover, авто-вставка, формат,
+  символы, folding, ссылки, `<style>`/`<script>`, валидация, handlebars, виртуальный документ через
+  `vscode.executeCompletionItemProvider`), демо — `e2e/scenarios/html-language-features.scenario.ts`.
+  `formulahendry.auto-close-tag` смоук проверяет на `.xml`: на `.html` закрывали бы оба, как и в VS Code.
+
 ## TypeScript: встроенный `diode-lsp-typescript` (typescript-language-server)
 
 Не из магазина: builtin, сервер вшит в поставку ([Extensions.md](Extensions.md)). Тесты —

@@ -170,7 +170,7 @@ describe("extensionsNamespace", () => {
         );
     });
 
-    it("[api:extensions.allAcrossExtensionHosts] one extension host: all extensions across hosts are `all`, none from another host", () => {
+    it("proposed `allAcrossExtensionHosts`: one extension host: all extensions across hosts are `all`, none from another host", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one"), description("pub.two")] });

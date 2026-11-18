@@ -29,7 +29,9 @@ export function toDeclarativeExtension(ext: IExtension, env: IExtensionRegistrat
         id: ext.id,
         manifest: ext.manifest,
         // A builtin's root is virtual (`/extensions/<name>`), like the `filename` of one with code.
-        extensionPath: ext.isBuiltin ? `/${joinVirtualPath(ext.location, "").slice(0, -1)}` : userExtensionPath(ext, env),
+        extensionPath: ext.isBuiltin
+            ? `/${joinVirtualPath(ext.location, "").slice(0, -1)}`
+            : userExtensionPath(ext, env),
     };
 }
 

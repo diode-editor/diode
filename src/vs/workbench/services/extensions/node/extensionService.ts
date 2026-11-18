@@ -69,7 +69,8 @@ export class ExtensionService implements IExtensionService {
         for (const ext of this.extensions) {
             try {
                 const reg = await toExtensionRegistration(ext, this.registrationEnv);
-                if (reg === null) this.host.registerDeclarativeExtension(toDeclarativeExtension(ext, this.registrationEnv));
+                if (reg === null)
+                    this.host.registerDeclarativeExtension(toDeclarativeExtension(ext, this.registrationEnv));
                 else this.host.registerExtension(reg);
             } catch (err) {
                 this.logger.error(`${ext.id}: failed to register${ext.isBuiltin ? " (builtin)" : ""}`, err);

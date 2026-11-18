@@ -1481,11 +1481,12 @@
     продукта и есть всегда, а у нас многих нет (`git` — это `diode.git`), и поставить их неоткуда:
     строгий вариант молча выключил стоковый Supermaven (`extensionDependencies: ["vscode.git"]`).
     Встроенные `vscode.*` с кодом — `vscode.references-view` (своя узкая реализация, [Views.md](workbench/Views.md))
-    и `vscode.merge-conflict` (код эталона дословно, `scripts/import-vscode-editor.mjs`). Расширение, которое в эталоне
+    , `vscode.merge-conflict` и `vscode.html-language-features` (код эталона дословно, `scripts/import-vscode-editor.mjs`;
+    HTML — [StockExtensions.md](StockExtensions.md#html-встроенный-vscodehtml-language-features)). Расширение, которое в эталоне
     часть продукта и не тянет за собой чужого ядра, кладём встроенным, а не в магазин. Остальные, которые у нас есть (`vscode.git-base`), — декларативные языковые паки
     (следующий пункт): скрипт импорта вырезает из манифеста `main` вместе с кодом, иначе хост читал бы
     отсутствующую точку входа и писал `failed to register (builtin)` на каждом старте;
-  - расширение **без кода** (декларативный языковой пак, тема) регистрации в хосте не имеет, но зависимость на него удовлетворена: `ExtensionService.start()` сообщает хосту такие id (`registerDeclarativeExtension`), как `_isResolvedExtension` эталона;
+  - расширение **без кода** (декларативный языковой пак, тема) регистрации в хосте не имеет, но зависимость на него удовлетворена: `ExtensionService.start()` сообщает хосту такие расширения (`registerDeclarativeExtension`: id, манифест, корень), как `_isResolvedExtension` эталона. Они же — в каталоге `extensions.all` с `packageJSON` и `isActive: false`, как в эталоне: клиент HTML находит там `htmlLanguageParticipants` пака `handlebars`;
   - субпроцесс умер, пока поднималась зависимость, — зависимое не считается упавшим и возвращается к оживлению вместе с ней.
 - **Тест-хелпер:** `registerAndActivate(host, reg)` (`TestUtils/ExtensionTestHarness.ts`) = `registerExtension` + `activateByEvent("*")`; харнесс фаерит `activateEvents` (дефолт `["*"]`) после регистрации.
 

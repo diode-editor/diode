@@ -129,6 +129,8 @@ export default defineConfig({
         "extensions/references-view/main.ts", // extension entry (loaded in a subprocess); behavior: e2e/javaHierarchyCommands.test.ts
         "extensions/merge-conflict/main.ts", // extension entry (re-export, loaded in a subprocess)
         "extensions/merge-conflict/src/**", // vendored upstream (scripts/import-vscode-editor.mjs), runs in a subprocess; gate: e2e/mergeConflict.test.ts
+        "extensions/html-language-features/main.ts", // extension entry (starts the vendored client); settings shim in lib/* (units), integration: extensionHost.htmlLsp.*.test
+        "extensions/html-language-features/{client,server}/**", // vendored upstream (scripts/import-vscode-editor.mjs), runs in the extension host and a server process; gate: extensionHost.htmlLsp.*.test
         "extensions/diode-settings/main.ts", // extension entry (loaded in a subprocess); behavior: ExtensionHost.SettingsCompletion.test.ts + e2e
         "src/**/*.generated.ts", // generated data files (e.g. settings-schema.generated.ts), run in a subprocess
         "src/vs/workbench/api/common/vscodeNamespace.ts", // RPC wiring in a subprocess

@@ -10,6 +10,7 @@ export default tseslint.config(
             "node_modules/",
             "*.config.*",
             "src/vscode-dts/vscode.d.ts",
+            "src/vscode-dts/vscode.proposed.extensionsAny.d.ts",
             "src/vs/workbench/contrib/debug/common/debugProtocol.d.ts",
             "src/vs/workbench/services/extensions/node/__fixtures__/*.cjs",
             "extensions/*/out/",
@@ -36,6 +37,7 @@ export default tseslint.config(
             "src/vs/editor/contrib/snippet/browser/snippetParser.ts",
             "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
             "extensions/merge-conflict/src/**",
+            "extensions/html-language-features/{client,server}/**",
             // Corpus test DATA: foreign sources, not our code.
             "**/__fixtures__/**",
         ],

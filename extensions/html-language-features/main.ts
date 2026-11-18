@@ -10,6 +10,7 @@ import { LanguageClient, type ServerOptions, TransportKind } from "vscode-langua
 
 import { type AsyncDisposable, type LanguageClientConstructor, startClient } from "./client/src/htmlClient.ts";
 import { getNodeFileFS } from "./client/src/node/nodeFs.ts";
+import { completeSettingsSections } from "./lib/settingsSections.ts";
 
 /** The bundle is unpacked when extensions start; the first html document can activate the client before that ends. */
 const BUNDLED_WAIT_MS = 5_000;
@@ -25,11 +26,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // node in dev, the diode binary in node mode under SEA (the host process carries `DIODE_RUN_AS_NODE`).
     const serverOptions: ServerOptions = { module: serverModule, transport: TransportKind.ipc };
     const newLanguageClient: LanguageClientConstructor = (id, name, clientOptions) =>
-        new LanguageClient(id, name, serverOptions, clientOptions);
+        new LanguageClient(id, name, serverOptions, {
+            ...clientOptions,
+            middleware: {
+                ...clientOptions.middleware,
+                // The settings sections VS Code's other builtins declare (lib/settingsSections.ts).
+                workspace: {
+                    configuration: async (params, token, next) => {
+                        const sections = await next(params, token);
+                        const names = params.items.map((item) => item.section);
+                        return Array.isArray(sections) ? completeSettingsSections(names, sections) : sections;
+                    },
+                },
+            },
+        });
     const timer = {
         setTimeout(callback: (...args: unknown[]) => void, ms: number, ...args: unknown[]): vscode.Disposable {
             const handle = setTimeout(callback, ms, ...args);
-            return { dispose: () => clearTimeout(handle) };
+            return {
+                dispose: () => {
+                    clearTimeout(handle);
+                },
+            };
         },
     };
 

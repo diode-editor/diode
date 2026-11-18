@@ -30,7 +30,7 @@
     "test:mutation": "node scripts/mutation-diff.mjs --ignoreStatic --incremental",
     "ci:run": "node scripts/ci-run.mjs",
     "test:scripts": "node --test scripts/*.test.mjs scripts/agent-loop/*.test.mjs .claude/hooks/*.test.mjs e2e/api-conformance/*.test.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p extensions/html-language-features",
     "lint": "eslint src/ extensions/ tools/",
     "lint:fix": "eslint src/ extensions/ tools/ --fix",
     "check:diff": "node scripts/check-diff.mjs",

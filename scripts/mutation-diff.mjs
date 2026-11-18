@@ -86,6 +86,7 @@ const EXCLUDED = [
     /^src\/vs\/base\/common\/uint\.ts$/,
     /^src\/vs\/editor\/contrib\/snippet\/browser\/snippetParser\.ts$/,
     /^extensions\/merge-conflict\/src\//,
+    /^extensions\/html-language-features\/(client|server)\//,
     // Test shims at upstream paths: the same kind of test helpers as src/TestUtils/.
     /^src\/vs\/editor\/test\/common\/testTextModel\.ts$/,
     /^src\/vs\/base\/test\//,

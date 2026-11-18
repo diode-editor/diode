@@ -60,7 +60,7 @@ describe("ExtensionHost — built-in HTML language features: auto insertion", ()
     });
 
     it("`=` after an attribute name adds the quotes, the caret between them", { timeout: 60_000 }, async () => {
-        const { text, caret } = await typeAtEnd('<a href\n', "=");
+        const { text, caret } = await typeAtEnd("<a href\n", "=");
         await waitUntil("the quotes", () => text() === '<a href=""\n');
         expect(caret()).toEqual({ line: 0, character: 9 });
     });

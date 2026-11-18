@@ -8,6 +8,7 @@ import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageSe
 import { TextEditorPane } from "../vs/workbench/browser/parts/editor/textEditorPane.ts";
 import type { IDeclarativeExtension } from "../vs/workbench/services/extensions/node/extensionRegistration.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
+
 import {
     createExtensionTestHarness,
     documentVersion,
@@ -60,7 +61,10 @@ export interface IHtmlDocument {
     readonly uri: string;
     readonly languageId: string;
     /** A request at the current version of the document. */
-    at(line: number, character: number): {
+    at(
+        line: number,
+        character: number,
+    ): {
         uri: string;
         languageId: string;
         versionId: number;
@@ -75,10 +79,9 @@ export interface IHtmlDocument {
  * client learns to serve handlebars documents.
  */
 function handlebarsDeclarative(): IDeclarativeExtension {
-    const manifest = JSON.parse(readFileSync(path.join(REPO_ROOT, "extensions/handlebars/package.json"), "utf8")) as Record<
-        string,
-        unknown
-    >;
+    const manifest = JSON.parse(
+        readFileSync(path.join(REPO_ROOT, "extensions/handlebars/package.json"), "utf8"),
+    ) as Record<string, unknown>;
     return {
         id: "vscode.handlebars",
         manifest: manifest as IDeclarativeExtension["manifest"],
@@ -90,7 +93,7 @@ function handlebarsDeclarative(): IDeclarativeExtension {
 export async function openHtmlDocument(
     fileName: string,
     content: string,
-    options: Pick<IExtensionHarnessOptions, "configuration" | "extensions" | "outputSink"> = {},
+    options: Pick<IExtensionHarnessOptions, "configuration" | "extensions" | "outputSink" | "diagnosticsSink"> = {},
 ): Promise<IHtmlDocument> {
     const harness = await createExtensionTestHarness({
         languageService: HTML_LANGUAGE_SERVICE,
@@ -98,6 +101,7 @@ export async function openHtmlDocument(
         configuration: { ...options.configuration, diode: { html: { bundledServerPath: SERVER } } },
         extensions: [htmlLanguageFeaturesRegistration(), ...(options.extensions ?? [])],
         ...(options.outputSink === undefined ? {} : { outputSink: options.outputSink }),
+        ...(options.diagnosticsSink === undefined ? {} : { diagnosticsSink: options.diagnosticsSink }),
     });
     harness.host.registerDeclarativeExtension(handlebarsDeclarative());
     const filePath = harness.writeFile(fileName, content);
@@ -107,10 +111,11 @@ export async function openHtmlDocument(
     await harness.host.activateByEvent(`onLanguage:${languageId}`);
     const pane = harness.group.editorGroups.groups[0].getPane(0);
     if (!(pane instanceof TextEditorPane)) throw new Error("no text editor");
+    const editor = pane as TextEditorPane;
     const document = () => ({ uri, languageId, versionId: documentVersion(harness, uri) });
     return {
         harness,
-        editor: pane,
+        editor,
         uri,
         languageId,
         document,

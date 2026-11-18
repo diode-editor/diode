@@ -72,7 +72,9 @@ function computeTarget(): ITsServerPaths | null {
             serverPath: require_.resolve("typescript-language-server/lib/cli.mjs"),
             tsserverPath: require_.resolve("typescript/lib/tsserver.js"),
             // `npm run build:extensions` (and `prestart`) builds it in the repo.
-            htmlServerPath: fileURLToPath(new URL(`../../../../../../extensions/${HTML_SERVER_ENTRY}`, import.meta.url)),
+            htmlServerPath: fileURLToPath(
+                new URL(`../../../../../../extensions/${HTML_SERVER_ENTRY}`, import.meta.url),
+            ),
         };
     } catch {
         return null;
