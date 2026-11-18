@@ -144,8 +144,8 @@ describe("vscode.executeCompletionItemProvider", () => {
 
         const list = await executeProviders.completionItems(doc, AT, undefined, 2);
 
-        expect(list.items[0]).toBe(item);
-        expect(list.items.map((i) => i.label)).toEqual(["a", "b"]);
+        expect(list.items[1]).toBe(item);
+        expect(list.items.map((i) => i.label)).toEqual(["b", "a"]);
     });
 });
 

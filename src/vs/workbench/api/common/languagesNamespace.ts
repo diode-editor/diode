@@ -2114,12 +2114,16 @@ export function createLanguagesNamespace(
         setLanguageConfiguration: createSetLanguageConfiguration(ctx),
     };
 
-    /** Best match first, as upstream's `LanguageFeatureRegistry.ordered`. */
+    /**
+     * Best match first, on a tie the later registration first, as upstream's `LanguageFeatureRegistry.ordered`
+     * (`_compareByScoreAndTime`). The map keeps registration order; the sort is stable.
+     */
     function matching<T extends { readonly selector: vscode.DocumentSelector }>(
         providers: ReadonlyMap<number, T>,
         document: vscode.TextDocument,
     ): T[] {
         return [...providers.values()]
+            .reverse()
             .map((registration) => ({ registration, rank: scoreDocumentSelector(registration.selector, document) }))
             .filter(({ rank }) => rank > 0)
             .sort((a, b) => b.rank - a.rank)
