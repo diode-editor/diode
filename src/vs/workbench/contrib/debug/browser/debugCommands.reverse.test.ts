@@ -20,7 +20,7 @@ import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.t
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { type IDebugSession, State } from "../common/debug.ts";
-import type { Thread } from "../common/debugModel.ts";
+import type { DebugModel, Thread } from "../common/debugModel.ts";
 
 import { BreakpointSourcesDIToken } from "./breakpointsView.ts";
 import {
@@ -215,9 +215,10 @@ describe("debug commands: the rest of upstream's", () => {
             await toggleExceptionBreakpointsAction.run(accessor);
             expect(quickPickMany).not.toHaveBeenCalled();
 
-            fx.service.getModel().setExceptionBreakpointsForSession("s", [{ filter: "all", label: "All" }]);
-            fx.service.getModel().setExceptionBreakpointFallbackSession("s");
-            const [all] = fx.service.getModel().getExceptionBreakpoints();
+            const model = fx.service.getModel() as DebugModel;
+            model.setExceptionBreakpointsForSession("s", [{ filter: "all", label: "All" }]);
+            model.setExceptionBreakpointFallbackSession("s");
+            const [all] = model.getExceptionBreakpoints();
             await toggleExceptionBreakpointsAction.run(accessor);
 
             expect(all.enabled).toBe(true);

@@ -1,5 +1,7 @@
 // The Run and Debug viewlet (upstream `debug.contribution.ts`: the container with `order: 3`, after Source Control
-// and before Extensions; the VARIABLES, WATCH, CALL STACK and BREAKPOINTS views). Without a session VARIABLES shows upstream's welcome: the full-width Run and Debug button (as Source Control's Commit,
+// and before Extensions; the VARIABLES, WATCH, CALL STACK, LOADED SCRIPTS and BREAKPOINTS views). LOADED SCRIPTS is
+// there under upstream's `when` (the focused session's adapter has `loadedSources`, `debugUx == 'default'`), collapsed
+// at first, and built anew each time it comes, as upstream's view. Without a session VARIABLES shows upstream's welcome: the full-width Run and Debug button (as Source Control's Commit,
 // decision 2026-11-14) and the link that creates launch.json. The container's title holds upstream's launcher (▶ and
 // the configurations) under upstream's `when`: there are configurations or a session (`debugUx`), a folder is open,
 // the toolbar is not docked in the view while debugging, and `debug.hideLauncherWhileDebugging` does not hide it.
@@ -12,6 +14,7 @@ import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContaine
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
+import { MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { type MenuService, MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -19,6 +22,10 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import { deserializeWhen, whenKeys } from "../../../../platform/contextkey/common/contextKeyExpr.ts";
+import {
+    type IEnvironmentService,
+    IEnvironmentServiceDIToken,
+} from "../../../../platform/environment/common/environment.ts";
 import {
     type ContextKeyService,
     ContextKeyServiceDIToken,
@@ -49,6 +56,7 @@ import {
 import {
     BREAKPOINTS_VIEW_ID,
     CALLSTACK_VIEW_ID,
+    LOADED_SCRIPTS_VIEW_ID,
     State,
     VARIABLES_VIEW_ID,
     VIEWLET_ID,
@@ -72,6 +80,7 @@ import {
 } from "./debugContextMenus.ts";
 import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { type DebugService, DebugServiceDIToken } from "./debugService.ts";
+import { LoadedScriptsView, SessionTreeItem } from "./loadedScriptsView.ts";
 import { VariablesView } from "./variablesView.ts";
 import { WatchExpressionsView } from "./watchExpressionsView.ts";
 
@@ -99,10 +108,13 @@ const LAUNCHER_WHEN =
     "debugUx != 'simple' && workbenchState != 'empty' && " +
     "(debugState == 'inactive' || config.debug.toolBarLocation != 'docked') && " +
     "(!config.debug.hideLauncherWhileDebugging || !inDebugMode)";
-/** The keys of {@link LAUNCHER_WHEN}: a change of one may show or hide the launcher. */
-function launcherKeys(): readonly string[] {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- the literal above parses
-    return whenKeys(deserializeWhen(LAUNCHER_WHEN)!);
+/** Upstream's `when` of LOADED SCRIPTS. */
+const LOADED_SCRIPTS_WHEN = "loadedScriptsSupported && debugUx == 'default'";
+
+/** The keys of one of the `when`s above: a change of one may show or hide what it guards. */
+function keysOf(when: string): readonly string[] {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- the literals above parse
+    return whenKeys(deserializeWhen(when)!);
 }
 
 function contains(element: TUIElement, active: TUIElement | null): boolean {
@@ -122,6 +134,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         IWorkspaceContextServiceDIToken,
         MenuServiceDIToken,
         ContextMenuServiceDIToken,
+        IEnvironmentServiceDIToken,
     ] as const;
 
     public readonly view: TUIElement;
@@ -131,6 +144,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
     public readonly breakpoints: BreakpointsView;
     public readonly runButton = new ActionButtonElement();
     public readonly launcher: StartDebugActionViewItem;
+    private readonly loadedScriptsView = this.register(new MutableDisposable<LoadedScriptsView>());
     private readonly welcome: TUIElement;
 
     public constructor(
@@ -145,6 +159,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         workspace: IWorkspaceContextService,
         menus: MenuService,
         contextMenu: ContextMenuService,
+        environment: Pick<IEnvironmentService, "userHome">,
     ) {
         super();
         const renderer = this.register(
@@ -241,6 +256,40 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
                 this.callStack.focus();
             },
         });
+        const updateLoadedScripts = (): void => {
+            const shown = contextKeys.evaluate(LOADED_SCRIPTS_WHEN);
+            if (shown === (this.loadedScriptsView.value !== undefined)) return;
+            if (!shown) {
+                views.unregisterView(LOADED_SCRIPTS_VIEW_ID);
+                this.loadedScriptsView.clear();
+                return;
+            }
+            const loadedScripts = new LoadedScriptsView(
+                debugService,
+                { workspace, userHome: environment.userHome },
+                breakpointSources,
+            );
+            this.loadedScriptsView.value = loadedScripts;
+            views.registerView({
+                id: LOADED_SCRIPTS_VIEW_ID,
+                containerId: VIEWLET_ID,
+                title: "LOADED SCRIPTS",
+                order: 35,
+                body: loadedScripts.tree.element,
+                canMoveView: true,
+                collapsed: true,
+                focus: () => {
+                    loadedScripts.focus();
+                },
+            });
+        };
+        const loadedScriptsKeys = keysOf(LOADED_SCRIPTS_WHEN);
+        this.register(
+            contextKeys.onDidChange((changed) => {
+                if (loadedScriptsKeys.some((key) => changed.has(key))) updateLoadedScripts();
+            }),
+        );
+        updateLoadedScripts();
         views.registerView({
             id: BREAKPOINTS_VIEW_ID,
             containerId: VIEWLET_ID,
@@ -262,7 +311,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         this.launcher = this.register(
             new StartDebugActionViewItem(debugService, configuration, commands, workspace, icons),
         );
-        const keys = launcherKeys();
+        const keys = keysOf(LAUNCHER_WHEN);
         const updateTitleArea = (): void => {
             views.setContainerTitleWidget(
                 VIEWLET_ID,
@@ -341,7 +390,18 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         };
     }
 
+    /** LOADED SCRIPTS while it is shown. */
+    public get loadedScripts(): LoadedScriptsView | undefined {
+        return this.loadedScriptsView.value;
+    }
+
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
+        const loadedScripts = this.loadedScriptsView.value;
+        const sessionFocused =
+            loadedScripts !== undefined &&
+            contains(loadedScripts.tree.list, active) &&
+            loadedScripts.tree.focused instanceof SessionTreeItem;
+        contextKeys.set("loadedScriptsItemType", sessionFocused ? "session" : "");
         contextKeys.set("variablesFocused", contains(this.variables.tree.list, active));
         const watchFocused = contains(this.watch.tree.list, active);
         contextKeys.set("watchExpressionsFocused", watchFocused);
