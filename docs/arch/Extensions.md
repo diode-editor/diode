@@ -1481,7 +1481,7 @@
     продукта и есть всегда, а у нас многих нет (`git` — это `diode.git`), и поставить их неоткуда:
     строгий вариант молча выключил стоковый Supermaven (`extensionDependencies: ["vscode.git"]`).
     Встроенные `vscode.*` с кодом — `vscode.references-view` (своя узкая реализация, [Views.md](workbench/Views.md))
-    и `vscode.merge-conflict` (код эталона дословно, `scripts/import-vscode-editor.mjs`). Расширение, которое в эталоне
+    и `vscode.merge-conflict` с `vscode.debug-auto-launch` (код эталона дословно, `scripts/import-vscode-editor.mjs`). Расширение, которое в эталоне
     часть продукта и не тянет за собой чужого ядра, кладём встроенным, а не в магазин. Остальные, которые у нас есть (`vscode.git-base`), — декларативные языковые паки
     (следующий пункт): скрипт импорта вырезает из манифеста `main` вместе с кодом, иначе хост читал бы
     отсутствующую точку входа и писал `failed to register (builtin)` на каждом старте;

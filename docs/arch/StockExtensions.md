@@ -207,7 +207,7 @@
   VS Code так же. Angular в vsix нет: клиент спрашивает сервер `IsInAngularProject`, и ответ «да» только с
   `@angular/core` в `node_modules` проекта, поэтому обвязки доносят его сами (`angularFixture.ts`: кэшируемый
   `npm install`, симлинк в воркспейс). Работают ngtsc-диагностика в `.html` и во встроенном `template:`, completion
-  членов, компонентов и привязок, hover и F12 из шаблона в компонент, ссылки из `.ts` в шаблон, линза `Go to component`,
+  членов, компонентов и привязок, hover (и во встроенном `template:`) и F12 из шаблона в компонент, ссылки из `.ts` в шаблон, линза `Go to component`,
   `Go to template` и `View Template Typecheck Block`, подсветка шаблонов инъекциями грамматик. Сервер расширение
   форкает по **каталогу** `server`: бинарь в режиме node (`runAsNode`) импортировал путь как ESM-модуль и на 0.18.0
   падал с `ERR_UNSUPPORTED_DIR_IMPORT`. Запись уже была опубликована с гейтом 0.18.0, а опубликованную версию не
@@ -216,8 +216,9 @@
     - В completion нет обычных HTML-тегов (`div`, `span`): в VS Code их даёт встроенный `html-language-features`, в том
       числе для встроенного шаблона через виртуальный документ `angular-embedded-content` и
       `vscode.executeCompletionItemProvider`, а HTML-сервера у diode нет (#1202).
-    - Hover во встроенном `template:` падает с `command "vscode.executeHoverProvider" not found`: middleware расширения
-      спрашивает HTML-провайдеры виртуального документа (#1201). Интеграция встроенных шаблонов целиком — #1203.
+    - Интеграция встроенных шаблонов с HTML целиком — #1203. Hover во встроенном `template:` работает: middleware
+      расширения сначала спрашивает `vscode.executeHoverProvider` у виртуального документа
+      `angular-embedded-content`, HTML-провайдеров нет, пустой ответ пропускает hover самого Angular.
     - Find All References из `.ts` показывает `.ts`-места дважды: отвечают встроенный TypeScript и Angular. Эталон
       дедуплицирует в `goToSymbol.ts` (`_sortedAndDeduped`), `getReferences.ts` — нет (#1200).
     - Rename из `.ts` не доходит до шаблона, **в VS Code так же**: `rename.ts` эталона берёт провайдер, чей
@@ -261,6 +262,40 @@
   CodeLLDB объявляет `supportsDelayedStackTraceLoading` и не шлёт `totalFrames`, второй запрос остатка стека не меняет нижние кадры, и
   `refreshTopOfCallstack` эталона не шлёт события. Debug Console открывается после ответа на `launch` — уже после
   того, как `runInTerminal` показал терминал, поэтому поверх оказывается консоль.
+
+## Отладка Node.js: `ms-vscode.js-debug` (JavaScript Debugger)
+
+Приёмка вехи 3 эпика отладчика — #1161. Запись магазина — `proxy-openvsx` 1.140.1, universal, `support: partial`,
+гейт `engines.diode: ">=0.18.2"` (дочерние сессии #1159 и правки #1161 вышли после 0.18.1). В комплекте js-debug нет
+(решение человека 2026-11-14), поэтому путь пользователя — F5 на `.js`: без отладчиков F5 и Ctrl+F5 открывают Run and
+Debug (`debug.openView` эталона), кнопка Run and Debug спрашивает «You don't have an extension for debugging
+JavaScript…», ответ ищет в магазине `@category:debuggers JavaScript`. После установки F5 предлагает Node.js первым в
+списке отладчиков и стартует без `launch.json`.
+
+- **Проверено живьём** (`drive --install`): `launch` с брейкпоинтом (сессия-родитель «Launch Program» и дочерняя
+  `app.js [pid]` — js-debug всегда отлаживает через дочернюю сессию), `child_process.fork` — брейкпоинт в дочернем процессе, его сессия в CALL STACK под родителем,
+  `attach` к `node --inspect`, JavaScript Debug Terminal, npm-скрипты (`Node.js...` в Select and Start Debugging —
+  динамические конфигурации, «Run Script: start» идёт через `node-terminal`), авто-аттач в режиме smart.
+- **JavaScript Debug Terminal** перед каждым подключением зовёт `workspace.requestWorkspaceTrust` — API из предложения
+  `workspaceTrust` (оно у js-debug в `enabledApiProposals`). Без члена `node app.js` в терминале висел неподключённым;
+  теперь он есть в рантайме и отвечает `true` (модели доверия нет). Остальное из предложения (`portsAttributes`,
+  `tunnels`) js-debug проверяет на `typeof` и обходится без них.
+- **Авто-аттач** у эталона — не js-debug, а встроенное `vscode.debug-auto-launch` (Node Debug Auto-attach): пункт
+  статус-бара «Auto Attach: Smart», команда `Debug: Toggle Auto Attach`, IPC-сервер, через который процессы из
+  терминала просят js-debug подключиться (`extension.js-debug.setAutoAttachVariables` кладёт переменные в
+  `environmentVariableCollection`). Оно у нас встроенное, код эталона дословно (`scripts/import-vscode-editor.mjs`):
+  вендорный файл не проходит наш `tsc` (эталон собирает его с `@types/node` 24, где `data` сокета — `Buffer`), поэтому
+  прелюдия `// @ts-nocheck`. По умолчанию `debug.javascript.autoAttachFilter` — `disabled`, пункта статус-бара нет;
+  переменные достаются только новым терминалам, как в эталоне.
+- Сценарий — `js-debug` (`e2e/scenarios/jsDebug.scenario.ts`, `network: true`): F5 без `launch.json`, Debug Terminal,
+  Toggle Auto Attach → Smart и `node app.js` в новом терминале.
+- **Не работает:** отчёт `Debug: Diagnose Breakpoint Problems` — вебвью. Отладка в браузере (Chrome, Edge,
+  встроенный браузер) не проверялась.
+- **Как в эталоне, хотя выглядит странно:** в Select and Start Debugging → Node.js... «JavaScript Debug Terminal» и
+  «Run Current File» стоят дважды — для папки и для пользовательского launch (`getDynamicConfigurationsByType` эталона
+  спрашивает провайдер по каждому launch). Сессия «Run Script: …» не кончается вместе со скриптом — её закрывает Stop,
+  и вместе с ней js-debug закрывает свой терминал. В узком сайдбаре имя дочерней сессии в CALL STACK съедает метка
+  состояния справа (`PAUSED ON BREAKPOINT`), как ellipsis у эталона.
 
 ## Merge Conflict: встроенный `vscode.merge-conflict`
 
