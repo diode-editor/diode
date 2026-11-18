@@ -18,8 +18,10 @@ import {
     type IWireRunControllerTestsResult,
     type IWireStartControllerTests,
     type IWireTestItem,
+    type IWireTestRunProfile,
     TestDiffOpType,
     type TestItemExpandState,
+    type TestRunProfileGroup,
     type WireTestsDiffOp,
 } from "../vs/workbench/api/common/testingWireTypes.ts";
 import { menuItemsOfAction } from "../vs/workbench/browser/actions/menuContributions.ts";
@@ -80,6 +82,24 @@ export function wireItem(
         description: fields.description ?? null,
         error: fields.error ?? null,
         sortText: fields.sortText ?? null,
+    };
+}
+
+/** A default profile of `vitest` in the group, its id the group's bit unless given. */
+export function testProfile(
+    group: TestRunProfileGroup,
+    overrides: Partial<IWireTestRunProfile> = {},
+): IWireTestRunProfile {
+    return {
+        controllerId: "vitest",
+        profileId: group,
+        label: String(group),
+        group,
+        isDefault: true,
+        tag: null,
+        hasConfigurationHandler: false,
+        supportsContinuousRun: false,
+        ...overrides,
     };
 }
 
@@ -195,9 +215,11 @@ export function setupExplorer(options: ISetupOptions = {}) {
         reveal,
         NULL_JUMP_RECORDER,
         notifications,
+        services.profiles,
     );
     const panel = createResultsPanel({
         results: services.results,
+        profiles: services.profiles,
         views,
         theme: THEME,
         configuration,
@@ -326,6 +348,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         y: number,
         kind: "press" | "release" | "move",
         button: "left" | "right" | "none" = "left",
+        altKey = false,
     ) => {
         show().backend.simulateMouse({
             kind: "mouse",
@@ -334,15 +357,15 @@ export function setupExplorer(options: ISetupOptions = {}) {
             y: y + 1,
             action: kind,
             shiftKey: false,
-            altKey: false,
+            altKey,
             ctrlKey: false,
             raw: "",
         });
         show().render();
     };
-    const click = (x: number, y: number, button: "left" | "right" = "left"): void => {
-        mouse(x, y, "press", button);
-        mouse(x, y, "release", button);
+    const click = (x: number, y: number, button: "left" | "right" = "left", altKey = false): void => {
+        mouse(x, y, "press", button, altKey);
+        mouse(x, y, "release", button, altKey);
     };
     return {
         panel,

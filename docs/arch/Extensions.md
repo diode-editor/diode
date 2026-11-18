@@ -974,11 +974,13 @@
   Хост: `TestingCustomer` → порт `IExtensionTestingSink` → `ExtensionTestingAdapter`
   (`contrib/testing/browser`) → `TestService` (контроллеры, зеркало дерева, `onDidProcessDiff`, ключи
   `testing.providerCount`/`canRefresh`/`isRefreshing`) и `TestProfileService` (профили,
-  `testing.hasRunnableTests`). Команды `testing.refreshTests` (`Ctrl+; Ctrl+R`, доступна при
+  `testing.hasRunnableTests`, `testing.hasDebuggableTests`, `capabilitiesForTest`). Команды `testing.refreshTests` (`Ctrl+; Ctrl+R`, доступна при
   `testing.canRefresh`) и `testing.cancelTestRefresh` — `contrib/testing/browser/testingActions.ts`.
   Смерть субпроцесса — `reset()`: контроллеры уходят с деревьями и профилями.
-  Отступления: Debug- и Coverage-профили хранятся, но `testing.hasDebuggableTests` и
-  `testing.hasCoverableTests` всегда `false` (дебаггера нет, coverage — позже); `isDefault` профиля —
+  Debug-профиль запускается так же, как Run (`testing.runControllerTests` с его `profileId`): отладочную сессию
+  стартует сам `runHandler` расширения через `vscode.debug.startDebugging` (vitest, jest), ядро о связи сессии и
+  запуска не знает — эталон тоже. Отступления: Coverage-профили хранятся, но `testing.hasCoverableTests` всегда
+  `false` (coverage — позже); `isDefault` профиля —
   только расширения (`onDidChangeDefault` не стреляет, выбора профилей по умолчанию у ядра нет);
   `DocumentSynced`, `AddTag`/`RemoveTag` эталона не переносятся (их потребители — декорации и фильтр
   вьюхи). Пункт меню строки Test Explorer (`testing/item/context` → `MenuId.TestItem`) получает аргументом

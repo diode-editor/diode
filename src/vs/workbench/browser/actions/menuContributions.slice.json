@@ -21,8 +21,12 @@
             "jumpToPrevSnippetPlaceholder",
             "leaveSnippet",
             "acceptSnippet",
+            "testing.debugAll",
+            "testing.runAll",
             "testing.showMostRecentOutput",
             "testing.collapsePeekStack",
+            "testing.debugAtCursor",
+            "testing.debugCurrentFile",
             "testing.goToNextMessage",
             "testing.goToPreviousMessage",
             "testing.openOutputPeek",
@@ -227,7 +231,9 @@
         ],
         "testing": [
             "testing.runAtCursor",
-            "testing.runCurrentFile"
+            "testing.debugAtCursor",
+            "testing.runCurrentFile",
+            "testing.debugCurrentFile"
         ],
         "z_commands": [
             "workbench.action.showCommands"
@@ -598,10 +604,12 @@
     "TestItem": {
         "builtin@1": [
             "testing.run",
+            "testing.debug",
             "testing.editFocusedTest"
         ],
         "inline": [
             "testing.run",
+            "testing.debug",
             "testing.editFocusedTest"
         ]
     },
@@ -678,6 +686,7 @@
             "testing.cancelRun",
             "testing.runSelected",
             "workbench.debug.viewlet.action.addDataBreakpointOnAddress",
+            "testing.debugSelected",
             "testing.showMostRecentOutput",
             "testing.collapsePeekStack",
             "testing.clearTestResults",

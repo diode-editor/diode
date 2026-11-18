@@ -1,7 +1,7 @@
 {
     "name": "demo-test-controller",
     "displayName": "Demo Test Controller",
-    "description": "E2E demo extension: a test controller over *.test.js files with lazily resolved tests.",
+    "description": "E2E demo extension: a test controller over *.test.js files with lazily resolved tests, a Run and a Debug profile.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",
@@ -12,6 +12,12 @@
         "onStartupFinished"
     ],
     "contributes": {
+        "debuggers": [
+            {
+                "type": "demo-tests",
+                "label": "Demo Tests"
+            }
+        ],
         "commands": [
             {
                 "command": "demoTests.discover",
