@@ -86,6 +86,17 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock Angular.ng-templat
         }),
     );
 
+    it("hover in the inline template: Angular's middleware asks vscode.executeHoverProvider first", TIMEOUT, () =>
+        withAngularProject(installed, nodeModules, async (session) => {
+            session.open(APP_TS);
+            await session.markerSaying(APP_TS, "nope");
+            const hovers = await provideHovers(session.harness, session.at(APP_TS, "{{ title.", 3));
+            expect(hovers.map((hover) => hover.contents.join("\n")).join("\n")).toContain(
+                "(property) AppComponent.title: string",
+            );
+        }),
+    );
+
     it("hover and Go to Definition lead from the template into the component", TIMEOUT, () =>
         withAngularProject(installed, nodeModules, async (session) => {
             const { harness } = session;
