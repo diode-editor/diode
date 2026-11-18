@@ -92,6 +92,7 @@ import {
     isStateWithResult,
     statePriority,
 } from "../common/testingStates.ts";
+import { type TestProfileService, TestProfileServiceDIToken } from "../common/testProfileService.ts";
 import type { ITestResultItemChange, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 import { type ITestNode, type TestService, TestServiceDIToken } from "../common/testService.ts";
@@ -185,6 +186,7 @@ export class TestingExplorerComponent extends Component {
         TestingRevealTargetDIToken,
         JumpRecorderDIToken,
         NotificationServiceDIToken,
+        TestProfileServiceDIToken,
     ] as const;
 
     public readonly view: TUIElement;
@@ -237,6 +239,7 @@ export class TestingExplorerComponent extends Component {
         private readonly revealTarget: IRevealLocationTarget,
         private readonly jumps: IJumpRecorder,
         private readonly notifications: NotificationService,
+        private readonly profiles: TestProfileService,
     ) {
         super();
         this.sorting = stateService.get(TESTING_VIEW_SORTING_STATE);
@@ -309,8 +312,10 @@ export class TestingExplorerComponent extends Component {
         filterRow.addChild(this.filterInput, { width: hflexFill(), height: 1 });
         filterRow.addChild(new TextLabelElement(""), { width: hflexFixed(1), height: 1 });
         filterRow.addChild(filterGlyph, { width: hflexFit(), height: 1 });
-        this.summaryRerun.addEventListener("click", () => {
-            void Promise.resolve(this.commands.execute("testing.reRunLastRun")).catch(onUnexpectedError);
+        // Upstream's `MenuItemAction` of Rerun Last Run with Debug Last Run as its Alt action.
+        this.summaryRerun.addEventListener("click", (event) => {
+            const command = event.altKey ? "testing.debugLastRun" : "testing.reRunLastRun";
+            void Promise.resolve(this.commands.execute(command)).catch(onUnexpectedError);
         });
         const summary = new HFlexElement();
         summary.addChild(this.summaryStatus, { width: hflexFit(), height: 1 });
@@ -351,6 +356,12 @@ export class TestingExplorerComponent extends Component {
                 this.renderSummary();
                 refreshLater();
                 if ("completed" in event) this.revealFailed(event.completed);
+            }),
+        );
+        this.register(
+            // A row's menu sees what its test can do; a controller registers its profiles in a burst.
+            profiles.onDidChange(() => {
+                resultsRefresh.schedule();
             }),
         );
         this.register(
@@ -888,7 +899,10 @@ export class TestingExplorerComponent extends Component {
     /** Upstream `getActionableElementActions`: the row's keys on top of the global ones. */
     private itemMenu(row: ITestRow, inline: boolean): IMenuEntryGroup[] {
         if (row.kind === "error") return [];
-        const keys: MenuContextKeys = { view: TESTING_EXPLORER_VIEW_ID, ...getTestItemContextOverlay(row.node) };
+        const keys: MenuContextKeys = {
+            view: TESTING_EXPLORER_VIEW_ID,
+            ...getTestItemContextOverlay(row.node, this.profiles.capabilitiesForTest(row.node)),
+        };
         return this.menus
             .getEntryGroups(MenuId.TestItem, undefined, keys)
             .filter((group) => (group.group === INLINE_MENU_GROUP) === inline);

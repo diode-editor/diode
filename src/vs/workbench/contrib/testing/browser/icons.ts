@@ -13,6 +13,10 @@ export interface ITestStateIcon {
 export const testingRunIcon = codicon("run");
 /** Upstream `testingRunAllIcon`. */
 export const testingRunAllIcon = codicon("run-all");
+/** Upstream `testingDebugIcon`. */
+export const testingDebugIcon = codicon("debug-alt-small");
+/** Upstream `testingDebugAllIcon`. */
+export const testingDebugAllIcon = codicon("debug-alt-small");
 /** Upstream `testingRerunIcon`. */
 export const testingRerunIcon = codicon("debug-rerun");
 /** Upstream `testingCancelIcon`. */

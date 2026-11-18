@@ -32,7 +32,12 @@ import {
     type IProductIconService,
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
-import { type IWireTestItemArg, TestId, TestResultState } from "../../../api/common/testingWireTypes.ts";
+import {
+    type IWireTestItemArg,
+    TestId,
+    TestResultState,
+    TestRunProfileBitset,
+} from "../../../api/common/testingWireTypes.ts";
 import {
     INLINE_MENU_GROUP,
     inlineMenuEntries,
@@ -56,10 +61,17 @@ import {
     ExtensionPtySessionFactoryDIToken,
 } from "../../terminal/common/terminalSessionFactory.ts";
 import { dominantState, isFailedState, statePriority } from "../common/testingStates.ts";
+import { type TestProfileService, TestProfileServiceDIToken } from "../common/testProfileService.ts";
 import type { ITestResultItem, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 
-import { testingCancelIcon, testingRerunIcon, testingRunIcon, testingStatesToIcons } from "./icons.ts";
+import {
+    testingCancelIcon,
+    testingDebugIcon,
+    testingRerunIcon,
+    testingRunIcon,
+    testingStatesToIcons,
+} from "./icons.ts";
 import { REVEAL_TEST_COMMAND, TESTING_EXPLORER_VIEW_ID, TestingRevealTargetDIToken } from "./testingExplorerView.ts";
 import { type TestMessageDiffFactory, TestMessageDiffFactoryDIToken } from "./testMessageDiff.ts";
 import { testMessageArg, testMessageMenuKeys } from "./testMessageMenu.ts";
@@ -121,6 +133,7 @@ export class TestResultsComponent extends Disposable {
         TestingRevealTargetDIToken,
         JumpRecorderDIToken,
         NotificationServiceDIToken,
+        TestProfileServiceDIToken,
     ] as const;
 
     public readonly tree: TreeViewElement<TestResultsRow>;
@@ -150,6 +163,7 @@ export class TestResultsComponent extends Disposable {
         private readonly revealTarget: IRevealLocationTarget,
         private readonly jumps: IJumpRecorder,
         private readonly notifications: Pick<NotificationService, "show">,
+        private readonly profiles: TestProfileService,
     ) {
         super();
         const provider: ITreeDataProvider<TestResultsRow> = {
@@ -441,7 +455,11 @@ export class TestResultsComponent extends Disposable {
 
     /** A message menu's items (a submenu is not offered), the message their command's argument. */
     private menuActions(menuId: MenuId, subject: TestMessageSubject): IRowAction[] {
-        const groups = this.menus.getEntryGroups(menuId, undefined, testMessageMenuKeys(subject));
+        const groups = this.menus.getEntryGroups(
+            menuId,
+            undefined,
+            testMessageMenuKeys(subject, this.profiles.capabilitiesForTest(subject.test)),
+        );
         return groups.flatMap((group) =>
             inlineMenuEntries([group]).map((entry) => ({
                 label: entry.label,
@@ -609,22 +627,21 @@ export class TestResultsComponent extends Disposable {
         };
     }
 
-    /** Upstream `TreeActionsProvider.provideActionBar` without the debug entries and coverage. */
+    /**
+     * Upstream `TreeActionsProvider.provideActionBar` without coverage. A run's row has no Debug entries: upstream
+     * reckons them by a test, which that row does not have.
+     */
     private actionsOf(row: TestResultsRow): IRowAction[] {
         if (row.kind === "older") return [];
         if (row.kind === "message") return this.messageActions(row);
         const { result } = row;
+        /** The actions while the run has a failed test (a run's and a task's rows only: a scan of its tests). */
+        const ifFailed = (action: IRowAction): IRowAction[] =>
+            [...result.tests].some((test) => isFailedState(test.ownComputedState)) ? [action] : [];
         const rerunFailed = (): IRowAction[] =>
-            [...result.tests].some((test) => isFailedState(test.ownComputedState))
-                ? [
-                      this.commandAction(
-                          "Rerun Failed Tests",
-                          testingRerunIcon,
-                          "testing.reRunFailedFromLastRun",
-                          result.id,
-                      ),
-                  ]
-                : [];
+            ifFailed(
+                this.commandAction("Rerun Failed Tests", testingRerunIcon, "testing.reRunFailedFromLastRun", result.id),
+            );
         if (row.kind === "task") {
             const task = result.tasks[row.taskIndex];
             return [
@@ -642,6 +659,15 @@ export class TestResultsComponent extends Disposable {
                     : [
                           this.commandAction("Rerun Last Run", testingRerunIcon, "testing.reRunLastRun", result.id),
                           ...rerunFailed(),
+                          this.commandAction("Debug Last Run", testingDebugIcon, "testing.debugLastRun", result.id),
+                          ...ifFailed(
+                              this.commandAction(
+                                  "Debug Failed Tests",
+                                  testingDebugIcon,
+                                  "testing.debugFailedFromLastRun",
+                                  result.id,
+                              ),
+                          ),
                       ]),
             ];
         }
@@ -663,8 +689,11 @@ export class TestResultsComponent extends Disposable {
             ...this.commandAction("Reveal in Test Explorer", LIST_TREE_ICON, REVEAL_TEST_COMMAND, test.item.extId),
             secondary: true,
         });
-        if (this.contextKeys.get("testing.hasRunnableTests") === true)
+        const capabilities = this.profiles.capabilitiesForTest(test);
+        if (capabilities & TestRunProfileBitset.Run)
             actions.push(this.commandAction("Run Test", testingRunIcon, "testing.run", arg));
+        if (capabilities & TestRunProfileBitset.Debug)
+            actions.push(this.commandAction("Debug Test", testingDebugIcon, "testing.debug", arg));
         return actions;
     }
 

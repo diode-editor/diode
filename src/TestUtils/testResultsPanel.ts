@@ -23,6 +23,7 @@ import {
     TEST_RESULTS_CONTAINER_ID,
     TestResultsComponent,
 } from "../vs/workbench/contrib/testing/browser/testResultsView.ts";
+import type { TestProfileService } from "../vs/workbench/contrib/testing/common/testProfileService.ts";
 import type { TestResultService } from "../vs/workbench/contrib/testing/common/testResultService.ts";
 import { NULL_JUMP_RECORDER } from "../vs/workbench/services/history/browser/historyService.ts";
 import type { NotificationService } from "../vs/workbench/services/notification/browser/notificationService.ts";
@@ -39,6 +40,7 @@ export interface IOpenedLocation {
 
 export interface IResultsPanelOptions {
     readonly results: TestResultService;
+    readonly profiles: TestProfileService;
     readonly views: IViewsHarness;
     readonly theme: WorkbenchTheme;
     readonly configuration: IConfigurationService;
@@ -105,6 +107,7 @@ export function createResultsPanel(options: IResultsPanelOptions) {
         revealTarget,
         NULL_JUMP_RECORDER,
         notifications,
+        options.profiles,
     );
     const width = options.width ?? 60;
     const height = options.height ?? 10;

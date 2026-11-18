@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
     setupExplorer,
     SwitchableIcons,
+    testProfile,
     THEME,
     UNICODE_ICONS,
     wireItem,
@@ -146,6 +147,7 @@ describe("TEST RESULTS — the frame", () => {
         const views = makeViewsHarness([], UNICODE_ICONS);
         createResultsPanel({
             results: harness.results,
+            profiles: harness.profiles,
             views,
             theme: THEME,
             configuration: harness.configuration,
@@ -519,7 +521,7 @@ describe("TEST RESULTS — the menus", () => {
         await harness.panel.waitFrame((text) => text.includes("nowhere"));
         expect(menuLabels(harness, "fails")).toEqual(["Go to Test", "-", "Reveal in Test Explorer"]);
         expect(menuLabels(harness, "nowhere")).toEqual(["Reveal in Test Explorer"]);
-        harness.views.contextKeys.set("testing.hasRunnableTests", true);
+        harness.profiles.addProfile(testProfile(TestRunProfileBitset.Run));
         choose(harness, "fails", "Go to Test");
         expect(executed).toHaveBeenCalledWith("testing.editFocusedTest", { $testId: testId(...FAILS) });
         choose(harness, "fails", "Run Test");
