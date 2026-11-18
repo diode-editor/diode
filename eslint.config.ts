@@ -38,6 +38,7 @@ export default tseslint.config(
             "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
             "extensions/merge-conflict/src/**",
             "extensions/html-language-features/{client,server}/**",
+            "extensions/debug-auto-launch/src/**",
             // Corpus test DATA: foreign sources, not our code.
             "**/__fixtures__/**",
         ],

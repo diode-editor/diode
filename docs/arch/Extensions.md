@@ -1480,9 +1480,9 @@
     поднимается без него, с предупреждением в лог (`isBuiltinVSCodeExtension`). У эталона они часть
     продукта и есть всегда, а у нас многих нет (`git` — это `diode.git`), и поставить их неоткуда:
     строгий вариант молча выключил стоковый Supermaven (`extensionDependencies: ["vscode.git"]`).
-    Встроенные `vscode.*` с кодом — `vscode.references-view` (своя узкая реализация, [Views.md](workbench/Views.md))
-    , `vscode.merge-conflict` и `vscode.html-language-features` (код эталона дословно, `scripts/import-vscode-editor.mjs`;
-    HTML — [StockExtensions.md](StockExtensions.md#html-встроенный-vscodehtml-language-features)). Расширение, которое в эталоне
+    Встроенные `vscode.*` с кодом — `vscode.references-view` (своя узкая реализация, [Views.md](workbench/Views.md)),
+    `vscode.merge-conflict`, `vscode.debug-auto-launch` и `vscode.html-language-features` (код эталона дословно,
+    `scripts/import-vscode-editor.mjs`; HTML — [StockExtensions.md](StockExtensions.md#html-встроенный-vscodehtml-language-features)). Расширение, которое в эталоне
     часть продукта и не тянет за собой чужого ядра, кладём встроенным, а не в магазин. Остальные, которые у нас есть (`vscode.git-base`), — декларативные языковые паки
     (следующий пункт): скрипт импорта вырезает из манифеста `main` вместе с кодом, иначе хост читал бы
     отсутствующую точку входа и писал `failed to register (builtin)` на каждом старте;

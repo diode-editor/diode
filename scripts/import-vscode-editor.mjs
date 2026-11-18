@@ -151,6 +151,10 @@ const FILES = [
         "utils/strings",
         "utils/validation",
     ].map((name) => `extensions/html-language-features/server/src/${name}.ts`),
+    // Built-in Node Debug Auto-attach: upstream's `vscode.debug-auto-launch`, the status bar item and the toggle of
+    // js-debug's auto attach (its manifest is in MANIFESTS; `extensions/debug-auto-launch/main.ts` is the entry).
+    "extensions/debug-auto-launch/src/extension.ts",
+
     // The proposed `extensions.allAcrossExtensionHosts` the HTML client reads (`enabledApiProposals` of its manifest).
     "src/vscode-dts/vscode.proposed.extensionsAny.d.ts",
 ];
@@ -168,7 +172,7 @@ const AS_IS = [
  * Manifests of vendored builtin extensions with code. `package.nls.json` is copied as is, `package.json` goes through
  * `builtinManifest`. Upstream path == our path.
  */
-const MANIFESTS = ["extensions/merge-conflict", "extensions/html-language-features"];
+const MANIFESTS = ["extensions/merge-conflict", "extensions/html-language-features", "extensions/debug-auto-launch"];
 
 /**
  * Upstream's manifest turned into a builtin one: `main` points at what `build-extensions.mjs` compiles, and the fields
@@ -222,6 +226,7 @@ const SPARSE_PATHS = [
     "extensions/merge-conflict",
     "extensions/html-language-features",
     "/src/vscode-dts/vscode.proposed.extensionsAny.d.ts",
+    "extensions/debug-auto-launch",
     FIXTURES_FROM,
 ];
 
@@ -316,6 +321,10 @@ const PRELUDES = {
     "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts": [
         "import { suite, test } from '../../../../../../TestUtils/mochaCompat.ts';",
     ],
+    // Upstream builds the extension against `@types/node` 24, where a socket's `data` chunk is a `Buffer`; ours types
+    // it `string | Buffer`, and the file can't be edited. The bundle is esbuild's, which never type-checks anyway; the price
+    // is that its calls into `vscode` are not checked against our vscode.d.ts either.
+    "extensions/debug-auto-launch/src/extension.ts": ["// @ts-nocheck"],
 };
 
 /**
