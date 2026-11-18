@@ -125,19 +125,19 @@
     },
     "BranchCoverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "BranchCoverage.executed": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "BranchCoverage.label": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "BranchCoverage.location": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "Breakpoint": {
       "class": "ok"
@@ -672,13 +672,16 @@
       "class": "ok"
     },
     "ColorPresentation.additionalTextEdits": {
-      "class": "ok"
+      "class": "C",
+      "note": "needs a color picker"
     },
     "ColorPresentation.label": {
-      "class": "ok"
+      "class": "C",
+      "note": "needs a color picker"
     },
     "ColorPresentation.textEdit": {
-      "class": "ok"
+      "class": "C",
+      "note": "needs a color picker"
     },
     "ColorTheme.kind": {
       "class": "ok"
@@ -924,7 +927,8 @@
       "class": "ok"
     },
     "CompletionItem.insertText": {
-      "class": "ok"
+      "class": "B",
+      "note": "a SnippetString goes in as plain text, without a snippet session"
     },
     "CompletionItem.keepWhitespace": {
       "class": "B",
@@ -940,7 +944,8 @@
       "class": "ok"
     },
     "CompletionItem.range": {
-      "class": "ok"
+      "class": "ok",
+      "note": "of inserting and replacing ranges the replacing one is always used: no editor.suggest.insertMode"
     },
     "CompletionItem.sortText": {
       "class": "ok"
@@ -1410,42 +1415,38 @@
     },
     "DeclarationCoverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "DeclarationCoverage.executed": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "DeclarationCoverage.location": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "DeclarationCoverage.name": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "DeclarationProvider.provideDeclaration": {
       "class": "ok"
     },
     "DecorationInstanceRenderOptions.dark": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "DecorationInstanceRenderOptions.light": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "DecorationOptions.hoverMessage": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: the hover does not show it"
     },
     "DecorationOptions.range": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "DecorationOptions.renderOptions": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "DecorationRangeBehavior": {
       "class": "ok"
@@ -1463,23 +1464,19 @@
       "class": "ok"
     },
     "DecorationRenderOptions.dark": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "DecorationRenderOptions.isWholeLine": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "DecorationRenderOptions.light": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "DecorationRenderOptions.overviewRulerLane": {
       "class": "ok"
     },
     "DecorationRenderOptions.rangeBehavior": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "DefinitionProvider.provideDefinition": {
       "class": "ok"
@@ -1855,7 +1852,8 @@
       "class": "ok"
     },
     "EnvironmentVariableCollection.description": {
-      "class": "ok"
+      "class": "B",
+      "note": "stored, not drawn"
     },
     "EnvironmentVariableCollection.forEach": {
       "class": "ok"
@@ -1885,7 +1883,8 @@
       "class": "ok"
     },
     "EnvironmentVariableMutatorOptions.applyAtShellIntegration": {
-      "class": "ok"
+      "class": "B",
+      "note": "no shell integration"
     },
     "EnvironmentVariableMutatorType": {
       "class": "ok"
@@ -1927,7 +1926,8 @@
       "class": "ok"
     },
     "Extension.activate": {
-      "class": "ok"
+      "class": "A",
+      "note": "rejects for an extension that is not active yet: only the host activates extensions"
     },
     "Extension.exports": {
       "class": "ok"
@@ -2024,7 +2024,8 @@
       "class": "ok"
     },
     "ExtensionTerminalOptions.color": {
-      "class": "ok"
+      "class": "B",
+      "note": "accepted, not carried over the wire: terminal tabs have no colors"
     },
     "ExtensionTerminalOptions.iconPath": {
       "class": "B",
@@ -2043,7 +2044,8 @@
       "class": "ok"
     },
     "ExtensionTerminalOptions.shellIntegrationNonce": {
-      "class": "ok"
+      "class": "B",
+      "note": "no shell integration"
     },
     "FileChangeEvent.type": {
       "class": "ok"
@@ -2065,35 +2067,34 @@
     },
     "FileCoverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "FileCoverage.branchCoverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "FileCoverage.declarationCoverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "FileCoverage.fromDetails": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "FileCoverage.includesTests": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "FileCoverage.statementCoverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "FileCoverage.uri": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "FileCreateEvent.files": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileDecoration": {
       "class": "ok"
@@ -2108,17 +2109,19 @@
       "class": "ok"
     },
     "FileDecoration.tooltip": {
-      "class": "ok"
+      "class": "B",
+      "note": "accepted, not carried over the wire"
     },
     "FileDecorationProvider.onDidChangeFileDecorations": {
-      "class": "ok"
+      "class": "A",
+      "note": "push only: provideFileDecoration runs for the uris fired in onDidChangeFileDecorations (not for undefined); the explorer never asks for the files it shows"
     },
     "FileDecorationProvider.provideFileDecoration": {
-      "class": "ok"
+      "class": "A",
+      "note": "push only: provideFileDecoration runs for the uris fired in onDidChangeFileDecorations (not for undefined); the explorer never asks for the files it shows"
     },
     "FileDeleteEvent.files": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FilePermission": {
       "class": "B",
@@ -2129,8 +2132,7 @@
       "note": "not declared in vscode.d.ts"
     },
     "FileRenameEvent.files": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileStat.ctime": {
       "class": "ok"
@@ -2268,40 +2270,31 @@
       "class": "ok"
     },
     "FileWillCreateEvent.files": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileWillCreateEvent.token": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileWillCreateEvent.waitUntil": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileWillDeleteEvent.files": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileWillDeleteEvent.token": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileWillDeleteEvent.waitUntil": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileWillRenameEvent.files": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileWillRenameEvent.token": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FileWillRenameEvent.waitUntil": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "FoldingRange": {
       "class": "ok"
@@ -2409,11 +2402,11 @@
       "class": "ok"
     },
     "InlayHint.textEdits": {
-      "class": "C",
+      "class": "B",
       "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHint.tooltip": {
-      "class": "C",
+      "class": "B",
       "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHintKind": {
@@ -2429,15 +2422,15 @@
       "class": "ok"
     },
     "InlayHintLabelPart.command": {
-      "class": "C",
+      "class": "B",
       "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHintLabelPart.location": {
-      "class": "C",
+      "class": "B",
       "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHintLabelPart.tooltip": {
-      "class": "C",
+      "class": "B",
       "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHintLabelPart.value": {
@@ -2450,11 +2443,12 @@
       "class": "ok"
     },
     "InlayHintsProvider.resolveInlayHint": {
-      "class": "C",
+      "class": "B",
       "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlineCompletionContext.selectedCompletionInfo": {
-      "class": "ok"
+      "class": "B",
+      "note": "always undefined: ghost text is not requested while the suggest popup is open"
     },
     "InlineCompletionContext.triggerKind": {
       "class": "ok"
@@ -2463,7 +2457,8 @@
       "class": "ok"
     },
     "InlineCompletionItem.command": {
-      "class": "ok"
+      "class": "B",
+      "note": "accepted, not carried over the wire: not run after accepting"
     },
     "InlineCompletionItem.filterText": {
       "class": "ok"
@@ -2535,7 +2530,8 @@
       "class": "ok"
     },
     "InputBox.buttons": {
-      "class": "ok"
+      "class": "B",
+      "note": "only QuickInputButtons.Back is drawn; other buttons stay with the extension"
     },
     "InputBox.onDidAccept": {
       "class": "ok"
@@ -2566,59 +2562,46 @@
     },
     "InputBoxOptions.ignoreFocusOut": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "not declared in vscode.d.ts"
     },
     "InputBoxOptions.password": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxOptions.placeHolder": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxOptions.prompt": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxOptions.title": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxOptions.validateInput": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxOptions.value": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxOptions.valueSelection": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxValidationMessage.message": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxValidationMessage.severity": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxValidationSeverity": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxValidationSeverity.Error": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxValidationSeverity.Info": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxValidationSeverity.Warning": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "LanguageConfiguration.__characterPairSupport": {
       "class": "ok"
@@ -3112,16 +3095,16 @@
       "class": "ok"
     },
     "LogOutputChannel.debug": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "A",
+      "note": "the ...args are dropped"
     },
     "LogOutputChannel.error": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "A",
+      "note": "the ...args are dropped; an Error is logged as {}"
     },
     "LogOutputChannel.info": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "A",
+      "note": "the ...args are dropped"
     },
     "LogOutputChannel.logLevel": {
       "class": "B",
@@ -3132,12 +3115,12 @@
       "note": "the level is fixed at Info"
     },
     "LogOutputChannel.trace": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "A",
+      "note": "the ...args are dropped"
     },
     "LogOutputChannel.warn": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "A",
+      "note": "the ...args are dropped"
     },
     "MarkdownString": {
       "class": "ok"
@@ -3829,7 +3812,8 @@
       "class": "ok"
     },
     "OpenDialogOptions.canSelectMany": {
-      "class": "ok"
+      "class": "B",
+      "note": "one item is picked: the simple file dialog has no multi-select"
     },
     "OpenDialogOptions.defaultUri": {
       "class": "ok"
@@ -3838,7 +3822,8 @@
       "class": "ok"
     },
     "OpenDialogOptions.openLabel": {
-      "class": "ok"
+      "class": "B",
+      "note": "not drawn: the simple file dialog has no buttons, Enter confirms"
     },
     "OpenDialogOptions.title": {
       "class": "ok"
@@ -3857,7 +3842,8 @@
       "class": "ok"
     },
     "OutputChannel.hide": {
-      "class": "ok"
+      "class": "B",
+      "note": "no-op"
     },
     "OutputChannel.name": {
       "class": "ok"
@@ -4005,7 +3991,8 @@
       "class": "ok"
     },
     "Pseudoterminal.onDidOverrideDimensions": {
-      "class": "ok"
+      "class": "B",
+      "note": "ignored: the terminal keeps its own size"
     },
     "Pseudoterminal.onDidWrite": {
       "class": "ok"
@@ -4021,19 +4008,22 @@
       "note": "needs the source control surface"
     },
     "QuickInput.busy": {
-      "class": "ok"
+      "class": "B",
+      "note": "stored, not drawn"
     },
     "QuickInput.dispose": {
       "class": "ok"
     },
     "QuickInput.enabled": {
-      "class": "ok"
+      "class": "B",
+      "note": "stored, not drawn"
     },
     "QuickInput.hide": {
       "class": "ok"
     },
     "QuickInput.ignoreFocusOut": {
-      "class": "ok"
+      "class": "B",
+      "note": "ignored: the quick input overlay closes on a click outside"
     },
     "QuickInput.onDidHide": {
       "class": "ok"
@@ -4051,7 +4041,8 @@
       "class": "ok"
     },
     "QuickInputButton.iconPath": {
-      "class": "ok"
+      "class": "B",
+      "note": "only QuickInputButtons.Back is drawn; other buttons stay with the extension"
     },
     "QuickInputButton.location": {
       "class": "B",
@@ -4087,7 +4078,8 @@
       "class": "ok"
     },
     "QuickPick.buttons": {
-      "class": "ok"
+      "class": "B",
+      "note": "only QuickInputButtons.Back is drawn; other buttons stay with the extension"
     },
     "QuickPick.canSelectMany": {
       "class": "ok"
@@ -4136,7 +4128,8 @@
       "class": "ok"
     },
     "QuickPickItem.alwaysShow": {
-      "class": "ok"
+      "class": "B",
+      "note": "honored by createQuickPick, not by showQuickPick"
     },
     "QuickPickItem.buttons": {
       "class": "B",
@@ -4153,7 +4146,8 @@
       "note": "not declared in vscode.d.ts"
     },
     "QuickPickItem.kind": {
-      "class": "ok"
+      "class": "B",
+      "note": "separators are dropped: the list draws no group headers"
     },
     "QuickPickItem.label": {
       "class": "ok"
@@ -4162,8 +4156,7 @@
       "class": "ok"
     },
     "QuickPickItem.resourceUri": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "QuickPickItemButtonEvent.button": {
       "class": "B",
@@ -4180,7 +4173,8 @@
       "class": "ok"
     },
     "QuickPickItemKind.Separator": {
-      "class": "ok"
+      "class": "B",
+      "note": "separators are dropped: the list draws no group headers"
     },
     "QuickPickOptions.canPickMany": {
       "class": "ok"
@@ -4198,8 +4192,7 @@
       "note": "not declared in vscode.d.ts"
     },
     "QuickPickOptions.onDidSelectItem": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "QuickPickOptions.placeHolder": {
       "class": "ok"
@@ -4275,7 +4268,8 @@
       "class": "ok"
     },
     "SaveDialogOptions.saveLabel": {
-      "class": "ok"
+      "class": "B",
+      "note": "not drawn: the simple file dialog has no buttons, Enter confirms"
     },
     "SaveDialogOptions.title": {
       "class": "ok"
@@ -4498,27 +4492,27 @@
     },
     "SnippetString.appendChoice": {
       "class": "ok",
-      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
+      "note": "insertSnippet starts a snippet session; in a completion item or a WorkspaceEdit it goes in as plain text"
     },
     "SnippetString.appendPlaceholder": {
       "class": "ok",
-      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
+      "note": "insertSnippet starts a snippet session; in a completion item or a WorkspaceEdit it goes in as plain text"
     },
     "SnippetString.appendTabstop": {
       "class": "ok",
-      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
+      "note": "insertSnippet starts a snippet session; in a completion item or a WorkspaceEdit it goes in as plain text"
     },
     "SnippetString.appendText": {
       "class": "ok",
-      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
+      "note": "insertSnippet starts a snippet session; in a completion item or a WorkspaceEdit it goes in as plain text"
     },
     "SnippetString.appendVariable": {
       "class": "ok",
-      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
+      "note": "insertSnippet starts a snippet session; in a completion item or a WorkspaceEdit it goes in as plain text"
     },
     "SnippetString.value": {
       "class": "ok",
-      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
+      "note": "insertSnippet starts a snippet session; in a completion item or a WorkspaceEdit it goes in as plain text"
     },
     "SnippetTextEdit": {
       "class": "B",
@@ -4676,19 +4670,19 @@
     },
     "StatementCoverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "StatementCoverage.branches": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "StatementCoverage.executed": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "StatementCoverage.location": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "StatusBarAlignment": {
       "class": "ok"
@@ -5007,10 +5001,12 @@
       "class": "ok"
     },
     "Task.group": {
-      "class": "ok"
+      "class": "B",
+      "note": "stored, has no effect: no Run Build Task or Run Test Task"
     },
     "Task.isBackground": {
-      "class": "ok"
+      "class": "B",
+      "note": "problem matchers of a background task are ignored: no begin/end patterns, the task is active until its process exits"
     },
     "Task.name": {
       "class": "ok"
@@ -5019,7 +5015,8 @@
       "class": "ok"
     },
     "Task.problemMatchers": {
-      "class": "ok"
+      "class": "B",
+      "note": "problem matchers of a background task are ignored: no begin/end patterns, the task is active until its process exits"
     },
     "Task.runOptions": {
       "class": "ok"
@@ -5061,7 +5058,8 @@
       "class": "ok"
     },
     "TaskGroup.isDefault": {
-      "class": "ok"
+      "class": "B",
+      "note": "stored, has no effect: no Run Build Task or Run Test Task"
     },
     "TaskGroup.Rebuild": {
       "class": "ok"
@@ -5208,7 +5206,8 @@
       "class": "ok"
     },
     "Terminal.shellIntegration": {
-      "class": "ok"
+      "class": "B",
+      "note": "no shell integration"
     },
     "Terminal.show": {
       "class": "ok"
@@ -5294,7 +5293,8 @@
       "class": "ok"
     },
     "TerminalOptions.color": {
-      "class": "ok"
+      "class": "B",
+      "note": "accepted, not carried over the wire: terminal tabs have no colors"
     },
     "TerminalOptions.cwd": {
       "class": "ok"
@@ -5325,7 +5325,8 @@
       "class": "ok"
     },
     "TerminalOptions.shellIntegrationNonce": {
-      "class": "ok"
+      "class": "B",
+      "note": "no shell integration"
     },
     "TerminalOptions.shellPath": {
       "class": "ok"
@@ -5437,320 +5438,254 @@
       "note": "guessed from the shell executable at creation; does not follow a sub-shell"
     },
     "TestController.createRunProfile": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestController.createTestItem": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestController.createTestRun": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestController.dispose": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestController.id": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestController.invalidateTestResults": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "B",
+      "note": "no-op: earlier results are not marked outdated"
     },
     "TestController.items": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestController.label": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestController.refreshHandler": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestController.resolveHandler": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestCoverageCount": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "TestCoverageCount.covered": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "TestCoverageCount.total": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "TestItem.busy": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.canResolveChildren": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.children": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.description": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.error": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.id": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.label": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.parent": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.range": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.sortText": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.tags": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItem.uri": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItemCollection.add": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItemCollection.delete": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItemCollection.forEach": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItemCollection.get": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItemCollection.replace": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestItemCollection.size": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessage": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessage.actualOutput": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessage.contextValue": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessage.diff": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessage.expectedOutput": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessage.location": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessage.message": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessage.stackTrace": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessageStackFrame": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessageStackFrame.label": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessageStackFrame.position": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestMessageStackFrame.uri": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.addCoverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "TestRun.appendOutput": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.end": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.enqueued": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.errored": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.failed": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.isPersisted": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.name": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.onDidDispose": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.passed": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.skipped": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.started": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRun.token": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunProfile.configureHandler": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "B",
+      "note": "accepted, not carried over the wire: no Configure Test Profiles action"
     },
     "TestRunProfile.dispose": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunProfile.isDefault": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunProfile.kind": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunProfile.label": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "B",
+      "note": "only orders the profiles: no Execute Using Profile picker, a non-default profile of a group is never run from the UI"
     },
     "TestRunProfile.loadDetailedCoverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "TestRunProfile.loadDetailedCoverageForTest": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "TestRunProfile.onDidChangeDefault": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "B",
+      "note": "never fires: no default-profile picker"
     },
     "TestRunProfile.runHandler": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunProfile.supportsContinuousRun": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "B",
+      "note": "carried to the host, no continuous-run mode uses it"
     },
     "TestRunProfile.tag": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunProfileKind": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunProfileKind.Coverage": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "coverage is not shown: no coverage view or gutter"
     },
     "TestRunProfileKind.Debug": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunProfileKind.Run": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunRequest": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunRequest.continuous": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "B",
+      "note": "carried to the host, no continuous-run mode uses it"
     },
     "TestRunRequest.exclude": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunRequest.include": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunRequest.preserveFocus": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestRunRequest.profile": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestTag": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TestTag.id": {
-      "class": "C",
-      "note": "needs the Testing surface"
+      "class": "ok"
     },
     "TextDocument.encoding": {
       "class": "ok"
@@ -5762,8 +5697,7 @@
       "class": "ok"
     },
     "TextDocument.getText": {
-      "class": "A",
-      "note": "#914: resolves before the document mirror is updated"
+      "class": "ok"
     },
     "TextDocument.getWordRangeAtPosition": {
       "class": "ok"
@@ -5772,8 +5706,7 @@
       "class": "ok"
     },
     "TextDocument.isDirty": {
-      "class": "A",
-      "note": "#914: resolves before the document mirror is updated"
+      "class": "ok"
     },
     "TextDocument.isUntitled": {
       "class": "ok"
@@ -5927,8 +5860,8 @@
       "class": "ok"
     },
     "TextEditor.setDecorations": {
-      "class": "C",
-      "note": "background, text color and before/after of renderOptions per range are drawn, ranges follow edits until the next call; hoverMessage is not shown"
+      "class": "ok",
+      "note": "hoverMessage is not shown"
     },
     "TextEditor.show": {
       "class": "B",
@@ -6088,102 +6021,95 @@
       "class": "ok"
     },
     "ThemableDecorationAttachmentRenderOptions.backgroundColor": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationAttachmentRenderOptions.border": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
     },
     "ThemableDecorationAttachmentRenderOptions.borderColor": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "colors the swatch of an empty contentText; no border is drawn"
     },
     "ThemableDecorationAttachmentRenderOptions.color": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationAttachmentRenderOptions.contentIconPath": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
     },
     "ThemableDecorationAttachmentRenderOptions.contentText": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationAttachmentRenderOptions.fontStyle": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "italic and oblique are drawn italic"
     },
     "ThemableDecorationAttachmentRenderOptions.fontWeight": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
     },
     "ThemableDecorationAttachmentRenderOptions.height": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
     },
     "ThemableDecorationAttachmentRenderOptions.margin": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
     },
     "ThemableDecorationAttachmentRenderOptions.textDecoration": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
     },
     "ThemableDecorationAttachmentRenderOptions.width": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
     },
     "ThemableDecorationInstanceRenderOptions.after": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationInstanceRenderOptions.before": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationRenderOptions.after": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationRenderOptions.backgroundColor": {
       "class": "ok"
     },
     "ThemableDecorationRenderOptions.before": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationRenderOptions.border": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.borderColor": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.borderRadius": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.borderSpacing": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.borderStyle": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.borderWidth": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.color": {
       "class": "ok"
     },
     "ThemableDecorationRenderOptions.cursor": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.fontStyle": {
       "class": "ok",
@@ -6194,34 +6120,36 @@
       "note": "bold, bolder and 600+ are drawn bold; normal does not clear a token's bold"
     },
     "ThemableDecorationRenderOptions.gutterIconPath": {
-      "class": "ok"
+      "class": "B",
+      "note": "accepted, not carried over the wire: the gutter draws no extension icons"
     },
     "ThemableDecorationRenderOptions.gutterIconSize": {
-      "class": "ok"
+      "class": "B",
+      "note": "accepted, not carried over the wire: the gutter draws no extension icons"
     },
     "ThemableDecorationRenderOptions.letterSpacing": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.opacity": {
       "class": "ok",
       "note": "the glyph color is blended toward the cell's final background"
     },
     "ThemableDecorationRenderOptions.outline": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.outlineColor": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.outlineStyle": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.outlineWidth": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "B",
+      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
     },
     "ThemableDecorationRenderOptions.overviewRulerColor": {
       "class": "ok"
@@ -6291,7 +6219,8 @@
       "class": "ok"
     },
     "TreeItem.accessibilityInformation": {
-      "class": "ok"
+      "class": "B",
+      "note": "stored, not drawn"
     },
     "TreeItem.checkboxState": {
       "class": "B",
@@ -6310,7 +6239,8 @@
       "class": "ok"
     },
     "TreeItem.iconPath": {
-      "class": "ok"
+      "class": "ok",
+      "note": "only a ThemeIcon is drawn; an image path is not"
     },
     "TreeItem.id": {
       "class": "ok"
@@ -6514,10 +6444,12 @@
       "class": "ok"
     },
     "ViewBadge.tooltip": {
-      "class": "ok"
+      "class": "B",
+      "note": "stored, not drawn"
     },
     "ViewBadge.value": {
-      "class": "ok"
+      "class": "B",
+      "note": "stored, not drawn"
     },
     "ViewColumn": {
       "class": "ok"
@@ -6796,11 +6728,10 @@
     },
     "WorkspaceFolderPickOptions.ignoreFocusOut": {
       "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "note": "ignored: the quick input overlay closes on a click outside"
     },
     "WorkspaceFolderPickOptions.placeHolder": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "WorkspaceFoldersChangeEvent.added": {
       "class": "B",
