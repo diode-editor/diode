@@ -172,6 +172,10 @@ class FakeService implements IExtensionsWorkbenchService {
         return null;
     }
 
+    public getOperationError(): string | null {
+        return null;
+    }
+
     public onDidChangeDownloadProgress(): { dispose: () => void } {
         return { dispose: () => undefined };
     }

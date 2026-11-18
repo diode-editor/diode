@@ -106,7 +106,8 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
             entry: this.entry,
             meta: this.meta,
             metaError: this.metaError,
-            operationError: this.operationError,
+            // An install this tab did not start (it was closed and opened again meanwhile) fails here too.
+            operationError: this.operationError ?? this.service.getOperationError(this.entry.id),
         };
     }
 

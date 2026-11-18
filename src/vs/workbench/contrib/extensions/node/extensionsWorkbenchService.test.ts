@@ -610,6 +610,30 @@ describe("ExtensionsWorkbenchService", () => {
             expect(changes).toEqual(["installing reload=false", "null reload=false"]);
         });
 
+        it("a failed install leaves its reason with the service for every page, until the next install starts", async () => {
+            const { service } = await withInstallable("1.0.0", { sha256: "0".repeat(64) });
+            await service.ensureLoaded();
+            const errors: (string | null)[] = [];
+            service.onDidChange(() => errors.push(service.getOperationError("acme.tools")));
+
+            const result = await service.install("acme.tools");
+            await service.install("acme.tools");
+
+            expect(result).toEqual({ ok: false, error: expect.stringContaining("sha256") as string });
+            // Already there at the end's redraw; cleared at the next start.
+            expect(errors).toEqual([null, result.ok ? null : result.error, null, result.ok ? null : result.error]);
+            expect(service.getOperationError("acme.other")).toBeNull();
+        });
+
+        it("a failed uninstall leaves its reason too", async () => {
+            const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
+            await service.ensureLoaded();
+
+            await service.uninstall("acme.tools");
+
+            expect(service.getOperationError("acme.tools")).toBe("Extension acme.tools is not installed");
+        });
+
         it("uninstall redraws the list at its start and its end: uninstalling, then the result", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "1.0.0");

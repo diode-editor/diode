@@ -36,6 +36,8 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
 function fakeService(initial: IExtensionListEntry[]): {
     service: IExtensionsWorkbenchService;
     update: (entries: IExtensionListEntry[]) => void;
+    /** Sets the reason the last operation of an id failed; the next `update` brings it to the pages. */
+    fail: (id: string, error: string | null) => void;
     /** Sets the download percent of an id and fires its change. */
     download: (id: string, percent: number | null) => void;
     downloadListeners: () => number;
@@ -43,6 +45,7 @@ function fakeService(initial: IExtensionListEntry[]): {
     let entries = initial;
     const listeners = new Set<() => void>();
     const downloads = new Map<string, number | null>();
+    const errors = new Map<string, string | null>();
     const downloadListeners = new Set<(id: string) => void>();
     const service: IExtensionsWorkbenchService = {
         ensureLoaded: () => Promise.resolve(),
@@ -61,6 +64,7 @@ function fakeService(initial: IExtensionListEntry[]): {
         install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true }),
         getDownloadProgress: (id) => downloads.get(id) ?? null,
+        getOperationError: (id) => errors.get(id) ?? null,
         onDidChangeDownloadProgress: (listener) => {
             downloadListeners.add(listener);
             return { dispose: () => downloadListeners.delete(listener) };
@@ -77,6 +81,9 @@ function fakeService(initial: IExtensionListEntry[]): {
             for (const listener of [...downloadListeners]) listener(id);
         },
         downloadListeners: () => downloadListeners.size,
+        fail: (id, error) => {
+            errors.set(id, error);
+        },
         update: (next) => {
             entries = next;
             for (const listener of [...listeners]) listener();
@@ -421,6 +428,21 @@ describe("ExtensionEditorPane", () => {
 
             expect(buttonLabels(first)).toEqual(["⠋ Installing 47%", "Install Specific Version..."]);
             expect(buttonLabels(second)).toEqual(buttonLabels(first));
+        });
+
+        it("a tab opened in the middle of an install shows its failure, and drops it once the next one starts", () => {
+            const { service, update, fail } = fakeService([INSTALLING]);
+            const pane = new ExtensionEditorPane(service, fakeActions(), INSTALLING, META, null);
+            mount(pane);
+
+            fail("acme.tools", "sha256 mismatch");
+            update([entry()]);
+            expect(headerLines(pane)).toContain("sha256 mismatch");
+            expect(buttonLabels(pane)[0]).toBe("Install");
+
+            fail("acme.tools", null);
+            update([INSTALLING]);
+            expect(headerLines(pane)).not.toContain("sha256 mismatch");
         });
 
         it("the percent of the page's own extension only", () => {

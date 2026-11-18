@@ -85,6 +85,7 @@ function fakeService(entries: readonly IExtensionListEntry[]): IExtensionsWorkbe
         installVsix: () => Promise.reject(new Error("not used")),
         onDidChange: () => ({ dispose: () => {} }),
         getDownloadProgress: () => null,
+        getOperationError: () => null,
         onDidChangeDownloadProgress: () => ({ dispose: () => {} }),
     };
 }

@@ -63,6 +63,7 @@ function fakeService(
         },
         onDidChange: () => ({ dispose: () => {} }),
         getDownloadProgress: () => null,
+        getOperationError: () => null,
         onDidChangeDownloadProgress: () => ({ dispose: () => {} }),
     };
 }

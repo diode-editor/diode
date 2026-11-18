@@ -56,6 +56,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     /** The installs in flight: a second install of the same id joins the first. */
     private readonly running = new Map<string, Promise<IExtensionInstallResult>>();
     private readonly downloads = new Map<string, number>();
+    private readonly operationErrors = new Map<string, string>();
 
     /** semver is a lazy chunk: loaded together with the index, not at startup. */
     private catalog: { readonly index: IRegistryIndex; readonly semver: Semver } | null = null;
@@ -214,10 +215,19 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             this.pendingReload.add(id);
             return { ok: true, version };
         } catch (error) {
-            return { ok: false, error: messageOf(error) };
+            return this.failed(id, messageOf(error));
         } finally {
             this.endOperation(id);
         }
+    }
+
+    public getOperationError(id: string): string | null {
+        return this.operationErrors.get(id) ?? null;
+    }
+
+    private failed(id: string, error: string): { ok: false; error: string } {
+        this.operationErrors.set(id, error);
+        return { ok: false, error };
     }
 
     public getDownloadProgress(id: string): number | null {
@@ -236,6 +246,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     /** Fires right away: the page and the list switch before any progress delay. */
     private startOperation(id: string, operation: ExtensionOperation): void {
         this.operations.set(id, operation);
+        this.operationErrors.delete(id);
         this.rebuildEntries();
     }
 
@@ -282,12 +293,12 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             if (!removed) {
                 // Nothing to remove is not a success: the entry would keep an
                 // Uninstall button that does nothing.
-                return Promise.resolve({ ok: false, error: `Extension ${id} is not installed` });
+                return Promise.resolve(this.failed(id, `Extension ${id} is not installed`));
             }
             this.pendingReload.add(id);
             return Promise.resolve({ ok: true });
         } catch (error) {
-            return Promise.resolve({ ok: false, error: messageOf(error) });
+            return Promise.resolve(this.failed(id, messageOf(error)));
         } finally {
             this.endOperation(id);
         }

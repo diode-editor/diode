@@ -170,6 +170,12 @@ export interface IExtensionsWorkbenchService {
     onDidChangeDownloadProgress(listener: (id: string) => void): IDisposable;
 
     /**
+     * Why the last install or uninstall of `id` failed, until the next one starts: like the operation itself, it
+     * belongs to the extension, so a page opened mid-install shows it too. Set before the end's `onDidChange`.
+     */
+    getOperationError(id: string): string | null;
+
+    /**
      * For the version picker (upstream `getAllCompatibleVersions`): newest first, compatible with this build.
      * Empty when the registry doesn't know the id; a network failure is thrown, like {@link getMeta}.
      */

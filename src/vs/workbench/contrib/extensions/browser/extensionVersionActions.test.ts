@@ -104,6 +104,7 @@ function harness(
         install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true }),
         getDownloadProgress: () => null,
+        getOperationError: () => null,
         onDidChangeDownloadProgress: () => ({ dispose: () => {} }),
         onDidChange: (listener) => {
             listeners.add(listener);
