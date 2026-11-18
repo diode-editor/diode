@@ -321,6 +321,7 @@ export function createWorkspace(
             references.count--;
             // The extension opened it meanwhile (`openTextDocumentOfExtension`): the document is its own now.
             if (references.count > 0 || commandReferences.get(key) !== references) return;
+            // Stryker disable next-line CallExpression: equivalent: frees memory; a zero entry is reused by the next reference, and an extension's open drops it
             commandReferences.delete(key);
             // A tab that showed it meanwhile owns the document now.
             if (documentsWithoutModel.delete(key)) documentSync.close(uri);
