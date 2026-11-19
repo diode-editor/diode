@@ -2,6 +2,7 @@ import * as nodePath from "node:path";
 
 import type * as vscode from "vscode";
 
+import { equals } from "../../../base/common/arrays.ts";
 import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/config/editorCursorStyle.ts";
 import { type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 
@@ -132,8 +133,8 @@ export function createWindowNamespace(
     /** Single source of `visibleTextEditors`/`tabGroups`/`viewColumn`: API events come from diffing snapshots. */
     let layout: IWireEditorLayout = { groups: [] };
     const selectionsByEditor = new Map<string, readonly IWireSelection[]>();
-    /** Kept while the tab lives: a hidden editor keeps its last value, as upstream. */
-    const visibleRangesByEditor = new Map<string, readonly IRange[]>();
+    /** Kept while the tab lives: a hidden editor keeps its last value, as upstream. Converted once, read often. */
+    const visibleRangesByEditor = new Map<string, readonly vscode.Range[]>();
     /** Their selection event waits for `editor.activeEditorChanged` (see {@link announceRestoredSelections}). */
     const pendingRestoredSelections = new Map<
         string,
@@ -259,13 +260,12 @@ export function createWindowNamespace(
         const parsed = parseWireEditorPropertiesChanged(params);
         if (parsed?.visibleRanges === undefined) return;
         const key = selectionKey(parsed.groupId, parsed.uri);
-        const previous = visibleRangesByEditor.get(key);
-        const next = parsed.visibleRanges;
-        if (previous?.length === next.length && previous.every((range, i) => rangesEqual(range, next[i]))) return;
-        visibleRangesByEditor.set(key, next);
+        if (equals(visibleRangesByEditor.get(key), parsed.visibleRanges, rangesEqual)) return;
+        const visibleRanges = parsed.visibleRanges.map(toVscodeRange);
+        visibleRangesByEditor.set(key, visibleRanges);
         const event: vscode.TextEditorVisibleRangesChangeEvent = {
             textEditor: getEditorFor(registry.getOrCreate(Uri.parse(parsed.uri)), parsed.groupId),
-            visibleRanges: next.map(toVscodeRange),
+            visibleRanges,
         };
         for (const listener of [...visibleRangesListeners]) listener(event);
     });
@@ -425,7 +425,8 @@ export function createWindowNamespace(
      */
     function seedVisibleRanges(groupId: number, uri: string, ranges: readonly IRange[] | undefined): void {
         const key = selectionKey(groupId, uri);
-        if (ranges !== undefined && !visibleRangesByEditor.has(key)) visibleRangesByEditor.set(key, ranges);
+        if (ranges !== undefined && !visibleRangesByEditor.has(key))
+            visibleRangesByEditor.set(key, ranges.map(toVscodeRange));
     }
 
     function getEditorFor(doc: ExtHostTextDocument, groupId: number): vscode.TextEditor {
@@ -602,9 +603,7 @@ export function createWindowNamespace(
                 pushSelections(document, groupId, [value]);
             },
             get visibleRanges(): readonly vscode.Range[] {
-                return (visibleRangesByEditor.get(selectionKey(groupId, document.uri.toString())) ?? []).map(
-                    toVscodeRange,
-                );
+                return visibleRangesByEditor.get(selectionKey(groupId, document.uri.toString())) ?? [];
             },
             get selections(): readonly vscode.Selection[] {
                 const all = editorSelections(groupId, document.uri.toString());
