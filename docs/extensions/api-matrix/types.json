@@ -912,8 +912,7 @@
       "class": "ok"
     },
     "CompletionItem.commitCharacters": {
-      "class": "B",
-      "note": "reaches the editor, a commit character does not accept the item yet (#1232)"
+      "class": "ok"
     },
     "CompletionItem.detail": {
       "class": "ok"

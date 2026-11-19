@@ -358,6 +358,15 @@ export const editorConfiguration = {
             maximum: 1073741824,
             description: "Controls the delay in milliseconds after which quick suggestions will show up.",
         },
+        // Verbatim from upstream (`markdownDescription` → `description`).
+        "editor.acceptSuggestionOnCommitCharacter": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description:
+                "Controls whether suggestions should be accepted on commit characters. For example, in JavaScript, " +
+                "the semi-colon (`;`) can be a commit character that accepts a suggestion and types that character.",
+        },
         "editor.suggestOnTriggerCharacters": {
             scope: "language-overridable",
             type: "boolean",
