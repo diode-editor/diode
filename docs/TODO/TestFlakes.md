@@ -33,6 +33,13 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `extensionHost.javaLsp.features.test.ts`, «references finds the declaration and the call»: `references for greet`
+  не дождались за 60 с в initial test run Stryker'а mutation-гейта (run 44455464286, PR #1243, дифф — поля
+  `CompletionItem` и список подсказок, сьют их не касается); в unit-job зелёный.
+- [ ] `embeddedTerminalSession.shellIntegrationEdges.test.ts`, «two zsh terminals started at once — both injected»: за
+  10 с в выводе нет `OSC 633;A`, только маркер prompt-sp zsh, под покрытием в CI (run 44461762533, PR #1239, дифф —
+  `TextEditor.visibleRanges`, терминала не касается); `main` на той же базе зелёный. Видимо, два zsh разом не успевают
+  стартовать на нагруженном раннере.
 - [ ] `httpRegistrySource.test.ts`, «the registry's size beats Content-Length»: два отчёта прогресса вместо трёх под
   покрытием в CI (run 44424532677, PR #1238, дифф — команды разработчика терминала, сьют их не касается); `main` на той
   же базе зелёный. Видимо, чанки ответа склеились в один на нагруженном раннере.

@@ -57,7 +57,7 @@ registration but are not called yet.
 | --- | :-: | --- |
 | `createDiagnosticCollection` | 🟡 | squiggles and the Problems panel; `relatedInformation` is not shown; markers of a dead extension host stay until it restarts |
 | `getDiagnostics`, `onDidChangeDiagnostics` | ✅ | all collections of the extension host plus the editor's own markers (settings, tasks); the event coalesces changes over 50 ms. Deviations: editor markers that existed before the extension host started arrive as an initial batch; removal of an editor marker is reported even when the resource still has markers of its own |
-| `registerCompletionItemProvider` | ✅ | trigger characters, resolve (documentation, auto-import); a `Color` item whose label, detail or documentation edge is a color shows a square of it in place of the icon |
+| `registerCompletionItemProvider` | ✅ | trigger characters, resolve (documentation, auto-import); a deprecated item is struck through, a `preselect` item is selected on open; a `Color` item whose label, detail or documentation edge is a color shows a square of it in place of the icon |
 | `registerDefinitionProvider` | ✅ | |
 | `registerImplementationProvider` | ✅ | Go to Implementations (Ctrl+F12): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleImplementations` |
 | `registerTypeDefinitionProvider` | ✅ | Go to Type Definition (Command Palette, editor context menu, no default key): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleTypeDefinitions` |
@@ -412,7 +412,7 @@ change the ⛔ status.
 
 ## Types with a partial surface
 
-315 of 424 upstream types and classes are declared. The declared ones are complete, except those
+316 of 424 upstream types and classes are declared. The declared ones are complete, except those
 listed below, where only a subset of members is declared. `TextDocument` is listed for a different
 reason: everything is declared and implemented, but `save` is a 🟡 stub.
 
@@ -429,7 +429,7 @@ reason: everything is declared and implemented, but `save` is a 🟡 stub.
 | `FileStat` | 4/5 | `permissions` |
 | `FileSystemProvider` | 5/10 | `readDirectory`, `createDirectory`, `delete`, `rename`, `copy` |
 | `DocumentFilter` | 3/4 | `notebookType` |
-| `CompletionItem` | 10/16 | `tags`, `filterText`, `preselect`, `commitCharacters`, `keepWhitespace`, `textEdit`. `additionalTextEdits` works both in the list and when loaded by resolve |
+| `CompletionItem` | 16/16 | — (everything is declared, but `commitCharacters` and `keepWhitespace` reach the editor and do not act yet: a commit character does not accept the item, and every insertion keeps its whitespace as is, with or without `keepWhitespace`). A `Deprecated` tag strikes the label through; `preselect` selects the item among the best matches; the old `textEdit` inserts its text on its range. `additionalTextEdits` works both in the list and when loaded by resolve |
 | `DocumentRangeFormattingEditProvider` | 1/2 | `provideDocumentRangesFormattingEdits` |
 | `LanguageStatusItem` | 9/10 | `accessibilityInformation` |
 | `DataTransferFile` | 3/3 | — (declared for `createFile({ contents })`; there is no drag-and-drop, so such `contents` is ignored) |
