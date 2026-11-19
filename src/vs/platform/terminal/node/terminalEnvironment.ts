@@ -1,7 +1,7 @@
 // Upstream `src/vs/platform/terminal/node/terminalEnvironment.ts`, `getShellIntegrationInjection`: Linux/macOS
 // bash and zsh. Not ported: the Windows branches (pwsh.exe, git bash), fish and pwsh (the next issue of the chain),
-// `ignoreShellIntegration`/`forceShellIntegration` (no launch sets them), `VSCODE_SHELL_ENV_REPORTING` and
-// `VSCODE_PATH_PREFIX` (they come with the OSC 633 parsing and the environment API).
+// `ignoreShellIntegration`/`forceShellIntegration` (no launch sets them), `VSCODE_PATH_PREFIX` (comes with the
+// environment API).
 
 import { chmodSync, mkdirSync, realpathSync } from "node:fs";
 import * as os from "node:os";
@@ -46,6 +46,8 @@ export interface IShellIntegrationLaunchConfig {
 export interface IShellIntegrationOptions {
     /** `terminal.integrated.shellIntegration.enabled`. */
     readonly enabled: boolean;
+    /** `terminal.integrated.shellIntegration.environmentReporting`. */
+    readonly environmentReporting?: boolean;
     /**
      * The directory holding `shellIntegration-*` (upstream `<appRoot>/out/vs/workbench/contrib/terminal/common/scripts`);
      * asked only for a shell that gets the scripts — the packaged build unpacks them on the first call.
@@ -59,6 +61,8 @@ export interface IShellIntegrationHost {
     userInfo(): { readonly username: string };
     homedir(): string;
 }
+
+const SHELL_ENV_REPORTING_KEYS = "PATH,VIRTUAL_ENV,HOME,SHELL,PWD";
 
 const shLoginArgs = ["--login", "-l"];
 const shInteractiveArgs = ["-i", "--interactive"];
@@ -87,6 +91,8 @@ export function getShellIntegrationInjection(
     const isDefaultArgs = originalArgs.length === 0;
     const isLoginArgs = areZshBashFishLoginArgs(originalArgs);
     const envMixin: Record<string, string> = { VSCODE_INJECTION: "1" };
+    // Upstream: "Temporarily pass list of hardcoded env vars for shell env api".
+    if (options.environmentReporting === true) envMixin.VSCODE_SHELL_ENV_REPORTING = SHELL_ENV_REPORTING_KEYS;
 
     switch (path.basename(launch.executable)) {
         case "bash": {

@@ -126,7 +126,7 @@ export class TerminalLinkService implements ITerminalSurfaceDecorator {
             os,
             userHome: this.environment.userHome,
             getCwds: async () => {
-                const cwd = (await instance.session.getCwd?.()) ?? instance.launch.cwd;
+                const cwd = shellIntegrationCwd(instance) ?? (await instance.session.getCwd?.()) ?? instance.launch.cwd;
                 const roots = this.workspace.getWorkspace().folders.map((folder) => folder.uri.fsPath);
                 // A repeated directory costs nothing: the resolver caches by absolute path.
                 return [cwd, ...roots];
@@ -138,4 +138,10 @@ export class TerminalLinkService implements ITerminalSurfaceDecorator {
             isInWorkspace: (uri) => this.workspace.getWorkspaceFolder(uri) !== null,
         });
     }
+}
+
+/** Upstream resolves relative links against the cwd shell integration reported, when there is one. */
+function shellIntegrationCwd(instance: ITerminalInstance): string | undefined {
+    const cwd = instance.session.shellIntegration?.capabilities.get("cwdDetection")?.getCwd();
+    return cwd === "" ? undefined : cwd;
 }

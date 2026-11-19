@@ -140,6 +140,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.integrated.allowMnemonics": "window",
     "terminal.integrated.enableKittyKeyboardProtocol": "window",
     "terminal.integrated.shellIntegration.enabled": "window",
+    "terminal.integrated.shellIntegration.environmentReporting": "window",
     // There is one host terminal per process, not per window or folder.
     "terminal.integrated.colorSource": "application",
 

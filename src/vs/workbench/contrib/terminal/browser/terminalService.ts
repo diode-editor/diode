@@ -62,6 +62,7 @@ export interface ITerminalInstance {
             | "onLineData"
             | "buffer"
             | "getCwd"
+            | "shellIntegration"
             | "printMessage"
             | "onWillData"
             | "onDidWriteData"
@@ -302,7 +303,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
             this.factory({
                 cols: INITIAL_COLS,
                 rows: INITIAL_ROWS,
-                ...sessionOptions(options, cwd, this.shellIntegrationEnabled()),
+                ...sessionOptions(options, cwd, this.shellIntegration()),
             });
         this.applyKittyKeyboard(session);
         // For a ready session we print `message` ourselves — a shell session prints it on spawn.
@@ -363,7 +364,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         instance.exitCode = undefined;
         instance.waitOnExit = options.waitOnExit;
         instance.session.relaunch({
-            ...sessionOptions(options, cwd, this.shellIntegrationEnabled()),
+            ...sessionOptions(options, cwd, this.shellIntegration()),
             ...(options.clear === true ? { clear: true } : {}),
         });
         instance.processId = instance.session.pid;
@@ -611,9 +612,12 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return [...this.instances, ...this.backgroundInstances, ...this.editorInstances];
     }
 
-    /** Upstream reads it when the process starts: a changed value applies to the next (re)launch. */
-    private shellIntegrationEnabled(): boolean {
-        return this.configuration.get("terminal.integrated.shellIntegration.enabled");
+    /** Upstream reads these when the process starts: a changed value applies to the next (re)launch. */
+    private shellIntegration(): IShellIntegrationSettings {
+        return {
+            enabled: this.configuration.get("terminal.integrated.shellIntegration.enabled"),
+            environmentReporting: this.configuration.get("terminal.integrated.shellIntegration.environmentReporting"),
+        };
     }
 
     private applyKittyKeyboard(session: ITerminalSession): void {
@@ -633,14 +637,20 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 }
 
+interface IShellIntegrationSettings {
+    readonly enabled: boolean;
+    readonly environmentReporting: boolean;
+}
+
 function sessionOptions(
     options: ITerminalRelaunchInstanceOptions,
     cwd: string,
-    shellIntegrationEnabled: boolean,
+    shellIntegration: IShellIntegrationSettings,
 ): Omit<ITerminalSessionOptions, "cols" | "rows"> {
     return {
         cwd,
-        shellIntegrationEnabled,
+        shellIntegrationEnabled: shellIntegration.enabled,
+        ...(shellIntegration.environmentReporting ? { shellIntegrationEnvironmentReporting: true } : {}),
         ...(options.isFeatureTerminal === true ? { isFeatureTerminal: true } : {}),
         ...(options.shellPath !== undefined ? { shell: options.shellPath } : {}),
         ...(options.shellArgs !== undefined ? { args: [...options.shellArgs] } : {}),

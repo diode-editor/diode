@@ -34,14 +34,14 @@ function inject(
     executable: string | undefined,
     args?: readonly string[],
     env: Record<string, string> = {},
-    overrides: { enabled?: boolean; isFeatureTerminal?: boolean } = {},
+    overrides: { enabled?: boolean; isFeatureTerminal?: boolean; environmentReporting?: boolean } = {},
 ) {
     const log = makeLogger();
     const scriptsDir = vi.fn(() => SCRIPTS);
     const launch: IShellIntegrationLaunchConfig = { executable, args, isFeatureTerminal: overrides.isFeatureTerminal };
     const result = getShellIntegrationInjection(
         launch,
-        { enabled: overrides.enabled ?? true, scriptsDir },
+        { enabled: overrides.enabled ?? true, environmentReporting: overrides.environmentReporting, scriptsDir },
         env,
         log,
         host,
@@ -111,6 +111,16 @@ describe("getShellIntegrationInjection — bash", () => {
                 filesToCopy: [],
             });
         }
+    });
+});
+
+describe("getShellIntegrationInjection — environment reporting", () => {
+    it("on: VSCODE_SHELL_ENV_REPORTING names upstream's variables, for bash and zsh; off or absent: not set", () => {
+        const keys = { VSCODE_SHELL_ENV_REPORTING: "PATH,VIRTUAL_ENV,HOME,SHELL,PWD" };
+        expect(inject("bash", [], {}, { environmentReporting: true }).result).toMatchObject({ envMixin: keys });
+        expect(inject("zsh", [], {}, { environmentReporting: true }).result).toMatchObject({ envMixin: keys });
+        const off = inject("bash", [], {}, { environmentReporting: false }).result;
+        expect(off.type === "injection" && "VSCODE_SHELL_ENV_REPORTING" in off.envMixin).toBe(false);
     });
 });
 
