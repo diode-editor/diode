@@ -1,6 +1,7 @@
 // Upstream `commandDetectionCapability.ts` + `commandDetection/terminalCommand.ts`, the Unix path: the shell's
-// prompt/command/executed/finished marks become commands. Not ported: `promptInputModel` (a command line without
-// `633;E` is read from the buffer between the command start and executed marks — upstream's fallback), the Windows
+// prompt/command/executed/finished marks become commands; the prompt input model is a slice of upstream's. Not ported:
+// the command line read from the prompt input model (without `633;E` it is read from the buffer between the command
+// start and executed marks — upstream's fallback), the Windows
 // heuristics, invalidation on clear, serialization, the bash `history` exit code hack, markers kept per command
 // (they serve decorations).
 
@@ -10,6 +11,7 @@ import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 
 import type { ITerminalCommand, TerminalCommandLineConfidence } from "./capabilities.ts";
+import { PromptInputModel } from "./commandDetection/promptInputModel.ts";
 
 class TerminalCommand implements ITerminalCommand {
     public exitCode: number | undefined;
@@ -41,7 +43,11 @@ export class CommandDetectionCapability implements IDisposable {
     private readonly onCommandExecutedEmitter = new Emitter<ITerminalCommand>();
     private readonly onCommandFinishedEmitter = new Emitter<ITerminalCommand>();
 
-    public constructor(private readonly terminal: Terminal) {}
+    public readonly promptInputModel: PromptInputModel;
+
+    public constructor(private readonly terminal: Terminal) {
+        this.promptInputModel = new PromptInputModel(terminal);
+    }
 
     /** Finished commands, oldest first. */
     public get commands(): readonly ITerminalCommand[] {
@@ -71,8 +77,13 @@ export class CommandDetectionCapability implements IDisposable {
     public handleCommandStart(): void {
         this.current.start?.marker.dispose();
         const marker = this.terminal.registerMarker(0);
-        this.current.start =
-            marker === undefined ? undefined : { marker, x: this.terminal.buffer.active.cursorX, cwd: this.cwd };
+        if (marker === undefined) {
+            this.current.start = undefined;
+            return;
+        }
+        const x = this.terminal.buffer.active.cursorX;
+        this.current.start = { marker, x, cwd: this.cwd };
+        this.promptInputModel.handleCommandStart(marker, x);
     }
 
     /**
@@ -103,6 +114,7 @@ export class CommandDetectionCapability implements IDisposable {
         }
         // The mark only serves reading the line above.
         start.marker.dispose();
+        this.promptInputModel.handleCommandExecuted();
         this.current.executed = command;
         this.onCommandExecutedEmitter.fire(command);
     }
@@ -141,6 +153,7 @@ export class CommandDetectionCapability implements IDisposable {
 
     public dispose(): void {
         this.current.start?.marker.dispose();
+        this.promptInputModel.dispose();
         this.onCommandExecutedEmitter.dispose();
         this.onCommandFinishedEmitter.dispose();
     }

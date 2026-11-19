@@ -1441,6 +1441,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Controls whether to report the shell environment, enabling its use in features such as `#terminal.integrated.suggest.enabled#`. This may cause a slowdown when printing your shell's prompt.",
     },
     {
+        key: "terminal.integrated.shellIntegration.timeout",
+        type: "integer",
+        default: -1,
+        description:
+            "Configures the duration in milliseconds to wait for shell integration after launch before declaring it's not there. The default value `-1` uses a variable wait time based on whether shell integration injection is enabled and whether it's a remote window. Values between 1 and 499 are clamped to 500ms. Consider setting this to a large value if your shell starts very slowly.",
+    },
+    {
         key: "terminal.integrated.tabs.enabled",
         type: "boolean",
         default: true,

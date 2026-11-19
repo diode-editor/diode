@@ -209,7 +209,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
     }
 
     public executeCommand(id: number, commandLine: string): void {
-        this.terminals.sendText(id, commandLine, true);
+        void this.terminals.runCommand(id, commandLine);
     }
 
     /**
