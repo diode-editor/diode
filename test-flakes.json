@@ -5,7 +5,7 @@
             "file": "src/vs/workbench/contrib/terminal/node/embeddedTerminalSession.shellIntegrationEdges.test.ts",
             "test": "shell integration — zsh edges > two zsh terminals started at once — both injected",
             "action": "retry",
-            "note": "the zsh output had the prompt but no OSC 633;A under coverage on CI (run 44459753141, PR #1243, whose diff is CompletionItem fields and the completion list, which this suite does not touch); main green on the same base"
+            "note": "no OSC 633;A in the output after 10 s, only the zsh prompt-sp marker, under coverage on CI (run 44461762533, PR #1239, whose diff is TextEditor.visibleRanges; this suite does not touch the editor); main green on the same base"
         },
         {
             "file": "src/vs/workbench/services/extensions/node/extensionHost.javaLsp.features.test.ts",
