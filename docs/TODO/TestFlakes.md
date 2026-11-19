@@ -33,6 +33,10 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `embeddedTerminalSession.shellIntegrationEdges.test.ts`, «two zsh terminals started at once — both injected»: в
+  выводе zsh был промпт, но не было OSC `633;A` под покрытием в CI (run 44459753141, PR #1243, дифф — поля
+  `CompletionItem` и список подсказок, сьют их не касается); `main` на той же базе зелёный.
+
 - [ ] `extensionHost.javaLsp.features.test.ts`, «references finds the declaration and the call»: `references for greet`
   не дождались за 60 с в initial test run Stryker'а mutation-гейта (run 44455464286, PR #1243, дифф — поля
   `CompletionItem` и список подсказок, сьют их не касается); в unit-job зелёный.
