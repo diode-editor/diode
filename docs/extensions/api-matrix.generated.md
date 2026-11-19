@@ -14,9 +14,9 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1349 |
+| ok | 1351 |
 | A | 4 |
-| B | 196 |
+| B | 194 |
 | C | 432 |
 | X | 234 |
 
@@ -124,7 +124,6 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `TabInputNotebookDiff` | X | 2 | 21,676,874 | notebook |
 | `CommentMode.Preview` | C | 6 | 19,233,801 | needs the comments surface |
 | `lm.onDidChangeChatModels` | C | 1 | 18,726,545 | needs a chat surface and a model backend |
-| `env.logLevel` | B | 6 | 18,596,305 | not declared in vscode.d.ts |
 | `NotebookEdit.deleteCells` | X | 3 | 18,122,658 | notebook |
 | `DocumentDropEdit` | C | 4 | 18,090,004 | no drag and drop in the editor |
 | `languages.registerDocumentDropEditProvider` | C | 4 | 18,090,004 | no drag and drop in the editor |
@@ -132,6 +131,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `FilePermission.Readonly` | B | 6 | 16,678,427 | not declared in vscode.d.ts |
 | `NotebookCellOutputItem` | X | 3 | 14,297,456 | notebook |
 | `authentication.registerAuthenticationProvider` | B | 9 | 13,641,231 | null object: there is no sign-in |
+| `NotebookCellOutputItem.stderr` | X | 2 | 13,444,173 | notebook |
 
 ## Proposed extensions
 
@@ -259,17 +259,20 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `James-Yu.latex-workshop` | 10.20.0 | 907,583 |  | 122 | 6 | 0 | 1 | 1 | 4 |
 | `cweijan.vscode-office` | 4.2.3 | 2,348,119 |  | 107 | 7 | 0 | 2 | 2 | 3 |
 | `mtxr.sqltools` | 0.28.6 | 1,134,650 |  | 160 | 7 | 0 | 3 | 3 | 1 |
+| `ms-python.isort` | 2025.0.0 | 914,054 |  | 174 | 7 | 0 | 0 | 0 | 7 |
 | `coderabbit.coderabbit-vscode` | 0.25.0 | 820,812 |  | 75 | 7 | 0 | 1 | 5 | 1 |
 | `robertpiosik.gemini-coder` | 2026.1030.308 | 603,271 |  | 86 | 7 | 0 | 5 | 0 | 2 |
 | `GraphQL.vscode-graphql` | 1.0.0-rc.1 | 592,340 |  | 161 | 7 | 0 | 0 | 0 | 7 |
 | `salesforce.salesforcedx-vscode-apex-testing` | 68.7.3 | 487,568 |  | 36 | 7 | 0 | 0 | 7 | 0 |
+| `ms-python.mypy-type-checker` | 2026.6.0 | 482,714 |  | 174 | 7 | 0 | 0 | 0 | 7 |
+| `ms-python.flake8` | 2025.2.0 | 459,504 |  | 173 | 7 | 0 | 0 | 0 | 7 |
 | `meta.pyrefly` | 1.4.0 | 93,029,722 |  | 181 | 8 | 0 | 0 | 0 | 8 |
 | `ms-toolsai.vscode-jupyter-cell-tags` | 0.1.9 | 8,947,433 |  | 22 | 8 | 0 | 0 | 0 | 8 |
 | `ms-vscode.powershell` | 2025.4.0 | 2,680,851 |  | 216 | 8 | 0 | 0 | 0 | 8 |
 | `bradlc.vscode-tailwindcss` | 0.16.0 | 2,627,725 |  | 167 | 8 | 0 | 0 | 1 | 7 |
 | `bmewburn.vscode-intelephense-client` | 1.18.5 | 2,245,620 |  | 171 | 8 | 0 | 0 | 0 | 8 |
 | `Continue.continue` | 2.1.0 | 1,747,795 |  | 102 | 8 | 0 | 2 | 1 | 5 |
-| `ms-python.isort` | 2025.0.0 | 914,054 |  | 174 | 8 | 0 | 1 | 0 | 7 |
+| `ms-python.black-formatter` | 2025.2.0 | 1,570,996 |  | 176 | 8 | 0 | 0 | 0 | 8 |
 | `stylelint.vscode-stylelint` | 2.2.1 | 755,096 |  | 163 | 8 | 0 | 0 | 0 | 8 |
 | `fwcd.kotlin` | 0.2.36 | 746,111 |  | 170 | 8 | 0 | 1 | 0 | 7 |
 | `tamasfe.even-better-toml` | 0.21.2 | 701,599 |  | 170 | 8 | 0 | 0 | 0 | 8 |
@@ -279,13 +282,10 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `salesforce.salesforcedx-vscode-visualforce` | 68.7.3 | 581,543 |  | 170 | 8 | 0 | 0 | 0 | 8 |
 | `llvm-vs-code-extensions.vscode-clangd` | 0.6.0 | 31,675,501 |  | 189 | 9 | 0 | 0 | 1 | 8 |
 | `svelte.svelte-vscode` | 110.3.2 | 2,182,506 |  | 177 | 9 | 0 | 1 | 0 | 8 |
-| `ms-python.black-formatter` | 2025.2.0 | 1,570,996 |  | 176 | 9 | 0 | 1 | 0 | 8 |
 | `Alibaba-Cloud.tongyi-lingma` | 2.6.10 | 896,092 |  | 135 | 9 | 0 | 2 | 4 | 3 |
 | `googlecloudtools.firebase-dataconnect-vscode` | 2.4.3 | 826,211 |  | 188 | 9 | 0 | 1 | 0 | 8 |
 | `salesforce.salesforcedx-vscode-apex` | 68.7.3 | 658,242 |  | 174 | 9 | 0 | 1 | 0 | 8 |
 | `posit.air-vscode` | 0.30.0 | 544,773 |  | 173 | 9 | 0 | 1 | 0 | 8 |
-| `ms-python.mypy-type-checker` | 2026.6.0 | 482,714 |  | 174 | 9 | 0 | 2 | 0 | 7 |
-| `ms-python.flake8` | 2025.2.0 | 459,504 |  | 173 | 9 | 0 | 2 | 0 | 7 |
 | `bufbuild.vscode-buf` | 0.8.19 | 37,626 | yes | 176 | 9 | 0 | 1 | 0 | 8 |
 | `GitHub.vscode-github-actions` | 0.32.3 | 4,553,330 |  | 188 | 10 | 0 | 2 | 1 | 7 |
 | `Angular.ng-template` | 22.2.0 | 2,978,950 |  | 174 | 10 | 0 | 1 | 1 | 8 |
@@ -307,14 +307,14 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `laravel.vscode-laravel` | 2.0.1 | 541,132 |  | 182 | 11 | 0 | 0 | 3 | 8 |
 | `Slint.slint-nightly` | 2026.10.2921 | 466,416 |  | 183 | 11 | 0 | 1 | 0 | 10 |
 | `vscjava.vscode-java-test` | 0.47.0 | 28,125,780 |  | 101 | 12 | 0 | 0 | 12 | 0 |
+| `Vue.volar` | 3.3.14 | 11,149,304 |  | 185 | 12 | 0 | 0 | 3 | 9 |
 | `Google.geminicodeassist` | 2.107.0 | 4,275,020 |  | 214 | 12 | 0 | 3 | 1 | 8 |
+| `charliermarsh.ruff` | 2026.92.0 | 4,019,733 | yes | 189 | 12 | 0 | 2 | 0 | 10 |
 | `redhat.vscode-xml` | 0.29.2026103008 | 1,658,522 |  | 204 | 12 | 0 | 2 | 0 | 10 |
-| `Vue.volar` | 3.3.14 | 11,149,304 |  | 185 | 13 | 0 | 1 | 3 | 9 |
 | `hashicorp.terraform` | 2.40.0 | 2,425,304 | yes | 202 | 13 | 0 | 4 | 1 | 8 |
 | `RooVeterinaryInc.roo-cline` | 3.54.0 | 2,033,348 |  | 81 | 13 | 0 | 3 | 8 | 2 |
 | `wgsl-analyzer.wgsl-analyzer` | 0.12.534 | 466,617 |  | 202 | 13 | 0 | 2 | 1 | 10 |
 | `redhat.java` | 1.59.2026103008 | 47,408,151 | yes | 233 | 14 | 0 | 3 | 0 | 11 |
-| `charliermarsh.ruff` | 2026.92.0 | 4,019,733 | yes | 189 | 14 | 0 | 4 | 0 | 10 |
 | `nrwl.angular-console` | 18.102.0 | 701,593 |  | 206 | 14 | 0 | 3 | 2 | 9 |
 | `salesforce.salesforcedx-vscode-lwc` | 68.7.3 | 611,798 |  | 189 | 14 | 0 | 0 | 6 | 8 |
 | `posit.shiny` | 1.5.0 | 3,140,385 |  | 62 | 15 | 0 | 1 | 14 | 0 |
@@ -980,9 +980,9 @@ Proposed API or a false hit: class X when real.
 | `env.isNewAppInstall` | B |  | 1 | 620,681 |  |
 | `env.isTelemetryEnabled` | ok |  | 44 | 614,637,512 | vscjava.vscode-maven |
 | `env.language` | ok | yes | 97 | 734,577,323 | Angular.ng-template, biomejs.biome, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, svelte.svelte-vscode, tamasfe.even-better-toml |
-| `env.logLevel` | B |  | 6 | 18,596,305 |  |
+| `env.logLevel` | ok |  | 6 | 18,596,305 |  |
 | `env.machineId` | ok | yes | 52 | 614,169,069 |  |
-| `env.onDidChangeLogLevel` | B |  | 3 | 4,961,951 |  |
+| `env.onDidChangeLogLevel` | ok |  | 3 | 4,961,951 |  |
 | `env.onDidChangeShell` | ok |  | 1 | 61,892,209 |  |
 | `env.onDidChangeTelemetryEnabled` | ok |  | 13 | 104,612,249 |  |
 | `env.openExternal` | ok |  | 128 | 880,569,421 |  |
