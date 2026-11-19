@@ -119,6 +119,6 @@ describe("_executeLinkProvider", () => {
         const { execute } = setup();
 
         await expect(execute(Uri.file("/ws/other.md"))).resolves.toEqual([]);
-        await expect(execute("not a uri")).resolves.toEqual([]);
+        await expect(execute(null)).resolves.toEqual([]);
     });
 });
