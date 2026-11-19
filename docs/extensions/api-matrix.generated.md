@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1355 |
+| ok | 1360 |
 | A | 4 |
-| B | 190 |
+| B | 185 |
 | C | 432 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 238 |
+| test | 243 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -663,21 +663,21 @@ Proposed API or a false hit: class X when real.
 | `CompletionContext.triggerCharacter` | ok |  | 0 | 0 |  |
 | `CompletionContext.triggerKind` | ok |  | 0 | 0 |  |
 | `CompletionItem` | ok |  | 98 | 729,145,124 |  |
-| `CompletionItem.additionalTextEdits` | B |  | 0 | 0 |  |
+| `CompletionItem.additionalTextEdits` | ok |  | 0 | 0 |  |
 | `CompletionItem.command` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss |
-| `CompletionItem.commitCharacters` | B |  | 0 | 0 |  |
+| `CompletionItem.commitCharacters` | B | yes | 0 | 0 |  |
 | `CompletionItem.detail` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss |
 | `CompletionItem.documentation` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss |
 | `CompletionItem.filterText` | ok |  | 0 | 0 |  |
 | `CompletionItem.insertText` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss, redhat.vscode-yaml |
-| `CompletionItem.keepWhitespace` | B |  | 0 | 0 |  |
+| `CompletionItem.keepWhitespace` | B | yes | 0 | 0 |  |
 | `CompletionItem.kind` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, redhat.vscode-yaml |
 | `CompletionItem.label` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, redhat.vscode-yaml |
-| `CompletionItem.preselect` | B |  | 0 | 0 |  |
+| `CompletionItem.preselect` | ok | yes | 0 | 0 |  |
 | `CompletionItem.range` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss, redhat.vscode-yaml |
-| `CompletionItem.sortText` | B |  | 0 | 0 | bradlc.vscode-tailwindcss |
-| `CompletionItem.tags` | B |  | 0 | 0 |  |
-| `CompletionItem.textEdit` | B |  | 0 | 0 | christian-kohler.npm-intellisense |
+| `CompletionItem.sortText` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss |
+| `CompletionItem.tags` | ok | yes | 0 | 0 |  |
+| `CompletionItem.textEdit` | ok | yes | 0 | 0 | christian-kohler.npm-intellisense |
 | `CompletionItemKind` | ok |  | 0 | 0 |  |
 | `CompletionItemKind.Class` | ok |  | 5 | 8,252,493 |  |
 | `CompletionItemKind.Color` | ok |  | 3 | 14,015,496 |  |

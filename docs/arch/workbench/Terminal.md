@@ -85,13 +85,16 @@ terminal.» до первого открытия), несколько терми
 следующие issues волны (#1215); здесь только инъекция.
 
 - **Скрипты** — дословно из эталона, с шапкой лицензии: `contrib/terminal/common/scripts/` (зеркальный
-  путь): `shellIntegration-bash.sh`, `-rc.zsh`, `-env.zsh`, `-profile.zsh`, `-login.zsh`. Правка скрипта —
-  отступление с обоснованием в PR.
+  путь): `shellIntegration-bash.sh`, `-rc.zsh`, `-env.zsh`, `-profile.zsh`, `-login.zsh`, `shellIntegration.fish`,
+  `shellIntegration.ps1`. Правка скрипта — отступление с обоснованием в PR. Каталог `psreadline/` эталона (PSReadLine
+  2.4.3 для режима скринридера) не перенесён: `.ps1` берёт его только при `VSCODE_A11Y_MODE=1`, а его ставит лишь
+  Windows-ветка эталона; без каталога скрипт его просто не находит (`Test-Path`).
 - **Решение** — порт `getShellIntegrationInjection` (`platform/terminal/node/terminalEnvironment.ts`), с
   причинами отказа эталона: настройка выключена (`terminal.integrated.shellIntegration.enabled`, читается при
   каждом (пере)запуске) → нет исполняемого файла → терминал задачи (`isFeatureTerminal`, ставит
   `terminalTaskSystem`) → аргументы шелла не пустые и не login-набор (`-l`/`--login`, `-i` рядом
-  допускается) → шелл не bash/zsh (`warn` в лог `Terminal`). Pty расширения процесса не имеет — не
+  допускается; у pwsh свои наборы, ниже) → шелл не bash/zsh/fish/pwsh по `basename` исполняемого файла (`warn` в
+  лог `Terminal`). Pty расширения процесса не имеет — не
   затрагивается.
 - **bash**: `--init-file <scripts>/shellIntegration-bash.sh`; login — `VSCODE_SHELL_LOGIN=1` (скрипт сам
   имитирует `-l`: `/etc/profile`, `~/.bash_profile`…); `VSCODE_STABLE=1`. Скрипт подключает `~/.bashrc` сам
@@ -102,6 +105,14 @@ terminal.» до первого открытия), несколько терми
   Отступление: эталон после **создания** каталога всё равно отвечает `failedToSetStickyBit`, и самый первый
   zsh стартует без интеграции; у нас созданный каталог используется. Нечитаемый tmp — отказ
   `failedToCreateTmpDir`, а не исключение.
+- **fish**: `--init-command 'source "<scripts>/shellIntegration.fish"'` (путь в кавычках — каталог кэша с
+  пробелами), login — `-l` первым; только `VSCODE_INJECTION=1`, `VSCODE_STABLE` эталон fish не ставит. Скрипт
+  выполняется после `config.fish` и сам требует `TERM_PROGRAM=vscode` (`buildEnv`). `VSCODE_PATH_PREFIX` для
+  `$fish_user_paths` — с `applyAtShellIntegration` (#1223).
+- **pwsh** (Linux/macOS): без аргументов или только `-nologo`/`-nol` — `-noexit -command '. "<scripts>/shellIntegration.ps1"'`;
+  login (`-l`/`-login` один или рядом с `-nologo` в любом порядке) — то же с `-l` первым; иначе `unsupportedArgs`.
+  `VSCODE_STABLE=1`. `$PROFILE` pwsh выполняет до `-command`. `pwsh.exe`/`powershell.exe` — Windows-ветки, не
+  портированы.
 - **Окружение**: `VSCODE_INJECTION=1` и остальное поверх `buildEnv` (после `TERM_PROGRAM`, со `strictEnv`
   тоже — как в эталоне); `VSCODE_NONCE` — свой на терминал (`EmbeddedTerminalSession`), один на все
   перезапуски, выставляется и без инъекции (его может взять своя интеграция расширения).
@@ -109,8 +120,12 @@ terminal.» до первого открытия), несколько терми
   `shell-integration.bundle` (`scripts/pack-shell-integration.mjs`, имена файлов без каталогов) распаковывается
   в `<userCacheDir>/shell-integration/<version>-<sha>` тем же `extractBundleToCacheSync`, что и node-pty
   (маркер `.diode-ready`, повторный запуск не пишет). Self-extract кладёт бандл рядом с `main.cjs`.
-- Не сделано здесь: fish и pwsh (#1219), `VSCODE_SHELL_ENV_REPORTING`, `VSCODE_PATH_PREFIX`,
-  `ignoreShellIntegration`/`forceShellIntegration` (их никто не ставит), Windows-ветки.
+- Не сделано здесь: `VSCODE_SHELL_ENV_REPORTING`, `VSCODE_PATH_PREFIX`, `ignoreShellIntegration`/
+  `forceShellIntegration` (их никто не ставит), проброс эталоном своих же аргументов инъекции zsh/fish по
+  идентичности массива (их сюда никто не возвращает), Windows-ветки.
+- **Тесты на настоящих шеллах** (`embeddedTerminalSession.shellIntegration*.test.ts`, `e2e/sea-shellIntegration.test.ts`)
+  без шелла на машине пропускаются; в CI zsh и fish ставит `apt-get`, pwsh есть в образе `ubuntu-latest`
+  (шаг проверяет `command -v pwsh`).
 
 ## Упаковка нативного: embed + runtime-extract
 

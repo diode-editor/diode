@@ -186,3 +186,85 @@ describe("getShellIntegrationInjection — zsh", () => {
         expect(log.error).toHaveBeenCalledWith(expect.stringContaining("Failed to set sticky bit on"));
     });
 });
+
+describe("getShellIntegrationInjection — fish", () => {
+    const source = `source "${path.join(SCRIPTS, "shellIntegration.fish")}"`;
+
+    it("no arguments: --init-command sources the script (quoted), only VSCODE_INJECTION", () => {
+        for (const args of [undefined, []]) {
+            expect(inject("/usr/bin/fish", args).result).toStrictEqual({
+                type: "injection",
+                newArgs: ["--init-command", source],
+                envMixin: { VSCODE_INJECTION: "1" },
+                filesToCopy: [],
+            });
+        }
+    });
+
+    it("login arguments (any case, with -i alongside) — -l first", () => {
+        for (const args of [["-l"], ["--LOGIN"], ["-i", "-l"]]) {
+            expect(inject("fish", args).result, args.join(" ")).toStrictEqual({
+                type: "injection",
+                newArgs: ["-l", "--init-command", source],
+                envMixin: { VSCODE_INJECTION: "1" },
+                filesToCopy: [],
+            });
+        }
+    });
+
+    it("other arguments — unsupportedArgs, no warning", () => {
+        for (const args of [["-c", "true"], ["-i"], ["-l", "-x"], ["--no-config"]]) {
+            const { result, log } = inject("/usr/bin/fish", args);
+            expect(result, args.join(" ")).toEqual({ type: "failure", reason: "unsupportedArgs" });
+            expect(log.warn).not.toHaveBeenCalled();
+        }
+    });
+});
+
+describe("getShellIntegrationInjection — pwsh", () => {
+    const dotSource = `. "${path.join(SCRIPTS, "shellIntegration.ps1")}"`;
+    const injected = (newArgs: string[]) => ({
+        type: "injection",
+        newArgs,
+        envMixin: { VSCODE_INJECTION: "1", VSCODE_STABLE: "1" },
+        filesToCopy: [],
+    });
+
+    it("no arguments or only -nologo/-nol (any case): -noexit -command dot-sources the script, VSCODE_STABLE", () => {
+        for (const args of [undefined, [], ["-nologo"], ["-NoLogo"], ["-nol"]]) {
+            expect(inject("/usr/bin/pwsh", args).result, String(args)).toStrictEqual(
+                injected(["-noexit", "-command", dotSource]),
+            );
+        }
+    });
+
+    it("login: -l or -login alone or next to -nologo in either order — -l first", () => {
+        for (const args of [["-l"], ["-Login"], ["-l", "-nologo"], ["-NoLogo", "-login"], ["-nol", "-L"]]) {
+            expect(inject("pwsh", args).result, args.join(" ")).toStrictEqual(
+                injected(["-l", "-noexit", "-command", dotSource]),
+            );
+        }
+    });
+
+    it("other arguments — unsupportedArgs", () => {
+        for (const args of [
+            ["-c", "1"],
+            ["--login"],
+            ["-l", "-l"],
+            ["-nologo", "-nologo"],
+            ["-l", "-noprofile"],
+            ["-l", "-nologo", "-noprofile"],
+            ["-noprofile"],
+        ]) {
+            expect(inject("/usr/bin/pwsh", args).result, args.join(" ")).toEqual({
+                type: "failure",
+                reason: "unsupportedArgs",
+            });
+        }
+    });
+
+    it("pwsh.exe and powershell are Windows branches upstream — unsupportedShell here", () => {
+        expect(inject("/usr/bin/pwsh.exe").result).toEqual({ type: "failure", reason: "unsupportedShell" });
+        expect(inject("/usr/bin/powershell").result).toEqual({ type: "failure", reason: "unsupportedShell" });
+    });
+});

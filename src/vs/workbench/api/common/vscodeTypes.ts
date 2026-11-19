@@ -617,6 +617,10 @@ export class CompletionItem implements vscode.CompletionItem {
     public sortText?: string;
     public filterText?: string;
     public preselect?: boolean;
+    public tags?: CompletionItemTag[];
+    public commitCharacters?: string[];
+    public keepWhitespace?: boolean;
+    public textEdit?: TextEdit;
     public additionalTextEdits?: TextEdit[];
 
     public constructor(label: string, kind?: CompletionItemKind) {
