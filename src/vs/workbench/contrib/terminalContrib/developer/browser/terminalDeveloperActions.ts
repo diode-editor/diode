@@ -97,7 +97,6 @@ export const writeDataToTerminalAction: CommandAction = {
     async run(accessor) {
         const instance = revealActiveOrCreate(accessor);
         const data = await accessor.get(QuickInputServiceDIToken).input({
-            value: "",
             placeholder: "Enter data (supports \\n, \\r, \\xAB)",
             prompt: "Enter data to write directly to the terminal, bypassing the pty",
         });

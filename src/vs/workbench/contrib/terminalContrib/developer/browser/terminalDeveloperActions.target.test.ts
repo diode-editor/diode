@@ -1,5 +1,5 @@
+import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 // Which terminal Write Data writes into and reveals (upstream `getActiveOrCreateInstance` + `revealActiveTerminal`).
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../../../../TestUtils/AppTestHarness.ts";
@@ -72,7 +72,7 @@ describe("Developer: Write Data to Terminal — target terminal", () => {
         expect(fake(instance).printed).toStrictEqual(["x"]);
     });
 
-    it("the active terminal is an editor tab: its tab is revealed again", async () => {
+    it("the active terminal is an editor tab: its tab is revealed again and gets the focus back", async () => {
         boot();
         const editorTerminals = h.container.get(TerminalEditorServiceDIToken);
         const instance = editorTerminals.createTerminal();
@@ -83,5 +83,7 @@ describe("Developer: Write Data to Terminal — target terminal", () => {
         expect(fake(instance).printed).toStrictEqual(["y"]);
         expect(terminals().getInstances()).toHaveLength(0);
         expect(groups.activeGroup.activePane).toBe(editorTerminals.paneOf(instance.id));
+        h.testApp.render();
+        expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
     });
 });

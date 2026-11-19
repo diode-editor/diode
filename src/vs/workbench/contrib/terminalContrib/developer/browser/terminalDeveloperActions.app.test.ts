@@ -65,7 +65,7 @@ describe.skipIf(process.platform === "win32")("Developer terminal commands in th
         h.container
             .get(StatusBarServiceDIToken)
             .entries()
-            .some((entry) => entry.text.includes(RECORDING_SESSION_TEXT));
+            .some((entry) => entry.id === "recordSession" && entry.text.includes(RECORDING_SESSION_TEXT));
 
     it(
         "Write Data: the escaped sequence is parsed by the emulator (a red word) and never reaches the shell",
@@ -101,6 +101,8 @@ describe.skipIf(process.platform === "win32")("Developer terminal commands in th
         await vi.waitFor(() => {
             expect(frame()).toContain("Enter data to write directly to the terminal, bypassing the pty");
         });
+        // The empty field shows the placeholder.
+        expect(frame()).toContain(String.raw`Enter data (supports \n, \r, \xAB)`);
         type("zzz");
         h.testApp.sendKey("Escape");
         await done;
