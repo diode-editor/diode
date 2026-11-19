@@ -1,7 +1,7 @@
 // Upstream `src/vs/platform/terminal/node/terminalEnvironment.ts`, `getShellIntegrationInjection`: Linux/macOS
 // bash, zsh, fish and pwsh. Not ported: the Windows branches (pwsh.exe, powershell.exe, git bash),
-// `ignoreShellIntegration`/`forceShellIntegration` (no launch sets them), `VSCODE_SHELL_ENV_REPORTING` and
-// `VSCODE_PATH_PREFIX` (they come with the OSC 633 parsing and the environment API), and upstream's zsh/fish check
+// `ignoreShellIntegration`/`forceShellIntegration` (no launch sets them), `VSCODE_SHELL_ENV_REPORTING` (it comes with
+// the OSC 633 parsing), and upstream's zsh/fish check
 // that passes its own injected args through by array identity (no caller hands them back here).
 
 import { chmodSync, mkdirSync, realpathSync } from "node:fs";
@@ -52,10 +52,16 @@ export interface IShellIntegrationOptions {
      * asked only for a shell that gets the scripts — the packaged build unpacks them on the first call.
      */
     scriptsDir(): string;
+    /**
+     * Upstream `addEnvMixinPathPrefix`: the extensions' joined `Prepend`s to `PATH` (absent with `strictEnv`); asked
+     * only where a profile rebuilds `PATH` — fish always, bash and zsh login shells on macOS.
+     */
+    pathPrefix?(): string | undefined;
 }
 
-/** The `node:os` calls the zsh branch makes; tests replace them. */
+/** The `node:os` calls the injection makes; tests replace them. */
 export interface IShellIntegrationHost {
+    platform(): NodeJS.Platform;
     tmpdir(): string;
     userInfo(): { readonly username: string };
     homedir(): string;
@@ -109,11 +115,19 @@ export function getShellIntegrationInjection(
     const isDefaultArgs = originalArgs.length === 0;
     const isLoginArgs = areZshBashFishLoginArgs(originalArgs);
     const envMixin: Record<string, string> = { VSCODE_INJECTION: "1" };
+    const addPathPrefix = (): void => {
+        const prefix = options.pathPrefix?.();
+        if (prefix !== undefined) envMixin.VSCODE_PATH_PREFIX = prefix;
+    };
+    const isMacintosh = host.platform() === "darwin";
 
     switch (path.basename(launch.executable)) {
         case "bash": {
             if (!isDefaultArgs && !isLoginArgs) return { type: "failure", reason: "unsupportedArgs" };
-            if (isLoginArgs) envMixin.VSCODE_SHELL_LOGIN = "1";
+            if (isLoginArgs) {
+                envMixin.VSCODE_SHELL_LOGIN = "1";
+                if (isMacintosh) addPathPrefix();
+            }
             // diode is a stable build: the insiders-only parts of the script stay off.
             envMixin.VSCODE_STABLE = "1";
             return {
@@ -125,6 +139,8 @@ export function getShellIntegrationInjection(
         }
         case "fish": {
             if (!isDefaultArgs && !isLoginArgs) return { type: "failure", reason: "unsupportedArgs" };
+            // fish prepends `fish_user_paths` for login and non-login shells alike.
+            addPathPrefix();
             const source = `source "${path.join(options.scriptsDir(), "shellIntegration.fish")}"`;
             return {
                 type: "injection",
@@ -154,6 +170,7 @@ export function getShellIntegrationInjection(
             if (failure !== undefined) return { type: "failure", reason: failure };
             envMixin.ZDOTDIR = zdotdir;
             envMixin.USER_ZDOTDIR = env.ZDOTDIR ?? host.homedir();
+            if (isLoginArgs && isMacintosh) addPathPrefix();
             const scriptsDir = options.scriptsDir();
             const copy = (script: string, dest: string) => ({
                 source: path.join(scriptsDir, `shellIntegration-${script}`),
