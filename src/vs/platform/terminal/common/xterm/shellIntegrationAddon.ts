@@ -198,7 +198,6 @@ export class ShellIntegrationAddon implements IDisposable {
         const [command] = data.split(";");
         if (!/^file:\/\/.*\//.test(command)) return false;
         const { path } = Uri.parse(command);
-        if (path.length === 0) return false;
         this.updateCwd(path, false);
         return true;
     }

@@ -124,17 +124,20 @@ export class CommandDetectionCapability implements IDisposable {
     private readCommandLine(start: IMarker, startX: number): string {
         const buffer = this.terminal.buffer.active;
         const end = buffer.baseY + buffer.cursorY;
-        let content = "";
+        // Every row from the start to the cursor exists; `join` turns the type's `undefined` into "".
+        const rows: (string | undefined)[] = [];
         for (let i = start.line; i <= end; i++) {
-            const line = buffer.getLine(i);
-            if (line === undefined) continue;
-            content += line.translateToString(
-                true,
-                i === start.line ? startX : 0,
-                i === end ? buffer.cursorX : this.terminal.cols,
+            rows.push(
+                buffer
+                    .getLine(i)
+                    ?.translateToString(
+                        true,
+                        i === start.line ? startX : 0,
+                        i === end ? buffer.cursorX : this.terminal.cols,
+                    ),
             );
         }
-        return content;
+        return rows.join("");
     }
 
     public dispose(): void {

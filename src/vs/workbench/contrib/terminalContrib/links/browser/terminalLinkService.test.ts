@@ -149,8 +149,9 @@ describe("TerminalLinkService", () => {
             const links = service({}, disk);
             await links.openRecentLink(await instanceWith("\x1b]633;P;Cwd=/ws/sub\x07./x.txt"));
             await links.openRecentLink(await instanceWith("./x.txt"));
+            await links.openRecentLink(await instanceWith("\x1b]633;P;Cwd=\x07./x.txt"));
 
-            expect(opened.map((link) => link.uri.fsPath)).toEqual(["/ws/sub/x.txt", "/ws/x.txt"]);
+            expect(opened.map((link) => link.uri.fsPath)).toEqual(["/ws/sub/x.txt", "/ws/x.txt", "/ws/x.txt"]);
         });
 
         it('opens nothing with `enableFileLinks: "off"` or before the emulator has a buffer', async () => {

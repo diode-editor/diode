@@ -21,8 +21,13 @@ afterEach(() => {
     for (const d of disposables.splice(0)) d.dispose();
 });
 
-function make() {
-    const term = new Terminal({ cols: 40, rows: 5, allowProposedApi: true });
+function make(scrollback?: number) {
+    const term = new Terminal({
+        cols: 40,
+        rows: 5,
+        allowProposedApi: true,
+        ...(scrollback === undefined ? {} : { scrollback }),
+    });
     const addon = new ShellIntegrationAddon(NONCE);
     addon.activate(term);
     disposables.push(addon, term);
@@ -152,6 +157,12 @@ describe("ShellIntegrationAddon — commands", () => {
         ]);
     });
 
+    it("a command start trimmed out of the buffer before C: its line is skipped, the rest is read", async () => {
+        const { write, executed } = make(0);
+        await write(`${vsc("A")}$ ${vsc("B")}ls${"\r\n".repeat(6)}-a${vsc("C")}`);
+        expect(executed.map((c) => [c.command, c.commandLineConfidence])).toStrictEqual([["-a", "medium"]]);
+    });
+
     it("a repeated C does not start the command again", async () => {
         const { write, executed, finished } = make();
         await write(`${vsc("B")}${vsc("C")}${vsc("C")}${vsc("D;0")}`);
@@ -253,6 +264,13 @@ describe("ShellIntegrationAddon — cwd", () => {
         await write(vsc(`P;Cwd=/x\\x3by;${NONCE}`));
         expect(changes).toStrictEqual(["/home/u false", "/x;y true"]);
         expect(events).toStrictEqual(["add cwdDetection"]);
+    });
+
+    it("`633;P;Cwd` without `=` or a bare `633;P` sets no cwd", async () => {
+        const { write, addon, screen } = make();
+        await write("\x1b]633;P;Cwd\x07\x1b]633;P\x07");
+        expect(addon.capabilities.has("cwdDetection")).toBe(false);
+        expect(screen()).toBe("");
     });
 
     it("OSC 7: a file URI, percent-decoded, untrusted; another scheme or no path is not handled", async () => {
