@@ -239,8 +239,8 @@ class ShellIntegration {
         this.fireEnd(execution, undefined);
     }
 
+    /** The timer left behind finds nothing, and the next `end` re-arms it: no need to cancel it. */
     private fireEnding(): void {
-        this.endLater.cancel();
         const ending = this.ending;
         if (ending === undefined) return;
         this.ending = undefined;

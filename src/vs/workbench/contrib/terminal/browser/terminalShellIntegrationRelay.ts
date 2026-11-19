@@ -58,8 +58,11 @@ export class TerminalShellIntegrationRelay implements IDisposable {
 
     /** For a new subprocess: `undefined` while shell integration has not come alive. */
     public state(): IExtensionTerminalShellIntegrationState | undefined {
+        return this.addon.capabilities.has("commandDetection") ? this.aliveState() : undefined;
+    }
+
+    private aliveState(): IExtensionTerminalShellIntegrationState {
         const { capabilities } = this.addon;
-        if (!capabilities.has("commandDetection")) return undefined;
         const { id } = this.instance;
         const cwd = capabilities.get("cwdDetection");
         const env = capabilities.get("shellEnvDetection");
@@ -139,12 +142,11 @@ export class TerminalShellIntegrationRelay implements IDisposable {
         const { shellType } = this.instance;
         if (shellType !== undefined) this.activate(`${ACTIVATION_EVENT_PREFIX}${shellType}`);
         const events = this.events();
-        const state = this.state();
-        if (events !== null && state !== undefined) sendShellIntegrationState(events, state);
+        if (events !== null) sendShellIntegrationState(events, this.aliveState());
     }
 
+    /** A batch timer left behind finds nothing to send: no need to cancel it. */
     private flushData(): void {
-        this.dataFlush.cancel();
         if (this.pendingData === "") return;
         const data = this.pendingData;
         this.pendingData = "";

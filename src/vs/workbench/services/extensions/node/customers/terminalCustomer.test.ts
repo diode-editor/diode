@@ -6,7 +6,7 @@ import { FakeExtensionPtySession } from "../../../../../../TestUtils/FakeExtensi
 import { FakeTerminalSurface } from "../../../../../../TestUtils/FakeTerminalSurface.ts";
 import { createTestConfigurationService } from "../../../../../../TestUtils/testConfigurationService.ts";
 import type { HostRpc, SubprocessRpc } from "../../../../api/common/extHostProtocol.ts";
-import type { IExtensionTerminalSink } from "../../../../api/common/iExtensionWindowSinks.ts";
+import type { IExtensionTerminalEvents, IExtensionTerminalSink } from "../../../../api/common/iExtensionWindowSinks.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import { createTerminalNamespace } from "../../../../api/common/terminalNamespace.ts";
@@ -277,6 +277,30 @@ describe("extension terminals — over the wire", () => {
         h.service.dispose();
     });
 
+    it("shell integration events wait for the seed: the snapshot carries what came before", () => {
+        let events: IExtensionTerminalEvents | undefined;
+        const sink = {
+            snapshot: () => ({ terminals: [], activeId: null, shellIntegrations: [] }),
+            subscribe: (subscriber: IExtensionTerminalEvents) => {
+                events = subscriber;
+                return { dispose: () => undefined };
+            },
+        } as unknown as IExtensionTerminalSink;
+        const customer = new TerminalCustomer(sink);
+        const [a] = createInProcessChannelPair();
+        const rpc = new RpcEndpoint(a) as unknown as HostRpc;
+        const sent: string[] = [];
+        vi.spyOn(rpc, "notify").mockImplementation((method) => {
+            sent.push(method);
+        });
+        customer.attach({ rpc, logger: undefined });
+        events?.shellExecutionData({ id: 1, data: "x" });
+        expect(sent).toStrictEqual([]);
+        customer.pushInitialState();
+        events?.shellExecutionData({ id: 1, data: "x" });
+        expect(sent).toStrictEqual(["terminal.activeChanged", "terminal.shellExecution.data"]);
+    });
+
     it("after spawn cleanup there is no seed — the dead spawn's RPC is not touched", () => {
         const h = setup({ pushInitialState: false });
         const sent: string[] = [];
@@ -431,6 +455,7 @@ describe("extension terminals — over the wire", () => {
         send("terminal.pty.exit", { terminal: {} });
         send("terminal.pty.name", { terminal: { id: 1 }, name: 5 });
         send("terminal.pty.name", { name: "x" });
+        send("terminal.shellIntegration.executeCommand", { id: 1 });
         await flush();
         expect(calls).toStrictEqual([]);
         expect(warnings).toStrictEqual([]);
@@ -442,8 +467,19 @@ describe("extension terminals — over the wire", () => {
         send("terminal.pty.data", { terminal: { id: 1 }, data: "x" });
         send("terminal.pty.exit", { terminal: { id: 1 } });
         send("terminal.pty.name", { terminal: { id: 1 }, name: "x" });
+        send("terminal.shellIntegration.executeCommand", { id: 1, commandLine: "ls" });
         await flush();
-        expect(calls).toStrictEqual(["create", "show", "hide", "sendText", "dispose", "ptyData", "ptyExit", "ptyName"]);
+        expect(calls).toStrictEqual([
+            "create",
+            "show",
+            "hide",
+            "sendText",
+            "dispose",
+            "ptyData",
+            "ptyExit",
+            "ptyName",
+            "executeCommand",
+        ]);
         attached.dispose();
         expect(calls.at(-1)).toBe("reset");
     });

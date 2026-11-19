@@ -1,6 +1,7 @@
 import { FakeTerminalSurface as EngineFakeTerminalSurface } from "@tuidom/testing/FakeTerminalSurface";
 
 import { Emitter } from "../vs/base/common/event.ts";
+import type { ShellIntegrationAddon } from "../vs/platform/terminal/common/xterm/shellIntegrationAddon.ts";
 import type { ITerminalRelaunchOptions } from "../vs/workbench/contrib/terminal/common/terminalSessionFactory.ts";
 
 export type { FakeCellOptions } from "@tuidom/testing/FakeTerminalSurface";
@@ -32,6 +33,8 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
     private readonly dimensionsChange = new Emitter<void>();
     public readonly onDidChangeDimensions = this.dimensionsChange.event;
     public dimensions = { cols: 80, rows: 24 };
+    /** Set by the test before the instance is created (e.g. {@link FakeShellIntegration}); none by default. */
+    public shellIntegration: ShellIntegrationAddon | undefined;
 
     public constructor(
         public shell = "/bin/bash",
