@@ -140,7 +140,9 @@ describe("TerminalShellIntegrationRelay", () => {
         h.attach();
         h.shell.finished.fire(terminalCommand("ls"));
         vi.runAllTimers();
-        expect(h.sent).toStrictEqual([["end", { id: 7, commandLine: { value: "ls", confidence: 2, isTrusted: true } }]]);
+        expect(h.sent).toStrictEqual([
+            ["end", { id: 7, commandLine: { value: "ls", confidence: 2, isTrusted: true } }],
+        ]);
         h.relay.dispose();
     });
 

@@ -19,7 +19,8 @@ function setup() {
         notify: (method: string, params: unknown) => requested.push({ method, params }),
     } as unknown as SubprocessRpc;
     const terminals = new Map<number, IShellIntegrationTerminal>();
-    for (const id of [1, 2]) terminals.set(id, { value: { name: `t${String(id)}` } as vscode.Terminal, shellIntegration: undefined });
+    for (const id of [1, 2])
+        terminals.set(id, { value: { name: `t${String(id)}` } as vscode.Terminal, shellIntegration: undefined });
     const integrations = createTerminalShellIntegrations(rpc, (id) => terminals.get(id));
     const send = (method: string, params: unknown): void => {
         handlers.get(method)?.(params);
@@ -149,7 +150,9 @@ describe("ext host shell integration", () => {
     it("executeCommand throws where the terminal does not support it", () => {
         const h = setup();
         h.send("terminal.shellIntegration.changed", { id: 1, supportsExecuteCommand: false });
-        expect(() => h.integration(1).executeCommand("ls")).toThrow("This terminal does not support the executeCommand API.");
+        expect(() => h.integration(1).executeCommand("ls")).toThrow(
+            "This terminal does not support the executeCommand API.",
+        );
     });
 
     it("end: after a macrotask, with the line the shell reported at the end; no execution — no end", async () => {
