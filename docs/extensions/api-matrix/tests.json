@@ -1,8 +1,7 @@
 {
   "members": {
     "tests.createTestController": {
-      "class": "C",
-      "note": "the tree, resolve, refresh and profiles reach the core; no Testing view, runs are not wired"
+      "class": "ok"
     }
   }
 }
