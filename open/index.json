@@ -6355,5 +6355,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-19-acc930b37a52.json",
+    "generatedAt": "2026-11-19T05:25:37.070Z",
+    "commit": "acc930b37a52",
+    "binaryVersion": "nightly-acc930b",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
