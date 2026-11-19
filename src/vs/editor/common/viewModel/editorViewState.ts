@@ -688,6 +688,47 @@ export class EditorViewState {
         return this.buildProjection().firstRowOfDocLine(line) >= 0;
     }
 
+    /**
+     * Upstream `getVisibleRanges`: the document lines whose every row is on screen, from the start of the first to the
+     * end of the last, split around collapsed folds. A wrapped line cut by the viewport edge is left out; when no line
+     * fits whole (one line taller than the viewport), the line at the top stands in, so the result is never empty.
+     */
+    public getVisibleRanges(): IRange[] {
+        const projection = this.buildProjection();
+        const top = this.scrollTop;
+        const bottom = top + Math.max(this.viewportHeight, 1);
+        // A line's rows are contiguous: the one that still owns the row under the bottom edge is cut.
+        const cut = projection.docLineOfRow(bottom);
+        const ranges: IRange[] = [];
+        let first = -1;
+        // Set together with `first`: read only once `first` is.
+        let last = 0;
+        // No counter loop: a mutant of its bound or step would spin forever (docs/MUTATION.md).
+        for (const row of Array.from({ length: bottom - top }, (_, i) => top + i)) {
+            const line = projection.docLineOfRow(row);
+            // Each fully visible line once, at its first row; a line that starts above the top is cut. A row past the
+            // end of the document is line -1, whose first row is -1 too.
+            if (projection.firstRowOfDocLine(line) !== row || line === cut) continue;
+            if (first < 0) first = line;
+            else if (line !== last + 1) {
+                // A collapsed fold hides the lines in between.
+                ranges.push(this.linesRange(first, last));
+                first = line;
+            }
+            last = line;
+        }
+        if (first < 0) {
+            const line = this.docLineForViewLine(top);
+            return [this.linesRange(line, line)];
+        }
+        ranges.push(this.linesRange(first, last));
+        return ranges;
+    }
+
+    private linesRange(first: number, last: number): IRange {
+        return createRange(first, 0, last, this.document.getLineLength(last));
+    }
+
     public viewLineKind(viewLine: number): ViewLineKind {
         const row = this.buildProjection().docLineOfRow(viewLine);
         if (row === -1) return "none";

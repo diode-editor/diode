@@ -79,3 +79,32 @@ describe("EditorComponent.setWordWrap", () => {
         expect(viewState.scrollLeft).toBe(5);
     });
 });
+
+describe("EditorComponent.onDidChangeVisibleRange and wrapping", () => {
+    function countVisibleRangeEvents(act: (pane: TextEditorPane) => void): number {
+        const pane = openPane();
+        pane.setWordWrap("off", 80);
+        let fired = 0;
+        pane.onDidChangeVisibleRange(() => {
+            fired++;
+        });
+        act(pane);
+        return fired;
+    }
+
+    it("fires when wrap turns on: the rows move without a scroll", () => {
+        expect(
+            countVisibleRangeEvents((pane) => {
+                pane.setWordWrap("on", 80);
+            }),
+        ).toBeGreaterThan(0);
+    });
+
+    it("stays quiet when the same wrap is reapplied", () => {
+        expect(
+            countVisibleRangeEvents((pane) => {
+                pane.setWordWrap("off", 80);
+            }),
+        ).toBe(0);
+    });
+});
