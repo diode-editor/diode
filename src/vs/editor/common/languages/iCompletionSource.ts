@@ -30,6 +30,19 @@ export interface ICoreCompletionCommand {
     readonly arguments?: readonly unknown[];
 }
 
+/** Values of `vscode.CompletionItemTag`. */
+export const CompletionItemTag = {
+    Deprecated: 1,
+} as const;
+
+export type CompletionItemTag = (typeof CompletionItemTag)[keyof typeof CompletionItemTag];
+
+/** Bits of upstream `languages.CompletionItemInsertTextRule`. */
+export const CompletionItemInsertTextRule = {
+    /** `vscode.CompletionItem.keepWhitespace`: the inserted lines keep their indentation as is. */
+    KeepWhitespace: 1,
+} as const;
+
 /** `insertText` is already normalized: the host falls back to `label` when serializing. */
 export interface ICoreCompletionItem {
     readonly label: string;
@@ -51,6 +64,13 @@ export interface ICoreCompletionItem {
     readonly filterText?: string;
     /** Sent right in the list (gopls): accepting applies them without resolve, like upstream `suggestController`. */
     readonly additionalEdits?: readonly ITextEdit[];
+    /** `CompletionItemTag.Deprecated`: the list strikes the label through. */
+    readonly tags?: readonly CompletionItemTag[];
+    /** Only `true` travels. The list selects the first such item among the best matches. */
+    readonly preselect?: true;
+    readonly commitCharacters?: readonly string[];
+    /** Bitmask of {@link CompletionItemInsertTextRule}; absent — none. */
+    readonly insertTextRules?: number;
 }
 
 /**

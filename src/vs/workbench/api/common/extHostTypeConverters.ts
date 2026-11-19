@@ -9,7 +9,11 @@ import { Uri } from "../../../base/common/uri.ts";
 import { comparePositions, createPosition, type IPosition } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 import type { IColor, IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
-import type { ICoreCompletionItem } from "../../../editor/common/languages/iCompletionSource.ts";
+import {
+    CompletionItemInsertTextRule,
+    CompletionItemTag,
+    type ICoreCompletionItem,
+} from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreDocumentSymbol } from "../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
@@ -566,11 +570,15 @@ export function serializeCompletionItem(item: vscode.CompletionItem, id: string)
     const sortText = (item as { sortText?: unknown }).sortText;
     const filterText = (item as { filterText?: unknown }).filterText;
     const documentation = readDocumentation(item);
-    const range = readRange(item);
+    // The old `textEdit` wins over `insertText` and `range`, as upstream `_convertCompletionItem`.
+    const textEdit = serializeTextEdit((item as { textEdit?: unknown }).textEdit);
+    const range = textEdit?.range ?? readRange(item);
     const additionalEdits = readAdditionalTextEdits(item);
+    const tags = readCompletionTags(item);
+    const commitCharacters = readCommitCharacters(item);
     return {
         label,
-        insertText: readInsertText(item, label),
+        insertText: textEdit?.text ?? readInsertText(item, label),
         id,
         ...(labelDetails.detail !== undefined ? { labelDetail: labelDetails.detail } : {}),
         ...(labelDetails.description !== undefined ? { labelDescription: labelDetails.description } : {}),
@@ -589,7 +597,25 @@ export function serializeCompletionItem(item: vscode.CompletionItem, id: string)
         ...(typeof sortText === "string" ? { sortText } : {}),
         ...(typeof filterText === "string" ? { filterText } : {}),
         ...(additionalEdits.length > 0 ? { additionalEdits } : {}),
+        ...(tags.length > 0 ? { tags } : {}),
+        ...((item as { preselect?: unknown }).preselect === true ? { preselect: true } : {}),
+        ...(commitCharacters.length > 0 ? { commitCharacters } : {}),
+        ...((item as { keepWhitespace?: unknown }).keepWhitespace === true
+            ? { insertTextRules: CompletionItemInsertTextRule.KeepWhitespace }
+            : {}),
     };
+}
+
+/** Unknown tags are dropped, as upstream `CompletionItemTag.from` maps them to nothing. */
+function readCompletionTags(item: vscode.CompletionItem): CompletionItemTag[] {
+    const raw = (item as { tags?: unknown }).tags;
+    if (!Array.isArray(raw)) return [];
+    return raw.some((tag) => tag === CompletionItemTag.Deprecated) ? [CompletionItemTag.Deprecated] : [];
+}
+
+function readCommitCharacters(item: vscode.CompletionItem): string[] {
+    const raw = (item as { commitCharacters?: unknown }).commitCharacters;
+    return Array.isArray(raw) ? raw.filter((c): c is string => typeof c === "string" && c !== "") : [];
 }
 
 export function readAdditionalTextEdits(item: vscode.CompletionItem): IWireEditorEdit[] {

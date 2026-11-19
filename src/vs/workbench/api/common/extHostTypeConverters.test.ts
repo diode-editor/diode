@@ -428,6 +428,41 @@ describe("serializeCompletionItem — field boundaries", () => {
         }
     });
 
+    it("tags, preselect, commitCharacters and keepWhitespace of a foreign type have no keys", () => {
+        expect(
+            serialize({ tags: [2, "1"], preselect: 1, commitCharacters: [".", "", 5], keepWhitespace: "yes" }),
+        ).toStrictEqual({ label: "x", insertText: "x", id: "1.0", commitCharacters: ["."] });
+        expect(serialize({ tags: 1, preselect: false, commitCharacters: ".", keepWhitespace: false })).toStrictEqual({
+            label: "x",
+            insertText: "x",
+            id: "1.0",
+        });
+    });
+
+    it("an unknown tag next to Deprecated is dropped, Deprecated is sent once", () => {
+        expect(serialize({ tags: [7, 1, 1] })).toMatchObject({ tags: [1] });
+    });
+
+    it("textEdit wins over insertText and range, as upstream", () => {
+        expect(
+            serialize({
+                insertText: "fromInsertText",
+                range: new Range(0, 5, 0, 6),
+                textEdit: new TextEdit(new Range(0, 1, 0, 2), "fromTextEdit"),
+            }),
+        ).toStrictEqual({ label: "x", insertText: "fromTextEdit", id: "1.0", range: RANGE });
+    });
+
+    it("a broken textEdit is ignored: insertText and range are used", () => {
+        expect(
+            serialize({
+                insertText: "ins",
+                range: new Range(0, 1, 0, 2),
+                textEdit: { range: SHAPELESS, newText: "t" },
+            }),
+        ).toStrictEqual({ label: "x", insertText: "ins", id: "1.0", range: RANGE });
+    });
+
     it("insertText: null — label is inserted", () => {
         expect(serialize({ insertText: null })).toStrictEqual({ label: "x", insertText: "x", id: "1.0" });
     });

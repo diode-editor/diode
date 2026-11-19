@@ -906,15 +906,14 @@
       "class": "ok"
     },
     "CompletionItem.additionalTextEdits": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "CompletionItem.command": {
       "class": "ok"
     },
     "CompletionItem.commitCharacters": {
       "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "note": "reaches the editor, a commit character does not accept the item yet (#1232)"
     },
     "CompletionItem.detail": {
       "class": "ok"
@@ -930,7 +929,7 @@
     },
     "CompletionItem.keepWhitespace": {
       "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "note": "reaches the editor; every insertion keeps its whitespace as is, with or without it (#1233)"
     },
     "CompletionItem.kind": {
       "class": "ok"
@@ -939,23 +938,19 @@
       "class": "ok"
     },
     "CompletionItem.preselect": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "CompletionItem.range": {
       "class": "ok"
     },
     "CompletionItem.sortText": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "CompletionItem.tags": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "CompletionItem.textEdit": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "CompletionItemKind": {
       "class": "ok"
@@ -1057,12 +1052,10 @@
       "class": "ok"
     },
     "CompletionItemTag": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "ok"
     },
     "CompletionItemTag.Deprecated": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "ok"
     },
     "CompletionList": {
       "class": "ok"

@@ -6477,6 +6477,17 @@ declare module "vscode" {
 	}
 
 	/**
+	 * Completion item tags are extra annotations that tweak the rendering of a completion
+	 * item.
+	 */
+	export enum CompletionItemTag {
+		/**
+		 * Render a completion as obsolete, usually using a strike-out.
+		 */
+		Deprecated = 1
+	}
+
+	/**
 	 * A completion item represents a text snippet that is proposed to complete text that is being typed.
 	 *
 	 * It is sufficient to create a completion item from just a {@link CompletionItem.label label}. In that
@@ -6505,6 +6516,11 @@ declare module "vscode" {
 		 * an icon is chosen by the editor.
 		 */
 		kind?: CompletionItemKind;
+
+		/**
+		 * Tags for this completion item.
+		 */
+		tags?: readonly CompletionItemTag[];
 
 		/**
 		 * A human-readable string with additional information
@@ -6542,6 +6558,13 @@ declare module "vscode" {
 		filterText?: string;
 
 		/**
+		 * Select this item when showing. *Note* that only one completion item can be selected and
+		 * that the editor decides which item that is. The rule is that the *first* item of those
+		 * that match best is selected.
+		 */
+		preselect?: boolean;
+
+		/**
 		 * A string or snippet that should be inserted in a document when selecting
 		 * this completion. When `falsy` the {@link CompletionItem.label label}
 		 * is used.
@@ -6569,6 +6592,39 @@ declare module "vscode" {
 			 */
 			replacing: Range;
 		};
+
+		/**
+		 * An optional set of characters that when pressed while this completion is active will accept it first and
+		 * then type that character. *Note* that all commit characters should have `length=1` and that superfluous
+		 * characters will be ignored.
+		 */
+		commitCharacters?: string[];
+
+		/**
+		 * Keep whitespace of the {@link CompletionItem.insertText insertText} as is. By default, the editor adjusts leading
+		 * whitespace of new lines so that they match the indentation of the line for which the item is accepted - setting
+		 * this to `true` will prevent that.
+		 */
+		keepWhitespace?: boolean;
+
+		/**
+		 * @deprecated Use `CompletionItem.insertText` and `CompletionItem.range` instead.
+		 *
+		 * An {@link TextEdit edit} which is applied to a document when selecting
+		 * this completion. When an edit is provided the value of
+		 * {@link CompletionItem.insertText insertText} is ignored.
+		 *
+		 * The {@link Range} of the edit must be single-line and on the same
+		 * line completions were {@link CompletionItemProvider.provideCompletionItems requested} at.
+		 */
+		textEdit?: TextEdit;
+
+		/**
+		 * An optional array of additional {@link TextEdit text edits} that are applied when
+		 * selecting this completion. Edits must not overlap with the main {@link CompletionItem.textEdit edit}
+		 * nor with themselves.
+		 */
+		additionalTextEdits?: TextEdit[];
 
 		/**
 		 * An optional {@link Command} that is executed *after* inserting this completion. *Note* that
