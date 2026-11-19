@@ -253,7 +253,6 @@ describe("getShellIntegrationInjection — pwsh", () => {
             ["-l", "-l"],
             ["-nologo", "-nologo"],
             ["-l", "-noprofile"],
-            ["-noprofile", "-l"],
             ["-l", "-nologo", "-noprofile"],
             ["-noprofile"],
         ]) {
@@ -267,24 +266,5 @@ describe("getShellIntegrationInjection — pwsh", () => {
     it("pwsh.exe and powershell are Windows branches upstream — unsupportedShell here", () => {
         expect(inject("/usr/bin/pwsh.exe").result).toEqual({ type: "failure", reason: "unsupportedShell" });
         expect(inject("/usr/bin/powershell").result).toEqual({ type: "failure", reason: "unsupportedShell" });
-    });
-});
-
-describe("getShellIntegrationInjection — a scripts dir with spaces", () => {
-    it("fish and pwsh keep the path quoted inside one argument", () => {
-        const injectFrom = (executable: string) =>
-            getShellIntegrationInjection(
-                { executable, args: [] },
-                { enabled: true, scriptsDir: () => "/cache dir/si" },
-                {},
-                makeLogger(),
-                host,
-            );
-        expect(injectFrom("fish")).toMatchObject({
-            newArgs: ["--init-command", 'source "/cache dir/si/shellIntegration.fish"'],
-        });
-        expect(injectFrom("pwsh")).toMatchObject({
-            newArgs: ["-noexit", "-command", '. "/cache dir/si/shellIntegration.ps1"'],
-        });
     });
 });

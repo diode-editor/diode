@@ -128,7 +128,7 @@ export function getShellIntegrationInjection(
             const source = `source "${path.join(options.scriptsDir(), "shellIntegration.fish")}"`;
             return {
                 type: "injection",
-                newArgs: isLoginArgs ? ["-l", "--init-command", source] : ["--init-command", source],
+                newArgs: [...(isLoginArgs ? ["-l"] : []), "--init-command", source],
                 envMixin,
                 filesToCopy: [],
             };
@@ -141,7 +141,7 @@ export function getShellIntegrationInjection(
             envMixin.VSCODE_STABLE = "1";
             return {
                 type: "injection",
-                newArgs: isPwshLogin ? ["-l", "-noexit", "-command", dotSource] : ["-noexit", "-command", dotSource],
+                newArgs: [...(isPwshLogin ? ["-l"] : []), "-noexit", "-command", dotSource],
                 envMixin,
                 filesToCopy: [],
             };

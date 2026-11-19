@@ -5,22 +5,13 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeLogger } from "../../../../../TestUtils/configurationLayersFixture.ts";
+import { findShell, PROMPT_START, RecordingSession } from "../../../../../TestUtils/shellIntegrationSession.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
-import { type EmbeddedTerminalOptions, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
+import type { EmbeddedTerminalOptions, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-class RecordingSession extends EmbeddedTerminalSession {
-    public raw = "";
-
-    protected override feedOutput(data: string): void {
-        this.raw += data;
-        super.feedOutput(data);
-    }
-}
-
-const ZSH = ["/usr/bin/zsh", "/bin/zsh"].find((p) => existsSync(p));
+const ZSH = findShell("zsh");
 const WAIT = { timeout: 10_000, interval: 50 };
-const PROMPT_START = "\x1b]633;A\x07";
 
 // The user's ZDOTDIR goes through the terminal env: the fallback, `os.homedir()`, reads the process's real HOME — a
 // stubbed one does not reach it in a worker thread (Stryker runs vitest in the `threads` pool). The fallback itself is

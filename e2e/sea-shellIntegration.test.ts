@@ -1,8 +1,10 @@
 import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
+
+import { findShell } from "../src/TestUtils/findShell.ts";
 
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
@@ -40,19 +42,17 @@ describeLinux("shell integration scripts — SEA", () => {
     }, 120_000);
 
     // CI installs fish and has pwsh in the runner image; without the shell its case is skipped.
-    for (const { shell, check } of [
-        { shell: "/usr/bin/fish", check: 'functions -q __vsc_cmd_finished; and echo "si""-$VSCODE_INJECTION"' },
-        {
-            shell: ["/usr/bin/pwsh", "/usr/local/bin/pwsh"].find((p) => existsSync(p)) ?? "/usr/bin/pwsh",
-            check: "if (Get-Command __VSCode-Escape-Value) { 'si' + '-' + $env:VSCODE_INJECTION }",
-        },
+    for (const { name, check } of [
+        { name: "fish", check: 'functions -q __vsc_cmd_finished; and echo "si""-$VSCODE_INJECTION"' },
+        { name: "pwsh", check: "if (Get-Command __VSCode-Escape-Value) { 'si' + '-' + $env:VSCODE_INJECTION }" },
     ]) {
-        it.skipIf(!existsSync(shell))(
-            `${basename(shell)} starts with the unpacked script from a cache path with spaces`,
+        const shell = findShell(name);
+        it.skipIf(shell === undefined)(
+            `${name} starts with the unpacked script from a cache path with spaces`,
             async () => {
                 const cacheHome = mkdtempSync(join(tmpdir(), "diode cache with spaces "));
                 const { session } = await useHeadlessApp({
-                    env: { SHELL: shell, XDG_CACHE_HOME: cacheHome, POWERSHELL_TELEMETRY_OPTOUT: "1" },
+                    env: { SHELL: shell ?? "", XDG_CACHE_HOME: cacheHome, POWERSHELL_TELEMETRY_OPTOUT: "1" },
                 });
                 await session.waitForReady();
                 await session.sendKey("Ctrl+K");

@@ -5,24 +5,14 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeLogger } from "../../../../../TestUtils/configurationLayersFixture.ts";
+import { findShell, PROMPT_START, RecordingSession } from "../../../../../TestUtils/shellIntegrationSession.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
-import { type EmbeddedTerminalOptions, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
-
-/** The raw PTY output: the emulator swallows OSC 633, the shell integration script is seen only here. */
-class RecordingSession extends EmbeddedTerminalSession {
-    public raw = "";
-
-    protected override feedOutput(data: string): void {
-        this.raw += data;
-        super.feedOutput(data);
-    }
-}
+import type { EmbeddedTerminalOptions, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
 const BASH = "/bin/bash";
-const ZSH = ["/usr/bin/zsh", "/bin/zsh"].find((p) => existsSync(p));
+const ZSH = findShell("zsh");
 const WAIT = { timeout: 10_000, interval: 50 };
-const PROMPT_START = "\x1b]633;A\x07";
 /**
  * Debian's `/etc/zsh/zshrc` runs `compinit` unless this is set; on a CI runner it finds "insecure directories" and
  * waits for an answer instead of drawing the prompt.
