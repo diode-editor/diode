@@ -8,9 +8,9 @@ import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorLayoutService } from "../../../../api/common/iEditorLayoutService.ts";
 import type { IEditorOptionsPatch, IEditorOptionsService } from "../../../../api/common/iEditorOptionsService.ts";
 import {
+    isFiniteNumber,
     type IWireSaveResult,
     type IWireShowTextDocumentResult,
-    isFiniteNumber,
     parseRange,
     parseWireSelections,
 } from "../../../../api/common/wireTypes.ts";
