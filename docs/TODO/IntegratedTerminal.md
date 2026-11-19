@@ -20,6 +20,15 @@
   `TerminalService`: пользователь неподдерживаемой платформы увидит падение действия, а не «терминал
   недоступен». Нашлось в #197 (тест перевели на вкладку PROBLEMS, `e2e/outputPanel.test.ts`).
 
+## Shell integration
+
+Волна эпика #1215: #1216 окружение → #1218 инъекция bash/zsh → #1219 fish/pwsh → #1220 разбор OSC 633 →
+#1221 API → #1222 `executeCommand` → #1223 `applyAtShellIntegration` → #1224 ручная приёмка.
+
+- [x] Инъекция скриптов эталона в bash и zsh, упаковка в бинарь (#1218,
+  [Terminal.md](../arch/workbench/Terminal.md#shell-integration-инъекция)).
+- [ ] fish и pwsh (#1219), разбор OSC 633 и модель команд (#1220), API расширений (#1221–#1223).
+
 ## UX
 
 - [ ] Скролбэк колесом в e2e: инспектор-протокол пока не инъецирует колесо (enabler `TUIDom.sendMouse`),

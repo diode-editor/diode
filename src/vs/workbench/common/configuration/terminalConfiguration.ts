@@ -153,6 +153,15 @@ export const terminalConfiguration = {
             description:
                 "Whether to enable the kitty keyboard protocol, which allows a program in the terminal to request more detailed keyboard input reporting. This can, for example, enable `Shift+Enter` to be handled by the program.",
         },
+        // Verbatim from upstream (`markdownDescription` → `description`, `{0}`/`{1}` substituted); our schema has no
+        // `restricted`. Read when a terminal (re)launches: `TerminalService` passes it to the session.
+        "terminal.integrated.shellIntegration.enabled": {
+            scope: "window",
+            type: "boolean",
+            default: true,
+            description:
+                "Determines whether or not shell integration is auto-injected to support features like enhanced command tracking and current working directory detection. \n\nShell integration works by injecting the shell with a startup script. The script gives VS Code insight into what is happening within the terminal.\n\nSupported shells:\n\n- Linux/macOS: bash, fish, pwsh, zsh\n - Windows: pwsh, git bash\n\nThis setting applies only when terminals are created, so you will need to restart your terminals for it to take effect.\n\n Note that the script injection may not work if you have custom arguments defined in the terminal profile, have enabled `#editor.accessibilitySupport#`, have a [complex bash `PROMPT_COMMAND`](https://code.visualstudio.com/docs/editor/integrated-terminal#_complex-bash-promptcommand), or other unsupported setup. To disable decorations, see `#terminal.integrated.shellIntegration.decorationsEnabled#`",
+        },
         "terminal.integrated.allowChords": {
             scope: "window",
             type: "boolean",

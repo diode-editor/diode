@@ -46,6 +46,7 @@ describe("TerminalService — instances with options", () => {
             {
                 cols: 80,
                 rows: 24,
+                shellIntegrationEnabled: true,
                 cwd: "/ws",
                 shell: "/bin/zsh",
                 args: ["-l"],
@@ -69,14 +70,19 @@ describe("TerminalService — instances with options", () => {
         h.service.dispose();
     });
 
-    it("without options — like the user's shell: process name, process cwd, only the size goes to the factory", () => {
+    it("without options — like the user's shell: process name, process cwd, the size and the setting go to the factory", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ name: "", cwd: "/explicit" });
-        expect(h.factoryCalls).toStrictEqual([{ cols: 80, rows: 24, cwd: "/explicit" }]);
+        expect(h.factoryCalls).toStrictEqual([{ cols: 80, rows: 24, cwd: "/explicit", shellIntegrationEnabled: true }]);
         // Upstream treats an empty name as "not set".
         expect(instance.title).toBe("bash");
         h.service.createInstance({ strictEnv: false });
-        expect(h.factoryCalls[1]).toStrictEqual({ cols: 80, rows: 24, cwd: process.cwd() });
+        expect(h.factoryCalls[1]).toStrictEqual({
+            cols: 80,
+            rows: 24,
+            cwd: process.cwd(),
+            shellIntegrationEnabled: true,
+        });
         h.service.dispose();
     });
 

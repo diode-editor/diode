@@ -59,13 +59,13 @@ async function main() {
     const version = resolveDiodeVersion({ repoRoot: root });
     console.log(`[selfextract] target=${target} version=${version}`);
 
-    const { mainJsPath, bundlePath, tsServerBundlePath, lazyChunks } = args.reuseDist
+    const { mainJsPath, bundlePath, shellIntegrationBundlePath, tsServerBundlePath, lazyChunks } = args.reuseDist
         ? existingDistArtifacts(distDir)
         : await buildDistArtifacts({ repoRoot: root, distDir });
 
     const nodeBinary = await resolveNodeBinary({ target, nodeOpt: args.node });
 
-    const payload = buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath, lazyChunks, distDir });
+    const payload = buildPayload({ target, nodeBinary, mainJsPath, bundlePath, shellIntegrationBundlePath, tsServerBundlePath, lazyChunks, distDir });
 
     const key = `${version}-${sha256(payload).slice(0, 12)}`;
     writeSelfExtract({ outputPath, payload, key });
@@ -108,7 +108,7 @@ function parseArgs(argv) {
 
 /**
  * @param {string} distDir
- * @returns {{ mainJsPath: string, bundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }> }}
+ * @returns {{ mainJsPath: string, bundlePath: string, shellIntegrationBundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }> }}
  */
 function existingDistArtifacts(distDir) {
     const lazyChunks = LAZY_CHUNKS.map(({ id }) => {
@@ -118,6 +118,7 @@ function existingDistArtifacts(distDir) {
     const paths = {
         mainJsPath: join(distDir, "main.cjs"),
         bundlePath: join(distDir, "diode.bundle"),
+        shellIntegrationBundlePath: join(distDir, "shell-integration.bundle"),
         tsServerBundlePath: join(distDir, "ts-server.bundle"),
         tsServerDigestPath: join(distDir, "ts-server.bundle.sha256"),
     };
@@ -190,10 +191,10 @@ async function downloadNode({ target }) {
 }
 
 /**
- * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }>, distDir: string }} params
+ * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, shellIntegrationBundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }>, distDir: string }} params
  * @returns {Buffer}
  */
-function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath, lazyChunks, distDir }) {
+function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, shellIntegrationBundlePath, tsServerBundlePath, lazyChunks, distDir }) {
     const stageDir = join(distDir, ".selfextract", target);
     rmSync(stageDir, { recursive: true, force: true });
     mkdirSync(stageDir, { recursive: true });
@@ -221,6 +222,10 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
     }
 
     stageRipgrep(stageDir);
+
+    // Next to main.cjs, where shellIntegrationScripts.ts (via entryDir()) looks for it: the shell needs the
+    // scripts on disk, and the dev fallback (the sources) is not in the payload.
+    cpSync(shellIntegrationBundlePath, join(stageDir, "shell-integration.bundle"));
 
     // The native code above comes from the HOST architecture; only node cross-builds legitimately, so warn instead of failing.
     if (target !== HOST_TARGET) {

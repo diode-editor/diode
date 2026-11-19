@@ -14,13 +14,14 @@ import { buildLazyChunks, verifyLazyChunks } from "./build-lazy-chunks.mjs";
 import { buildNodePtyBundle } from "./pack-node-pty.mjs";
 import { buildDiodeBundle } from "./pack-assets.mjs";
 import { buildRipgrepBundle } from "./pack-ripgrep.mjs";
+import { buildShellIntegrationBundle } from "./pack-shell-integration.mjs";
 import { buildTsServerBundle } from "./pack-ts-server.mjs";
 
 /**
  * e2e passes another `distDir`: an immutable build in a cache keyed by hash (`scripts/e2e-artifacts.mjs`).
  *
  * @param {{ repoRoot: string, distDir?: string }} params
- * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ id: string, asset: string, path: string }> }>}
+ * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, shellIntegrationBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ id: string, asset: string, path: string }> }>}
  */
 export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "dist") }) {
     mkdirSync(distDir, { recursive: true });
@@ -57,6 +58,11 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
         `[build-dist] Packed ${ptyInputs.length} node-pty files → ${nodePtyBundlePath} (${(ptyBundle.length / 1024).toFixed(1)} KB)`,
     );
 
+    const { bundle: siBundle, inputs: siInputs } = buildShellIntegrationBundle({ repoRoot });
+    const shellIntegrationBundlePath = join(distDir, "shell-integration.bundle");
+    writeFileSync(shellIntegrationBundlePath, siBundle);
+    console.log(`[build-dist] Packed ${siInputs.length} shell integration scripts → ${shellIntegrationBundlePath}`);
+
     const { bundle: rgBundle, binaryName: rgBinaryName } = buildRipgrepBundle({ repoRoot });
     const ripgrepBundlePath = join(distDir, "rg.bundle");
     writeFileSync(ripgrepBundlePath, rgBundle);
@@ -79,6 +85,7 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
         mainJsPath: join(distDir, "main.cjs"),
         bundlePath,
         nodePtyBundlePath,
+        shellIntegrationBundlePath,
         ripgrepBundlePath,
         tsServerBundlePath,
         lazyChunks: lazyChunks.map(({ id, asset, path }) => ({ id, asset, path })),

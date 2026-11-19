@@ -182,7 +182,7 @@ extension terminals and tree views work; webview is the ceiling.
 | `getCommands` | ✅ | Commands of the editor and of extensions; API commands (`vscode.open`…) are not listed, as in VS Code. |
 | API commands `vscode.executeCompletionItemProvider`, `vscode.executeCodeActionProvider` | ✅ | Ask the providers of extensions; the results are the provider's own objects. |
 | API commands `vscode.executeHoverProvider`, `vscode.experimental.executeHoverProvider_recursive` | ✅ | Ask the hover providers of extensions, also on a document nobody opened or one from a content provider; the result is new `Hover`s with `MarkdownString` contents and a range (the word at the position when the provider gave none), as in VS Code. |
-| API command `vscode.executeLinkProvider` | 🟡 | Always an empty list: the command is not wired to the link providers yet. |
+| API command `vscode.executeLinkProvider` | ✅ | The links of a loaded document from the extensions' providers and the built-in `http(s)`/`file` detector, merged as in VS Code; the first `linkResolveCount` links without a target are resolved by their provider. A document not loaded in the editor gives an empty list, as in VS Code. **Deviation:** a link that cannot be resolved stays without a target instead of failing the command. |
 
 ## vscode.extensions
 
