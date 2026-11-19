@@ -1,0 +1,353 @@
+// Upstream `extHostTerminalShellIntegration.ts`: `Terminal.shellIntegration` and the shell execution events from what
+// the host reports (`terminal.shellIntegration.*`, `terminal.shellExecution.*`). Not ported here: multi-line
+// `executeCommand` (sub-executions) — the next issue of the wave.
+
+import type * as vscode from "vscode";
+
+import type { SubprocessRpc } from "./extHostProtocol.ts";
+import {
+    parseWireTerminalShellExecutionData,
+    parseWireTerminalShellExecutionEnd,
+    parseWireTerminalShellExecutionStart,
+    parseWireTerminalShellIntegration,
+    parseWireTerminalShellIntegrationCwd,
+    parseWireTerminalShellIntegrationEnv,
+} from "./terminalWireParsers.ts";
+import { EventEmitter, TerminalShellExecutionCommandLineConfidence, Uri } from "./vscodeTypes.ts";
+import type { IWireTerminalCommandLine } from "./wireTypes.ts";
+
+/** Our enum is the d.ts one at runtime; the types differ only by declaration. */
+const HIGH =
+    TerminalShellExecutionCommandLineConfidence.High as number as vscode.TerminalShellExecutionCommandLineConfidence;
+
+/**
+ * Upstream `TerminalShellIntegration.env` (proposed `terminalShellEnv`, not in the stable d.ts): present at runtime,
+ * as upstream.
+ */
+interface ITerminalShellIntegrationEnvironment {
+    readonly value: Readonly<Record<string, string>>;
+    readonly isTrusted: boolean;
+}
+
+/** A terminal of the namespace, by host id: the integration is set on it once and keeps its identity. */
+export interface IShellIntegrationTerminal {
+    readonly value: vscode.Terminal;
+    shellIntegration: vscode.TerminalShellIntegration | undefined;
+}
+
+export interface ITerminalShellIntegrations {
+    readonly onDidChangeTerminalShellIntegration: vscode.Event<vscode.TerminalShellIntegrationChangeEvent>;
+    readonly onDidStartTerminalShellExecution: vscode.Event<vscode.TerminalShellExecutionStartEvent>;
+    readonly onDidEndTerminalShellExecution: vscode.Event<vscode.TerminalShellExecutionEndEvent>;
+    /** The terminal closed: a running execution ends without a code, its `read()` streams complete. */
+    close(id: number): void;
+}
+
+/**
+ * Upstream `ShellExecutionDataStream` + `AsyncIterableObject`: one `read()`. It gets the data emitted after it was
+ * created and completes when the execution ends; it can be iterated more than once, each from the start.
+ */
+class ExecutionDataStream implements AsyncIterable<string> {
+    private readonly chunks: string[] = [];
+    private ended = false;
+    private waiters: (() => void)[] = [];
+
+    public emit(data: string): void {
+        this.chunks.push(data);
+        this.wake();
+    }
+
+    public end(): void {
+        this.ended = true;
+        this.wake();
+    }
+
+    private wake(): void {
+        const waiters = this.waiters;
+        this.waiters = [];
+        for (const waiter of waiters) waiter();
+    }
+
+    public [Symbol.asyncIterator](): AsyncIterator<string, undefined> {
+        let i = 0;
+        return {
+            next: async (): Promise<IteratorResult<string, undefined>> => {
+                while (i === this.chunks.length && !this.ended) {
+                    await new Promise<void>((resolve) => this.waiters.push(resolve));
+                }
+                return i < this.chunks.length
+                    ? { done: false, value: this.chunks[i++] }
+                    : { done: true, value: undefined };
+            },
+        };
+    }
+}
+
+/** Upstream `InternalTerminalShellExecution`. */
+class ShellExecution {
+    public readonly value: vscode.TerminalShellExecution;
+    private readonly streams: ExecutionDataStream[] = [];
+    private ended = false;
+
+    public constructor(
+        private commandLine: vscode.TerminalShellExecutionCommandLine,
+        cwd: vscode.Uri | undefined,
+    ) {
+        const read = (): AsyncIterable<string> => this.read();
+        const commandLineOf = (): vscode.TerminalShellExecutionCommandLine => this.commandLine;
+        this.value = {
+            get commandLine(): vscode.TerminalShellExecutionCommandLine {
+                return commandLineOf();
+            },
+            cwd,
+            read,
+        };
+    }
+
+    /** Upstream: a `read()` after the end is empty; one before gets the data from then on. */
+    private read(): AsyncIterable<string> {
+        const stream = new ExecutionDataStream();
+        if (this.ended) stream.end();
+        else this.streams.push(stream);
+        return stream;
+    }
+
+    public emit(data: string): void {
+        for (const stream of this.streams) stream.emit(data);
+    }
+
+    /** `commandLine` — the line the shell reported at the end replaces the one from the start. */
+    public end(commandLine: vscode.TerminalShellExecutionCommandLine | undefined): void {
+        if (commandLine !== undefined) this.commandLine = commandLine;
+        this.ended = true;
+        for (const stream of this.streams.splice(0)) stream.end();
+    }
+}
+
+interface IEmitters {
+    readonly change: EventEmitter<vscode.TerminalShellIntegrationChangeEvent>;
+    readonly start: EventEmitter<vscode.TerminalShellExecutionStartEvent>;
+    readonly end: EventEmitter<vscode.TerminalShellExecutionEndEvent>;
+}
+
+/** Upstream `InternalTerminalShellIntegration`. */
+class ShellIntegration {
+    public readonly value: vscode.TerminalShellIntegration;
+    private cwd: vscode.Uri | undefined;
+    private env: ITerminalShellIntegrationEnvironment | undefined;
+    /** `executeCommand` executions waiting for their start. */
+    private readonly pending: ShellExecution[] = [];
+    private current: ShellExecution | undefined;
+    /** Ended, its end event not fired yet: it waits for the `read()` streams to complete. */
+    private ending: { readonly execution: ShellExecution; readonly exitCode: number | undefined } | undefined;
+    private endTimer: ReturnType<typeof setTimeout> | undefined;
+
+    public constructor(
+        private readonly terminal: vscode.Terminal,
+        supportsExecuteCommand: boolean,
+        private readonly emitters: IEmitters,
+        requestExecution: (commandLine: string) => void,
+    ) {
+        const cwd = (): vscode.Uri | undefined => this.cwd;
+        const env = (): ITerminalShellIntegrationEnvironment | undefined => this.env;
+        const requestNew = (commandLine: string): vscode.TerminalShellExecution => {
+            requestExecution(commandLine);
+            const execution = new ShellExecution({ value: commandLine, confidence: HIGH, isTrusted: true }, this.cwd);
+            this.pending.push(execution);
+            return execution.value;
+        };
+        this.value = {
+            get cwd(): vscode.Uri | undefined {
+                return cwd();
+            },
+            get env(): ITerminalShellIntegrationEnvironment | undefined {
+                const value = env();
+                return value === undefined
+                    ? undefined
+                    : Object.freeze({ isTrusted: value.isTrusted, value: Object.freeze({ ...value.value }) });
+            },
+            executeCommand(commandLineOrExecutable: string, args?: string[]): vscode.TerminalShellExecution {
+                if (!supportsExecuteCommand) throw new Error("This terminal does not support the executeCommand API.");
+                return requestNew(commandLineOf(commandLineOrExecutable, args));
+            },
+        } as vscode.TerminalShellIntegration;
+    }
+
+    public setCwd(cwd: vscode.Uri | undefined): void {
+        if (this.cwd?.toString() === cwd?.toString()) return;
+        this.cwd = cwd;
+        this.fireChange();
+    }
+
+    /** Upstream fires on every report, changed or not. */
+    public setEnv(value: Readonly<Record<string, string>>, isTrusted: boolean): void {
+        this.env = { value, isTrusted };
+        this.fireChange();
+    }
+
+    public fireChange(): void {
+        this.emitters.change.fire({ terminal: this.terminal, shellIntegration: this.value });
+    }
+
+    /** A start ends what is still open: the previous execution's end event goes first, without a code. */
+    public start(commandLine: vscode.TerminalShellExecutionCommandLine, cwd: vscode.Uri | undefined): void {
+        this.fireEnding();
+        if (this.current !== undefined) {
+            this.current.end(undefined);
+            this.fireEnd(this.current, undefined);
+        }
+        // Upstream: a high-confidence line matches its `executeCommand` exactly, a lower one takes the oldest.
+        let execution: ShellExecution | undefined;
+        if (commandLine.confidence === HIGH) {
+            const index = this.pending.findIndex((e) => e.value.commandLine.value === commandLine.value);
+            if (index !== -1) execution = this.pending.splice(index, 1)[0];
+        } else {
+            execution = this.pending.shift();
+        }
+        this.current = execution ?? new ShellExecution(commandLine, cwd ?? this.cwd);
+        this.emitters.start.fire({
+            terminal: this.terminal,
+            shellIntegration: this.value,
+            execution: this.current.value,
+        });
+    }
+
+    public emit(data: string): void {
+        this.current?.emit(data);
+    }
+
+    /**
+     * Upstream fires the end once the `read()` streams have completed (`flush`): a consumer's `for await` is done
+     * with the data by then. A start or a close before that fires it at once.
+     */
+    public end(commandLine: vscode.TerminalShellExecutionCommandLine, exitCode: number | undefined): void {
+        const execution = this.current;
+        if (execution === undefined) return;
+        this.current = undefined;
+        execution.end(commandLine);
+        this.ending = { execution, exitCode };
+        this.endTimer = setTimeout(() => {
+            this.fireEnding();
+        });
+    }
+
+    public close(): void {
+        this.fireEnding();
+        const execution = this.current;
+        if (execution === undefined) return;
+        this.current = undefined;
+        execution.end(undefined);
+        this.fireEnd(execution, undefined);
+    }
+
+    private fireEnding(): void {
+        clearTimeout(this.endTimer);
+        const ending = this.ending;
+        if (ending === undefined) return;
+        this.ending = undefined;
+        this.fireEnd(ending.execution, ending.exitCode);
+    }
+
+    private fireEnd(execution: ShellExecution, exitCode: number | undefined): void {
+        this.emitters.end.fire({
+            terminal: this.terminal,
+            shellIntegration: this.value,
+            execution: execution.value,
+            exitCode,
+        });
+    }
+}
+
+/** Upstream `executeCommand(executable, args)`: an argument with whitespace and no quotes is wrapped in `"…"`. */
+function commandLineOf(commandLineOrExecutable: string, args: readonly string[] | undefined): string {
+    let commandLine = commandLineOrExecutable;
+    for (const arg of args ?? []) {
+        const wrapInQuotes = !/["'`]/u.test(arg) && /\s/u.test(arg);
+        commandLine += wrapInQuotes ? ` "${arg}"` : ` ${arg}`;
+    }
+    return commandLine;
+}
+
+/** Upstream `_convertCwdToUri`: an empty cwd is unknown. */
+function cwdUri(cwd: string | undefined): vscode.Uri | undefined {
+    return cwd === undefined || cwd === "" ? undefined : Uri.file(cwd);
+}
+
+function commandLineFromWire(wire: IWireTerminalCommandLine): vscode.TerminalShellExecutionCommandLine {
+    return {
+        value: wire.value,
+        confidence: wire.confidence as number as vscode.TerminalShellExecutionCommandLineConfidence,
+        isTrusted: wire.isTrusted,
+    };
+}
+
+/** Upstream `ExtHostTerminalShellIntegration`; `terminalOf` resolves a host id to the namespace's terminal. */
+export function createTerminalShellIntegrations(
+    rpc: SubprocessRpc,
+    terminalOf: (id: number) => IShellIntegrationTerminal | undefined,
+): ITerminalShellIntegrations {
+    const emitters: IEmitters = {
+        change: new EventEmitter(),
+        start: new EventEmitter(),
+        end: new EventEmitter(),
+    };
+    const integrations = new Map<number, ShellIntegration>();
+
+    /** Upstream `$shellIntegrationChange`: the first one creates the integration, every one fires the change. */
+    const change = (id: number, supportsExecuteCommand: boolean): void => {
+        const terminal = terminalOf(id);
+        if (terminal === undefined) return;
+        let integration = integrations.get(id);
+        if (integration === undefined) {
+            integration = new ShellIntegration(terminal.value, supportsExecuteCommand, emitters, (commandLine) => {
+                rpc.notify("terminal.shellIntegration.executeCommand", { id, commandLine });
+            });
+            integrations.set(id, integration);
+            terminal.shellIntegration = integration.value;
+        }
+        integration.fireChange();
+    };
+
+    rpc.handleNotification("terminal.shellIntegration.changed", (params) => {
+        const event = parseWireTerminalShellIntegration(params);
+        if (event !== null) change(event.id, event.supportsExecuteCommand);
+    });
+
+    rpc.handleNotification("terminal.shellIntegration.cwd", (params) => {
+        const event = parseWireTerminalShellIntegrationCwd(params);
+        if (event !== null) integrations.get(event.id)?.setCwd(cwdUri(event.cwd));
+    });
+
+    rpc.handleNotification("terminal.shellIntegration.env", (params) => {
+        const event = parseWireTerminalShellIntegrationEnv(params);
+        if (event !== null) integrations.get(event.id)?.setEnv(event.env, event.isTrusted);
+    });
+
+    rpc.handleNotification("terminal.shellExecution.start", (params) => {
+        const event = parseWireTerminalShellExecutionStart(params);
+        if (event === null) return;
+        // Upstream: a start without the change before it (missed on startup) creates the integration.
+        if (!integrations.has(event.id)) change(event.id, event.supportsExecuteCommand);
+        integrations.get(event.id)?.start(commandLineFromWire(event.commandLine), cwdUri(event.cwd));
+    });
+
+    rpc.handleNotification("terminal.shellExecution.data", (params) => {
+        const event = parseWireTerminalShellExecutionData(params);
+        if (event !== null) integrations.get(event.id)?.emit(event.data);
+    });
+
+    rpc.handleNotification("terminal.shellExecution.end", (params) => {
+        const event = parseWireTerminalShellExecutionEnd(params);
+        if (event !== null) integrations.get(event.id)?.end(commandLineFromWire(event.commandLine), event.exitCode);
+    });
+
+    return {
+        onDidChangeTerminalShellIntegration: emitters.change.event,
+        onDidStartTerminalShellExecution: emitters.start.event,
+        onDidEndTerminalShellExecution: emitters.end.event,
+        close: (id) => {
+            integrations.get(id)?.close();
+            integrations.delete(id);
+        },
+    };
+}

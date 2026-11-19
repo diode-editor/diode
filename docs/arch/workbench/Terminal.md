@@ -84,7 +84,7 @@ terminal.» до первого открытия), несколько терми
 
 Шелл стартует со скриптом shell integration эталона — скрипт сам шлёт OSC 633 (начало промпта и ввода,
 запуск и конец команды с кодом выхода, командная строка, cwd). Разбор — [ниже](#shell-integration-разбор-и-модель-команд),
-API расширений — следующая issue волны (#1215).
+API расширений — [ниже](#shell-integration-api-расширений).
 
 - **Скрипты** — дословно из эталона, с шапкой лицензии: `contrib/terminal/common/scripts/` (зеркальный
   путь): `shellIntegration-bash.sh`, `-rc.zsh`, `-env.zsh`, `-profile.zsh`, `-login.zsh`, `shellIntegration.fish`,
@@ -179,6 +179,47 @@ API расширений — следующая issue волны (#1215).
   выбрасывает строку на конце команды).
 - **Проверить руками** — Developer: Write Data to Terminal с `\x1b]633;D;1\x07` ничего не печатает; Developer:
   Record Terminal Session показывает, что последовательности приходят.
+
+## Shell integration: API расширений
+
+Перенос `MainThreadTerminalShellIntegration` и `ExtHostTerminalShellIntegration` эталона: расширения видят
+`Terminal.shellIntegration`, `window.onDidChangeTerminalShellIntegration`, `onDidStart/EndTerminalShellExecution`.
+
+- **Продюсер** — `contrib/terminal/browser/terminalShellIntegrationRelay.ts`, по одному на инстанс с эмулятором
+  (`ExtensionTerminalAdapter` заводит их на всех инстансах с момента своего создания, есть подписчик или нет).
+  Слушает capabilities аддона: появление `commandDetection` — «интеграция ожила» (`terminal.shellIntegration.changed`
+  + текущий cwd, и активация `onTerminalShellIntegration:*` и `:<shellType>` через `activateByEvent` — до старта
+  субпроцесса, раз на процесс шелла); `onCommandExecuted` → `terminal.shellExecution.start`; вывод команды
+  (`onDidWriteCommandOutput`) копится и уходит `terminal.shellExecution.data` с дебаунсом 50 мс
+  (`SHELL_EXECUTION_DATA_DEBOUNCE_MS`, эталонный `Event.accumulate`), остаток — перед
+  `terminal.shellExecution.end` (`onCommandFinished`, сразу); `onDidChangeCwd`/`onDidChangeEnv` →
+  `terminal.shellIntegration.cwd`/`.env`. Relaunch меняет capabilities — слушатели старых уходят, новая
+  `commandDetection` шлёт `changed` заново (объект на стороне расширения тот же).
+- **Канал** — `TerminalCustomer`: события адаптера релеит только посеянному субпроцессу; новому субпроцессу
+  `pushInitialState` после `terminal.opened` шлёт `changed`, cwd и окружение каждого терминала с живой интеграцией
+  (`snapshot().shellIntegrations`). `$closeTerminal` эталона не заведён: его роль у `terminal.closed`.
+- **Ext host** — `api/common/terminalShellIntegration.ts`: объект `TerminalShellIntegration` на терминал по host id
+  (ставится в `TerminalRecord.shellIntegration` первым `changed`, идентичность постоянна); `env` — рантайм-свойство
+  (в стабильном d.ts его нет, у эталона — proposal). Выполнение: `commandLine` с конца заменяет стартовый (как
+  эталон), `read()` — новый поток с данными с этого момента; после конца — пустой. Конец выполнения откладывается на
+  макрозадачу, пока потоки `read()` дочитываются (эталонный `flush`); следующий старт или закрытие терминала
+  стреляют его сразу. Старт без конца предыдущего — сначала конец предыдущего с `exitCode: undefined`.
+  **Отступление:** закрытие терминала заканчивает висящее выполнение (конец без кода, потоки закрыты) до
+  `onDidCloseTerminal` — у эталона итераторы висят.
+- **`executeCommand`** — базовый: `terminal.shellIntegration.executeCommand` → `sendText(line, true)`; выполнение с
+  `confidence: High`, `isTrusted: true` ждёт старта с точно той же строкой (`High`) или берётся первым (ниже `High`).
+  Ожидание промпта, таймаут, многострочные команды — следующая issue волны. Таск-терминал (`isFeatureTerminal`, в
+  том числе pty `CustomExecution`) — `supportsExecuteCommand: false`, `executeCommand` бросает.
+- **Nonce** — `TerminalOptions.shellIntegrationNonce` и `ExtensionTerminalOptions.shellIntegrationNonce` доезжают
+  до `XtermSurface` (иначе свежий uuid): шелл получает его как `VSCODE_NONCE`, pty расширения шлёт его в своих 633.
+- **Зонд** — синтетическое расширение `e2e/marketplace/shell-integration-probe` (`onTerminalShellIntegration:*`):
+  пишет каждое событие в OUTPUT «Shell Integration Probe», команда **Shell Integration Probe: Execute Command**.
+  Поставить: `node scripts/pack-vsix.mjs e2e/marketplace/shell-integration-probe /tmp/probe.vsix && diode
+  --install-extension /tmp/probe.vsix` (подробно — README зонда). Демо и герметичный e2e — сценарий
+  `shell-integration-probe`.
+- **Приёмка на стоковом** — `Anthropic.claude-code` (`e2e/claudeCode.test.ts`, сценарий `claude-code`): по
+  `changed` он делает `executeCommand("claude")`, по концу с кодом 0 и строкой `claude` закрывает терминал.
+  Фейковый `claude` ждёт Enter, как настоящий CLI ждёт выхода.
 
 ## Упаковка нативного: embed + runtime-extract
 

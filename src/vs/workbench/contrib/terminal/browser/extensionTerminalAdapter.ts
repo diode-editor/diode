@@ -1,6 +1,10 @@
-import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { DisposableMap, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import type { IExtensionTerminalEvents, IExtensionTerminalSink } from "../../../api/common/iExtensionWindowSinks.ts";
+import type {
+    IExtensionTerminalEvents,
+    IExtensionTerminalShellIntegrationState,
+    IExtensionTerminalSink,
+} from "../../../api/common/iExtensionWindowSinks.ts";
 import type {
     IWireTerminalCreate,
     IWireTerminalLaunch,
@@ -21,6 +25,7 @@ import {
     TERMINAL_VIEW_ID,
     type TerminalService,
 } from "./terminalService.ts";
+import { TerminalShellIntegrationRelay } from "./terminalShellIntegrationRelay.ts";
 
 export type IExtensionEditorTerminals = Pick<TerminalEditorService, "createTerminal" | "splitInstance" | "reveal">;
 
@@ -44,24 +49,40 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
     private readonly ptySessions = new Map<number | undefined, IExtensionPtySession>();
     /** The extension sees `exitStatus.code` as `undefined`, as in upstream. */
     private readonly ptyExitedWithoutCode = new Set<number | undefined>();
+    /**
+     * Shell integration of every instance with an emulator, subscribed or not: it activates extensions
+     * (`onTerminalShellIntegration:*`) before any subprocess runs.
+     */
+    private readonly shellIntegrations = new DisposableMap<number, TerminalShellIntegrationRelay>();
 
+    /** @param activate the extension service's `activateByEvent`. */
     public constructor(
         private readonly terminals: TerminalService,
         private readonly views: ViewsService,
         private readonly createPtySession: ExtensionPtySessionFactory,
         private readonly editorTerminals: IExtensionEditorTerminals,
         private readonly configuration: IConfigurationService,
-    ) {}
+        private readonly activate: (event: string) => void = () => undefined,
+    ) {
+        for (const instance of this.allInstances()) this.watchShellIntegration(instance);
+        terminals.onDidCreateInstance((instance) => {
+            this.watchShellIntegration(instance);
+        });
+        terminals.onDidDisposeInstance((instance) => {
+            this.shellIntegrations.deleteAndDispose(instance.id);
+        });
+    }
 
-    public snapshot(): { readonly terminals: readonly IWireTerminalOpened[]; readonly activeId: number | null } {
-        const all = [
-            ...this.terminals.getInstances(),
-            ...this.terminals.getBackgroundInstances(),
-            ...this.terminals.getEditorInstances(),
-        ].sort((a, b) => a.id - b.id);
+    public snapshot(): {
+        readonly terminals: readonly IWireTerminalOpened[];
+        readonly activeId: number | null;
+        readonly shellIntegrations: readonly IExtensionTerminalShellIntegrationState[];
+    } {
+        const all = this.allInstances().sort((a, b) => a.id - b.id);
         return {
             terminals: all.map((instance) => this.toOpened(instance)),
             activeId: this.terminals.getActiveInstanceAcrossHosts()?.id ?? null,
+            shellIntegrations: all.flatMap((instance) => this.shellIntegrations.get(instance.id)?.state() ?? []),
         };
     }
 
@@ -120,7 +141,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         this.creating = request.extHostId;
         try {
             if (request.pty === true) {
-                this.createPty(request.extHostId, request.name ?? "", place);
+                this.createPty(request.extHostId, request.name ?? "", place, request.shellIntegrationNonce);
                 return;
             }
             // Wire parsing already filtered the fields; the extra label and location don't bother the service.
@@ -180,12 +201,16 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         this.terminals.renameInstance(this.resolve(terminal), name);
     }
 
+    public executeCommand(id: number, commandLine: string): void {
+        this.terminals.sendText(id, commandLine, true);
+    }
+
     /**
      * The subprocess attaches the pty by instance id once it learns the task started;
      * `ptyStart` is sent right away — the subprocess remembers it.
      */
     public createPtyInstance(options: IExtensionPtyTerminalOptions): number {
-        return this.createPtySessionInstance(options.name, options);
+        return this.createPtySessionInstance(options.name, { ...options, isFeatureTerminal: true });
     }
 
     /** Pty terminals close — their process died with the subprocess; shells stay alive. */
@@ -194,20 +219,38 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         for (const id of [...this.ptySessions.keys()]) this.terminals.closeInstance(id, "process");
     }
 
+    private allInstances(): ITerminalInstance[] {
+        return [
+            ...this.terminals.getInstances(),
+            ...this.terminals.getBackgroundInstances(),
+            ...this.terminals.getEditorInstances(),
+        ];
+    }
+
+    private watchShellIntegration(instance: ITerminalInstance): void {
+        const addon = instance.session.shellIntegration;
+        if (addon === undefined) return;
+        this.shellIntegrations.set(
+            instance.id,
+            new TerminalShellIntegrationRelay(instance, addon, () => this.events, this.activate),
+        );
+    }
+
     private labelOf(instanceId: number): number | undefined {
         for (const [extHostId, id] of this.byExtHostId) if (id === instanceId) return extHostId;
         return undefined;
     }
 
     /** `ptyStart` goes out at once, like upstream `$startExtensionTerminal`; the real size comes via `ptyResize`. */
-    private createPty(extHostId: number, name: string, place: TerminalPlace): void {
-        this.byExtHostId.set(extHostId, this.createPtySessionInstance(name, {}, place));
+    private createPty(extHostId: number, name: string, place: TerminalPlace, nonce: string | undefined): void {
+        this.byExtHostId.set(extHostId, this.createPtySessionInstance(name, {}, place, nonce));
     }
 
     private createPtySessionInstance(
         name: string,
-        extra: Pick<ITerminalCreateOptions, "message" | "waitOnExit">,
+        extra: Pick<ITerminalCreateOptions, "message" | "waitOnExit" | "isFeatureTerminal">,
         place: TerminalPlace = { kind: "panel" },
+        shellIntegrationNonce?: string,
     ): number {
         // The instance id is known only after createInstance; widget input and resize can't happen earlier.
         // Stryker disable next-line UnaryOperator: placeholder until createInstance — session callbacks never see it
@@ -222,6 +265,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
             onResize: (cols, rows) => {
                 this.events?.ptyResize(instanceId, cols, rows);
             },
+            ...(shellIntegrationNonce !== undefined ? { shellIntegrationNonce } : {}),
         });
         // The service already treats an empty name as "not set".
         const instance = this.createIn(place, { ...extra, name, session });

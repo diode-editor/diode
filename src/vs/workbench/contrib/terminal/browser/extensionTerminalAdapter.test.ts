@@ -45,6 +45,12 @@ function setup(settings: Record<string, unknown> = {}) {
         ptyResize: vi.fn<IExtensionTerminalEvents["ptyResize"]>(),
         interaction: vi.fn<IExtensionTerminalEvents["interaction"]>(),
         titleChanged: vi.fn<IExtensionTerminalEvents["titleChanged"]>(),
+        shellIntegrationChanged: vi.fn<IExtensionTerminalEvents["shellIntegrationChanged"]>(),
+        shellIntegrationCwd: vi.fn<IExtensionTerminalEvents["shellIntegrationCwd"]>(),
+        shellIntegrationEnv: vi.fn<IExtensionTerminalEvents["shellIntegrationEnv"]>(),
+        shellExecutionStart: vi.fn<IExtensionTerminalEvents["shellExecutionStart"]>(),
+        shellExecutionData: vi.fn<IExtensionTerminalEvents["shellExecutionData"]>(),
+        shellExecutionEnd: vi.fn<IExtensionTerminalEvents["shellExecutionEnd"]>(),
     };
     const subscription = adapter.subscribe(events);
     return { views, service, sessions, ptySessions, factoryCalls, adapter, events, subscription, editorTerminals };
@@ -197,7 +203,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.adapter.sendText({ extHostId: 1 }, "x", true);
         expect(h.sessions[1].writes).toStrictEqual([]);
         h.service.dispose();
-        expect(h.adapter.snapshot()).toStrictEqual({ terminals: [], activeId: null });
+        expect(h.adapter.snapshot()).toStrictEqual({ terminals: [], activeId: null, shellIntegrations: [] });
     });
 
     it("closed: exit code only for an exited shell; no events after unsubscribing", () => {

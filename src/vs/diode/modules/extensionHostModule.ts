@@ -253,6 +253,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             container.get(ExtensionPtySessionFactoryDIToken),
             container.get(TerminalEditorServiceDIToken),
             container.get(IConfigurationServiceDIToken),
+            (event) => void container.get(ExtensionServiceDIToken).activateByEvent(event),
         ));
     // Stryker restore ArrowFunction,AssignmentOperator
     container.bind(ExtensionHostDIToken, () => {

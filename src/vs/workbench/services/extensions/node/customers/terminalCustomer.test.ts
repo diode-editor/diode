@@ -393,7 +393,7 @@ describe("extension terminals — over the wire", () => {
     it("broken subprocess envelopes do not reach the sink", async () => {
         const calls: string[] = [];
         const sink: IExtensionTerminalSink = {
-            snapshot: () => ({ terminals: [], activeId: null }),
+            snapshot: () => ({ terminals: [], activeId: null, shellIntegrations: [] }),
             subscribe: () => ({ dispose: () => undefined }),
             create: () => calls.push("create"),
             show: () => calls.push("show"),
@@ -403,6 +403,7 @@ describe("extension terminals — over the wire", () => {
             ptyData: () => calls.push("ptyData"),
             ptyExit: () => calls.push("ptyExit"),
             ptyName: () => calls.push("ptyName"),
+            executeCommand: () => calls.push("executeCommand"),
             reset: () => calls.push("reset"),
         };
         const customer = new TerminalCustomer(sink);

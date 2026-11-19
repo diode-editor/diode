@@ -2043,8 +2043,7 @@
       "class": "ok"
     },
     "ExtensionTerminalOptions.shellIntegrationNonce": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "FileChangeEvent.type": {
       "class": "ok"
@@ -5205,8 +5204,7 @@
       "class": "ok"
     },
     "Terminal.shellIntegration": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "Terminal.show": {
       "class": "ok"
@@ -5324,8 +5322,7 @@
       "class": "ok"
     },
     "TerminalOptions.shellIntegrationNonce": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalOptions.shellPath": {
       "class": "ok"
@@ -5343,88 +5340,68 @@
       "class": "ok"
     },
     "TerminalShellExecution.commandLine": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecution.cwd": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecution.read": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionCommandLine.confidence": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionCommandLine.isTrusted": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionCommandLine.value": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionCommandLineConfidence": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionCommandLineConfidence.High": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionCommandLineConfidence.Low": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionCommandLineConfidence.Medium": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionEndEvent.execution": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionEndEvent.exitCode": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionEndEvent.shellIntegration": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionEndEvent.terminal": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionStartEvent.execution": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionStartEvent.shellIntegration": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellExecutionStartEvent.terminal": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellIntegration.cwd": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellIntegration.executeCommand": {
       "class": "B",
-      "note": "no shell integration"
+      "note": "basic: the line goes as sendText without waiting for the prompt; a multi-line command is not one execution"
     },
     "TerminalShellIntegrationChangeEvent.shellIntegration": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalShellIntegrationChangeEvent.terminal": {
-      "class": "B",
-      "note": "no shell integration"
+      "class": "ok"
     },
     "TerminalSplitLocationOptions.parentTerminal": {
       "class": "ok"

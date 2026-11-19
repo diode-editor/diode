@@ -25,6 +25,8 @@ export interface ITerminalSessionOptions {
     shellIntegrationEnvironmentReporting?: boolean;
     /** A task terminal (upstream `isFeatureTerminal`): never injected with shell integration. */
     isFeatureTerminal?: boolean;
+    /** `TerminalOptions.shellIntegrationNonce`; absent — a fresh one. Kept across relaunches. */
+    shellIntegrationNonce?: string;
 }
 
 export type ITerminalRelaunchOptions = Omit<ITerminalSessionOptions, "cols" | "rows"> & {
@@ -97,6 +99,8 @@ export interface IExtensionPtySessionOptions {
     name: string;
     onInput(data: string): void;
     onResize(cols: number, rows: number): void;
+    /** `ExtensionTerminalOptions.shellIntegrationNonce`: the pty's sequences carrying it are trusted. */
+    shellIntegrationNonce?: string;
 }
 
 export type ExtensionPtySessionFactory = (options: IExtensionPtySessionOptions) => IExtensionPtySession;
