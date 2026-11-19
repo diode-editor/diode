@@ -174,6 +174,7 @@ describe("TerminalService — relaunchInstance", () => {
         expect(h.sessions[0].relaunches).toStrictEqual([
             {
                 cwd: "/ws",
+                shellIntegrationEnabled: true,
                 shell: "/bin/sh",
                 args: ["-c", "make"],
                 env: { A: "1" },
@@ -207,7 +208,7 @@ describe("TerminalService — relaunchInstance", () => {
         const instance = h.service.createInstance({ name: "a", waitOnExit: true });
         h.sessions[0].emitExit(0);
         h.service.relaunchInstance(instance.id, { name: "b" });
-        expect(h.sessions[0].relaunches).toStrictEqual([{ cwd: process.cwd() }]);
+        expect(h.sessions[0].relaunches).toStrictEqual([{ cwd: process.cwd(), shellIntegrationEnabled: true }]);
         expect(instance.title).toBe("b");
         expect(h.events).toStrictEqual(["exit:1:0", "title:1:b"]);
         h.sessions[0].emitExit(0);

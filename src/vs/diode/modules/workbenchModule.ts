@@ -770,16 +770,17 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(OutputComponentDIToken, OutputComponent);
     container.bind(OutputChannelActionsDIToken, OutputChannelActions);
     container.bind(EnvironmentVariableServiceDIToken, EnvironmentVariableService);
-    // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression: production module wiring — the decisions live in `createExtensionEnvironmentContributor`/`buildEnv`, covered by unit tests; end-to-end — e2e scenario extension-environment-collection
+    // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression,ObjectLiteral: production module wiring — the decisions live in `createExtensionEnvironmentContributor`/`buildEnv`/`getShellIntegrationInjection`, covered by unit tests; end-to-end — e2e scenarios extension-environment-collection, terminal-shell-integration
     container.bind(TerminalSessionFactoryDIToken, () => {
         const environment = createExtensionEnvironmentContributor(
             () => container.get(EnvironmentVariableServiceDIToken).mergedCollection,
             container.get(IWorkspaceContextServiceDIToken),
             process.platform === "win32",
         );
-        return (options) => new EmbeddedTerminalSession(options, environment);
+        const logger = container.get(ILogServiceDIToken).createLogger("terminal", { label: "Terminal" });
+        return (options) => new EmbeddedTerminalSession(options, environment, logger);
     });
-    // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression
+    // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression,ObjectLiteral
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test; end-to-end — e2e scenario extension-terminal
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new ExtensionPtySession(options));
     container.bind(TerminalServiceDIToken, TerminalService);

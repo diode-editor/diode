@@ -31,6 +31,8 @@ describe("TerminalTaskSystem — running a shell task", () => {
             {
                 cols: 80,
                 rows: 24,
+                shellIntegrationEnabled: true,
+                isFeatureTerminal: true,
                 cwd: "/ws",
                 shell: "/bin/bash",
                 args: ["-c", "make all"],
@@ -96,6 +98,8 @@ describe("TerminalTaskSystem — running a shell task", () => {
         expect(h.factoryCalls[0]).toStrictEqual({
             cols: 80,
             rows: 24,
+            shellIntegrationEnabled: true,
+            isFeatureTerminal: true,
             cwd: "/ws/sub/d",
             shell: "/usr/bin/zsh",
             args: ["-lc", "make ws 'x q'"],
@@ -134,6 +138,8 @@ describe("TerminalTaskSystem — running a shell task", () => {
         expect(h.factoryCalls[0]).toStrictEqual({
             cols: 80,
             rows: 24,
+            shellIntegrationEnabled: true,
+            isFeatureTerminal: true,
             cwd: "/ws",
             shell: "/bin/fish",
             args: ["echo build"],
@@ -156,6 +162,8 @@ describe("TerminalTaskSystem — running a shell task", () => {
         expect(h.factoryCalls[0]).toStrictEqual({
             cols: 80,
             rows: 24,
+            shellIntegrationEnabled: true,
+            isFeatureTerminal: true,
             cwd: "/ws",
             shell: "node",
             args: ["a b", "c"],
@@ -173,7 +181,15 @@ describe("TerminalTaskSystem — running a shell task", () => {
             }),
             h.context(),
         );
-        expect(h.factoryCalls[0]).toStrictEqual({ cols: 80, rows: 24, cwd: "/ws", shell: "", args: [] });
+        expect(h.factoryCalls[0]).toStrictEqual({
+            cols: 80,
+            rows: 24,
+            shellIntegrationEnabled: true,
+            isFeatureTerminal: true,
+            cwd: "/ws",
+            shell: "",
+            args: [],
+        });
         h.dispose();
     });
 
@@ -403,6 +419,8 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
         expect(h.sessions[0].relaunches).toStrictEqual([
             {
                 cwd: "/ws",
+                shellIntegrationEnabled: true,
+                isFeatureTerminal: true,
                 shell: "/bin/bash",
                 args: ["-c", "echo build"],
                 message: executing("echo build"),
