@@ -146,6 +146,19 @@ describe("TerminalShellIntegrationRelay", () => {
         h.relay.dispose();
     });
 
+    it("output written while no subprocess is not sent to one that comes within the batch window", () => {
+        vi.useFakeTimers();
+        const h = setup();
+        h.shell.comeAlive();
+        h.sent.length = 0;
+        h.detach();
+        h.shell.write("before");
+        h.attach();
+        vi.runAllTimers();
+        expect(h.sent).toStrictEqual([]);
+        h.relay.dispose();
+    });
+
     it("a subprocess gone before the batch goes out: the batch is dropped", () => {
         vi.useFakeTimers();
         const h = setup();
