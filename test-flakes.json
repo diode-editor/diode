@@ -8,6 +8,12 @@
             "note": "no OSC 633;A in the output after 10 s, only the zsh prompt-sp marker, under coverage on CI (run 44461762533, PR #1239, whose diff is TextEditor.visibleRanges; this suite does not touch the editor); main green on the same base"
         },
         {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.javaLsp.features.test.ts",
+            "test": "ExtensionHost — stock redhat.java: language features > references finds the declaration and the call",
+            "action": "retry",
+            "note": "until(references for greet) timed out after 60 s in Stryker's initial test run of the mutation gate (run 44455464286, PR #1243, whose diff is CompletionItem fields and the completion list, which this suite does not touch); green in the unit job"
+        },
+        {
             "file": "src/vs/platform/extensionManagement/node/httpRegistrySource.test.ts",
             "test": "HttpExtensionRegistrySource > download progress > the registry's size beats Content-Length",
             "action": "retry",

@@ -24,7 +24,7 @@ import type {
     ICoreCompletionItem,
     ICoreResolvedCompletion,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
-import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
+import { CompletionItemTag, CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { type StandardTokenType, standardTokenTypeAt } from "../../../../editor/common/languages/standardTokenType.ts";
 import type { ITextDocument } from "../../../../editor/common/model/iTextDocument.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
@@ -962,6 +962,8 @@ function toListItem(core: ICoreCompletionItem): CompletionListItem {
         ...(core.kind !== undefined ? { kind: core.kind } : {}),
         ...(core.filterText !== undefined ? { filterText: core.filterText } : {}),
         ...(core.sortText !== undefined ? { sortText: core.sortText } : {}),
+        ...(core.tags?.includes(CompletionItemTag.Deprecated) === true ? { deprecated: true } : {}),
+        ...(core.preselect === true ? { preselect: true } : {}),
         data: core,
         // Parsed when its row is drawn, and once, as upstream parses in `renderElement`: Tailwind answers with
         // thousands of color items, and parsing them all costs tens of milliseconds per answer.
