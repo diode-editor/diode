@@ -57,6 +57,24 @@ terminal.» до первого открытия), несколько терми
   персист активной вкладки) — `PanelFocusContribution`, шов `ITerminalFocusFallback`, состояние вьюпорта
   (скролбэк) — в `ITerminalSurface`.
 
+## Окружение процесса
+
+`buildEnv` (`embeddedTerminalSession.ts`) повторяет `createTerminalEnvironment` эталона, слои по порядку:
+
+1. унаследованный `process.env`, из него убраны переменные VS Code/Electron —
+   `sanitizeProcessEnvironment` (`base/common/processes.ts`, шим эталона: `ELECTRON_*`, `VSCODE_*` кроме
+   `PORTABLE`/`SHELL_LOGIN`/`ENV_*`, `SNAP*`, `GDK_PIXBUF_*`; `VSCODE_IPC_HOOK_CLI` сохраняется). diode,
+   запущенный из терминала VS Code, не отдаёт шеллу его `VSCODE_*`;
+2. `env` терминала (`null` снимает переменную) — после санитизации, явный `VSCODE_X` доходит;
+3. коллекции `environmentVariableCollection` расширений;
+4. `TERM_PROGRAM=vscode`, `TERM_PROGRAM_VERSION=<vscode.version>` (версия шима, не diode: потребители
+   сравнивают её с версиями VS Code), `COLORTERM=truecolor` — CLI, узнающие IDE по `TERM_PROGRAM`, узнают
+   diode как VS Code. Перекрывают и `env`, и коллекции;
+5. наше: `TERM=xterm-256color`, без `TMUX`.
+
+С `strictEnv` шагов 1, 3, 4 нет: окружение — ровно `env` (плюс `TERM`). Pty расширения процесса не имеет.
+Нет `terminal.integrated.env.*` и `detectLocale` (`LANG`).
+
 ## Упаковка нативного: embed + runtime-extract
 
 node-pty на Unix — `pty.node` + бинарь `spawn-helper` (нужен только на macOS, guard `__APPLE__`).
