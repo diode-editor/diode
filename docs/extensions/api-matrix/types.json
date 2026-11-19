@@ -3092,32 +3092,25 @@
       "class": "ok"
     },
     "LogLevel": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "ok"
     },
     "LogLevel.Debug": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "ok"
     },
     "LogLevel.Error": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "ok"
     },
     "LogLevel.Info": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "ok"
     },
     "LogLevel.Off": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "ok"
     },
     "LogLevel.Trace": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "ok"
     },
     "LogLevel.Warning": {
-      "class": "ok",
-      "note": "works at runtime, not declared in vscode.d.ts yet"
+      "class": "ok"
     },
     "LogOutputChannel.debug": {
       "class": "ok",

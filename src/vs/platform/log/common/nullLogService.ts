@@ -1,3 +1,4 @@
+import { Event } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { ILogger } from "./iLogger.ts";
@@ -49,6 +50,10 @@ export const NULL_LOG_SERVICE: ILogService = {
     getLevel(_channel: string): LogLevel {
         return LogLevel.Off;
     },
+    getWindowLevel(): LogLevel {
+        return LogLevel.Off;
+    },
+    onDidChangeWindowLevel: Event.None,
     addSink(_sink: ILogSink): IDisposable {
         return NOOP_DISPOSABLE;
     },
