@@ -1,3 +1,4 @@
+import { Event } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type {
@@ -64,7 +65,7 @@ export const NULL_EDITOR_LAYOUT_SERVICE: IEditorLayoutService = {
     getLayoutSnapshot: () => ({ groups: [] }),
     onDidChangeLayout: () => ({ dispose: () => undefined }),
     flushPendingLayout: () => undefined,
-    onDidChangeEditorProperties: () => ({ dispose: () => undefined }),
+    onDidChangeEditorProperties: Event.None,
     showTextDocument: () => Promise.reject(new Error("editor layout unavailable")),
     createUntitledDocument: () => {
         throw new Error("editor layout unavailable");

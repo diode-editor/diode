@@ -1,7 +1,7 @@
 import { equals } from "../../../base/common/arrays.ts";
 import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
-import { combinedDisposable, Disposable, DisposableMap, DisposableStore } from "../../../base/common/lifecycle.ts";
+import { combinedDisposable, Disposable, DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
@@ -48,10 +48,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     private showsInFlight = 0;
     private readonly indentWatchers = this.register(new DisposableStore());
     private readonly onDidChangeEditorPropertiesEmitter = this.register(new Emitter<IWireEditorPropertiesChanged>());
-    private readonly visibleEditorWatchers = this.register(new DisposableMap<TextEditorPane>());
+    private readonly visibleEditorWatchers = this.register(new DisposableStore());
     /** What each editor last reported: a hidden one keeps it, as upstream, so showing it again reports only a change. */
     private readonly reportedRanges = new WeakMap<TextEditorPane, readonly IRange[]>();
-    private pendingProperties = new Set<TextEditorPane>();
     private activeBeforeShows: EditorGroup;
 
     public constructor(
@@ -66,7 +65,6 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         this.activeBeforeShows = groups.activeGroup;
         this.register(
             groups.onDidGroupsChange(() => {
-                this.watchVisibleEditors();
                 this.scheduleLayoutPush();
             }),
         );
@@ -91,46 +89,35 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
 
     /**
      * Upstream `MainThreadTextEditor` recomputes on a scroll and a layout change; here also on an edit, which moves
-     * the last line's end without a scroll (an edit from another editor of the document fires no view change). Only a
-     * change of the visible set re-subscribes: the editors change on every edit. A newly visible editor is checked at
-     * once.
+     * the last line's end without a scroll (an edit from another editor of the document fires no view change). Every
+     * change of the editors re-subscribes and checks them all: what did not move reports nothing.
      */
     private watchVisibleEditors(): void {
-        const visible = new Set(this.visibleEditors().map(({ pane }) => pane));
-        for (const pane of [...this.visibleEditorWatchers.keys()]) {
-            if (!visible.has(pane)) this.visibleEditorWatchers.deleteAndDispose(pane);
-        }
-        for (const pane of visible) {
-            if (this.visibleEditorWatchers.has(pane)) continue;
+        // Stryker disable next-line all: without it a pane holds a second listener, and the check coalesces them
+        this.visibleEditorWatchers.clear();
+        for (const { pane } of this.visibleEditors()) {
             const schedule = (): void => {
-                this.scheduleProperties(pane);
+                this.scheduleProperties();
             };
-            this.visibleEditorWatchers.set(
-                pane,
+            this.visibleEditorWatchers.add(
                 combinedDisposable(pane.onDidChangeVisibleRange(schedule), pane.onDidChangeContent(schedule)),
             );
-            this.scheduleProperties(pane);
         }
+        this.scheduleProperties();
     }
 
-    private scheduleProperties(pane: TextEditorPane): void {
-        if (this.pendingProperties.size === 0) {
-            queueMicrotask(() => {
-                this.flushProperties();
-            });
-        }
-        this.pendingProperties.add(pane);
+    /** Not coalesced: a second check in the same tick finds every editor where it was last reported. */
+    private scheduleProperties(): void {
+        queueMicrotask(() => {
+            this.flushProperties();
+        });
     }
 
     /** An editor hidden while it waited reports nothing: the extension host has already dropped it. */
     private flushProperties(): void {
-        const pending = this.pendingProperties;
-        this.pendingProperties = new Set();
         for (const { pane, groupId } of this.visibleEditors()) {
-            if (!pending.has(pane)) continue;
             const visibleRanges = pane.viewState.getVisibleRanges();
-            const reported = this.reportedRanges.get(pane);
-            if (equals(reported, visibleRanges, rangesEqual)) continue;
+            if (equals(this.reportedRanges.get(pane), visibleRanges, rangesEqual)) continue;
             this.reportedRanges.set(pane, visibleRanges);
             this.onDidChangeEditorPropertiesEmitter.fire({ uri: pane.uri.toString(), groupId, visibleRanges });
         }

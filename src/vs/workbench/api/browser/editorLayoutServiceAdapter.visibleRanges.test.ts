@@ -110,6 +110,18 @@ describe("EditorLayoutServiceAdapter — visible ranges", () => {
             expect(second.visibleRanges).toEqual([createRange(0, 0, height - 1, height - 1 < 10 ? 6 : 7)]);
         });
 
+        it("a group left empty beside one on screen borrows nothing", async () => {
+            laidOut();
+            service.splitActiveGroup();
+            const right = service.editorGroups.activeGroup;
+            const pane = right.activePane;
+            if (pane === null) throw new Error("no editor");
+
+            await service.closeEditor(right, pane);
+
+            expect(right.activePane).toBeNull();
+        });
+
         it("the editor of a new split", () => {
             const first = laidOut();
 
@@ -206,10 +218,46 @@ describe("EditorLayoutServiceAdapter — visible ranges", () => {
         expect(reports.map((report) => report.uri)).toEqual([uriOf("b.txt")]);
     });
 
-    it("both sides of a diff report under the diff's group", async () => {
+    it("an editor open before the adapter reports its starting ranges", async () => {
+        const pane = await open("a.txt");
+        const late = new EditorLayoutServiceAdapter(service, service.editorGroups);
+        const lateReports: IWireEditorPropertiesChanged[] = [];
+        late.onDidChangeEditorProperties((properties) => lateReports.push(properties));
+
+        await flushMicrotasks();
+        late.dispose();
+
+        expect(lateReports.map((report) => report.visibleRanges)).toEqual([pane.viewState.getVisibleRanges()]);
+    });
+
+    it("an editor shown again reports what changed while it was hidden", async () => {
+        const first = await open("a.txt");
+        await open("b.txt");
+
+        first.viewState.viewportHeight = 5;
+        const group = service.editorGroups.activeGroup;
+        group.activateTab(group.getPanes().indexOf(first));
+        await flushMicrotasks();
+
+        expect(reports.map((report) => [report.uri, report.visibleRanges])).toEqual([
+            [uriOf("a.txt"), [createRange(0, 0, 4, 6)]],
+        ]);
+    });
+
+    it("an empty group reports nothing", async () => {
+        const pane = await open("a.txt");
+
+        await service.closeEditor(service.editorGroups.activeGroup, pane);
+        await flushMicrotasks();
+
+        expect(service.editorGroups.activeGroup.activePane).toBeNull();
+        expect(reports).toEqual([]);
+    });
+
+    function createDiff(): DiffEditorPane2 {
         const shared = service.textFileModels.acquire(Uri.file(ws.path("a.txt")));
         const owned = service.textFileModels.createUntitledModel();
-        const diff = new DiffEditorPane2(
+        return new DiffEditorPane2(
             NULL_LANGUAGE_SERVICE,
             new UndoRedoService(),
             diskFileService(),
@@ -225,6 +273,11 @@ describe("EditorLayoutServiceAdapter — visible ranges", () => {
                 languageId: "plaintext",
             },
         );
+    }
+
+    it("both sides of a diff report under the diff's group", async () => {
+        const diff = createDiff();
+        const ownedUri = diff.sidePanes()[1].uri.toString();
         service.openPane(diff);
         await flushMicrotasks();
         const groupId = service.editorGroups.activeGroup.id;
@@ -232,7 +285,7 @@ describe("EditorLayoutServiceAdapter — visible ranges", () => {
 
         expect(reports.map((report) => [report.uri, report.groupId])).toEqual([
             [uriOf("a.txt"), groupId],
-            [owned.uri.toString(), groupId],
+            [ownedUri, groupId],
         ]);
         const tab = adapter.getLayoutSnapshot().groups[0].tabs[0];
         expect(tab.sideVisibleRanges).toEqual([

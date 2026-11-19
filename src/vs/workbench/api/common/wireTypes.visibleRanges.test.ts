@@ -15,11 +15,13 @@ describe("parseWireEditorPropertiesChanged", () => {
         });
     });
 
-    it("drops broken ranges, not the message", () => {
-        expect(parseWireEditorPropertiesChanged({ uri: "file:///a", groupId: 1, visibleRanges: [{}] })).toEqual({
-            uri: "file:///a",
-            groupId: 1,
-        });
+    it("drops broken ranges, not the message: one broken range drops the list", () => {
+        for (const visibleRanges of [[{}], [wireRange, {}], []]) {
+            expect(parseWireEditorPropertiesChanged({ uri: "file:///a", groupId: 1, visibleRanges })).toStrictEqual({
+                uri: "file:///a",
+                groupId: 1,
+            });
+        }
     });
 
     it("rejects a non-object and a message without an address", () => {
@@ -42,6 +44,12 @@ describe("parseWireEditorLayout: visible ranges of a diff's sides", () => {
             [createRange(0, 0, 9, 4)],
             [createRange(0, 0, 9, 4)],
         ]);
+    });
+
+    it("a tab without ranges has no ranges property", () => {
+        expect(parseWireEditorLayout(layoutWithSides(undefined))?.groups[0].tabs[0]).not.toHaveProperty(
+            "visibleRanges",
+        );
     });
 
     it("drops all sides when one side is broken or empty", () => {

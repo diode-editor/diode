@@ -701,12 +701,14 @@ export class EditorViewState {
         const cut = projection.docLineOfRow(bottom);
         const ranges: IRange[] = [];
         let first = -1;
-        let last = -1;
+        // Set together with `first`: read only once `first` is.
+        let last = 0;
         // No counter loop: a mutant of its bound or step would spin forever (docs/MUTATION.md).
         for (const row of Array.from({ length: bottom - top }, (_, i) => top + i)) {
             const line = projection.docLineOfRow(row);
-            // Each fully visible line once, at its first row; a line that starts above the top is cut.
-            if (line < 0 || projection.firstRowOfDocLine(line) !== row || line === cut) continue;
+            // Each fully visible line once, at its first row; a line that starts above the top is cut. A row past the
+            // end of the document is line -1, whose first row is -1 too.
+            if (projection.firstRowOfDocLine(line) !== row || line === cut) continue;
             if (first < 0) first = line;
             else if (line !== last + 1) {
                 // A collapsed fold hides the lines in between.

@@ -455,12 +455,12 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
      * An editor shown for the first time is not laid out until the next frame, so its viewport is the view state's
      * default. It borrows the size of an editor already on screen (the tab it replaces, else the active editor of
      * another group): extensions read `visibleRanges` on the activation event, before that frame (#1226). The frame's
-     * layout corrects any difference.
+     * layout corrects any difference. The pane itself comes first: one already laid out keeps its own size.
      */
     private seedViewport(group: EditorGroup, pane: IEditorPane | null): void {
         const target = pane?.viewState;
-        if (target === undefined || pane?.view.lastLayoutConstraints !== null) return;
-        const donor = [...group.getMruOrder(), ...this.groupsList.map((candidate) => candidate.activePane)].find(
+        if (target === undefined) return;
+        const donor = [pane, ...group.getMruOrder(), ...this.groupsList.map((candidate) => candidate.activePane)].find(
             (candidate) => candidate !== null && candidate.view.lastLayoutConstraints !== null,
         )?.viewState;
         if (donor === undefined) return;

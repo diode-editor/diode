@@ -1319,9 +1319,9 @@ export interface IWireEditorPropertiesChanged {
 
 /** `null` for a message without an editor address; a malformed range drops the property, not the message. */
 export function parseWireEditorPropertiesChanged(raw: unknown): IWireEditorPropertiesChanged | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as { uri?: unknown; groupId?: unknown; visibleRanges?: unknown };
-    if (typeof p.uri !== "string" || !isFiniteNumber(p.groupId)) return null;
+    // A primitive reads as an object without an address.
+    const p = raw as { uri?: unknown; groupId?: unknown; visibleRanges?: unknown } | null | undefined;
+    if (typeof p?.uri !== "string" || !isFiniteNumber(p.groupId)) return null;
     const visibleRanges = parseWireVisibleRanges(p.visibleRanges);
     return { uri: p.uri, groupId: p.groupId, ...(visibleRanges !== undefined ? { visibleRanges } : {}) };
 }
