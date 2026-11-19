@@ -119,6 +119,12 @@
 - **`editor.wordBasedSuggestions`** — пять режимов эталона; дефолт `offWithInlineSuggestions` = как
   `matchingDocuments`, гасит слова только при inline-провайдере И включённом Copilot
   (`github.copilot.enable`) — с Supermaven без Copilot слова остаются, как в vscode.
+- **Символы фиксации** (`CompletionItem.commitCharacters`, эталон `CommitCharacterController`): на
+  `onWillType` редактора символ из `commitCharacters` выбранного пункта при открытом попапе принимает пункт,
+  затем печатается обычным набором — два шага undo, а триггер-символ (`.` у TypeScript) открывает новый
+  список. Выключает `editor.acceptSuggestionOnCommitCharacter`. Набор не ждёт resolve: правки, которых
+  ещё нет в кэше, догоняют вставку отдельным шагом undo, когда resolve ответит (эталонные «async
+  additional edits»), и бросаются, если документ менялся раньше их начала или перечитан.
 - Не сделано: режим `inline` (попап просто не открывает), провайдерский `suppressSuggestions`,
   `snippetsPreventQuickSuggestions`, retrigger при переходе к новому слову (`_onNewContext`).
 

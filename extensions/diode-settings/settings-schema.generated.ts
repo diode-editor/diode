@@ -276,6 +276,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Path to typescript/lib/tsserver.js for workspaces without their own TypeScript installation. Empty lets the language server resolve TypeScript itself.",
     },
     {
+        key: "editor.acceptSuggestionOnCommitCharacter",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether suggestions should be accepted on commit characters. For example, in JavaScript, the semi-colon (`;`) can be a commit character that accepts a suggestion and types that character.",
+    },
+    {
         key: "editor.codeActionsOnSave",
         type: "object | array",
         default: {},

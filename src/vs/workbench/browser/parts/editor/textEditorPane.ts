@@ -340,6 +340,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.component.onDidChangeCursorPosition(listener);
     }
 
+    public onWillType(listener: (text: string) => void): IDisposable {
+        return this.component.onWillType(listener);
+    }
+
     public onDidType(listener: (text: string) => void): IDisposable {
         return this.component.onDidType(listener);
     }

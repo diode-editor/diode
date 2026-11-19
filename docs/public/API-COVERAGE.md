@@ -429,7 +429,7 @@ reason: everything is declared and implemented, but `save` is a 🟡 stub.
 | `FileStat` | 4/5 | `permissions` |
 | `FileSystemProvider` | 5/10 | `readDirectory`, `createDirectory`, `delete`, `rename`, `copy` |
 | `DocumentFilter` | 3/4 | `notebookType` |
-| `CompletionItem` | 16/16 | — (everything is declared, but `commitCharacters` and `keepWhitespace` reach the editor and do not act yet: a commit character does not accept the item, and every insertion keeps its whitespace as is, with or without `keepWhitespace`). A `Deprecated` tag strikes the label through; `preselect` selects the item among the best matches; the old `textEdit` inserts its text on its range. `additionalTextEdits` works both in the list and when loaded by resolve |
+| `CompletionItem` | 16/16 | — (everything is declared, but `keepWhitespace` reaches the editor and does not act yet: every insertion keeps its whitespace as is, with or without it). A commit character of the selected item accepts it and is typed after it, unless `editor.acceptSuggestionOnCommitCharacter` is off. A `Deprecated` tag strikes the label through; `preselect` selects the item among the best matches; the old `textEdit` inserts its text on its range. `additionalTextEdits` works both in the list and when loaded by resolve |
 | `DocumentRangeFormattingEditProvider` | 1/2 | `provideDocumentRangesFormattingEdits` |
 | `LanguageStatusItem` | 9/10 | `accessibilityInformation` |
 | `DataTransferFile` | 3/3 | — (declared for `createFile({ contents })`; there is no drag-and-drop, so such `contents` is ignored) |

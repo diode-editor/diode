@@ -202,6 +202,7 @@ export class EditorComponent extends Component {
     private readonly onDidChangeSelectionEmitter = new Emitter<void>();
     /** On the component for the same reason. */
     private readonly onDidChangeIndentOptionsEmitter = new Emitter<void>();
+    private readonly onWillTypeEmitter = new Emitter<string>();
     private readonly onDidTypeEmitter = new Emitter<string>();
     private readonly onDidTypeNewLineEmitter = new Emitter<void>();
 
@@ -226,10 +227,14 @@ export class EditorComponent extends Component {
     }
 
     /** Survives `EditorElement` recreation when the file is reloaded. */
+    public readonly onWillType = this.onWillTypeEmitter.event;
     public readonly onDidType = this.onDidTypeEmitter.event;
     public readonly onDidTypeNewLine = this.onDidTypeNewLineEmitter.event;
 
     private attachTypeForwarding(): void {
+        this.editor.onWillType((text) => {
+            this.onWillTypeEmitter.fire(text);
+        });
         this.editor.onDidType((text) => {
             this.onDidTypeEmitter.fire(text);
         });
