@@ -124,8 +124,10 @@ type ILaunch = ICustomLaunch | IProcessLaunch;
 /** `TerminalService` reads an undefined-valued key as absent; the spreads are for types only. */
 function processOptionsOf(
     launch: IProcessLaunch,
-): Pick<ITerminalCreateOptions, "shellPath" | "shellArgs" | "cwd" | "env"> {
+): Pick<ITerminalCreateOptions, "shellPath" | "shellArgs" | "cwd" | "env" | "isFeatureTerminal"> {
     return {
+        // Upstream `_createShellLaunchConfig`: a task's shell is not injected with shell integration.
+        isFeatureTerminal: true,
         shellPath: launch.shellPath,
         shellArgs: launch.shellArgs,
         // Stryker disable ConditionalExpression: equivalent, see above

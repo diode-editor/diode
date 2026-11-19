@@ -148,11 +148,11 @@ jobs:
       # Go for the golang.go stock extension suites (otherwise they are skipped) + gopls cache.
       - uses: ./.github/actions/go-tools
 
-      # clangd for the vscode-clangd stock extension suites (otherwise they are skipped).
-      - name: Install clangd
+      # clangd for the vscode-clangd stock extension suites, zsh for the shell integration suites (otherwise they are skipped).
+      - name: Install clangd and zsh
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clangd
+          sudo apt-get install -y --no-install-recommends clangd zsh
 
       # Stock .vsix between runs: open-vsx stalls fail the stock extension suites' beforeAll.
       - uses: ./.github/actions/stock-vsix-cache
@@ -201,11 +201,11 @@ jobs:
       # Go for the golang.go stock extension suites (otherwise they are skipped) + gopls cache.
       - uses: ./.github/actions/go-tools
 
-      # clangd for the vscode-clangd stock extension suites (otherwise they are skipped).
-      - name: Install clangd
+      # clangd for the vscode-clangd stock extension suites, zsh for the shell integration suites (otherwise they are skipped).
+      - name: Install clangd and zsh
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clangd
+          sudo apt-get install -y --no-install-recommends clangd zsh
 
       # Stock .vsix between runs: an open-vsx stall in the dry run fails the whole gate.
       - uses: ./.github/actions/stock-vsix-cache
@@ -379,12 +379,12 @@ jobs:
       # node-pty builds from source when there is no prebuild for the current Node version.
       # Ubuntu needs build-essential + python3 (macOS already has them from Xcode CLT,
       # on Windows setup-node + windows-build-tools is usually enough).
-      # clangd: the vscode-clangd marketplace check and scenario (skipped without it).
-      - name: Install build deps for node-pty and clangd (Linux)
+      # clangd: the vscode-clangd marketplace check and scenario (skipped without it); zsh: shell integration.
+      - name: Install build deps for node-pty, clangd and zsh (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential python3 clangd
+          sudo apt-get install -y --no-install-recommends build-essential python3 clangd zsh
 
       - run: npm install
 

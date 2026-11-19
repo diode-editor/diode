@@ -489,6 +489,9 @@ export interface IWireDocumentLink {
     readonly tooltip?: string;
 }
 
+/** Upstream `_executeLinkProvider`'s answer: what the core found, `target` as the provider or resolve gave it. */
+export type IWireExecutedDocumentLink = Omit<IWireDocumentLink, "id">;
+
 export interface IWireDocumentLinkList {
     readonly cacheId: number;
     readonly links: readonly IWireDocumentLink[];

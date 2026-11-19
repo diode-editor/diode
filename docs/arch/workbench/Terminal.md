@@ -14,16 +14,19 @@ terminal.» до первого открытия), несколько терми
   пробрасывает ввод, мышь, ресайз), энкодер «клавиша → байты PTY».
 - **`contrib/terminal/node/`** — `embeddedTerminalSession.ts` (реализация `ITerminalSurface`: node-pty +
   `xtermSurface.ts` поверх `@xterm/headless`), `extensionPtySession.ts` (pty расширения), `loadNodePty.ts`
-  (двухпутёвая загрузка нативного аддона: dev / SEA-ассет).
+  (двухпутёвая загрузка нативного аддона: dev / SEA-ассет), `shellIntegrationScripts.ts` (где скрипты shell
+  integration на диске — [ниже](#shell-integration-инъекция)).
 - **`contrib/terminal/common/`** — `terminalSessionFactory.ts` (DI-шов; в тестах `FakeTerminalSurface`),
-  `xtermPalette.ts`, `defaultShell.ts`, переменные окружения расширений.
+  `xtermPalette.ts`, `defaultShell.ts`, переменные окружения расширений, `scripts/` (скрипты shell integration
+  эталона). Порт `getShellIntegrationInjection` — `platform/terminal/node/terminalEnvironment.ts`.
 - **`contrib/terminal/browser/`** — `terminalService.ts` (оркестратор инстансов: ленивый спавн, активный,
   закрытие, регистрация вкладки), `terminalPanelComponent.ts` + `terminalTabbedViewElement.ts` +
   `terminalTabsList.ts` (тело вкладки: терминал + список), `terminalEditorService.ts` /
   `terminalEditorPane.ts` (терминал вкладкой редактора), `terminalColorsService.ts`,
   `extensionTerminalAdapter.ts` (мост `window.createTerminal`), `terminalActions.ts`. Настройки —
   `workbench/common/configuration/terminalConfiguration.ts`.
-- **Упаковка** — `scripts/pack-node-pty.mjs` → ассет `node-pty.bundle`, встраивает основной
+- **Упаковка** — `scripts/pack-node-pty.mjs` → ассет `node-pty.bundle`, `scripts/pack-shell-integration.mjs` →
+  `shell-integration.bundle`, встраивает основной
   `scripts/build-sea.mjs`. Демо-песочница — `src/demos/terminal/terminalHost.ts` (`npm run demo:terminal`).
 
 ## Однопанельный in-process tmux
@@ -74,6 +77,40 @@ terminal.» до первого открытия), несколько терми
 
 С `strictEnv` шагов 1, 3, 4 нет: окружение — ровно `env` (плюс `TERM`). Pty расширения процесса не имеет.
 Нет `terminal.integrated.env.*` и `detectLocale` (`LANG`).
+
+## Shell integration: инъекция
+
+Шелл стартует со скриптом shell integration эталона — скрипт сам шлёт OSC 633 (начало промпта и ввода,
+запуск и конец команды с кодом выхода, командная строка, cwd). Разбор последовательностей и API —
+следующие issues волны (#1215); здесь только инъекция.
+
+- **Скрипты** — дословно из эталона, с шапкой лицензии: `contrib/terminal/common/scripts/` (зеркальный
+  путь): `shellIntegration-bash.sh`, `-rc.zsh`, `-env.zsh`, `-profile.zsh`, `-login.zsh`. Правка скрипта —
+  отступление с обоснованием в PR.
+- **Решение** — порт `getShellIntegrationInjection` (`platform/terminal/node/terminalEnvironment.ts`), с
+  причинами отказа эталона: настройка выключена (`terminal.integrated.shellIntegration.enabled`, читается при
+  каждом (пере)запуске) → нет исполняемого файла → терминал задачи (`isFeatureTerminal`, ставит
+  `terminalTaskSystem`) → аргументы шелла не пустые и не login-набор (`-l`/`--login`, `-i` рядом
+  допускается) → шелл не bash/zsh (`warn` в лог `Terminal`). Pty расширения процесса не имеет — не
+  затрагивается.
+- **bash**: `--init-file <scripts>/shellIntegration-bash.sh`; login — `VSCODE_SHELL_LOGIN=1` (скрипт сам
+  имитирует `-l`: `/etc/profile`, `~/.bash_profile`…); `VSCODE_STABLE=1`. Скрипт подключает `~/.bashrc` сам
+  и снимает `VSCODE_INJECTION` — в живом bash переменной уже нет, видны функции `__vsc_*`.
+- **zsh**: `ZDOTDIR=<realpath(tmpdir)>/<user>-diode-zsh` (`0o1700`, создаётся при отсутствии),
+  `USER_ZDOTDIR` — `ZDOTDIR` окружения терминала, иначе `os.homedir()` процесса diode; четыре rc эталона
+  копируются туда перед спавном (неудачная копия молча пропускается, как в эталоне), аргументы `-i`/`-il`.
+  Отступление: эталон после **создания** каталога всё равно отвечает `failedToSetStickyBit`, и самый первый
+  zsh стартует без интеграции; у нас созданный каталог используется. Нечитаемый tmp — отказ
+  `failedToCreateTmpDir`, а не исключение.
+- **Окружение**: `VSCODE_INJECTION=1` и остальное поверх `buildEnv` (после `TERM_PROGRAM`, со `strictEnv`
+  тоже — как в эталоне); `VSCODE_NONCE` — свой на терминал (`EmbeddedTerminalSession`), один на все
+  перезапуски, выставляется и без инъекции (его может взять своя интеграция расширения).
+- **Где скрипты на диске** — `shellIntegrationScripts.ts`: в dev — исходники; в сборке — ассет
+  `shell-integration.bundle` (`scripts/pack-shell-integration.mjs`, имена файлов без каталогов) распаковывается
+  в `<userCacheDir>/shell-integration/<version>-<sha>` тем же `extractBundleToCacheSync`, что и node-pty
+  (маркер `.diode-ready`, повторный запуск не пишет). Self-extract кладёт бандл рядом с `main.cjs`.
+- Не сделано здесь: fish и pwsh (#1219), `VSCODE_SHELL_ENV_REPORTING`, `VSCODE_PATH_PREFIX`,
+  `ignoreShellIntegration`/`forceShellIntegration` (их никто не ставит), Windows-ветки.
 
 ## Упаковка нативного: embed + runtime-extract
 

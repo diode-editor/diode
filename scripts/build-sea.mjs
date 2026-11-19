@@ -32,7 +32,7 @@ function run(cmd) {
     execSync(cmd, { stdio: "inherit", cwd: root });
 }
 
-const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBundlePath, lazyChunks } = await buildDistArtifacts({
+const { mainJsPath, bundlePath, nodePtyBundlePath, shellIntegrationBundlePath, ripgrepBundlePath, tsServerBundlePath, lazyChunks } = await buildDistArtifacts({
     repoRoot: root,
     distDir: dist,
 });
@@ -61,6 +61,7 @@ function buildBinary(lazyChunkCaches) {
         assets: {
             "diode.bundle": bundlePath,
             "node-pty.bundle": nodePtyBundlePath,
+            "shell-integration.bundle": shellIntegrationBundlePath,
             "rg.bundle": ripgrepBundlePath,
             "ts-server.bundle": tsServerBundlePath,
             // Unpack directory key without hashing the bundle on every start.
