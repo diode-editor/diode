@@ -83,6 +83,8 @@ export interface XtermSurfaceOptions {
     cols: number;
     rows: number;
     scrollback?: number;
+    /** `TerminalOptions.shellIntegrationNonce`; absent — a fresh one. */
+    shellIntegrationNonce?: string;
 }
 
 export abstract class XtermSurface implements ITerminalSurface, IDisposable {
@@ -121,14 +123,16 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      * Upstream `shellIntegrationNonce`: one per terminal, kept across relaunches. The shell gets it as `VSCODE_NONCE`
      * and sends it back to mark its sequences as trusted.
      */
-    protected readonly shellIntegrationNonce = generateUuid();
+    protected readonly shellIntegrationNonce: string;
     /**
      * What shell integration sequences in the output tell: commands, cwd, environment. A pty of an extension that
      * writes them gets it too, as upstream.
      */
-    public readonly shellIntegration = new ShellIntegrationAddon(this.shellIntegrationNonce);
+    public readonly shellIntegration: ShellIntegrationAddon;
 
     protected constructor(options: XtermSurfaceOptions) {
+        this.shellIntegrationNonce = options.shellIntegrationNonce ?? generateUuid();
+        this.shellIntegration = new ShellIntegrationAddon(this.shellIntegrationNonce);
         this.cols = options.cols;
         this.rows = options.rows;
         const scrollback = options.scrollback ?? 1000;

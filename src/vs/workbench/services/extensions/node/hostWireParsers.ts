@@ -68,6 +68,7 @@ import {
     type IWireStatusBarItem,
     type IWireStatusBarItemDispose,
     type IWireTerminalCreate,
+    type IWireTerminalExecuteCommand,
     type IWireTerminalLocation,
     type IWireTerminalProfileProvider,
     type IWireTerminalPtyData,
@@ -494,6 +495,7 @@ export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | nul
             pty: true,
             ...(typeof p.name === "string" && p.name !== "" ? { name: p.name } : {}),
             ...(location !== undefined ? { location } : {}),
+            ...nonceOf(p),
         };
     }
     const shellArgs = parseWireStringArray(p.shellArgs);
@@ -509,7 +511,18 @@ export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | nul
         ...(p.hideFromUser === true ? { hideFromUser: true } : {}),
         ...(typeof p.message === "string" ? { message: p.message } : {}),
         ...(location !== undefined ? { location } : {}),
+        ...nonceOf(p),
     };
+}
+
+function nonceOf(p: NonNullable<TerminalEnvelope>): { shellIntegrationNonce?: string } {
+    return typeof p.shellIntegrationNonce === "string" ? { shellIntegrationNonce: p.shellIntegrationNonce } : {};
+}
+
+export function parseWireTerminalExecuteCommand(raw: unknown): IWireTerminalExecuteCommand | null {
+    const p = raw as TerminalEnvelope;
+    if (!isFiniteNumber(p?.id) || typeof p.commandLine !== "string") return null;
+    return { id: p.id, commandLine: p.commandLine };
 }
 
 /** Anything unrecognized means "not set": the terminal is placed per the setting. */

@@ -14,6 +14,12 @@ import type {
     IWireTerminalCreate,
     IWireTerminalOpened,
     IWireTerminalRef,
+    IWireTerminalShellExecutionData,
+    IWireTerminalShellExecutionEnd,
+    IWireTerminalShellExecutionStart,
+    IWireTerminalShellIntegration,
+    IWireTerminalShellIntegrationCwd,
+    IWireTerminalShellIntegrationEnv,
     IWireValidationMessage,
     WireMarker,
     WireOutputLevel,
@@ -103,8 +109,18 @@ export interface IExtensionTerminalProfileSink {
 
 export type ContributedProfileCreator = (target: "panel" | "editor") => Promise<void>;
 
+/** Upstream `MainThreadTerminalShellIntegration`: `$shellIntegrationChange` and the rest, in the order they happen. */
+export interface IExtensionTerminalShellIntegrationEvents {
+    shellIntegrationChanged(event: IWireTerminalShellIntegration): void;
+    shellIntegrationCwd(event: IWireTerminalShellIntegrationCwd): void;
+    shellIntegrationEnv(event: IWireTerminalShellIntegrationEnv): void;
+    shellExecutionStart(event: IWireTerminalShellExecutionStart): void;
+    shellExecutionData(event: IWireTerminalShellExecutionData): void;
+    shellExecutionEnd(event: IWireTerminalShellExecutionEnd): void;
+}
+
 /** Upstream `$acceptTerminal*`. */
-export interface IExtensionTerminalEvents {
+export interface IExtensionTerminalEvents extends IExtensionTerminalShellIntegrationEvents {
     opened(terminal: IWireTerminalOpened): void;
     closed(terminal: IWireTerminalClosed): void;
     activeChanged(id: number | null): void;
@@ -119,6 +135,26 @@ export interface IExtensionTerminalEvents {
     titleChanged(id: number, name: string): void;
 }
 
+/** What a new subprocess learns about a terminal whose shell integration is already alive. */
+export interface IExtensionTerminalShellIntegrationState {
+    readonly integration: IWireTerminalShellIntegration;
+    readonly cwd?: IWireTerminalShellIntegrationCwd;
+    readonly env?: IWireTerminalShellIntegrationEnv;
+}
+
+/** Upstream `_enableShellIntegration`: the change, then what is already known — to a live subprocess or a new one. */
+export function sendShellIntegrationState(
+    events: Pick<
+        IExtensionTerminalShellIntegrationEvents,
+        "shellIntegrationChanged" | "shellIntegrationCwd" | "shellIntegrationEnv"
+    >,
+    { integration, cwd, env }: IExtensionTerminalShellIntegrationState,
+): void {
+    events.shellIntegrationChanged(integration);
+    if (cwd !== undefined) events.shellIntegrationCwd(cwd);
+    if (env !== undefined) events.shellIntegrationEnv(env);
+}
+
 /**
  * Reports the lifecycle of ALL terminals, including the user's shells, like
  * `MainThreadTerminalService`. The subprocess addresses its own terminal by `extHostId`
@@ -127,7 +163,11 @@ export interface IExtensionTerminalEvents {
  */
 export interface IExtensionTerminalSink {
     /** In creation order; seeds a new subprocess. */
-    snapshot(): { readonly terminals: readonly IWireTerminalOpened[]; readonly activeId: number | null };
+    snapshot(): {
+        readonly terminals: readonly IWireTerminalOpened[];
+        readonly activeId: number | null;
+        readonly shellIntegrations: readonly IExtensionTerminalShellIntegrationState[];
+    };
     /** Events before subscribing are in {@link snapshot}. */
     subscribe(events: IExtensionTerminalEvents): IDisposable;
     create(request: IWireTerminalCreate): void;
@@ -139,5 +179,7 @@ export interface IExtensionTerminalSink {
     ptyExit(terminal: IWireTerminalRef, code: number | undefined): void;
     /** The pty's `onDidChangeName`: renames the terminal, over the name it was created with (as upstream). */
     ptyName(terminal: IWireTerminalRef, name: string): void;
+    /** Upstream `$executeCommand`: as `sendText(commandLine, true)`; the next issue waits for the prompt. */
+    executeCommand(id: number, commandLine: string): void;
     reset(): void;
 }

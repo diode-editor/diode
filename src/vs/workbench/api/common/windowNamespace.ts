@@ -969,11 +969,9 @@ export function createWindowNamespace(
         // halfway, and its JavaScript Debug Terminal profile never answered.
         registerTerminalLinkProvider: (): vscode.Disposable => new DisposableImpl(() => undefined),
         registerTerminalProfileProvider: terminals.registerProfileProvider.bind(terminals),
-        // No shell integration, so these events never fire: after a 3 s wait Claude Code
-        // falls back to `sendText`.
-        onDidChangeTerminalShellIntegration: new EventEmitter<vscode.TerminalShellIntegrationChangeEvent>().event,
-        onDidStartTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionStartEvent>().event,
-        onDidEndTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionEndEvent>().event,
+        onDidChangeTerminalShellIntegration: terminals.onDidChangeTerminalShellIntegration,
+        onDidStartTerminalShellExecution: terminals.onDidStartTerminalShellExecution,
+        onDidEndTerminalShellExecution: terminals.onDidEndTerminalShellExecution,
 
         registerUriHandler: createUriHandlers(rpc, owner),
 

@@ -858,6 +858,8 @@ export interface IWireTerminalCreate {
     readonly message?: string;
     /** Absent means `terminal.integrated.defaultLocation`. */
     readonly location?: IWireTerminalLocation;
+    /** `TerminalOptions.shellIntegrationNonce`: shell integration sequences carrying it are trusted. */
+    readonly shellIntegrationNonce?: string;
 }
 
 /**
@@ -920,6 +922,62 @@ export interface IWireTerminalInteraction {
 export interface IWireTerminalTitleChanged {
     readonly id: number;
     readonly name: string;
+}
+
+/**
+ * Upstream `$shellIntegrationChange`: shell integration came alive in the instance (its first command sequence).
+ * `supportsExecuteCommand` — not a task terminal.
+ */
+export interface IWireTerminalShellIntegration {
+    readonly id: number;
+    readonly supportsExecuteCommand: boolean;
+}
+
+/** Upstream `$cwdChange`: the cwd the shell reported; an empty one is "unknown". */
+export interface IWireTerminalShellIntegrationCwd {
+    readonly id: number;
+    readonly cwd: string;
+}
+
+/** Upstream `$shellEnvChange`: the environment the shell reported, whole. */
+export interface IWireTerminalShellIntegrationEnv {
+    readonly id: number;
+    readonly env: Readonly<Record<string, string>>;
+    readonly isTrusted: boolean;
+}
+
+/** `vscode.TerminalShellExecutionCommandLine`; `confidence` is the `TerminalShellExecutionCommandLineConfidence` number. */
+export interface IWireTerminalCommandLine {
+    readonly value: string;
+    readonly confidence: 0 | 1 | 2;
+    readonly isTrusted: boolean;
+}
+
+/** Upstream `$shellExecutionStart`: the shell started a command (`C`). */
+export interface IWireTerminalShellExecutionStart {
+    readonly id: number;
+    readonly supportsExecuteCommand: boolean;
+    readonly commandLine: IWireTerminalCommandLine;
+    readonly cwd?: string;
+}
+
+/** Upstream `$shellExecutionData`: raw output of the running command, batched. */
+export interface IWireTerminalShellExecutionData {
+    readonly id: number;
+    readonly data: string;
+}
+
+/** Upstream `$shellExecutionEnd`: the command finished (`D`); no code — the shell reported none. */
+export interface IWireTerminalShellExecutionEnd {
+    readonly id: number;
+    readonly commandLine: IWireTerminalCommandLine;
+    readonly exitCode?: number;
+}
+
+/** Upstream `$executeCommand`: `TerminalShellIntegration.executeCommand` runs the line in the instance. */
+export interface IWireTerminalExecuteCommand {
+    readonly id: number;
+    readonly commandLine: string;
 }
 
 /** Upstream `$sendProcessProperty(Title)`: the pty's `onDidChangeName` renames its terminal. */

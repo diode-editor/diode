@@ -43,6 +43,8 @@ export interface EmbeddedTerminalOptions {
     shellIntegrationEnvironmentReporting?: boolean;
     /** A task terminal: never injected (upstream `isFeatureTerminal`). */
     isFeatureTerminal?: boolean;
+    /** `TerminalOptions.shellIntegrationNonce`: the shell gets it as `VSCODE_NONCE`; absent — a fresh one. */
+    shellIntegrationNonce?: string;
 }
 
 /**
@@ -103,7 +105,12 @@ export class EmbeddedTerminalSession extends XtermSurface {
         private readonly environment?: ITerminalEnvironmentContributor,
         private readonly logger: ILogger = NULL_LOGGER,
     ) {
-        super({ cols: options.cols, rows: options.rows, scrollback: options.scrollback });
+        super({
+            cols: options.cols,
+            rows: options.rows,
+            scrollback: options.scrollback,
+            shellIntegrationNonce: options.shellIntegrationNonce,
+        });
 
         // `TerminalOptions.message` is `writeln` into the emulator (upstream `_writeInitialText`)
         // before the first shell output: xterm writes are queued in order.

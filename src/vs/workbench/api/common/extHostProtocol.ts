@@ -245,6 +245,7 @@ import type {
     IWireTerminalActive,
     IWireTerminalClosed,
     IWireTerminalCreate,
+    IWireTerminalExecuteCommand,
     IWireTerminalInteraction,
     IWireTerminalOpened,
     IWireTerminalProfileProvider,
@@ -254,6 +255,12 @@ import type {
     IWireTerminalPtyInput,
     IWireTerminalPtyName,
     IWireTerminalSendText,
+    IWireTerminalShellExecutionData,
+    IWireTerminalShellExecutionEnd,
+    IWireTerminalShellExecutionStart,
+    IWireTerminalShellIntegration,
+    IWireTerminalShellIntegrationCwd,
+    IWireTerminalShellIntegrationEnv,
     IWireTerminalShow,
     IWireTerminalTarget,
     IWireTerminalTitleChanged,
@@ -478,6 +485,12 @@ export interface IHostToSubprocess {
         readonly "terminal.pty.input": IWireTerminalPtyInput;
         readonly "terminal.interaction": IWireTerminalInteraction;
         readonly "terminal.titleChanged": IWireTerminalTitleChanged;
+        readonly "terminal.shellIntegration.changed": IWireTerminalShellIntegration;
+        readonly "terminal.shellIntegration.cwd": IWireTerminalShellIntegrationCwd;
+        readonly "terminal.shellIntegration.env": IWireTerminalShellIntegrationEnv;
+        readonly "terminal.shellExecution.start": IWireTerminalShellExecutionStart;
+        readonly "terminal.shellExecution.data": IWireTerminalShellExecutionData;
+        readonly "terminal.shellExecution.end": IWireTerminalShellExecutionEnd;
 
         readonly "tasks.didStart": IWireTaskStarted;
         readonly "tasks.didStartProcess": IWireTaskProcessStarted;
@@ -646,6 +659,7 @@ export interface ISubprocessToHost {
         readonly "terminal.pty.data": IWireTerminalPtyData;
         readonly "terminal.pty.exit": IWireTerminalPtyExit;
         readonly "terminal.pty.name": IWireTerminalPtyName;
+        readonly "terminal.shellIntegration.executeCommand": IWireTerminalExecuteCommand;
         readonly "terminal.registerProfileProvider": IWireTerminalProfileProvider;
         readonly "terminal.unregisterProfileProvider": IWireTerminalProfileProvider;
 

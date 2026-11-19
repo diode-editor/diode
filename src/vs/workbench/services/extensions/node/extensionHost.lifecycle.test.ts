@@ -1830,7 +1830,7 @@ describe("ExtensionHost — handshake seeds", () => {
         const terminal = { id: 4, name: "bash", pid: 10, launch: { shellPath: "/bin/bash" } };
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             terminalSink: {
-                snapshot: () => ({ terminals: [terminal], activeId: 4 }),
+                snapshot: () => ({ terminals: [terminal], activeId: 4, shellIntegrations: [] }),
                 subscribe: () => ({ dispose: () => undefined }),
                 create: () => undefined,
                 show: () => undefined,

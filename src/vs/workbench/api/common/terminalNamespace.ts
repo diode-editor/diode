@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import { createTerminalShellIntegrations } from "./terminalShellIntegration.ts";
 import {
     parseWireTerminalActive,
     parseWireTerminalClosed,
@@ -31,6 +32,9 @@ export interface ITerminalNamespace {
     readonly onDidCloseTerminal: vscode.Event<vscode.Terminal>;
     readonly onDidChangeActiveTerminal: vscode.Event<vscode.Terminal | undefined>;
     readonly onDidChangeTerminalState: vscode.Event<vscode.Terminal>;
+    readonly onDidChangeTerminalShellIntegration: vscode.Event<vscode.TerminalShellIntegrationChangeEvent>;
+    readonly onDidStartTerminalShellExecution: vscode.Event<vscode.TerminalShellExecutionStartEvent>;
+    readonly onDidEndTerminalShellExecution: vscode.Event<vscode.TerminalShellExecutionEndEvent>;
     createTerminal(name?: string, shellPath?: string, shellArgs?: readonly string[] | string): vscode.Terminal;
     createTerminal(options: vscode.TerminalOptions | vscode.ExtensionTerminalOptions): vscode.Terminal;
     /** The previous pty of the same terminal (task rerun) is detached without `close()`: it has already closed itself. */
@@ -135,6 +139,8 @@ class TerminalRecord {
     public exitStatus: vscode.TerminalExitStatus | undefined;
     /** Replaced, never mutated, as upstream: an extension that kept the old object still sees the old state. */
     public state: vscode.TerminalState = { isInteractedWith: false, shell: undefined };
+    /** Set once, by the first `terminal.shellIntegration.changed`: `undefined` — not activated. */
+    public shellIntegration: vscode.TerminalShellIntegration | undefined;
     public disposed = false;
     public readonly value: vscode.Terminal;
     /** Resolves to `undefined` for a pty or a foreign terminal without a process. */
@@ -156,6 +162,7 @@ class TerminalRecord {
         const pid = (): Promise<number | undefined> => this.pid.promise;
         const exitStatus = (): vscode.TerminalExitStatus | undefined => this.exitStatus;
         const state = (): vscode.TerminalState => this.state;
+        const shellIntegration = (): vscode.TerminalShellIntegration | undefined => this.shellIntegration;
         const live = (): IWireTerminalRef => {
             // As upstream `_checkDisposed`: methods of an already disposed terminal throw.
             if (this.disposed) throw new Error("Terminal has already been disposed");
@@ -175,8 +182,9 @@ class TerminalRecord {
             get state(): vscode.TerminalState {
                 return state();
             },
-            // No shell integration: by contract `undefined` means "not activated", and extensions fall back to `sendText`.
-            shellIntegration: undefined,
+            get shellIntegration(): vscode.TerminalShellIntegration | undefined {
+                return shellIntegration();
+            },
             sendText: (text: string, shouldExecute = true): void => {
                 rpc.notify("terminal.sendText", { terminal: live(), text, shouldExecute });
             },
@@ -253,6 +261,9 @@ function toWireCreate(
         ...(options.hideFromUser === true ? { hideFromUser: true } : {}),
         ...(options.message !== undefined ? { message: options.message } : {}),
         ...(location !== undefined ? { location } : {}),
+        ...(options.shellIntegrationNonce !== undefined
+            ? { shellIntegrationNonce: options.shellIntegrationNonce }
+            : {}),
     };
 }
 
@@ -300,6 +311,7 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
     const onDidCloseTerminal = new EventEmitter<vscode.Terminal>();
     const onDidChangeActiveTerminal = new EventEmitter<vscode.Terminal | undefined>();
     const onDidChangeTerminalState = new EventEmitter<vscode.Terminal>();
+    const shellIntegrations = createTerminalShellIntegrations(rpc, (id) => byId.get(id));
 
     rpc.handleNotification("terminal.opened", (params) => {
         const opened = parseWireTerminalOpened(params);
@@ -343,6 +355,7 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
             reason: EXIT_REASONS[closed.reason] as unknown as vscode.TerminalExitReason,
         };
         record.pty?.shutdown();
+        shellIntegrations.close(closed.id);
         onDidCloseTerminal.fire(record.value);
     });
 
@@ -393,11 +406,13 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
             byExtHostId.set(extHostId, record);
             order.push(record);
             const location = locationOverride ?? toWireLocation(nameOrOptions.location, refOf);
+            const nonce = nameOrOptions.shellIntegrationNonce;
             rpc.notify("terminal.create", {
                 extHostId,
                 pty: true,
                 name: nameOrOptions.name,
                 ...(location !== undefined ? { location } : {}),
+                ...(nonce !== undefined ? { shellIntegrationNonce: nonce } : {}),
             });
             return record.value;
         }
@@ -465,6 +480,9 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         onDidCloseTerminal: onDidCloseTerminal.event,
         onDidChangeActiveTerminal: onDidChangeActiveTerminal.event,
         onDidChangeTerminalState: onDidChangeTerminalState.event,
+        onDidChangeTerminalShellIntegration: shellIntegrations.onDidChangeTerminalShellIntegration,
+        onDidStartTerminalShellExecution: shellIntegrations.onDidStartTerminalShellExecution,
+        onDidEndTerminalShellExecution: shellIntegrations.onDidEndTerminalShellExecution,
         createTerminal,
     };
 }

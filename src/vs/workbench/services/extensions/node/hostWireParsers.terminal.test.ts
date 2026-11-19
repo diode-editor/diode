@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
     parseWireTerminalCreate,
+    parseWireTerminalExecuteCommand,
     parseWireTerminalPtyData,
     parseWireTerminalPtyExit,
     parseWireTerminalSendText,
@@ -153,5 +154,30 @@ describe("pty: data/exit", () => {
         });
         expect(parseWireTerminalPtyExit({ terminal: { id: 1 }, code: "2" })).toStrictEqual({ terminal: { id: 1 } });
         expect(parseWireTerminalPtyExit({ code: 2 })).toBeNull();
+    });
+});
+
+describe("shell integration: nonce and executeCommand", () => {
+    it("a string nonce passes for a shell and a pty, anything else is dropped", () => {
+        expect(parseWireTerminalCreate({ extHostId: 1, shellIntegrationNonce: "n" })).toStrictEqual({
+            extHostId: 1,
+            shellIntegrationNonce: "n",
+        });
+        expect(parseWireTerminalCreate({ extHostId: 1, pty: true, shellIntegrationNonce: "" })).toStrictEqual({
+            extHostId: 1,
+            pty: true,
+            shellIntegrationNonce: "",
+        });
+        expect(parseWireTerminalCreate({ extHostId: 1, shellIntegrationNonce: 1 })).toStrictEqual({ extHostId: 1 });
+    });
+
+    it("executeCommand needs a numeric id and a string line", () => {
+        expect(parseWireTerminalExecuteCommand({ id: 2, commandLine: "ls", x: 1 })).toStrictEqual({
+            id: 2,
+            commandLine: "ls",
+        });
+        expect(parseWireTerminalExecuteCommand(null)).toBeNull();
+        expect(parseWireTerminalExecuteCommand({ id: Number.NaN, commandLine: "ls" })).toBeNull();
+        expect(parseWireTerminalExecuteCommand({ id: 2, commandLine: 1 })).toBeNull();
     });
 });

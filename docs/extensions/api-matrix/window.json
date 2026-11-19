@@ -61,8 +61,7 @@
       "note": "notebook"
     },
     "window.onDidChangeTerminalShellIntegration": {
-      "class": "B",
-      "note": "never fires"
+      "class": "ok"
     },
     "window.onDidChangeTerminalState": {
       "class": "ok"
@@ -95,15 +94,13 @@
       "class": "ok"
     },
     "window.onDidEndTerminalShellExecution": {
-      "class": "B",
-      "note": "never fires"
+      "class": "ok"
     },
     "window.onDidOpenTerminal": {
       "class": "ok"
     },
     "window.onDidStartTerminalShellExecution": {
-      "class": "B",
-      "note": "never fires"
+      "class": "ok"
     },
     "window.registerCustomEditorProvider": {
       "class": "X",

@@ -80,6 +80,8 @@ export interface ITerminalInstance {
     readonly shellType: TerminalShellType | undefined;
     /** Input — keys, mouse reports, `sendText` — has reached the process (`terminal.state.isInteractedWith`). */
     readonly isInteractedWith: boolean;
+    /** A task terminal (upstream `shellLaunchConfig.type === 'Task'`): no `executeCommand` for extensions. */
+    readonly isFeatureTerminal: boolean;
 }
 
 export interface IDisposedTerminalInstance extends ITerminalInstance {
@@ -99,6 +101,8 @@ export interface ITerminalCreateOptions {
     readonly message?: string;
     /** A task terminal (upstream `isFeatureTerminal`): the shell is not injected with shell integration. */
     readonly isFeatureTerminal?: boolean;
+    /** `TerminalOptions.shellIntegrationNonce`: the shell gets it as `VSCODE_NONCE`; absent — a fresh one. */
+    readonly shellIntegrationNonce?: string;
     /**
      * The process runs, but it has no tab and doesn't become active until shown
      * ({@link TerminalService.showInstance}).
@@ -322,6 +326,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
             exitReason: undefined,
             shellType: shellTypeOf(external, session),
             isInteractedWith: false,
+            isFeatureTerminal: options.isFeatureTerminal === true,
             waitOnExit: options.waitOnExit,
             waiting: false,
             external,
@@ -652,6 +657,9 @@ function sessionOptions(
         shellIntegrationEnabled: shellIntegration.enabled,
         ...(shellIntegration.environmentReporting ? { shellIntegrationEnvironmentReporting: true } : {}),
         ...(options.isFeatureTerminal === true ? { isFeatureTerminal: true } : {}),
+        ...(options.shellIntegrationNonce !== undefined
+            ? { shellIntegrationNonce: options.shellIntegrationNonce }
+            : {}),
         ...(options.shellPath !== undefined ? { shell: options.shellPath } : {}),
         ...(options.shellArgs !== undefined ? { args: [...options.shellArgs] } : {}),
         ...(options.env !== undefined ? { env: { ...options.env } } : {}),
