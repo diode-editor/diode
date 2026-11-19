@@ -1,3 +1,4 @@
+import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -87,6 +88,38 @@ describe("EditorLayoutServiceAdapter — visible ranges", () => {
         const [background, active] = adapter.getLayoutSnapshot().groups[0].tabs;
         expect(background.visibleRanges).toBeUndefined();
         expect(active.visibleRanges).toEqual([createRange(0, 0, 9, 6)]);
+    });
+
+    describe("an editor shown for the first time borrows the size of one on screen, before its own frame", () => {
+        function laidOut(): TextEditorPane {
+            service.openFile(ws.path("a.txt"));
+            const pane = service.getActiveTabEditor();
+            if (pane === null) throw new Error("no editor");
+            pane.view.layout(BoxConstraints.tight(new Size(60, 40)));
+            return pane;
+        }
+
+        it("a new tab in the same group", () => {
+            const first = laidOut();
+
+            service.openFile(ws.path("b.txt"));
+
+            const height = first.viewState.viewportHeight;
+            expect(height).toBeGreaterThan(24);
+            const [, second] = adapter.getLayoutSnapshot().groups[0].tabs;
+            expect(second.visibleRanges).toEqual([createRange(0, 0, height - 1, height - 1 < 10 ? 6 : 7)]);
+        });
+
+        it("the editor of a new split", () => {
+            const first = laidOut();
+
+            service.splitActiveGroup();
+
+            const right = service.getActiveTabEditor();
+            expect(right).not.toBe(first);
+            expect(right?.viewState.viewportHeight).toBe(first.viewState.viewportHeight);
+            expect(right?.viewState.viewportWidth).toBe(first.viewState.viewportWidth);
+        });
     });
 
     it("a scroll reports the new ranges once per tick, with the editor's address", async () => {
