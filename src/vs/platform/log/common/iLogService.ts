@@ -1,3 +1,4 @@
+import type { Event } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { ILogger } from "./iLogger.ts";
@@ -36,6 +37,14 @@ export interface ILogService {
     onDidRegisterChannel(listener: (descriptor: ILogChannelDescriptor) => void): IDisposable;
     setLevel(channelOrWildcard: string, level: LogLevel): void;
     getLevel(channel: string): LogLevel;
+    /**
+     * Upstream `ILoggerService.getLogLevel()`: the window's level that extensions see as `env.logLevel`. It is the `*`
+     * rule (`--log <level>`, `--verbose`, Developer: Set Log Level), otherwise upstream's Info; our own channels
+     * default to Trace instead, see {@link getLevel}.
+     */
+    getWindowLevel(): LogLevel;
+    /** Fires with the new {@link getWindowLevel} only when it actually changes. */
+    readonly onDidChangeWindowLevel: Event<LogLevel>;
     addSink(sink: ILogSink): IDisposable;
     onDidAppend(listener: (entry: LogEntry) => void): IDisposable;
 }

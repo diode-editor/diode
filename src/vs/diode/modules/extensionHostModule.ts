@@ -399,6 +399,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 machineId: () => resolveMachineId(container.get(StateServiceDIToken)),
                 defaultShell: container.get(DefaultShellResolverDIToken),
                 appRoot: loadRipgrepAppRoot,
+                logLevel: () => logService.getWindowLevel(),
+                onDidChangeLogLevel: logService.onDidChangeWindowLevel,
             },
             // Stryker restore ObjectLiteral,ArrowFunction
             outputSink: new ExtensionOutputAdapter(
