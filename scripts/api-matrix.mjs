@@ -198,9 +198,36 @@ function table(headers, rows) {
     return [`| ${headers.join(" | ")} |`, `| ${headers.map(() => "---").join(" | ")} |`, ...rows.map((r) => `| ${r.join(" | ")} |`)].join("\n");
 }
 
-/** Gaps of one extension: used members whose class is not `ok`. */
+/**
+ * `vscode-languageclient` syncs notebooks and reads tab inputs in every client, whatever the language;
+ * the survey cannot tell its calls from the extension's own. An extension that holds the whole
+ * signature carries the client, and the footprint leaves its gap. Taken from vscode-languageclient 10.1
+ * (`lib/common/notebook.js`, `lib/common/client.js`); rule: docs/extensions/README.md.
+ */
+export const LANGUAGE_CLIENT_SIGNATURE = [
+    "NotebookCellKind.Code",
+    "NotebookCellKind.Markup",
+    "workspace.notebookDocuments",
+    "workspace.onDidChangeNotebookDocument",
+    "workspace.onDidCloseNotebookDocument",
+    "workspace.onDidOpenNotebookDocument",
+    "workspace.onDidSaveNotebookDocument",
+];
+export const LANGUAGE_CLIENT_FOOTPRINT = new Set([...LANGUAGE_CLIENT_SIGNATURE, "TabInputCustom", "TabInputNotebook"]);
+
+/** Members of one extension attributed to the bundled `vscode-languageclient`; empty without the signature. */
+export function clientMembers(extension) {
+    const members = new Set(extension.members);
+    if (!LANGUAGE_CLIENT_SIGNATURE.every((member) => members.has(member))) return [];
+    return extension.members.filter((member) => LANGUAGE_CLIENT_FOOTPRINT.has(member));
+}
+
+/** Gaps of one extension: used members whose class is not `ok`, without the language client's footprint. */
 export function extensionGaps(extension, classes) {
-    return extension.members.filter((member) => GAP_CLASSES.has(classes.get(member)?.class)).map((member) => ({ member, class: classes.get(member).class }));
+    const client = new Set(clientMembers(extension));
+    return extension.members
+        .filter((member) => !client.has(member) && GAP_CLASSES.has(classes.get(member)?.class))
+        .map((member) => ({ member, class: classes.get(member).class }));
 }
 
 /**
@@ -216,11 +243,17 @@ export function pickCandidates(extensions, classes, limit = CANDIDATES) {
         .slice(0, limit);
 }
 
-/** @returns {Map<string, { count: number, weight: number }>} */
-export function usage(extensions) {
+/**
+ * `withoutClient`: the language client's footprint does not count, as in the gaps.
+ *
+ * @returns {Map<string, { count: number, weight: number }>}
+ */
+export function usage(extensions, withoutClient = false) {
     const used = new Map();
     for (const e of extensions) {
+        const client = new Set(withoutClient ? clientMembers(e) : []);
         for (const member of e.members) {
+            if (client.has(member)) continue;
             const row = used.get(member) ?? { count: 0, weight: 0 };
             row.count++;
             row.weight += e.downloads;
@@ -274,11 +307,16 @@ export function renderMatrix({ surface, classes, survey, tagged, conformance, co
         "",
     );
 
-    const gaps = [...used.entries()]
+    const gaps = [...usage(extensions, true).entries()]
         .filter(([member]) => GAP_CLASSES.has(classes.get(member)?.class))
         .sort(([a, x], [b, y]) => y.weight - x.weight || a.localeCompare(b, "en"))
         .slice(0, TOP_GAPS);
-    out.push(`## Gap ranking`, "", `Members with a gap, by the downloads of the extensions using them (top ${String(TOP_GAPS)}).`, "");
+    out.push(
+        `## Gap ranking`,
+        "",
+        `Members with a gap, by the downloads of the extensions using them (top ${String(TOP_GAPS)}). The footprint of a bundled \`vscode-languageclient\` is not counted here or in the gaps below: column "client" of the extension ranking.`,
+        "",
+    );
     out.push(
         table(
             ["member", "class", "extensions", "downloads", "note"],
@@ -315,7 +353,7 @@ export function renderMatrix({ surface, classes, survey, tagged, conformance, co
     out.push("## Extension ranking", "", "By the size of the gap, smallest first. Extensions with no resolved member are left out.", "");
     out.push(
         table(
-            ["extension", "version", "downloads", "registry", "members", "gap", "A", "B", "C", "X"],
+            ["extension", "version", "downloads", "registry", "members", "gap", "A", "B", "C", "X", "client"],
             ranked.map(({ e, gaps: g }) => [
                 `\`${e.id}\``,
                 e.version,
@@ -327,6 +365,7 @@ export function renderMatrix({ surface, classes, survey, tagged, conformance, co
                 count(g, "B"),
                 count(g, "C"),
                 count(g, "X"),
+                String(clientMembers(e).length),
             ]),
         ),
         "",

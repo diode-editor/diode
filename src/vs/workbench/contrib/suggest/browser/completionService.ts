@@ -4,10 +4,12 @@ import type { CompletionListItem } from "@tuidom/elements/completionlist/complet
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
+import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import {
@@ -192,6 +194,11 @@ export class CompletionService extends Disposable implements IContextKeyContribu
                 store.add(
                     editor.onDidChangeCursorPosition(() => {
                         this.onCaretChanged(editor);
+                    }),
+                );
+                store.add(
+                    editor.onWillType((text) => {
+                        this.onWillType(editor, text);
                     }),
                 );
                 store.add(
@@ -461,6 +468,22 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             }
         }
         this.latest.cancel();
+    }
+
+    /**
+     * Upstream `CommitCharacterController`: a commit character of the selected item accepts it before the character
+     * is typed, so the character lands after the inserted text and is typed as usual (a trigger character opens a new
+     * list).
+     */
+    private onWillType(editor: TextEditorPane, char: string): void {
+        // A closed list keeps its last items; accept() does nothing then.
+        const item = this.component.view.getSelectedItem();
+        const core = item?.data as ICoreCompletionItem | undefined;
+        if (core?.commitCharacters?.some((commit) => commit.startsWith(char)) !== true) return;
+        const languageId = editor.languageId;
+        if (!this.configuration.get("editor.acceptSuggestionOnCommitCharacter", { overrideIdentifier: languageId }))
+            return;
+        this.accept(assertReturnsDefined(item), true);
     }
 
     /**
@@ -737,7 +760,8 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         return { items, providerOf };
     }
 
-    private accept(item: CompletionListItem): void {
+    /** `beforeTyping` — a commit character: the insertion can't wait for resolve, the character is typed right after. */
+    private accept(item: CompletionListItem, beforeTyping = false): void {
         const editor = this.activeEditor;
         const core = item.data as ICoreCompletionItem | undefined;
         const prefixRange = this.prefixRange;
@@ -760,6 +784,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // for resolve in this case (`suggestController`, "sync additional edits").
         if (core.additionalEdits !== undefined || id === undefined || resolve === undefined) {
             this.applyAccept(editor, ranges, core, core.additionalEdits ?? []);
+            return;
+        }
+        if (beforeTyping) {
+            this.acceptBeforeTyping(editor, ranges, core, id, resolve);
             return;
         }
         // The server returns auto-import edits only on resolve, and the details panel is usually hidden.
@@ -797,6 +825,42 @@ export class CompletionService extends Disposable implements IContextKeyContribu
                 this.commands.execute(command.command, ...(command.arguments ?? []));
             });
         }
+    }
+
+    /**
+     * Upstream's "async additional edits": the item goes in now with the edits resolve already brought, or else the
+     * edits follow when it answers, as their own undo step — unless the document changed before one of them meanwhile.
+     */
+    private acceptBeforeTyping(
+        editor: TextEditorPane,
+        ranges: readonly IRange[],
+        core: ICoreCompletionItem,
+        id: string,
+        resolve: (id: string) => Promise<ICoreResolvedCompletion | null>,
+    ): void {
+        const cached = this.resolvedItems.get(id);
+        this.applyAccept(editor, ranges, core, cached?.additionalEdits ?? []);
+        if (cached !== undefined) return;
+        // The ends of the changes since the insertion; a reload from disk invalidates every position.
+        // Stryker disable next-line ArrayDeclaration: equivalent — a non-position element compares as NaN and never counts as a change
+        const changeEnds: IPosition[] = [];
+        let flushed = false;
+        const listener = editor.model.document.onDidChangeModelContent((event) => {
+            flushed ||= event.isFlush;
+            for (const { range } of event.changes) changeEnds.push(range.end);
+        });
+        void this.resolveItem(id, resolve)
+            .then((resolved) => {
+                // Stryker disable next-line CallExpression: only a leak — the listener just collects positions nobody reads anymore
+                listener.dispose();
+                const edits = resolved?.additionalEdits;
+                if (edits === undefined || flushed) return;
+                const moved = edits.some(({ range }) =>
+                    changeEnds.some((end) => comparePositions(end, range.start) < 0),
+                );
+                if (!moved) editor.applyExternalEdits(edits, "Accept Completion");
+            })
+            .catch(onUnexpectedError);
     }
 
     /** No request while the panel is hidden: for a language server it is a request per list movement. */

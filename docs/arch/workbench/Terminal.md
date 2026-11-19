@@ -69,7 +69,9 @@ terminal.» до первого открытия), несколько терми
    `PORTABLE`/`SHELL_LOGIN`/`ENV_*`, `SNAP*`, `GDK_PIXBUF_*`; `VSCODE_IPC_HOOK_CLI` сохраняется). diode,
    запущенный из терминала VS Code, не отдаёт шеллу его `VSCODE_*`;
 2. `env` терминала (`null` снимает переменную) — после санитизации, явный `VSCODE_X` доходит;
-3. коллекции `environmentVariableCollection` расширений;
+3. коллекции `environmentVariableCollection` расширений; мутаторы с `applyAtShellIntegration` — ещё и в
+   `VSCODE_ENV_REPLACE|PREPEND|APPEND`, их применит скрипт shell integration после rc-файлов
+   ([Extensions.md](../Extensions.md));
 4. `TERM_PROGRAM=vscode`, `TERM_PROGRAM_VERSION=<vscode.version>` (версия шима, не diode: потребители
    сравнивают её с версиями VS Code), `COLORTERM=truecolor` — CLI, узнающие IDE по `TERM_PROGRAM`, узнают
    diode как VS Code. Перекрывают и `env`, и коллекции;
@@ -107,8 +109,12 @@ API расширений — следующая issue волны (#1215).
   `failedToCreateTmpDir`, а не исключение.
 - **fish**: `--init-command 'source "<scripts>/shellIntegration.fish"'` (путь в кавычках — каталог кэша с
   пробелами), login — `-l` первым; только `VSCODE_INJECTION=1`, `VSCODE_STABLE` эталон fish не ставит. Скрипт
-  выполняется после `config.fish` и сам требует `TERM_PROGRAM=vscode` (`buildEnv`). `VSCODE_PATH_PREFIX` для
-  `$fish_user_paths` — с `applyAtShellIntegration` (#1223).
+  выполняется после `config.fish` и сам требует `TERM_PROGRAM=vscode` (`buildEnv`).
+- **`VSCODE_PATH_PREFIX`** (эталонный `addEnvMixinPathPrefix`): склейка всех `Prepend` к `PATH` из коллекций
+  расширений (`MergedEnvironmentVariableCollection.getPathPrefix` через `ITerminalEnvironmentContributor.pathPrefix`)
+  — для fish всегда (`$fish_user_paths` встаёт перед `PATH`), для login bash/zsh только на macOS (`path_helper`);
+  скрипт переприменяет префикс после профиля, `PATH` при этом дублируется, как в эталоне. Со `strictEnv` коллекций
+  нет — нет и префикса. pwsh префикс не получает.
 - **pwsh** (Linux/macOS): без аргументов или только `-nologo`/`-nol` — `-noexit -command '. "<scripts>/shellIntegration.ps1"'`;
   login (`-l`/`-login` один или рядом с `-nologo` в любом порядке) — то же с `-l` первым; иначе `unsupportedArgs`.
   `VSCODE_STABLE=1`. `$PROFILE` pwsh выполняет до `-command`. `pwsh.exe`/`powershell.exe` — Windows-ветки, не

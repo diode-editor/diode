@@ -19,10 +19,11 @@
 ## Вклады (`contributes`)
 
 - [ ] `contributes.iconThemes` / `productIconThemes` — файловые иконки.
-- [ ] Language configuration: on-enter rules (smart indent после `{`, продолжение `//`-комментариев);
-  bracket matching, folding markers; `notIn` string/comment у auto-closing пар (у планировщика нет токенов).
-- [ ] `contributes.snippets` — парсер тел сниппетов, движок (табстопы, плейсхолдеры, трансформации),
-  интеграция с автодополнением; сниппет-сессия — [Suggest](Suggest.md).
+- [ ] Language configuration: `indentationRules` (умный отступ после `{`), bracket matching, folding markers;
+  `notIn` string/comment у auto-closing пар (у планировщика нет токенов). `onEnterRules` работают (#985).
+- [ ] `contributes.snippets` — загрузка файлов сниппетов и интеграция с автодополнением
+  (`editor.action.insertSnippet` с `langId` + `name` пока ничего не делает). Парсер, сниппет-сессия и
+  переменные уже есть (#1042, #1043, #1045) — их даёт `TextEditor.insertSnippet`; см. [Suggest](Suggest.md).
 - [ ] Запись настройки в секцию языка (`WorkspaceConfiguration.update(…, overrideInLanguage)`) — пока отказ.
 - [ ] `menus.commandPalette` стоковых расширений: фильтр палитры есть, но включён только у встроенных
   (`extensionMenuContributor.ts`). Включить для всех — после ключей, которые читают их `when`
@@ -36,9 +37,9 @@
 появляются вместе с фичей. `iconThemes`, `snippets` — пунктами выше и ниже.
 
 - [ ] `colors`
-- [ ] `debuggers`, `breakpoints`, `problemMatchers`, `problemPatterns`
+- [ ] `debuggers`, `breakpoints`, `problemMatchers`, `problemPatterns` — потребители уже есть (отладка, задачи), читают секции как `unknown`
 - [ ] `jsonValidation`
-- [ ] `terminal`, `walkthroughs`
+- [ ] `terminal` (`profiles` читает `terminalExtensionPoints.ts`), `walkthroughs`
 - [ ] `notebooks`, `notebookRenderer`
 - [ ] `customEditors`, `authentication`, `resourceLabelFormatters`
 - [ ] `typescriptServerPlugins`, `htmlLanguageParticipants`
@@ -52,20 +53,24 @@
 - [ ] `IDisposable`-цепочка: при выгрузке убираются все вклады (TokenizationRegistry, CommandRegistry, …).
 - [~] Горячий reload одного расширения (dispose → re-register) без перезапуска. Грубый ответ есть —
   перезагрузка окна (`workbench.action.reloadWindow`); горячему нужна dispose-цепочка выше.
-- [ ] Остальные события активации (`onDebug`, `onFileSystem`, `onView`, …) — по мере появления поверхностей.
+- [ ] Остальные события активации (`onFileSystem`, `onWalkthrough`, `onTerminal*`, `onAuthenticationRequest`, …) — по мере
+  появления поверхностей; активные — таблица в [API-COVERAGE](../public/API-COVERAGE.md#activation-events-activationevents).
 
 ## Extension host
 
-- [~] API `vscode.*` дальше: `revealRange`, snippets — по матрице [API-COVERAGE](../public/API-COVERAGE.md).
+- [~] API `vscode.*` дальше — по рейтингу пробелов [матрицы](../extensions/api-matrix.generated.md) и
+  [API-COVERAGE](../public/API-COVERAGE.md).
 - [~] Изоляция исключений: упавшее расширение не валит host (RPC + try/catch, `unhandledRejection`-гард);
   осталась диагностика.
 - [ ] Маршрутизация ошибок RPC обратно в `editor.options =`, чтобы fire-and-forget не глотал.
 - [ ] `window.onDidChangeTextEditorOptions` — события нет; `editor.options.cursorStyle` (#888) и отступы
   меняются без него. Нужен продюсер на хосте: смена отступов, переопределение формы курсора, смена
   `editor.cursorStyle`.
-- [ ] Getter `editor.options.tabSize`/`insertSpaces` отдаёт то, что расширение само присвоило, а не
-  действующие значения редактора (у эталона — всегда resolved).
-- [ ] ESM-расширения (`import * as vscode from "vscode"` через ESM loader hooks).
+- [ ] `registerFileDecorationProvider` работает только «пушем»: провайдера спрашивают лишь об uri из его
+  `onDidChangeFileDecorations`, `undefined` (всё) ничего не делает, проводник не спрашивает о показанных файлах
+  (`windowNamespace.ts`, `pushFileDecorations`). Эталон тянет декорации по запросу вида (`extHostDecorations`).
+- [ ] `LogOutputChannel.trace…error` теряют `...args`, `Error` пишется как `{}` (`JSON.stringify`); эталон
+  форматирует аргументы и стек (`extHostOutput`).
 - [ ] Перезапуск субпроцесса при крэше (сейчас при выходе extension host'а все RPC падают).
 - [ ] Markdown-ссылки `[текст](url)` в `window.show*Message` — тост показывает их сырым текстом, эталон
   рендерит ссылкой (`parseLinkedText`, `src/vs/base/common/linkedText.ts` у нас уже есть). Видно на

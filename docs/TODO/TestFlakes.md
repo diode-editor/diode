@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `quickOpenHistory.scenario.ts`, «quick-open-history» (только Windows): за 10 с после Ctrl+P и ввода
+  `e2e/fixtures/sample.ts` вкладка `sample.ts` не появилась, обе попытки e2e (run 44478670132, PR #1239, дифф —
+  `TextEditor.visibleRanges`, сценарий расширений не открывает); перезапуск job'а и `main` зелёные.
 - [ ] `extensionHost.javaLsp.features.test.ts`, «references finds the declaration and the call»: `references for greet`
   не дождались за 60 с в initial test run Stryker'а mutation-гейта (run 44455464286, PR #1243, дифф — поля
   `CompletionItem` и список подсказок, сьют их не касается); в unit-job зелёный.

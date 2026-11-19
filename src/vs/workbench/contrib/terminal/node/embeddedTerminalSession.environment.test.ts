@@ -34,6 +34,7 @@ function contributor() {
             env.DIODE_EXT_PATH = `${env.DIODE_EXT_PATH ?? ""}:ext`;
             env.TERM = "ext-term";
         },
+        pathPrefix: () => undefined,
     };
     return { environment, calls };
 }

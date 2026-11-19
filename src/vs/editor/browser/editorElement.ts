@@ -200,6 +200,7 @@ export class EditorElement extends TUIElement implements IScrollable {
      */
     public languageConfigurationSource: (() => IResolvedLanguageConfiguration | undefined) | null = null;
 
+    private readonly onWillTypeEmitter = new Emitter<string>();
     private readonly onDidTypeEmitter = new Emitter<string>();
     private readonly onDidChangeViewportHeightEmitter = new Emitter<void>();
     /** The view state's height is a plain field written during layout: whoever asks by the visible lines listens here. */
@@ -223,6 +224,12 @@ export class EditorElement extends TUIElement implements IScrollable {
      * (popup trigger characters) need typing specifically.
      */
     public readonly onDidType = this.onDidTypeEmitter.event;
+
+    /**
+     * Upstream `ICodeEditor.onWillType`: a typed character (Enter too) BEFORE its edit. The suggest popup accepts its
+     * item on a commit character here, so the character lands after the inserted text.
+     */
+    public readonly onWillType = this.onWillTypeEmitter.event;
 
     private readonly onDidTypeNewLineEmitter = new Emitter<void>();
     /** Enter, after the edit. Apart from {@link onDidType}: a popup has no business with it, format on type has. */
@@ -1862,6 +1869,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     private typeChar(char: string): void {
+        this.onWillTypeEmitter.fire(char);
         if (char === "\n") {
             this.pushNewLine();
             if (!this.viewState.readOnly) this.onDidTypeNewLineEmitter.fire();
