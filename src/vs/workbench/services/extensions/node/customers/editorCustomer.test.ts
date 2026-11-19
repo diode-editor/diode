@@ -188,7 +188,9 @@ describe("EditorCustomer — subprocess requests", () => {
         for (const params of cases) {
             await expect(h.peer.request("editor.setOptions", params)).resolves.toBeNull();
         }
-        expect(vi.mocked(h.editorOptions.setEditorOptions).mock.calls).toStrictEqual([["file:///b.ts", 2, { tabSize: 2 }]]);
+        expect(vi.mocked(h.editorOptions.setEditorOptions).mock.calls).toStrictEqual([
+            ["file:///b.ts", 2, { tabSize: 2 }],
+        ]);
     });
 
     it("editor.revealRange maps the enum to a strategy for the editor at uri + group; junk is dropped", async () => {
