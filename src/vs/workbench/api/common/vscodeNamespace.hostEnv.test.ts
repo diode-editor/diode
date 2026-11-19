@@ -4,6 +4,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
+import { LogLevel } from "./vscodeTypes.ts";
 
 describe("vscode.env — host constants (env.initialize)", () => {
     it("machineId, shell and appRoot come from the host seed", () => {
@@ -41,5 +42,36 @@ describe("vscode.env — host constants (env.initialize)", () => {
         stub.fire("env.initialize", { machineId: "m", shell: "/bin/zsh" });
         expect(fired).toEqual([]);
         sub.dispose();
+    });
+});
+
+describe("vscode.env — logLevel (env.initialize, env.didChangeLogLevel)", () => {
+    it("before the seed — upstream's default Info; the seed sets it without an event", () => {
+        const stub = makeStubRpc();
+        const { env } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
+        const fired: LogLevel[] = [];
+        env.onDidChangeLogLevel((level) => fired.push(level));
+        expect(env.logLevel).toBe(LogLevel.Info);
+        stub.fire("env.initialize", { machineId: "m", shell: "/bin/sh", appRoot: "", logLevel: LogLevel.Debug });
+        expect(env.logLevel).toBe(LogLevel.Debug);
+        expect(fired).toEqual([]);
+    });
+
+    it("a change fires the new level with the getter already updated; the same level again — silence", () => {
+        const stub = makeStubRpc();
+        const { env } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
+        stub.fire("env.initialize", { machineId: "m", shell: "/bin/sh", appRoot: "", logLevel: LogLevel.Info });
+        const fired: [LogLevel, LogLevel][] = [];
+        env.onDidChangeLogLevel((level) => fired.push([level, env.logLevel]));
+        stub.fire("env.didChangeLogLevel", { logLevel: LogLevel.Info });
+        stub.fire("env.didChangeLogLevel", { logLevel: LogLevel.Trace });
+        stub.fire("env.didChangeLogLevel", { logLevel: LogLevel.Trace });
+        stub.fire("env.didChangeLogLevel", { logLevel: LogLevel.Off });
+        expect(fired).toEqual([
+            [LogLevel.Trace, LogLevel.Trace],
+            [LogLevel.Off, LogLevel.Off],
+        ]);
+        // The rest of the seed survives a level change.
+        expect(env.shell).toBe("/bin/sh");
     });
 });

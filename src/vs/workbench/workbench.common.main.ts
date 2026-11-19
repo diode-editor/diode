@@ -196,6 +196,7 @@ import { LinkedEditingServiceDIToken } from "./contrib/linkedEditing/browser/lin
 import { ExecuteLinkProviderCommandContributionDIToken } from "./contrib/links/browser/executeLinkProviderCommand.ts";
 import { LINKS_ACTIONS } from "./contrib/links/browser/linksActions.ts";
 import { LinksServiceDIToken } from "./contrib/links/browser/linksService.ts";
+import { LOGS_ACTIONS } from "./contrib/logs/browser/logsActions.ts";
 import { DiagnosticsServiceDIToken } from "./contrib/markers/browser/diagnosticsService.ts";
 import { ProblemsComponentDIToken } from "./contrib/markers/browser/problemsComponent.ts";
 import { MULTI_CURSOR_ACTIONS } from "./contrib/multicursor/browser/multiCursorActions.ts";
@@ -423,6 +424,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...THEME_ACTIONS,
     ...USER_DATA_PROFILE_ACTIONS,
     ...URL_ACTIONS,
+    ...LOGS_ACTIONS,
     changeEncodingAction,
     changeEolAction,
     cursorLeftAction,

@@ -11030,6 +11030,16 @@ declare module "vscode" {
 		export function asExternalUri(target: Uri): Thenable<Uri>;
 
 		/**
+		 * The current log level of the editor.
+		 */
+		export const logLevel: LogLevel;
+
+		/**
+		 * An {@link Event} which fires when the log level of the editor changes.
+		 */
+		export const onDidChangeLogLevel: Event<LogLevel>;
+
+		/**
 		 * Creates a new {@link TelemetryLogger telemetry logger}.
 		 *
 		 * @param sender The telemetry sender that is used by the telemetry logger.

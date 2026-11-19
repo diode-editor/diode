@@ -320,6 +320,12 @@ npm run bench:services -- /tmp/traces/*.json [--sort=self|inclusive|start] [--to
 - **Имена каналов** — `<area>` или `<area>.<sub>`; у расширений — `extensions.<id>`.
 - **Дефолтный уровень — `Trace`**, пока идёт активная разработка; снизить до `Info` — пункт
   [TODO/Logging.md](../TODO/Logging.md).
+- **Уровень окна** (`getWindowLevel`/`onDidChangeWindowLevel`) — то, что расширения видят как
+  `env.logLevel`: правило `*` (`--log <level>`, `--verbose`, команда «Developer: Set Log Level...»
+  `workbench.action.setLogLevel`), а без него — `Info`, как в эталоне, хотя свои каналы без правила
+  пишут `Trace`. Событие — только на реальную смену; `EnvCustomer` шлёт её каждому живому спавну
+  нотификацией `env.didChangeLogLevel`, при спавне уровень едет в `env.initialize`. Нумерация на
+  проводе — API (Off 0 … Error 5), ядро — ×10.
 
 Неочевидные гейты:
 - **dev vs packaged:** `FileSink` (`./diode.log`) добавляется только когда `isPackagedRuntime() === false`; в упакованных сборках файлового sink нет. Гейт идёт именно по `isPackagedRuntime()` (`base/node/assets/packagedRuntime.ts`), а не по `isSeaBinary()`: self-extract — тоже прод, но `isSea()` там `false`, и по старому гейту прод писал бы `diode.log` в cwd пользователя.
