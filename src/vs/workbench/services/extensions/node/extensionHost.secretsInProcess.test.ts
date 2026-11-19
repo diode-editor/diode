@@ -11,8 +11,7 @@ import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "
 // A live subprocess never sends a malformed request, and the refusal is the host's trust boundary.
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),

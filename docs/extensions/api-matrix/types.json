@@ -5938,18 +5938,16 @@
     },
     "TextEditorOptions.lineNumbers": {
       "class": "ok",
-      "note": "read from editor.lineNumbers and assignable; Diode always draws plain line numbers, so the style is only reported"
+      "note": "read from editor.lineNumbers; Diode always draws plain line numbers, so the style is only reported and an assigned one is not kept"
     },
     "TextEditorOptions.tabSize": {
       "class": "ok"
     },
     "TextEditorOptionsChangeEvent.options": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorOptionsChangeEvent.textEditor": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorRevealType": {
       "class": "ok"

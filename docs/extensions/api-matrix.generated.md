@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1431 |
+| ok | 1434 |
 | A | 11 |
-| B | 222 |
+| B | 219 |
 | C | 317 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 243 |
+| test | 244 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 584 |
 
@@ -68,7 +68,6 @@ Members with a gap, by the downloads of the extensions using them (top 100). The
 | `lm.selectChatModels` | C | 10 | 88,924,941 | needs a chat surface and a model backend |
 | `NotebookCellOutputItem.error` | X | 5 | 86,578,132 | notebook |
 | `window.showNotebookDocument` | X | 7 | 84,722,812 | notebook |
-| `window.onDidChangeTextEditorOptions` | B | 4 | 84,381,939 | not declared in vscode.d.ts |
 | `NotebookCellOutput` | X | 6 | 82,452,748 | notebook |
 | `NotebookCellOutputItem.text` | X | 6 | 82,452,748 | notebook |
 | `notebooks.createNotebookController` | X | 6 | 82,452,748 | notebook |
@@ -132,6 +131,7 @@ Members with a gap, by the downloads of the extensions using them (top 100). The
 | `NotebookCellKind.Markup` | X | 4 | 8,585,517 | notebook |
 | `workspace.onDidCloseNotebookDocument` | X | 3 | 7,597,639 | notebook |
 | `DocumentPasteEdit` | B | 2 | 6,805,438 | not declared in vscode.d.ts |
+| `LanguageModelChatToolMode.Required` | C | 2 | 5,379,497 | needs a chat surface and a model backend |
 
 ## Proposed extensions
 
@@ -325,20 +325,20 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `firsttris.vscode-jest-runner` | 0.4.151 | 927,481 |  | 40 | 6 | 0 | 0 | 6 | 0 | 0 |
 | `pokey.cursorless` | 1.1.1878 | 591,656 |  | 83 | 6 | 0 | 0 | 0 | 6 | 0 |
 | `ms-vscode.js-debug` | 1.140.1 | 3,262,448 | yes | 101 | 7 | 0 | 6 | 0 | 1 | 0 |
+| `amazonwebservices.amazon-q-vscode` | 2.10.0 | 2,310,695 |  | 252 | 7 | 0 | 5 | 0 | 2 | 8 |
 | `Continue.continue` | 2.1.0 | 1,798,670 |  | 102 | 7 | 0 | 2 | 0 | 5 | 0 |
 | `vitest.explorer` | 1.52.2 | 888,838 | yes | 79 | 7 | 0 | 0 | 6 | 1 | 0 |
 | `ms-python.vscode-python-envs` | 1.44.0 | 47,304,307 |  | 109 | 8 | 1 | 6 | 0 | 1 | 0 |
 | `ms-toolsai.vscode-jupyter-cell-tags` | 0.1.9 | 9,360,257 |  | 22 | 8 | 0 | 0 | 0 | 8 | 0 |
-| `amazonwebservices.amazon-q-vscode` | 2.10.0 | 2,310,695 |  | 252 | 8 | 0 | 6 | 0 | 2 | 8 |
 | `streetsidesoftware.code-spell-checker` | 4.10.0 | 2,270,064 |  | 235 | 8 | 0 | 2 | 0 | 6 | 9 |
 | `muhammad-sammy.csharp` | 2.160.9-g01198ecc1f | 1,343,776 |  | 246 | 8 | 0 | 6 | 0 | 2 | 9 |
 | `nrwl.angular-console` | 18.104.0 | 727,862 |  | 208 | 8 | 1 | 3 | 2 | 2 | 7 |
 | `devsense.phptools-vscode` | 1.76.19524 | 43,758,154 |  | 235 | 9 | 0 | 2 | 6 | 1 | 9 |
+| `ms-azuretools.vscode-containers` | 2.4.5 | 15,165,562 |  | 238 | 9 | 0 | 6 | 3 | 0 | 9 |
 | `ms-vscode.cmake-tools` | 1.25.10 | 2,453,343 |  | 123 | 9 | 0 | 2 | 6 | 1 | 0 |
 | `SonarSource.sonarlint-vscode` | 6.3.0 | 2,285,845 |  | 225 | 9 | 0 | 2 | 4 | 3 | 9 |
 | `Alibaba-Cloud.tongyi-lingma` | 2.6.11 | 925,710 |  | 135 | 9 | 0 | 2 | 4 | 3 | 0 |
 | `dotnetdev-kr-custom.csharp` | 11.9.41 | 637,387 |  | 248 | 9 | 0 | 6 | 1 | 2 | 9 |
-| `ms-azuretools.vscode-containers` | 2.4.5 | 15,165,562 |  | 238 | 10 | 0 | 7 | 3 | 0 | 9 |
 | `redhat.ansible` | 26.11.0 | 734,108 |  | 229 | 10 | 0 | 6 | 2 | 2 | 9 |
 | `Shopify.ruby-lsp` | 0.10.8 | 44,908,181 |  | 234 | 11 | 0 | 1 | 9 | 1 | 9 |
 | `RooVeterinaryInc.roo-cline` | 3.54.0 | 2,059,733 |  | 81 | 11 | 0 | 2 | 7 | 2 | 0 |
@@ -358,10 +358,10 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `cweijan.vscode-mysql-client2` | 9.0.2 | 1,396,472 |  | 140 | 19 | 0 | 3 | 6 | 10 | 0 |
 | `cweijan.vscode-database-client2` | 9.0.2 | 566,811 |  | 140 | 19 | 0 | 3 | 6 | 10 | 0 |
 | `GitLab.gitlab-workflow` | 7.7.1 | 3,091,208 |  | 253 | 21 | 1 | 9 | 7 | 4 | 9 |
-| `ms-python.python` | 2026.4.0 | 62,908,918 |  | 282 | 23 | 0 | 8 | 8 | 7 | 9 |
+| `ms-python.python` | 2026.4.0 | 62,908,918 |  | 282 | 22 | 0 | 7 | 8 | 7 | 9 |
 | `MermaidChart.vscode-mermaid-chart` | 2.8.3 | 2,145,632 |  | 111 | 23 | 1 | 3 | 17 | 2 | 0 |
+| `amazonwebservices.aws-toolkit-vscode` | 4.19.0 | 3,996,764 |  | 286 | 29 | 1 | 6 | 0 | 22 | 8 |
 | `REditorSupport.r` | 3.5.20261116 | 2,352,863 |  | 265 | 29 | 0 | 3 | 0 | 26 | 9 |
-| `amazonwebservices.aws-toolkit-vscode` | 4.19.0 | 3,996,764 |  | 286 | 30 | 1 | 7 | 0 | 22 | 8 |
 | `ms-toolsai.jupyter` | 2025.9.1 | 11,619,036 |  | 268 | 31 | 0 | 1 | 4 | 26 | 8 |
 | `GitHub.vscode-pull-request-github` | 0.174.0 | 6,761,099 |  | 147 | 32 | 1 | 12 | 12 | 7 | 0 |
 | `eamodio.gitlens` | 2026.11.180409 | 19,530,838 |  | 217 | 37 | 1 | 11 | 17 | 8 | 0 |
@@ -2289,8 +2289,8 @@ Proposed API or a false hit: class X when real.
 | `TextEditorOptions.insertSpaces` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.lineNumbers` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.tabSize` | ok |  | 0 | 0 |  |
-| `TextEditorOptionsChangeEvent.options` | B |  | 0 | 0 |  |
-| `TextEditorOptionsChangeEvent.textEditor` | B |  | 0 | 0 |  |
+| `TextEditorOptionsChangeEvent.options` | ok |  | 0 | 0 |  |
+| `TextEditorOptionsChangeEvent.textEditor` | ok |  | 0 | 0 |  |
 | `TextEditorRevealType` | ok | yes | 0 | 0 |  |
 | `TextEditorRevealType.AtTop` | ok |  | 5 | 59,861,632 |  |
 | `TextEditorRevealType.Default` | ok |  | 8 | 25,563,243 |  |
@@ -2513,7 +2513,7 @@ Proposed API or a false hit: class X when real.
 | `window.onDidChangeNotebookEditorVisibleRanges` | X |  | 0 | 0 |  |
 | `window.onDidChangeTerminalShellIntegration` | B |  | 9 | 219,521,896 |  |
 | `window.onDidChangeTerminalState` | ok | yes | 5 | 123,983,744 |  |
-| `window.onDidChangeTextEditorOptions` | B |  | 4 | 84,381,939 |  |
+| `window.onDidChangeTextEditorOptions` | ok | yes | 4 | 84,381,939 |  |
 | `window.onDidChangeTextEditorSelection` | ok | yes | 50 | 373,986,761 | yzhang.markdown-all-in-one |
 | `window.onDidChangeTextEditorViewColumn` | ok | yes | 4 | 88,747,215 |  |
 | `window.onDidChangeTextEditorVisibleRanges` | ok |  | 11 | 61,855,869 |  |

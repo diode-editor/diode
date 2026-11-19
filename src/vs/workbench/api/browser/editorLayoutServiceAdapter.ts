@@ -3,6 +3,7 @@ import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { combinedDisposable, Disposable, DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
+import { cursorStyleToApi } from "../../../editor/common/config/editorCursorStyle.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
@@ -24,6 +25,7 @@ import type {
     IWireCloseTabsParams,
     IWireCreateUntitledParams,
     IWireEditorLayout,
+    IWireEditorOptions,
     IWireEditorPropertiesChanged,
     IWireOpenTextDocumentParams,
     IWireSelection,
@@ -51,7 +53,10 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     private readonly onDidChangeEditorPropertiesEmitter = this.register(new Emitter<IWireEditorPropertiesChanged>());
     private readonly visibleEditorWatchers = this.register(new DisposableStore());
     /** What each editor last reported: a hidden one keeps it, as upstream, so showing it again reports only a change. */
-    private readonly reportedRanges = new WeakMap<TextEditorPane, readonly IRange[]>();
+    private readonly reported = new WeakMap<
+        TextEditorPane,
+        { readonly options: IWireEditorOptions; readonly visibleRanges: readonly IRange[] }
+    >();
     private activeBeforeShows: EditorGroup;
 
     public constructor(
@@ -90,8 +95,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
 
     /**
      * Upstream `MainThreadTextEditor` recomputes on a scroll and a layout change; here also on an edit, which moves
-     * the last line's end without a scroll (an edit from another editor of the document fires no view change). Every
-     * change of the editors re-subscribes and checks them all: what did not move reports nothing.
+     * the last line's end without a scroll (an edit from another editor of the document fires no view change), and on
+     * a change of its options. Every change of the editors re-subscribes and checks them all: what did not change
+     * reports nothing.
      */
     private watchVisibleEditors(): void {
         // Stryker disable next-line all: without it a pane holds a second listener, and the check coalesces them
@@ -101,7 +107,12 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 this.scheduleProperties();
             };
             this.visibleEditorWatchers.add(
-                combinedDisposable(pane.onDidChangeVisibleRange(schedule), pane.onDidChangeContent(schedule)),
+                combinedDisposable(
+                    pane.onDidChangeVisibleRange(schedule),
+                    pane.onDidChangeContent(schedule),
+                    pane.onDidChangeIndentOptions(schedule),
+                    pane.onDidChangeCursorStyleSetting(schedule),
+                ),
             );
         }
         this.scheduleProperties();
@@ -117,13 +128,20 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     /** An editor hidden while it waited reports nothing: the extension host has already dropped it. */
     private flushProperties(): void {
         for (const { pane, group } of this.visibleEditors()) {
+            const before = this.reported.get(pane);
+            const options = editorOptionsOf(pane);
             const visibleRanges = this.visibleRangesOf(group, pane);
-            if (equals(this.reportedRanges.get(pane), visibleRanges, rangesEqual)) continue;
-            this.reportedRanges.set(pane, visibleRanges);
+            // A newly visible editor starts from its tab's indentation in the snapshot and the configured style, as
+            // upstream's new editor arrives with its options: no change event.
+            const optionsChanged = before !== undefined && !sameEditorOptions(before.options, options);
+            const rangesChanged = !equals(before?.visibleRanges, visibleRanges, rangesEqual);
+            if (!optionsChanged && !rangesChanged) continue;
+            this.reported.set(pane, { options, visibleRanges });
             this.onDidChangeEditorPropertiesEmitter.fire({
                 uri: pane.uri.toString(),
                 groupId: group.id,
-                visibleRanges,
+                ...(optionsChanged ? { options } : {}),
+                ...(rangesChanged ? { visibleRanges } : {}),
             });
         }
     }
@@ -403,6 +421,20 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 : {}),
         };
     }
+}
+
+/** Upstream `MainThreadTextEditorProperties._readOptionsFromCodeEditor`. */
+function editorOptionsOf(pane: TextEditorPane): IWireEditorOptions {
+    return {
+        tabSize: pane.viewState.tabSize,
+        insertSpaces: pane.viewState.insertSpaces,
+        // `Line`, upstream's default when `editor.cursorStyle` is unset.
+        cursorStyle: cursorStyleToApi(pane.cursorStyleSetting) ?? 1,
+    };
+}
+
+function sameEditorOptions(a: IWireEditorOptions, b: IWireEditorOptions): boolean {
+    return a.tabSize === b.tabSize && a.insertSpaces === b.insertSpaces && a.cursorStyle === b.cursorStyle;
 }
 
 function diffSidePanes(pane: DiffEditorPane2): TextEditorPane[] {

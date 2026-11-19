@@ -95,11 +95,10 @@ export class TextEditorConfiguration extends Disposable {
     /** The extension's override beats the setting; the blinking always comes from the setting. */
     public applyCursorStyle(editor: TextEditorPane): void {
         const overrides = { overrideIdentifier: editor.languageId };
+        const setting = editor.cursorStyleOverride ?? this.configurationService.get("editor.cursorStyle", overrides);
         editor.setCursorStyle(
-            toTerminalCursorStyle(
-                editor.cursorStyleOverride ?? this.configurationService.get("editor.cursorStyle", overrides),
-                this.configurationService.get("editor.cursorBlinking", overrides),
-            ),
+            setting,
+            toTerminalCursorStyle(setting, this.configurationService.get("editor.cursorBlinking", overrides)),
         );
     }
 

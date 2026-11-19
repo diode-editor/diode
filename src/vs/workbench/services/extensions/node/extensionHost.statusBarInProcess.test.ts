@@ -12,8 +12,7 @@ import type { IWireStatusBarItem } from "../../../api/common/wireTypes.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),

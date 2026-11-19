@@ -26,13 +26,28 @@ describe("EditorComponent — setCursorStyle", () => {
         expect(app.backend.cursorStyle).toBeNull();
         expect(ctrl.view.isLayoutDirty).toBe(false);
 
-        ctrl.setCursorStyle({ shape: "bar", blinking: true });
+        ctrl.setCursorStyle("line", { shape: "bar", blinking: true });
         // The setter schedules the repaint itself: nothing else changed in the editor.
         expect(ctrl.view.isLayoutDirty).toBe(true);
         app.render();
         expect(app.backend.cursorStyle).toEqual({ shape: "bar", blinking: true });
 
-        ctrl.setCursorStyle({ shape: "bar", blinking: true });
+        ctrl.setCursorStyle("line", { shape: "bar", blinking: true });
         expect(ctrl.view.isLayoutDirty).toBe(false);
+    });
+
+    it("the setting the extension reads changes only with the setting, not with the shape the terminal draws", () => {
+        const ctrl = createEditorPane();
+        let fired = 0;
+        ctrl.onDidChangeCursorStyleSetting(() => fired++);
+        expect(ctrl.cursorStyleSetting).toBeUndefined();
+
+        ctrl.setCursorStyle("line", { shape: "bar", blinking: true });
+        ctrl.setCursorStyle("line", { shape: "bar", blinking: false });
+        expect([ctrl.cursorStyleSetting, fired]).toEqual(["line", 1]);
+
+        ctrl.setCursorStyle("line-thin", { shape: "bar", blinking: true });
+        ctrl.setCursorStyle(undefined, null);
+        expect([ctrl.cursorStyleSetting, fired]).toEqual([undefined, 3]);
     });
 });

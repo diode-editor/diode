@@ -33,9 +33,7 @@ function setup() {
     const layout = new Emitter<IWireEditorLayout>();
     const properties = new Emitter<IWireEditorPropertiesChanged>();
     const editorOptions = {
-        getActiveEditorOptions: () => ({ tabSize: 4, insertSpaces: true }),
-        setActiveEditorOptions: vi.fn(),
-        setEditorCursorStyle: vi.fn(),
+        setEditorOptions: vi.fn(),
         revealEditorRange: vi.fn(),
         getActiveEditorMeta: () => META,
         onActiveEditorChanged: (cb: (meta: IActiveEditorMeta) => void) => activeEditor.event(cb),
@@ -145,53 +143,52 @@ describe("EditorCustomer — editor seeds and events", () => {
 
 describe("EditorCustomer — subprocess requests", () => {
     // No it.each: the mutation runner can't find names with `{}`/`"` by the name filter.
-    it("editor.setOptions sanitizes the patch: positive integer sizes, indentSize is an alias, junk is dropped", async () => {
-        const cases: readonly (readonly [unknown, object])[] = [
+    it("editor.setOptions sanitizes the patch: positive integer sizes, a style of 1..6, junk is dropped", async () => {
+        const cases: readonly (readonly [object, object])[] = [
             [
                 { tabSize: 4.7, insertSpaces: false },
                 { tabSize: 4, insertSpaces: false },
             ],
-            [{ indentSize: 2.5 }, { tabSize: 2 }],
-            [{ tabSize: 3, indentSize: 8 }, { tabSize: 3 }],
-            [{ tabSize: 0, indentSize: 0, insertSpaces: "yes" }, {}],
-            [{ tabSize: -1, indentSize: -1 }, {}],
+            [{ tabSize: 0, insertSpaces: "yes" }, {}],
+            [{ tabSize: -1 }, {}],
             [{ tabSize: Infinity }, {}],
-            [{ tabSize: Infinity, indentSize: 6 }, { tabSize: 6 }],
-            [{ indentSize: Infinity }, {}],
-            [{ tabSize: "4", indentSize: "2" }, {}],
-            [null, {}],
-            [undefined, {}],
-            ["4", {}],
+            [{ tabSize: "4", indentSize: 2 }, {}],
+            [{ cursorStyle: 2 }, { cursorStyle: "block" }],
+            [
+                { cursorStyle: 6, tabSize: 2 },
+                { tabSize: 2, cursorStyle: "underline-thin" },
+            ],
+            [{ cursorStyle: 7 }, {}],
+            [{ cursorStyle: "2" }, {}],
         ];
         const h = setup();
         h.attachTo();
         // Infinity wouldn't survive a JSON channel; the in-process channel passes values as is.
         for (const [params] of cases) {
-            await expect(h.peer.request("editor.setOptions", params)).resolves.toBeNull();
+            await expect(
+                h.peer.request("editor.setOptions", { ...params, uri: "file:///a.ts", groupId: 7 }),
+            ).resolves.toBeNull();
         }
-        expect(vi.mocked(h.editorOptions.setActiveEditorOptions).mock.calls).toEqual(cases.map(([, patch]) => [patch]));
+        expect(vi.mocked(h.editorOptions.setEditorOptions).mock.calls).toEqual(
+            cases.map(([, patch]) => ["file:///a.ts", 7, patch]),
+        );
     });
 
-    it("editor.setOptions: a cursorStyle of 1..6 goes to the editor at uri + groupId; junk is dropped", async () => {
+    it("editor.setOptions goes to the editor at uri + groupId; without that address it is dropped (#1231)", async () => {
         const h = setup();
         h.attachTo();
         const cases: readonly unknown[] = [
-            { cursorStyle: 2, uri: "file:///a.ts", groupId: 7 },
-            { cursorStyle: 6, uri: "file:///b.ts", groupId: 1, tabSize: 2 },
-            { cursorStyle: 7, uri: "file:///a.ts", groupId: 7 },
-            { cursorStyle: "2", uri: "file:///a.ts", groupId: 7 },
-            { cursorStyle: 2, groupId: 7 },
-            { cursorStyle: 2, uri: "file:///a.ts", groupId: "7" },
-            { cursorStyle: 2, uri: "file:///a.ts" },
+            { tabSize: 2, uri: "file:///b.ts", groupId: 2 },
+            { tabSize: 2, groupId: 7 },
+            { tabSize: 2, uri: "file:///a.ts", groupId: "7" },
+            { tabSize: 2, uri: "file:///a.ts" },
             null,
+            "4",
         ];
         for (const params of cases) {
             await expect(h.peer.request("editor.setOptions", params)).resolves.toBeNull();
         }
-        expect(vi.mocked(h.editorOptions.setEditorCursorStyle).mock.calls).toEqual([
-            ["file:///a.ts", 7, "block"],
-            ["file:///b.ts", 1, "underline-thin"],
-        ]);
+        expect(vi.mocked(h.editorOptions.setEditorOptions).mock.calls).toEqual([["file:///b.ts", 2, { tabSize: 2 }]]);
     });
 
     it("editor.revealRange maps the enum to a strategy for the editor at uri + group; junk is dropped", async () => {
@@ -217,15 +214,6 @@ describe("EditorCustomer — subprocess requests", () => {
             [uri, 7, RANGE, "centerIfOutsideViewport"],
             [uri, 7, RANGE, "top"],
         ]);
-    });
-
-    it("editor.getOptions returns the active editor's options", async () => {
-        const h = setup();
-        h.attachTo();
-        await expect(h.peer.request("editor.getOptions", undefined)).resolves.toEqual({
-            tabSize: 4,
-            insertSpaces: true,
-        });
     });
 
     it("editor.setSelection: selections and group get through; without a string uri — ignored", async () => {

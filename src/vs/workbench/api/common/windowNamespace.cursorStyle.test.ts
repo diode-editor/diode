@@ -108,12 +108,14 @@ describe("WindowNamespace — TextEditor.options.cursorStyle", () => {
         editor.options = { tabSize: 2, cursorStyle: TextEditorCursorStyle.Underline };
         expect(editor.options).toEqual({
             tabSize: 2,
+            indentSize: 2,
             cursorStyle: TextEditorCursorStyle.Underline,
             lineNumbers: TextEditorLineNumbersStyle.On,
         });
         editor.options = { insertSpaces: true };
         expect(editor.options).toEqual({
             tabSize: 2,
+            indentSize: 2,
             insertSpaces: true,
             cursorStyle: TextEditorCursorStyle.Underline,
             lineNumbers: TextEditorLineNumbersStyle.On,
@@ -140,10 +142,10 @@ describe("WindowNamespace — TextEditor.options.lineNumbers", () => {
         expect(editor.options.lineNumbers).toBe(TextEditorLineNumbersStyle.Off);
     });
 
-    it("[api:TextEditor.options] an assigned style reads back, and nothing goes to the core: Diode draws only plain numbers", () => {
-        const { stub, editor } = makeCtx();
+    it("[api:TextEditor.options] an assigned style reads as the editor's, and nothing goes to the core: Diode draws only plain numbers (#1231)", () => {
+        const { stub, editor } = makeCtx({ "editor.lineNumbers": "off" });
         editor.options = { lineNumbers: TextEditorLineNumbersStyle.Relative };
-        expect(editor.options.lineNumbers).toBe(TextEditorLineNumbersStyle.Relative);
+        expect(editor.options.lineNumbers).toBe(TextEditorLineNumbersStyle.Off);
         expect(stub.requests).toEqual([]);
     });
 });
@@ -152,10 +154,10 @@ describe("WindowNamespace — TextEditor.options assigned in place, as vscodevim
     // vscodevim 1.32.4 writes `editor.options.lineNumbers = Relative` (vim.smartRelativeLine) and
     // `editor.options.cursorStyle = style` on every mode change. Upstream's `options` is a live
     // object whose setters apply the value, so writing a member equals reassigning `options`.
-    it("[api:TextEditor.options] writing options.lineNumbers on the getter's object reads back", () => {
+    it("[api:TextEditor.options] writing options.lineNumbers on the getter's object reads as the editor's (#1231)", () => {
         const { editor } = makeCtx();
         editor.options.lineNumbers = TextEditorLineNumbersStyle.Relative;
-        expect(editor.options.lineNumbers).toBe(TextEditorLineNumbersStyle.Relative);
+        expect(editor.options.lineNumbers).toBe(TextEditorLineNumbersStyle.On);
     });
 
     it("[api:TextEditor.options] writing options.cursorStyle on the getter's object reaches the terminal cursor", () => {

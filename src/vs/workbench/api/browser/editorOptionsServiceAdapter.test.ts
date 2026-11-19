@@ -40,38 +40,6 @@ function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): 
 }
 
 describe("EditorOptionsServiceAdapter", () => {
-    it("getActiveEditorOptions() returns null when there is no active editor (line 20)", () => {
-        const adapter = createAdapter(groupWithNoActiveEditor(), NO_BULK_EDITS);
-        expect(adapter.getActiveEditorOptions()).toBeNull();
-    });
-
-    it("getActiveEditorOptions() reads tabSize/insertSpaces from the active editor", () => {
-        const group = {
-            getActiveTabEditor: () => ({
-                viewState: { tabSize: 4, insertSpaces: true },
-            }),
-        } as unknown as IEditorService;
-        const adapter = createAdapter(group, NO_BULK_EDITS);
-        expect(adapter.getActiveEditorOptions()).toEqual({ tabSize: 4, insertSpaces: true });
-    });
-
-    it("setActiveEditorOptions() is a no-op when there is no active editor", () => {
-        const adapter = createAdapter(groupWithNoActiveEditor(), NO_BULK_EDITS);
-        expect(() => {
-            adapter.setActiveEditorOptions({ tabSize: 2 });
-        }).not.toThrow();
-    });
-
-    it("setActiveEditorOptions() forwards the patch to the active editor", () => {
-        const setIndentOptions = vi.fn();
-        const group = {
-            getActiveTabEditor: () => ({ setIndentOptions }),
-        } as unknown as IEditorService;
-        const adapter = createAdapter(group, NO_BULK_EDITS);
-        adapter.setActiveEditorOptions({ tabSize: 8 });
-        expect(setIndentOptions).toHaveBeenCalledWith({ tabSize: 8 });
-    });
-
     it("getActiveEditorFilePath() returns null when there is no active editor", () => {
         const adapter = createAdapter(groupWithNoActiveEditor(), NO_BULK_EDITS);
         expect(adapter.getActiveEditorFilePath()).toBeNull();
