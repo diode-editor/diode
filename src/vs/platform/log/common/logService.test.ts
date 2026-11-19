@@ -284,3 +284,38 @@ describe("LogService — channel labels", () => {
         expect(seen).toEqual(["b"]);
     });
 });
+
+describe("LogService — window level (env.logLevel)", () => {
+    it("is Info until a `*` rule is set, although channels default to Trace", () => {
+        const service = new LogService();
+        expect(service.getWindowLevel()).toBe(LogLevel.Info);
+        expect(service.getLevel("any")).toBe(LogLevel.Trace);
+        service.setLevel("*", LogLevel.Debug);
+        expect(service.getWindowLevel()).toBe(LogLevel.Debug);
+        expect(service.getLevel("any")).toBe(LogLevel.Debug);
+    });
+
+    it("a channel rule doesn't touch it", () => {
+        const service = new LogService();
+        const fired: LogLevel[] = [];
+        service.onDidChangeWindowLevel((level) => fired.push(level));
+        service.setLevel("extensions", LogLevel.Error);
+        expect(service.getWindowLevel()).toBe(LogLevel.Info);
+        expect(fired).toEqual([]);
+    });
+
+    it("fires the new level, already readable in the listener, only on an actual change", () => {
+        const service = new LogService();
+        const fired: [LogLevel, LogLevel][] = [];
+        service.onDidChangeWindowLevel((level) => fired.push([level, service.getWindowLevel()]));
+        // Info is the window default already: nothing changes.
+        service.setLevel("*", LogLevel.Info);
+        service.setLevel("*", LogLevel.Trace);
+        service.setLevel("*", LogLevel.Trace);
+        service.setLevel("*", LogLevel.Off);
+        expect(fired).toEqual([
+            [LogLevel.Trace, LogLevel.Trace],
+            [LogLevel.Off, LogLevel.Off],
+        ]);
+    });
+});

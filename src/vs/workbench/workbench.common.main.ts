@@ -195,6 +195,7 @@ import { LINKED_EDITING_ACTIONS } from "./contrib/linkedEditing/browser/linkedEd
 import { LinkedEditingServiceDIToken } from "./contrib/linkedEditing/browser/linkedEditingService.ts";
 import { LINKS_ACTIONS } from "./contrib/links/browser/linksActions.ts";
 import { LinksServiceDIToken } from "./contrib/links/browser/linksService.ts";
+import { LOGS_ACTIONS } from "./contrib/logs/browser/logsActions.ts";
 import { DiagnosticsServiceDIToken } from "./contrib/markers/browser/diagnosticsService.ts";
 import { ProblemsComponentDIToken } from "./contrib/markers/browser/problemsComponent.ts";
 import { MULTI_CURSOR_ACTIONS } from "./contrib/multicursor/browser/multiCursorActions.ts";
@@ -238,6 +239,7 @@ import { TerminalEditorServiceDIToken } from "./contrib/terminal/browser/termina
 import { TerminalKeyRoutingDIToken } from "./contrib/terminal/browser/terminalKeyRouting.ts";
 import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
+import { TERMINAL_DEVELOPER_ACTIONS } from "./contrib/terminalContrib/developer/browser/terminalDeveloperActions.ts";
 import { TERMINAL_LINK_ACTIONS } from "./contrib/terminalContrib/links/browser/terminalLinkActions.ts";
 import { TERMINAL_SELECTION_ACTIONS } from "./contrib/terminalContrib/selection/browser/terminalSelectionActions.ts";
 import { TerminalSelectionServiceDIToken } from "./contrib/terminalContrib/selection/browser/terminalSelectionService.ts";
@@ -419,6 +421,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...THEME_ACTIONS,
     ...USER_DATA_PROFILE_ACTIONS,
     ...URL_ACTIONS,
+    ...LOGS_ACTIONS,
     changeEncodingAction,
     changeEolAction,
     cursorLeftAction,
@@ -543,6 +546,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...VIEW_LOCATION_ACTIONS,
     ...OUTPUT_ACTIONS,
     ...TERMINAL_ACTIONS,
+    ...TERMINAL_DEVELOPER_ACTIONS,
     ...TERMINAL_LINK_ACTIONS,
     ...TERMINAL_SELECTION_ACTIONS,
     ...TASKS_ACTIONS,

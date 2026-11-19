@@ -35,7 +35,7 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | [`vscode.commands`](#vscodecommands) | 🟡 | 4/4 |
 | [`vscode.extensions`](#vscodeextensions) | ✅ | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
-| [`vscode.env`](#vscodeenv) | 🟡 | 17/21 |
+| [`vscode.env`](#vscodeenv) | 🟡 | 19/21 |
 | [`vscode.tasks`](#vscodetasks) | 🟡 | 8/8 |
 | [`vscode.authentication`](#vscodeauthentication) | 🟡 | 4/4 |
 | [`vscode.comments`](#vscodecomments) | 🟡 | 1/1 |
@@ -237,7 +237,7 @@ The task types follow the contract, with differences:
 
 ## vscode.env
 
-🟡 **17/21.** The clipboard, opening external links and the environment constants that extensions
+🟡 **19/21.** The clipboard, opening external links and the environment constants that extensions
 read in `activate()` (language clients, telemetry reporters). As in VS Code, `env` is frozen: assigning any of its
 members throws in strict code.
 
@@ -257,7 +257,7 @@ members throws in strict code.
 | `appRoot` | 🟡 | an existing directory with ripgrep at VS Code's path, `node_modules/@vscode/ripgrep/bin/rg` (`rg.exe` on Windows): extensions that look for rg there (Todo Tree) find it. Deviation: Diode is a single binary with no install directory, so `appRoot` is a Diode directory in the user cache (`~/.cache/diode/rg/…`) that holds only this layout; extensions that expect other VS Code files under it (`extensions/`, `out/vs/…`) won't find them. An empty string when the cache is not writable |
 | `isNewAppInstall`, `isAppPortable` | 🕐 | |
 | `asExternalUri` | ✅ | as in VS Code on the desktop: the uri comes back unchanged, `diode://` included (no web origin or port tunnel to map it to); an empty scheme is rejected |
-| `logLevel`, `onDidChangeLogLevel` | 🕐 | |
+| `logLevel`, `onDidChangeLogLevel` | 🟡 | the window's log level: `Info` by default, `--log <level>` or `--verbose` (`Trace`) at startup, **Developer: Set Log Level...** at runtime; the event fires on a real change, with `logLevel` already updated. Deviation: the command offers only the "All" levels, without per-channel sections or "Set as Default Log Level", and the level is not kept between runs |
 
 ## vscode.comments
 

@@ -31,6 +31,10 @@ export interface ICommandSnapshot {
     readonly category?: string;
 }
 
+export interface ICommandEvent {
+    readonly commandId: string;
+}
+
 export function commandPaletteLabel(cmd: Pick<ICommandSnapshot, "title" | "category">): string {
     return cmd.category === undefined || cmd.category === "" ? cmd.title : `${cmd.category}: ${cmd.title}`;
 }
@@ -45,6 +49,9 @@ export class CommandRegistry implements IDisposable {
     private inputHolds = 0;
     private readonly inputReleased = new Emitter<void>();
     public readonly onDidReleaseInput = this.inputReleased.event;
+    private readonly willExecuteCommand = new Emitter<ICommandEvent>();
+    /** Upstream `ICommandService.onWillExecuteCommand`: a registered command is about to run. */
+    public readonly onWillExecuteCommand = this.willExecuteCommand.event;
 
     public constructor(private readonly logger: ILogger = NULL_LOGGER) {}
 
@@ -109,6 +116,7 @@ export class CommandRegistry implements IDisposable {
     public execute(id: string, ...args: unknown[]): unknown {
         const entry = this.top(id);
         if (!entry) return undefined;
+        this.willExecuteCommand.fire({ commandId: id });
         const result = entry.handler(...args);
         if (isThenable(result)) {
             result.then(undefined, (error: unknown) => {
