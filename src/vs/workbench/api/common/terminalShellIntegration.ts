@@ -4,6 +4,8 @@
 
 import type * as vscode from "vscode";
 
+import { RunOnceScheduler } from "../../../base/common/async.ts";
+
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import {
     parseWireTerminalShellExecutionData,
@@ -140,7 +142,9 @@ class ShellIntegration {
     private current: ShellExecution | undefined;
     /** Ended, its end event not fired yet: it waits for the `read()` streams to complete. */
     private ending: { readonly execution: ShellExecution; readonly exitCode: number | undefined } | undefined;
-    private endTimer: ReturnType<typeof setTimeout> | undefined;
+    private readonly endLater = new RunOnceScheduler(() => {
+        this.fireEnding();
+    }, 0);
 
     public constructor(
         private readonly terminal: vscode.Terminal,
@@ -191,11 +195,7 @@ class ShellIntegration {
 
     /** A start ends what is still open: the previous execution's end event goes first, without a code. */
     public start(commandLine: vscode.TerminalShellExecutionCommandLine, cwd: vscode.Uri | undefined): void {
-        this.fireEnding();
-        if (this.current !== undefined) {
-            this.current.end(undefined);
-            this.fireEnd(this.current, undefined);
-        }
+        this.close();
         // Upstream: a high-confidence line matches its `executeCommand` exactly, a lower one takes the oldest.
         let execution: ShellExecution | undefined;
         if (commandLine.confidence === HIGH) {
@@ -226,11 +226,10 @@ class ShellIntegration {
         this.current = undefined;
         execution.end(commandLine);
         this.ending = { execution, exitCode };
-        this.endTimer = setTimeout(() => {
-            this.fireEnding();
-        });
+        this.endLater.schedule();
     }
 
+    /** Ends what is open (a start, the terminal closing): an execution without its end ends without a code. */
     public close(): void {
         this.fireEnding();
         const execution = this.current;
@@ -241,7 +240,7 @@ class ShellIntegration {
     }
 
     private fireEnding(): void {
-        clearTimeout(this.endTimer);
+        this.endLater.cancel();
         const ending = this.ending;
         if (ending === undefined) return;
         this.ending = undefined;

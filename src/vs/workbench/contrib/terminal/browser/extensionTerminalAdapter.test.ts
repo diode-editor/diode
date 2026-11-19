@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FakeEditorTerminals } from "../../../../../TestUtils/FakeEditorTerminals.ts";
 import { FakeExtensionPtySession } from "../../../../../TestUtils/FakeExtensionPtySession.ts";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
+import { IGNORED_SHELL_INTEGRATION_EVENTS } from "../../../../../TestUtils/shellIntegrationEvents.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import type { IExtensionTerminalEvents } from "../../../api/common/iExtensionWindowSinks.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -45,12 +46,7 @@ function setup(settings: Record<string, unknown> = {}) {
         ptyResize: vi.fn<IExtensionTerminalEvents["ptyResize"]>(),
         interaction: vi.fn<IExtensionTerminalEvents["interaction"]>(),
         titleChanged: vi.fn<IExtensionTerminalEvents["titleChanged"]>(),
-        shellIntegrationChanged: vi.fn<IExtensionTerminalEvents["shellIntegrationChanged"]>(),
-        shellIntegrationCwd: vi.fn<IExtensionTerminalEvents["shellIntegrationCwd"]>(),
-        shellIntegrationEnv: vi.fn<IExtensionTerminalEvents["shellIntegrationEnv"]>(),
-        shellExecutionStart: vi.fn<IExtensionTerminalEvents["shellExecutionStart"]>(),
-        shellExecutionData: vi.fn<IExtensionTerminalEvents["shellExecutionData"]>(),
-        shellExecutionEnd: vi.fn<IExtensionTerminalEvents["shellExecutionEnd"]>(),
+        ...IGNORED_SHELL_INTEGRATION_EVENTS,
     };
     const subscription = adapter.subscribe(events);
     return { views, service, sessions, ptySessions, factoryCalls, adapter, events, subscription, editorTerminals };

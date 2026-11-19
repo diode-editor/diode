@@ -1,6 +1,7 @@
 // Upstream `MainThreadTerminalShellIntegration` for one instance: what the shell integration of its emulator tells
 // becomes the messages extensions read (`Terminal.shellIntegration`, the shell execution events).
 
+import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { DisposableMap, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type {
     ITerminalCommand,
@@ -8,9 +9,10 @@ import type {
 } from "../../../../platform/terminal/common/capabilities/capabilities.ts";
 import type { TerminalCapabilityChangeEvent } from "../../../../platform/terminal/common/capabilities/terminalCapabilityStore.ts";
 import type { ShellIntegrationAddon } from "../../../../platform/terminal/common/xterm/shellIntegrationAddon.ts";
-import type {
-    IExtensionTerminalEvents,
-    IExtensionTerminalShellIntegrationState,
+import {
+    type IExtensionTerminalShellIntegrationEvents,
+    type IExtensionTerminalShellIntegrationState,
+    sendShellIntegrationState,
 } from "../../../api/common/iExtensionWindowSinks.ts";
 import type { IWireTerminalCommandLine, IWireTerminalShellIntegrationEnv } from "../../../api/common/wireTypes.ts";
 
@@ -21,22 +23,16 @@ export const SHELL_EXECUTION_DATA_DEBOUNCE_MS = 50;
 
 const ACTIVATION_EVENT_PREFIX = "onTerminalShellIntegration:";
 
-type ShellIntegrationEvents = Pick<
-    IExtensionTerminalEvents,
-    | "shellIntegrationChanged"
-    | "shellIntegrationCwd"
-    | "shellIntegrationEnv"
-    | "shellExecutionStart"
-    | "shellExecutionData"
-    | "shellExecutionEnd"
->;
-
 export class TerminalShellIntegrationRelay implements IDisposable {
     private readonly store = new DisposableStore();
     /** One listener per capability: a relaunch replaces the capabilities, the listeners of the old ones go. */
     private readonly capabilityListeners = this.store.add(new DisposableMap<TerminalCapabilityChangeEvent["id"]>());
     private pendingData = "";
-    private dataTimer: ReturnType<typeof setTimeout> | undefined;
+    private readonly dataFlush = this.store.add(
+        new RunOnceScheduler(() => {
+            this.flushData();
+        }, SHELL_EXECUTION_DATA_DEBOUNCE_MS),
+    );
 
     /**
      * @param events the subscribed subprocess, read on every event: there may be none.
@@ -45,7 +41,7 @@ export class TerminalShellIntegrationRelay implements IDisposable {
     public constructor(
         private readonly instance: ITerminalInstance,
         private readonly addon: ShellIntegrationAddon,
-        private readonly events: () => ShellIntegrationEvents | null,
+        private readonly events: () => IExtensionTerminalShellIntegrationEvents | null,
         private readonly activate: (event: string) => void,
     ) {
         const { capabilities } = addon;
@@ -108,11 +104,10 @@ export class TerminalShellIntegrationRelay implements IDisposable {
                 );
                 listeners.add(
                     this.addon.onDidWriteCommandOutput(({ data }) => {
+                        // No subprocess: nothing would read the batch.
+                        if (this.events() === null) return;
                         this.pendingData += data;
-                        clearTimeout(this.dataTimer);
-                        this.dataTimer = setTimeout(() => {
-                            this.flushData();
-                        }, SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+                        this.dataFlush.schedule();
                     }),
                 );
                 this.capabilityListeners.set(event.id, listeners);
@@ -144,15 +139,12 @@ export class TerminalShellIntegrationRelay implements IDisposable {
         const { shellType } = this.instance;
         if (shellType !== undefined) this.activate(`${ACTIVATION_EVENT_PREFIX}${shellType}`);
         const events = this.events();
-        if (events === null) return;
-        const { id } = this.instance;
-        events.shellIntegrationChanged({ id, supportsExecuteCommand: this.supportsExecuteCommand });
-        const cwd = this.addon.capabilities.get("cwdDetection");
-        if (cwd !== undefined) events.shellIntegrationCwd({ id, cwd: cwd.getCwd() });
+        const state = this.state();
+        if (events !== null && state !== undefined) sendShellIntegrationState(events, state);
     }
 
     private flushData(): void {
-        clearTimeout(this.dataTimer);
+        this.dataFlush.cancel();
         if (this.pendingData === "") return;
         const data = this.pendingData;
         this.pendingData = "";
@@ -160,7 +152,6 @@ export class TerminalShellIntegrationRelay implements IDisposable {
     }
 
     public dispose(): void {
-        clearTimeout(this.dataTimer);
         this.store.dispose();
     }
 }

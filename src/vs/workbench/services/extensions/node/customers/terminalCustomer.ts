@@ -1,8 +1,10 @@
 import { DisposableMap, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
-import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
-import type {
-    IExtensionTerminalProfileSink,
-    IExtensionTerminalSink,
+import type { HostRpc, IHostToSubprocess } from "../../../../api/common/extHostProtocol.ts";
+import {
+    type IExtensionTerminalProfileSink,
+    type IExtensionTerminalShellIntegrationEvents,
+    type IExtensionTerminalSink,
+    sendShellIntegrationState,
 } from "../../../../api/common/iExtensionWindowSinks.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
@@ -77,24 +79,7 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                 titleChanged: (id, name) => {
                     if (seeded()) rpc.notify("terminal.titleChanged", { id, name });
                 },
-                shellIntegrationChanged: (event) => {
-                    if (seeded()) rpc.notify("terminal.shellIntegration.changed", event);
-                },
-                shellIntegrationCwd: (event) => {
-                    if (seeded()) rpc.notify("terminal.shellIntegration.cwd", event);
-                },
-                shellIntegrationEnv: (event) => {
-                    if (seeded()) rpc.notify("terminal.shellIntegration.env", event);
-                },
-                shellExecutionStart: (event) => {
-                    if (seeded()) rpc.notify("terminal.shellExecution.start", event);
-                },
-                shellExecutionData: (event) => {
-                    if (seeded()) rpc.notify("terminal.shellExecution.data", event);
-                },
-                shellExecutionEnd: (event) => {
-                    if (seeded()) rpc.notify("terminal.shellExecution.end", event);
-                },
+                ...shellIntegrationNotifier(rpc, seeded),
             }),
         );
         store.add(
@@ -173,13 +158,27 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         const { terminals, activeId, shellIntegrations } = spawn.sink.snapshot();
         for (const terminal of terminals) rpc.notify("terminal.opened", terminal);
         rpc.notify("terminal.activeChanged", { id: activeId });
-        for (const { integration, cwd, env } of shellIntegrations) {
-            rpc.notify("terminal.shellIntegration.changed", integration);
-            if (cwd !== undefined) rpc.notify("terminal.shellIntegration.cwd", cwd);
-            if (env !== undefined) rpc.notify("terminal.shellIntegration.env", env);
-        }
+        const notifier = shellIntegrationNotifier(rpc, () => true);
+        for (const state of shellIntegrations) sendShellIntegrationState(notifier, state);
         spawn.ready = true;
     }
+}
+
+/** The shell integration events as notifications, while `live` holds. */
+function shellIntegrationNotifier(rpc: HostRpc, live: () => boolean): IExtensionTerminalShellIntegrationEvents {
+    const forward =
+        <M extends keyof IHostToSubprocess["notifications"]>(method: M) =>
+        (event: IHostToSubprocess["notifications"][M]): void => {
+            if (live()) rpc.notify(method, event);
+        };
+    return {
+        shellIntegrationChanged: forward("terminal.shellIntegration.changed"),
+        shellIntegrationCwd: forward("terminal.shellIntegration.cwd"),
+        shellIntegrationEnv: forward("terminal.shellIntegration.env"),
+        shellExecutionStart: forward("terminal.shellExecution.start"),
+        shellExecutionData: forward("terminal.shellExecution.data"),
+        shellExecutionEnd: forward("terminal.shellExecution.end"),
+    };
 }
 
 /** Upstream `$registerProfileProvider`/`$unregisterProfileProvider`; the registrations die with the spawn. */

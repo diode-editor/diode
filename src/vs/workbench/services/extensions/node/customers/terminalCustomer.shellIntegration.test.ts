@@ -25,7 +25,7 @@ function run(commandLine: string, output: string, exitCode: number, nonce = ""):
 }
 
 /** The emulator is a lazy chunk and parses asynchronously; the in-process pair sends via a microtask. */
-async function settle(ms = 0): Promise<void> {
+async function drain(ms = 0): Promise<void> {
     if (ms > 0) await new Promise<void>((r) => setTimeout(r, ms));
     for (let i = 0; i < 10; i++) await new Promise<void>((r) => setTimeout(r, 0));
 }
@@ -79,8 +79,8 @@ function setup() {
         (o) => new ExtensionPtySession(o),
         new FakeEditorTerminals(service),
         createTestConfigurationService({}),
-        (event) => activations.push(event),
     );
+    adapter.onDidRequestActivation((event) => activations.push(event));
     const customer = new TerminalCustomer(adapter);
     /** A subprocess: its namespace and every message the host sent it. */
     const spawn = (): { ns: ITerminalNamespace; sent: { method: string; params: unknown }[] } => {
@@ -128,18 +128,18 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const { ns } = h.spawn();
         const log = record(ns);
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         const [terminal] = ns.terminals;
         expect(terminal.shellIntegration).toBeUndefined();
 
         h.shells[0].feed(`${osc("P;Cwd=/home/me")}${PROMPT}`);
-        await settle();
+        await drain();
         const integration = terminal.shellIntegration;
         expect(integration).toBeDefined();
         expect(log).toStrictEqual(["changed bash cwd=-", "changed bash cwd=/home/me"]);
 
         h.shells[0].feed(`${run("cd /tmp", "", 0)}${osc("P;Cwd=/tmp")}${PROMPT}`);
-        await settle();
+        await drain();
         expect(terminal.shellIntegration).toBe(integration);
         expect(integration?.cwd?.fsPath).toBe("/tmp");
         // The end waits for the read() streams to complete (upstream `flush`): the cwd of the same prompt is already there.
@@ -150,14 +150,14 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const h = setup();
         h.service.createInstance({ name: "zsh", shellPath: "/usr/bin/zsh" });
         h.service.createInstance({ name: "plain", shellPath: "/bin/bash" });
-        await settle();
+        await drain();
         expect(h.activations).toStrictEqual([]);
         h.shells[0].feed(PROMPT);
-        await settle();
+        await drain();
         expect(h.activations).toStrictEqual(["onTerminalShellIntegration:*", "onTerminalShellIntegration:zsh"]);
         // A cwd without a command sequence is not shell integration.
         h.shells[1].feed(osc("P;Cwd=/tmp"));
-        await settle();
+        await drain();
         expect(h.activations).toHaveLength(2);
     });
 
@@ -169,9 +169,9 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
             name: "pty",
             pty: { onDidWrite: write.event, open: () => undefined, close: () => undefined },
         });
-        await settle();
+        await drain();
         write.fire(PROMPT);
-        await settle(10);
+        await drain(10);
         expect(h.activations).toStrictEqual(["onTerminalShellIntegration:*"]);
         expect(ns.terminals[0].shellIntegration).toBeDefined();
     });
@@ -181,7 +181,7 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const { ns } = h.spawn();
         const log = record(ns);
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         const reads: Promise<string>[] = [];
         let started: vscode.TerminalShellExecution | undefined;
         ns.onDidStartTerminalShellExecution(({ execution }) => {
@@ -190,12 +190,12 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         });
         const shell = h.shells[0];
         shell.feed(`${osc("P;Cwd=/work")}${PROMPT}`);
-        await settle();
+        await drain();
         shell.feed(run("echo hi", "hi\r\n", 0, shell.nonce));
         shell.feed(PROMPT);
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
         shell.feed(run("false", "", 1));
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
 
         expect(log.slice(2)).toStrictEqual(["start echo hi", "end echo hi exit=0", "start false", "end false exit=1"]);
         expect(await reads[0]).toBe(`${osc("C")}hi\r\n`);
@@ -214,13 +214,13 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const lines: vscode.TerminalShellExecutionCommandLine[] = [];
         ns.onDidEndTerminalShellExecution(({ execution }) => lines.push(execution.commandLine));
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         const shell = h.shells[0];
         shell.feed(`${PROMPT}${run("ls", "", 0, shell.nonce)}`);
         // Without `E`: the line is the cells between B and C; a prompt to the left makes it medium.
         shell.feed(`${PROMPT}pwd\r\n${osc("C")}${osc("D;0")}`);
         shell.feed(`${osc("B")}date\r\n${osc("C")}${osc("D;0")}`);
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
         expect(lines).toStrictEqual([
             { value: "ls", confidence: TerminalShellExecutionCommandLineConfidence.High, isTrusted: true },
             { value: "pwd", confidence: TerminalShellExecutionCommandLineConfidence.Medium, isTrusted: false },
@@ -232,7 +232,7 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const h = setup();
         const { ns } = h.spawn();
         ns.createTerminal({ name: "own", shellIntegrationNonce: "n-1" });
-        await settle();
+        await drain();
         expect(h.shells[0].sessionOptions.shellIntegrationNonce).toBe("n-1");
         expect(h.shells[0].nonce).toBe("n-1");
     });
@@ -248,9 +248,9 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
             pty: { onDidWrite: write.event, open: () => undefined, close: () => undefined },
             shellIntegrationNonce: "pty-nonce",
         });
-        await settle();
+        await drain();
         write.fire(`${PROMPT}${run("go", "", 0, "pty-nonce")}`);
-        await settle(10);
+        await drain(10);
         expect(ends.map((line) => line.isTrusted)).toStrictEqual([true]);
     });
 
@@ -258,15 +258,15 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const h = setup();
         const { sent } = h.spawn();
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         const shell = h.shells[0];
         shell.feed(`${PROMPT}${osc("E;make;")}${osc("C")}`);
         shell.feed("one\r\n");
         shell.feed("two\r\n");
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS * 2);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS * 2);
         shell.feed("three\r\n");
         shell.feed(osc("D;2"));
-        await settle();
+        await drain();
         const id = h.service.getInstances()[0].id;
         expect(sent.filter((m) => m.method.startsWith("terminal.shell"))).toStrictEqual([
             { method: "terminal.shellIntegration.changed", params: { id, supportsExecuteCommand: true } },
@@ -292,13 +292,13 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const { ns, sent } = h.spawn();
         const log = record(ns);
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         const shell = h.shells[0];
         shell.feed(
             `${PROMPT}${osc(`EnvSingleStart;1;${shell.nonce}`)}${osc(`EnvSingleEntry;HOME;/home/me;${shell.nonce}`)}`,
         );
         shell.feed(osc(`EnvSingleEnd;${shell.nonce}`));
-        await settle();
+        await drain();
         const env = (ns.terminals[0].shellIntegration as unknown as { env: unknown }).env;
         expect(env).toStrictEqual({ isTrusted: true, value: { HOME: "/home/me" } });
         expect(log).toStrictEqual(["changed bash cwd=-", "changed bash cwd=-"]);
@@ -312,47 +312,44 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
     it("a subprocess started later sees the live integration with its cwd and environment", async () => {
         const h = setup();
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         const shell = h.shells[0];
         shell.feed(`${osc("P;Cwd=/srv")}${PROMPT}${osc('EnvJson;{"A":"1"};' + shell.nonce)}`);
-        await settle();
+        await drain();
         const { ns } = h.spawn();
-        await settle();
+        await drain();
         const integration = ns.terminals[0].shellIntegration;
         expect(integration?.cwd?.fsPath).toBe("/srv");
         expect((integration as unknown as { env: unknown }).env).toStrictEqual({ isTrusted: true, value: { A: "1" } });
     });
 
-    it("an adapter created after the integration came alive reports it and activates", async () => {
+    it("an adapter created after the integration came alive reports it to a new subprocess", async () => {
         const h = setup();
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         h.shells[0].feed(`${osc("P;Cwd=/late")}${PROMPT}`);
-        await settle();
-        const activations: string[] = [];
+        await drain();
         const late = new ExtensionTerminalAdapter(
             h.service,
             makeViewsHarness().service,
             (o) => new ExtensionPtySession(o),
             new FakeEditorTerminals(h.service),
             createTestConfigurationService({}),
-            (event) => activations.push(event),
         );
         const id = h.service.getInstances()[0].id;
         expect(late.snapshot().shellIntegrations).toStrictEqual([
             { integration: { id, supportsExecuteCommand: true }, cwd: { id, cwd: "/late" } },
         ]);
-        expect(activations).toStrictEqual(["onTerminalShellIntegration:*", "onTerminalShellIntegration:bash"]);
     });
 
     it("executeCommand sends the line with Enter and returns the execution the start event then carries", async () => {
         const h = setup();
         const { ns } = h.spawn();
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         const shell = h.shells[0];
         shell.feed(PROMPT);
-        await settle();
+        await drain();
         const integration = ns.terminals[0].shellIntegration;
         if (integration === undefined) throw new Error("no shell integration");
         const starts: vscode.TerminalShellExecution[] = [];
@@ -367,10 +364,10 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
             isTrusted: true,
         });
         const output = readAll(execution.read());
-        await settle();
+        await drain();
         expect(shell.input).toStrictEqual(["claude\r"]);
         shell.feed(run("claude", "bye\r\n", 127, shell.nonce));
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
         expect(starts).toStrictEqual([execution]);
         expect(ends.map((e) => [e.execution, e.execution.commandLine.value, e.exitCode])).toStrictEqual([
             [execution, "claude", 127],
@@ -382,12 +379,12 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const h = setup();
         const { ns } = h.spawn();
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         h.shells[0].feed(PROMPT);
-        await settle();
+        await drain();
         const execution = ns.terminals[0].shellIntegration?.executeCommand("git", ["commit", "-m", "a b", "'c d'"]);
         expect(execution?.commandLine.value).toBe(`git commit -m "a b" 'c d'`);
-        await settle();
+        await drain();
         expect(h.shells[0].input).toStrictEqual([`git commit -m "a b" 'c d'\r`]);
     });
 
@@ -395,9 +392,9 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const h = setup();
         const { ns } = h.spawn();
         h.service.createInstance({ name: "task", isFeatureTerminal: true });
-        await settle();
+        await drain();
         h.shells[0].feed(PROMPT);
-        await settle();
+        await drain();
         const integration = ns.terminals[0].shellIntegration;
         expect(integration).toBeDefined();
         expect(() => integration?.executeCommand("ls")).toThrow(
@@ -410,14 +407,14 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const { ns } = h.spawn();
         const log = record(ns);
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         const shell = h.shells[0];
         shell.feed(`${PROMPT}${osc("E;sleep 9;")}${osc("C")}`);
-        await settle();
+        await drain();
         // A relaunch: the new process reports a new command while the old one never ended.
         shell.shellIntegration.reset();
         shell.feed(`${PROMPT}${run("ls", "", 0)}`);
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
         expect(log.slice(1)).toStrictEqual([
             "start sleep 9",
             "changed bash cwd=-",
@@ -431,17 +428,17 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const h = setup();
         const { ns } = h.spawn();
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         let execution: vscode.TerminalShellExecution | undefined;
         ns.onDidStartTerminalShellExecution((e) => {
             execution = e.execution;
         });
         const shell = h.shells[0];
         shell.feed(`${PROMPT}${osc("E;cat;")}${osc("C")}early\r\n`);
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
         const late = readAll(execution?.read());
         shell.feed(`late\r\n${osc("D;0")}`);
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
         expect(await late).toBe("late\r\n");
         expect(await readAll(execution?.read())).toBe("");
     });
@@ -452,15 +449,15 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const log = record(ns);
         ns.onDidCloseTerminal((t) => log.push(`closed ${t.name}`));
         h.service.createInstance({ name: "bash" });
-        await settle();
+        await drain();
         let output: Promise<string> | undefined;
         ns.onDidStartTerminalShellExecution(({ execution }) => {
             output = readAll(execution.read());
         });
         h.shells[0].feed(`${PROMPT}${osc("E;top;")}${osc("C")}`);
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
         h.service.closeInstance(h.service.getInstances()[0].id);
-        await settle();
+        await drain();
         expect(log.slice(1)).toStrictEqual(["start top", "end top exit=undefined", "closed bash"]);
         expect(await output).toBe(osc("C"));
     });
@@ -470,9 +467,9 @@ describe("shell integration — over the wire (vscode.window ← host)", () => {
         const { ns, sent } = h.spawn();
         const log = record(ns);
         h.service.createInstance({ name: "sh" });
-        await settle();
+        await drain();
         h.shells[0].feed("$ ls\r\nfile\r\n$ ");
-        await settle(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
+        await drain(SHELL_EXECUTION_DATA_DEBOUNCE_MS);
         expect(ns.terminals[0].shellIntegration).toBeUndefined();
         expect(log).toStrictEqual([]);
         expect(sent.filter((m) => m.method.startsWith("terminal.shell"))).toStrictEqual([]);

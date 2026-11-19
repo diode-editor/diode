@@ -109,8 +109,18 @@ export interface IExtensionTerminalProfileSink {
 
 export type ContributedProfileCreator = (target: "panel" | "editor") => Promise<void>;
 
+/** Upstream `MainThreadTerminalShellIntegration`: `$shellIntegrationChange` and the rest, in the order they happen. */
+export interface IExtensionTerminalShellIntegrationEvents {
+    shellIntegrationChanged(event: IWireTerminalShellIntegration): void;
+    shellIntegrationCwd(event: IWireTerminalShellIntegrationCwd): void;
+    shellIntegrationEnv(event: IWireTerminalShellIntegrationEnv): void;
+    shellExecutionStart(event: IWireTerminalShellExecutionStart): void;
+    shellExecutionData(event: IWireTerminalShellExecutionData): void;
+    shellExecutionEnd(event: IWireTerminalShellExecutionEnd): void;
+}
+
 /** Upstream `$acceptTerminal*`. */
-export interface IExtensionTerminalEvents {
+export interface IExtensionTerminalEvents extends IExtensionTerminalShellIntegrationEvents {
     opened(terminal: IWireTerminalOpened): void;
     closed(terminal: IWireTerminalClosed): void;
     activeChanged(id: number | null): void;
@@ -123,13 +133,6 @@ export interface IExtensionTerminalEvents {
     interaction(id: number): void;
     /** Upstream `$acceptTerminalTitleChange`. */
     titleChanged(id: number, name: string): void;
-    /** Upstream `MainThreadTerminalShellIntegration`: `$shellIntegrationChange` and the rest, in the order they happen. */
-    shellIntegrationChanged(event: IWireTerminalShellIntegration): void;
-    shellIntegrationCwd(event: IWireTerminalShellIntegrationCwd): void;
-    shellIntegrationEnv(event: IWireTerminalShellIntegrationEnv): void;
-    shellExecutionStart(event: IWireTerminalShellExecutionStart): void;
-    shellExecutionData(event: IWireTerminalShellExecutionData): void;
-    shellExecutionEnd(event: IWireTerminalShellExecutionEnd): void;
 }
 
 /** What a new subprocess learns about a terminal whose shell integration is already alive. */
@@ -137,6 +140,19 @@ export interface IExtensionTerminalShellIntegrationState {
     readonly integration: IWireTerminalShellIntegration;
     readonly cwd?: IWireTerminalShellIntegrationCwd;
     readonly env?: IWireTerminalShellIntegrationEnv;
+}
+
+/** Upstream `_enableShellIntegration`: the change, then what is already known — to a live subprocess or a new one. */
+export function sendShellIntegrationState(
+    events: Pick<
+        IExtensionTerminalShellIntegrationEvents,
+        "shellIntegrationChanged" | "shellIntegrationCwd" | "shellIntegrationEnv"
+    >,
+    { integration, cwd, env }: IExtensionTerminalShellIntegrationState,
+): void {
+    events.shellIntegrationChanged(integration);
+    if (cwd !== undefined) events.shellIntegrationCwd(cwd);
+    if (env !== undefined) events.shellIntegrationEnv(env);
 }
 
 /**

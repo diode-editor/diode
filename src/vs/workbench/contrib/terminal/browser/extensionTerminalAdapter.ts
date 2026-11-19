@@ -1,3 +1,4 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import { DisposableMap, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type {
@@ -55,14 +56,20 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
      */
     private readonly shellIntegrations = new DisposableMap<number, TerminalShellIntegrationRelay>();
 
-    /** @param activate the extension service's `activateByEvent`. */
+    private readonly onDidRequestActivationEmitter = new Emitter<string>();
+
+    /**
+     * Upstream `_enableShellIntegration`: `onTerminalShellIntegration:*` and `:<shell type>` when shell integration
+     * comes alive in an instance; the extension service activates by them.
+     */
+    public readonly onDidRequestActivation = this.onDidRequestActivationEmitter.event;
+
     public constructor(
         private readonly terminals: TerminalService,
         private readonly views: ViewsService,
         private readonly createPtySession: ExtensionPtySessionFactory,
         private readonly editorTerminals: IExtensionEditorTerminals,
         private readonly configuration: IConfigurationService,
-        private readonly activate: (event: string) => void = () => undefined,
     ) {
         for (const instance of this.allInstances()) this.watchShellIntegration(instance);
         terminals.onDidCreateInstance((instance) => {
@@ -141,7 +148,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         this.creating = request.extHostId;
         try {
             if (request.pty === true) {
-                this.createPty(request.extHostId, request.name ?? "", place, request.shellIntegrationNonce);
+                this.createPty(request, place);
                 return;
             }
             // Wire parsing already filtered the fields; the extra label and location don't bother the service.
@@ -232,7 +239,14 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         if (addon === undefined) return;
         this.shellIntegrations.set(
             instance.id,
-            new TerminalShellIntegrationRelay(instance, addon, () => this.events, this.activate),
+            new TerminalShellIntegrationRelay(
+                instance,
+                addon,
+                () => this.events,
+                (event) => {
+                    this.onDidRequestActivationEmitter.fire(event);
+                },
+            ),
         );
     }
 
@@ -242,15 +256,14 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
     }
 
     /** `ptyStart` goes out at once, like upstream `$startExtensionTerminal`; the real size comes via `ptyResize`. */
-    private createPty(extHostId: number, name: string, place: TerminalPlace, nonce: string | undefined): void {
-        this.byExtHostId.set(extHostId, this.createPtySessionInstance(name, {}, place, nonce));
+    private createPty({ extHostId, name, shellIntegrationNonce }: IWireTerminalCreate, place: TerminalPlace): void {
+        this.byExtHostId.set(extHostId, this.createPtySessionInstance(name ?? "", { shellIntegrationNonce }, place));
     }
 
     private createPtySessionInstance(
         name: string,
-        extra: Pick<ITerminalCreateOptions, "message" | "waitOnExit" | "isFeatureTerminal">,
+        extra: Pick<ITerminalCreateOptions, "message" | "waitOnExit" | "isFeatureTerminal" | "shellIntegrationNonce">,
         place: TerminalPlace = { kind: "panel" },
-        shellIntegrationNonce?: string,
     ): number {
         // The instance id is known only after createInstance; widget input and resize can't happen earlier.
         // Stryker disable next-line UnaryOperator: placeholder until createInstance — session callbacks never see it
@@ -265,7 +278,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
             onResize: (cols, rows) => {
                 this.events?.ptyResize(instanceId, cols, rows);
             },
-            ...(shellIntegrationNonce !== undefined ? { shellIntegrationNonce } : {}),
+            shellIntegrationNonce: extra.shellIntegrationNonce,
         });
         // The service already treats an empty name as "not set".
         const instance = this.createIn(place, { ...extra, name, session });
