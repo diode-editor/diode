@@ -837,19 +837,19 @@ export class EditorElement extends TUIElement implements IScrollable {
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         const textWidth = size.width - this.gutterWidth;
-        const heightChanged = this.viewState.viewportHeight !== size.height;
-        const changed = this.viewState.viewportWidth !== textWidth || heightChanged;
-        const rowsMoved = changed && this.viewState.isWordWrapActive;
-        if (heightChanged || rowsMoved) {
+        const changed = this.viewState.viewportWidth !== textWidth || this.viewState.viewportHeight !== size.height;
+        if (this.viewState.viewportHeight !== size.height) {
             queueMicrotask(() => {
                 this.onDidChangeViewportSizeEmitter.fire();
             });
         }
         this.viewState.viewportWidth = textWidth;
         this.viewState.viewportHeight = size.height;
-        if (rowsMoved) {
+        if (changed && this.viewState.isWordWrapActive) {
             queueMicrotask(() => {
                 this.markDirty();
+                // A height change under wrap fires twice in one tick: listeners coalesce (a scheduler, a compare).
+                this.onDidChangeViewportSizeEmitter.fire();
             });
         }
         return size;

@@ -7,6 +7,7 @@ import { clampPositionToDocument } from "../../../editor/common/core/iPosition.t
 import { type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import { type ILanguageService, NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
+import type { EditorViewState } from "../../../editor/common/viewModel/editorViewState.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
 import { isTextEditorPane, TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
@@ -115,21 +116,44 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
 
     /** An editor hidden while it waited reports nothing: the extension host has already dropped it. */
     private flushProperties(): void {
-        for (const { pane, groupId } of this.visibleEditors()) {
-            const visibleRanges = pane.viewState.getVisibleRanges();
+        for (const { pane, group } of this.visibleEditors()) {
+            const visibleRanges = this.visibleRangesOf(group, pane);
             if (equals(this.reportedRanges.get(pane), visibleRanges, rangesEqual)) continue;
             this.reportedRanges.set(pane, visibleRanges);
-            this.onDidChangeEditorPropertiesEmitter.fire({ uri: pane.uri.toString(), groupId, visibleRanges });
+            this.onDidChangeEditorPropertiesEmitter.fire({
+                uri: pane.uri.toString(),
+                groupId: group.id,
+                visibleRanges,
+            });
         }
     }
 
+    /**
+     * An editor shown for the first time is not laid out until the next frame, so its viewport is the view state's
+     * default. It borrows the size of an editor already on screen: itself once laid out, else the latest of its group
+     * (the tab it replaces), else the latest of another group (a split). Extensions read `visibleRanges` on
+     * the activation event, before that frame (#1226); the frame's layout corrects any difference.
+     */
+    private visibleRangesOf(group: EditorGroup, pane: IEditorPane & { readonly viewState: EditorViewState }): IRange[] {
+        const donor = [
+            pane,
+            ...group.getMruOrder(),
+            ...this.groups.groups.flatMap((candidate) => candidate.getMruOrder()),
+        ].find((candidate) => candidate.view.lastLayoutConstraints !== null)?.viewState;
+        if (donor !== undefined) {
+            pane.viewState.viewportHeight = donor.viewportHeight;
+            pane.viewState.viewportWidth = donor.viewportWidth;
+        }
+        return pane.viewState.getVisibleRanges();
+    }
+
     /** Upstream's visible text editors: the active text tab of every group and the model-backed sides of a diff. */
-    private visibleEditors(): { pane: TextEditorPane; groupId: number }[] {
+    private visibleEditors(): { pane: TextEditorPane; group: EditorGroup }[] {
         return this.groups.groups.flatMap((group) => {
             const active = group.activePane;
             const panes =
                 active instanceof DiffEditorPane2 ? diffSidePanes(active) : isTextEditorPane(active) ? [active] : [];
-            return panes.map((pane) => ({ pane, groupId: group.id }));
+            return panes.map((pane) => ({ pane, group }));
         });
     }
 
@@ -357,7 +381,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 ...(pane.originalUri !== null ? { original: pane.originalUri.toString() } : {}),
                 ...(pane.modifiedUri !== null ? { modified: pane.modifiedUri.toString() } : {}),
                 sideEditors: sides.map((side) => side.uri.toString()),
-                ...(isActive ? { sideVisibleRanges: sides.map((side) => side.viewState.getVisibleRanges()) } : {}),
+                ...(isActive ? { sideVisibleRanges: sides.map((side) => this.visibleRangesOf(group, side)) } : {}),
             };
         }
         // Neither text nor diff (`TabInputUnknown` in vscode): it must not be passed off as text by uri.
@@ -374,7 +398,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             ...(isActive
                 ? {
                       selections: pane.viewState.selections.map(toWireSelection),
-                      visibleRanges: pane.viewState.getVisibleRanges(),
+                      visibleRanges: this.visibleRangesOf(group, pane),
                   }
                 : {}),
         };

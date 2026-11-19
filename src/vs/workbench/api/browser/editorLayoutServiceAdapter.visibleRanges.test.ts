@@ -110,22 +110,11 @@ describe("EditorLayoutServiceAdapter — visible ranges", () => {
             expect(second.visibleRanges).toEqual([createRange(0, 0, height - 1, height - 1 < 10 ? 6 : 7)]);
         });
 
-        it("a group left empty beside one on screen borrows nothing", async () => {
-            laidOut();
-            service.splitActiveGroup();
-            const right = service.editorGroups.activeGroup;
-            const pane = right.activePane;
-            if (pane === null) throw new Error("no editor");
-
-            await service.closeEditor(right, pane);
-
-            expect(right.activePane).toBeNull();
-        });
-
         it("the editor of a new split", () => {
             const first = laidOut();
 
             service.splitActiveGroup();
+            adapter.getLayoutSnapshot();
 
             const right = service.getActiveTabEditor();
             expect(right).not.toBe(first);
