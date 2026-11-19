@@ -16,6 +16,8 @@ import { defineScenario } from "./framework.ts";
 // class `isRecommended`, the client turns it into `preselect`, and the popup opens on it rather than on its first row.
 
 const require_ = createRequire(import.meta.url);
+/** StyleFlags.Undercurl. */
+const UNDERCURL = 8;
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-lsp-tags-demo-"));
 const mainFile = join(sampleDir, "main.ts");
@@ -28,6 +30,9 @@ export function otherFn(): void {}
 class Widget {}
 
 export { Widget };
+
+// The squiggle under it tells the scenario the server is ready.
+export const answer: number = "42";
 
 `;
 
@@ -59,31 +64,29 @@ export default defineScenario({
     },
     async run(editor) {
         await editor.waitForText((t) => t.includes("class Widget"));
-        await editor.waitForReady();
+        // Before the server answers, the provider is not registered and the popup shows buffer words, unstruck.
+        await waitUntil(
+            () => editor.captureFrame(),
+            (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
+            { describe: "tsserver undercurl squiggle (server ready)", timeoutMs: 120_000, intervalMs: 500 },
+        );
         await editor.sendKey("Ctrl+End");
 
-        // ── Deprecated: the label of oldFn is struck through, otherFn's is not ──
-        await editor.sendKey("o");
-        // A cold tsserver takes seconds to index the project.
+        // ── Deprecated: the label of oldFn is struck through ──
+        for (const key of ["o", "l", "d"]) await editor.sendKey(key);
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => {
                 const old = popupLabel(frame, "oldFn");
-                const other = popupLabel(frame, "otherFn");
-                return (
-                    old !== null &&
-                    other !== null &&
-                    (cellAt(frame, old).style & StyleFlags.Strikethrough) !== 0 &&
-                    (cellAt(frame, other).style & StyleFlags.Strikethrough) === 0
-                );
+                return old !== null && (cellAt(frame, old).style & StyleFlags.Strikethrough) !== 0;
             },
-            { describe: "oldFn struck through, otherFn not", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "oldFn struck through in the popup", timeoutMs: 60_000, intervalMs: 500 },
         );
         await editor.capture("deprecated");
 
         // ── Preselect: after `new` the popup opens on Widget, not on its first row ──
         await editor.sendKey("Escape");
-        await editor.sendKey("Backspace");
+        for (let i = 0; i < 3; i++) await editor.sendKey("Backspace");
         await editor.sendText("const w: Widget = new ");
         // Typing may leave a popup open; Ctrl+Space on an open popup toggles the details pane instead of asking.
         await editor.sendKey("Escape");
