@@ -1,0 +1,12 @@
+{
+    "name": "visible-ranges-on-open",
+    "displayName": "Visible Ranges On Open",
+    "description": "Test probe: TextEditor.visibleRanges as read in onDidChangeActiveTextEditor, shown in the status bar.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"]
+}
