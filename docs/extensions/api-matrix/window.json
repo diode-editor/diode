@@ -78,8 +78,7 @@
       "class": "ok"
     },
     "window.onDidChangeTextEditorVisibleRanges": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "window.onDidChangeVisibleNotebookEditors": {
       "class": "X",

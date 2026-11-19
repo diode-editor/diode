@@ -190,7 +190,7 @@ export function parseWireDocumentSyncSnapshot(raw: unknown): IWireDocumentSyncSn
     };
 }
 
-/** `selections` only on the group's active tab: they seed `visibleTextEditors[i].selection`. */
+/** `selections` and `visibleRanges` only on the group's active tab: they seed `visibleTextEditors[i]`. */
 export interface IWireTabSnapshot {
     readonly uri: string;
     readonly label: string;
@@ -206,8 +206,12 @@ export interface IWireTabSnapshot {
      * diff editors; a snapshot side (git revision) has no document of its own and is left out.
      */
     readonly sideEditors?: readonly string[];
+    /** The visible ranges of {@link sideEditors}, in their order; the active tab only. */
+    readonly sideVisibleRanges?: readonly (readonly IRange[])[];
     readonly languageId?: string;
     readonly selections?: readonly IWireSelection[];
+    /** Seeds `TextEditor.visibleRanges` before `editor.propertiesChanged`: an extension reads them on activation. */
+    readonly visibleRanges?: readonly IRange[];
     /** The editor's resolved indentation, detection included; a text tab only. */
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
@@ -247,6 +251,8 @@ export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
             if (typeof t.isActive !== "boolean" || typeof t.isDirty !== "boolean") return null;
             if (t.kind !== "text" && t.kind !== "diff" && t.kind !== "unknown") return null;
             const sideEditors = parseWireStringArray(t.sideEditors);
+            const sideVisibleRanges = parseWireSideVisibleRanges(t.sideVisibleRanges);
+            const visibleRanges = parseWireVisibleRanges(t.visibleRanges);
             tabs.push({
                 uri: t.uri,
                 label: t.label,
@@ -256,8 +262,10 @@ export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
                 ...(typeof t.original === "string" ? { original: t.original } : {}),
                 ...(typeof t.modified === "string" ? { modified: t.modified } : {}),
                 ...(sideEditors !== undefined ? { sideEditors } : {}),
+                ...(sideVisibleRanges !== undefined ? { sideVisibleRanges } : {}),
                 ...(typeof t.languageId === "string" ? { languageId: t.languageId } : {}),
                 ...(Array.isArray(t.selections) ? { selections: parseWireSelections(t.selections) } : {}),
+                ...(visibleRanges !== undefined ? { visibleRanges } : {}),
                 ...(isFiniteNumber(t.tabSize) ? { tabSize: t.tabSize } : {}),
                 ...(typeof t.insertSpaces === "boolean" ? { insertSpaces: t.insertSpaces } : {}),
             });
@@ -1296,6 +1304,44 @@ export function parseRange(raw: unknown): IRange | null {
         return null;
     }
     return createRange(start.line, start.character, end.line, end.character);
+}
+
+/**
+ * Upstream `IEditorPropertiesChangeData` of one visible editor: a property is present only when it changed. Editor
+ * options are the next to join (`onDidChangeTextEditorOptions`).
+ */
+export interface IWireEditorPropertiesChanged {
+    readonly uri: string;
+    readonly groupId: number;
+    /** Upstream `codeEditor.getVisibleRanges()`: never empty. */
+    readonly visibleRanges?: readonly IRange[];
+}
+
+/** `null` for a message without an editor address; a malformed range drops the property, not the message. */
+export function parseWireEditorPropertiesChanged(raw: unknown): IWireEditorPropertiesChanged | null {
+    // A primitive reads as an object without an address.
+    const p = raw as { uri?: unknown; groupId?: unknown; visibleRanges?: unknown } | null | undefined;
+    if (typeof p?.uri !== "string" || !isFiniteNumber(p.groupId)) return null;
+    const visibleRanges = parseWireVisibleRanges(p.visibleRanges);
+    return { uri: p.uri, groupId: p.groupId, ...(visibleRanges !== undefined ? { visibleRanges } : {}) };
+}
+
+function parseWireSideVisibleRanges(raw: unknown): IRange[][] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const sides: IRange[][] = [];
+    for (const side of raw) {
+        const ranges = parseWireVisibleRanges(side);
+        if (ranges === undefined) return undefined;
+        sides.push(ranges);
+    }
+    return sides;
+}
+
+/** `undefined` unless a non-empty list of valid ranges: an editor always shows something. */
+function parseWireVisibleRanges(raw: unknown): IRange[] | undefined {
+    if (!Array.isArray(raw) || raw.length === 0) return undefined;
+    const ranges = raw.map(parseRange);
+    return ranges.every((range) => range !== null) ? ranges : undefined;
 }
 
 /** Base64: a `Uint8Array` does not survive a JSON round-trip. */

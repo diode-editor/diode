@@ -1144,6 +1144,23 @@
   выделения снимка, если оно не 1:1. В активной группе оно отложено до `editor.activeEditorChanged`
   (снимок приходит раньше меты): слушатели сверяют `e.textEditor === activeTextEditor`, так
   отбрасывает чужие события Claude Code.
+- **Свойства редактора (`TextEditor.visibleRanges` + `onDidChangeTextEditorVisibleRanges`, #1226):**
+  эхо upstream `$acceptEditorPropertiesChanged` — notify `editor.propertiesChanged`
+  (`IWireEditorPropertiesChanged`: адрес редактора `uri` + `groupId` и только изменившиеся свойства).
+  Сейчас там `visibleRanges`; следующие (`options` для `onDidChangeTextEditorOptions`) добавляются
+  полем в то же сообщение. Продюсер — `EditorLayoutServiceAdapter`: он и так знает видимые редакторы
+  (активная текстовая вкладка каждой группы и модельные стороны diff'а — `visibleEditors()`),
+  подписан на `TextEditorPane.onDidChangeVisibleRange` каждого и раз в микрозадачу шлёт значение,
+  отличное от последнего отправленного этим редактором (скрытый редактор хранит своё, как в эталоне).
+  Значение — `EditorViewState.getVisibleRanges()`: целиком видимые строки, разрезанные вокруг
+  свёрнутых; строка с переносом, обрезанная краем вьюпорта, выпадает, как частично видимая строка
+  в эталоне. Стартовое значение едет в снимке раскладки (`visibleRanges` активной вкладки,
+  `sideVisibleRanges` сторон diff'а): errorlens читает его в `onDidChangeActiveTextEditor`, раньше
+  первого `editor.propertiesChanged`, а новый редактор к этому моменту ещё не разложен — `EditorGroupsService`
+  даёт ему размер вьюпорта редактора, уже стоящего на экране (`seedViewport`). Субпроцесс сидит снимком только
+  неизвестный ключ; известное
+  значение меняет лишь сообщение — сначала кэш, потом событие, и только при изменении. Customer
+  сначала флашит раскладку: свойства адресуют вкладку, которой субпроцесс уже должен знать.
 - **Активная тема (`window.activeColorTheme` + `onDidChangeActiveColorTheme`):** notify
   `window.themeChanged {kind}` (host → subprocess) через тот же порт `IThemeColorResolver`, что
   резолвит `ThemeColor` — второго порта к теме не заводим, событие смены у обоих потребителей одно.
