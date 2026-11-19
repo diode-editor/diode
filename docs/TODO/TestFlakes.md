@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `httpRegistrySource.test.ts`, «the registry's size beats Content-Length»: два отчёта прогресса вместо трёх под
+  покрытием в CI (run 44424532677, PR #1238, дифф — команды разработчика терминала, сьют их не касается); `main` на той
+  же базе зелёный. Видимо, чанки ответа склеились в один на нагруженном раннере.
 - [ ] `extensionHost.settingsCompletion.test.ts`, «the range covers both quotes when the key is already closed»: у
   пункта completion не было `range` под покрытием в CI (run 44214863415, PR #1209, дифф — `vscode.executeHoverProvider`
   и порядок равных провайдеров в `execute*Provider`, которые этот сьют не зовёт); локально 12/12 зелёные.
