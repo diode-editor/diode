@@ -60,6 +60,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "editor.quickSuggestions": "language-overridable",
     "editor.quickSuggestionsDelay": "language-overridable",
     "editor.acceptSuggestionOnCommitCharacter": "language-overridable",
+    "editor.suggest.insertMode": "language-overridable",
     "editor.suggestOnTriggerCharacters": "language-overridable",
     "editor.wordBasedSuggestions": "language-overridable",
     "editor.occurrencesHighlight": "language-overridable",

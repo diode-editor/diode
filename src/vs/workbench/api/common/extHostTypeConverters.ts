@@ -12,6 +12,7 @@ import type { IColor, IColorInformation } from "../../../editor/common/languages
 import {
     CompletionItemInsertTextRule,
     CompletionItemTag,
+    type ICompletionItemRanges,
     type ICoreCompletionItem,
 } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
@@ -553,11 +554,15 @@ function readDocumentationText(doc: unknown): string | undefined {
 }
 
 /** By shape, not `instanceof`: a `Range` from a foreign bundle is a range too. */
-function readRange(item: vscode.CompletionItem): IRange | undefined {
+function readRange(item: vscode.CompletionItem): IRange | ICompletionItemRanges | undefined {
     const raw = (item as { range?: unknown }).range;
     if (raw === undefined || raw === null) return undefined;
-    const replacing = (raw as { replacing?: unknown }).replacing;
-    return rangeFrom(replacing === undefined ? raw : replacing) ?? undefined;
+    const { inserting, replacing } = raw as { inserting?: unknown; replacing?: unknown };
+    if (replacing === undefined) return rangeFrom(raw) ?? undefined;
+    const replace = rangeFrom(replacing);
+    if (replace === null) return undefined;
+    const insert = rangeFrom(inserting);
+    return insert === null ? replace : { insert, replace };
 }
 
 /** `id` is the item key in the response cache; the host resolves the item by it later. */

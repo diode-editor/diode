@@ -26,11 +26,18 @@ import type {
     ICoreCompletionItem,
     ICoreResolvedCompletion,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
-import { CompletionItemTag, CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
+import {
+    CompletionItemInsertTextRule,
+    CompletionItemTag,
+    CompletionTriggerKind,
+    isCompletionItemRanges,
+} from "../../../../editor/common/languages/iCompletionSource.ts";
 import { type StandardTokenType, standardTokenTypeAt } from "../../../../editor/common/languages/standardTokenType.ts";
 import type { ITextDocument } from "../../../../editor/common/model/iTextDocument.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
+import { adjustTextWhitespace } from "../../../../editor/contrib/snippet/browser/snippetSession.ts";
+import { leadingWhitespaceBefore } from "../../../../editor/contrib/snippet/browser/snippetVariables.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -414,9 +421,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         this.component.view.selectPreviousPage();
     }
 
-    public acceptSelected(): void {
+    /** `alternative` — upstream `acceptAlternativeSelectedSuggestion`: the other `editor.suggest.insertMode`. */
+    public acceptSelected(alternative = false): void {
         const item = this.component.view.getSelectedItem();
-        if (item !== null) this.accept(item);
+        if (item !== null) this.accept(item, { alternative });
     }
 
     public hide(): void {
@@ -483,7 +491,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const languageId = editor.languageId;
         if (!this.configuration.get("editor.acceptSuggestionOnCommitCharacter", { overrideIdentifier: languageId }))
             return;
-        this.accept(assertReturnsDefined(item), true);
+        this.accept(assertReturnsDefined(item), { beforeTyping: true });
     }
 
     /**
@@ -737,9 +745,22 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * `core.range` is a snapshot at trigger time, while further typing is filtered locally: the range end
      * lags behind the cursor, and accept would leave a tail (`"editor.tabSize"di`).
      */
-    private resolveAcceptRange(core: ICoreCompletionItem, prefixRange: IRange, caret: IPosition): IRange {
-        if (core.range === undefined) return prefixRange;
-        return followCaret(core.range, assertReturnsDefined(this.triggerCaret), caret);
+    private resolveAcceptRange(
+        core: ICoreCompletionItem,
+        prefixRange: IRange,
+        caret: IPosition,
+        replace: boolean,
+    ): IRange {
+        const range = core.range;
+        if (range === undefined) return prefixRange;
+        const picked = isCompletionItemRanges(range) ? (replace ? range.replace : range.insert) : range;
+        return followCaret(picked, assertReturnsDefined(this.triggerCaret), caret);
+    }
+
+    /** Upstream `getOverwriteInfo`: the alternative accept flips the mode. */
+    private replacesOnAccept(editor: TextEditorPane, alternative: boolean): boolean {
+        const mode = this.configuration.get("editor.suggest.insertMode", { overrideIdentifier: editor.languageId });
+        return (mode === "replace") !== alternative;
     }
 
     /**
@@ -753,15 +774,30 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const providerOf = new Map<ICoreCompletionItem, CompletionItemProvider>();
         for (const [item, provider] of this.providerOf) {
             if (asked.includes(provider)) continue;
-            const moved = item.range === undefined ? item : { ...item, range: followCaret(item.range, from, caret) };
+            const range = item.range;
+            const moved =
+                range === undefined
+                    ? item
+                    : {
+                          ...item,
+                          range: isCompletionItemRanges(range)
+                              ? {
+                                    insert: followCaret(range.insert, from, caret),
+                                    replace: followCaret(range.replace, from, caret),
+                                }
+                              : followCaret(range, from, caret),
+                      };
             items.push(moved);
             providerOf.set(moved, provider);
         }
         return { items, providerOf };
     }
 
-    /** `beforeTyping` — a commit character: the insertion can't wait for resolve, the character is typed right after. */
-    private accept(item: CompletionListItem, beforeTyping = false): void {
+    /**
+     * `beforeTyping` — a commit character: the insertion can't wait for resolve, the character is typed right after.
+     * `alternative` — the other `editor.suggest.insertMode`.
+     */
+    private accept(item: CompletionListItem, { beforeTyping = false, alternative = false } = {}): void {
         const editor = this.activeEditor;
         const core = item.data as ICoreCompletionItem | undefined;
         const prefixRange = this.prefixRange;
@@ -774,7 +810,12 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const ranges = rangesAroundCarets(
             editor.viewState.document,
             selections,
-            this.resolveAcceptRange(core, prefixRange, selections[0].active),
+            this.resolveAcceptRange(
+                core,
+                prefixRange,
+                selections[0].active,
+                this.replacesOnAccept(editor, alternative),
+            ),
         );
         this.close();
 
@@ -807,9 +848,19 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         core: ICoreCompletionItem,
         additionalEdits: readonly ITextEdit[],
     ): void {
+        // Upstream inserts every item as a snippet: `adjustWhitespace` unless the item keeps its whitespace.
+        const adjust = ((core.insertTextRules ?? 0) & CompletionItemInsertTextRule.KeepWhitespace) === 0;
+        const { document, tabSize, insertSpaces } = editor.viewState;
+        const textAt = (range: IRange): string =>
+            adjust
+                ? adjustTextWhitespace(core.insertText, leadingWhitespaceBefore(document, range.start), {
+                      tabSize,
+                      insertSpaces,
+                  })
+                : core.insertText;
         // The edit below synchronously calls onCaretChanged — don't let it auto-reopen the popup.
         editor.applyExternalEdits(
-            [...ranges.map((range) => createTextEdit(range, core.insertText)), ...additionalEdits],
+            [...ranges.map((range) => createTextEdit(range, textAt(range))), ...additionalEdits],
             "Accept Completion",
             (inverse) =>
                 inverse
@@ -994,8 +1045,8 @@ function rangesAroundCarets(
 function commonPrefixStart(items: readonly ICoreCompletionItem[], caret: IPosition): number | null {
     let start: number | null = null;
     for (const item of items) {
-        const range = item.range;
-        if (range === undefined) continue;
+        if (item.range === undefined) continue;
+        const range = isCompletionItemRanges(item.range) ? item.range.insert : item.range;
         if (range.start.line !== caret.line || range.start.character > caret.character) return null;
         if (start === null) {
             start = range.start.character;

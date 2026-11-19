@@ -367,9 +367,17 @@ describe("serializeCompletionItem — replace range", () => {
         expect(rangeOf(FOREIGN)).toStrictEqual(RANGE);
     });
 
-    it("{ inserting, replacing } — replacing is taken, duck-typed too", () => {
-        expect(rangeOf({ inserting: new Range(0, 1, 0, 1), replacing: new Range(0, 1, 0, 2) })).toStrictEqual(RANGE);
-        expect(rangeOf({ inserting: FOREIGN, replacing: FOREIGN })).toStrictEqual(RANGE);
+    it("{ inserting, replacing } — both travel as { insert, replace }, duck-typed too", () => {
+        const insert = { start: { line: 0, character: 1 }, end: { line: 0, character: 1 } };
+        expect(rangeOf({ inserting: new Range(0, 1, 0, 1), replacing: new Range(0, 1, 0, 2) })).toStrictEqual({
+            insert,
+            replace: RANGE,
+        });
+        expect(rangeOf({ inserting: FOREIGN, replacing: FOREIGN })).toStrictEqual({ insert: RANGE, replace: RANGE });
+    });
+
+    it("{ inserting, replacing } with a broken inserting — only the replace range", () => {
+        expect(rangeOf({ inserting: SHAPELESS, replacing: FOREIGN })).toStrictEqual(RANGE);
     });
 
     it("a reversed one is flipped", () => {

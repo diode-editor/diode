@@ -927,8 +927,7 @@
       "class": "ok"
     },
     "CompletionItem.keepWhitespace": {
-      "class": "B",
-      "note": "reaches the editor; every insertion keeps its whitespace as is, with or without it (#1233)"
+      "class": "ok"
     },
     "CompletionItem.kind": {
       "class": "ok"

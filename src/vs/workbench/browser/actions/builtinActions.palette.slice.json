@@ -163,6 +163,7 @@
     "selectNextPageSuggestion",
     "selectPrevPageSuggestion",
     "acceptSelectedSuggestion",
+    "acceptAlternativeSelectedSuggestion",
     "hideSuggestWidget",
     "toggleSuggestionDetails",
     "editor.action.revealDefinition",
