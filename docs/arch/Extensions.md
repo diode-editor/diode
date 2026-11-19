@@ -1962,8 +1962,9 @@ workspace-состоянии `terminal.integrated.environmentVariableCollections
 key) и шлёт хосту RPC-нотификации, сериализуя `ThemeColor` как `{ $themeColor: id }` (см.
 `api/common/wireTypes.ts`; на провод идут `backgroundColor`, `color`, `overviewRulerColor`, `fontStyle`, `fontWeight`,
 `textDecoration`, `opacity` (CSS-строки как есть), `isWholeLine`, `rangeBehavior`, `overviewRulerLane`, `before`/`after`
-(`contentText`, `color`, `backgroundColor`, `borderColor`, `fontStyle`) и ветки `light`/`dark` с теми же полями — рамки,
-размеры, отступы, семейство шрифта, иконки клетке нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions? }` (`IWireDecorationOptions`,
+(`contentText`, `color`, `backgroundColor`, `borderColor`, `fontStyle`, `fontWeight`, `textDecoration`, `margin`, `width`)
+и ветки `light`/`dark` с теми же полями — рамки, `padding`, `height`, семейство и размер шрифта, иконки клетке
+нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions? }` (`IWireDecorationOptions`,
 `vscode.DecorationOptions` без `hoverMessage`; голый `Range` — без `renderOptions`), `renderOptions` — `before`/`after`
 и их ветки; хост разбирает их `parseDecorationOptions` (битый элемент выбрасывается, мусор в полях = поля нет).
 `DecorationsCustomer` держит на тип разобранные опции (`overviewRulerColorId`, `isWholeLine`, stickiness из
@@ -1976,7 +1977,16 @@ key) и шлёт хосту RPC-нотификации, сериализуя `Th
 `renderOptions` диапазона ⊕ его ветка», позднее побеждает (как подтип `.sub.parent::before` эталона,
 `setDecorationsByType`). Пустой или пробельный `contentText` с цветом (`backgroundColor`, иначе `borderColor`, иначе
 `color`) — свотч `■ ` (как у `ColorDetector`; бокс 0.8em с рамкой клетке не нарисовать); непустой — первая строка без
-управляющих символов (`\t` → пробел) со своими `color`/`backgroundColor`/курсивом; ни текста, ни цвета — ничего.
+управляющих символов (`\t` → пробел) со своими `color`/`backgroundColor` и атрибутами (`fontStyle`, `fontWeight`,
+`textDecoration` — тот же разбор, что у текста диапазона ниже, итог — `style` вставки); ни текста, ни цвета — ничего.
+Длины `margin` и `width` вставки — в ячейки (`cellsOf`): `Nch` → N, `Nem`/`Nrem` → 2·N, `Npx` → N/8, с округлением;
+у `calc()` — только слагаемые в `ch` (`calc(12ch - 6px)` файлового blame GitLens → 12); прочее и отрицательное — 0.
+`margin` — шорткат CSS (1–4 значения, `calc(…)` не режется по пробелам), берутся левая и правая стороны →
+`marginLeft`/`marginRight` вставки; редактор кладёт их отдельными вставками из пробелов без фона вставки (margin вне
+бокса), в фоне строки. `width` — текст ровно этой ширины (`fitToWidth`: короче — пробелы в фоне вставки, длиннее —
+обрезка по графемам; у эталона текст вылезает за бокс — отступление), ширина в 0 ячеек — поля нет. У свотча `width`
+игнорируется (он всегда `■ `), `margin` действует. Фон `isWholeLine` не закрашивает ячейки вставки со своим фоном —
+бокс `::after` эталона лежит над слоем строки.
 Атрибуты текста — CSS-разбор на хосте: `fontStyle` `italic`/`oblique` → курсив, `fontWeight` `bold`/`bolder`/≥600 →
 жирный (`normal` — «не добавляет», а не «снимает» атрибут токена: клетке нечем различить спан и токен), `textDecoration` —
 слова до первого `;` (расширения дописывают туда CSS): `underline` (с `wavy` — undercurl), `line-through`; `overline`,

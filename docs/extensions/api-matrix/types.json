@@ -5994,46 +5994,47 @@
       "class": "ok"
     },
     "ThemableDecorationAttachmentRenderOptions.border": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
+      "class": "C",
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationAttachmentRenderOptions.borderColor": {
       "class": "ok",
-      "note": "colors the swatch of an empty contentText; no border is drawn"
+      "note": "colors a swatch (a blank contentText); no border is drawn"
     },
     "ThemableDecorationAttachmentRenderOptions.color": {
       "class": "ok"
     },
     "ThemableDecorationAttachmentRenderOptions.contentIconPath": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
+      "class": "C",
+      "note": "not drawn"
     },
     "ThemableDecorationAttachmentRenderOptions.contentText": {
-      "class": "ok"
+      "class": "ok",
+      "note": "the first line; blank with a color is a swatch"
     },
     "ThemableDecorationAttachmentRenderOptions.fontStyle": {
       "class": "ok",
       "note": "italic and oblique are drawn italic"
     },
     "ThemableDecorationAttachmentRenderOptions.fontWeight": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
+      "class": "ok",
+      "note": "bold, bolder and 600+ are drawn bold"
     },
     "ThemableDecorationAttachmentRenderOptions.height": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
+      "class": "C",
+      "note": "a cell has one height: ignored"
     },
     "ThemableDecorationAttachmentRenderOptions.margin": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
+      "class": "ok",
+      "note": "the horizontal sides, as blank cells in the line background; lengths rounded to cells"
     },
     "ThemableDecorationAttachmentRenderOptions.textDecoration": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
+      "class": "ok",
+      "note": "underline (wavy: undercurl) and line-through are drawn; overline, color and thickness are not"
     },
     "ThemableDecorationAttachmentRenderOptions.width": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: before/after draw only text, its colors and italic"
+      "class": "ok",
+      "note": "rounded to cells; a longer text is cut instead of spilling out"
     },
     "ThemableDecorationInstanceRenderOptions.after": {
       "class": "ok"
@@ -6051,35 +6052,35 @@
       "class": "ok"
     },
     "ThemableDecorationRenderOptions.border": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.borderColor": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.borderRadius": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "no cell counterpart: ignored"
     },
     "ThemableDecorationRenderOptions.borderSpacing": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "no cell counterpart: ignored"
     },
     "ThemableDecorationRenderOptions.borderStyle": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.borderWidth": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.color": {
       "class": "ok"
     },
     "ThemableDecorationRenderOptions.cursor": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "no cell counterpart: ignored"
     },
     "ThemableDecorationRenderOptions.fontStyle": {
       "class": "ok",
@@ -6098,28 +6099,28 @@
       "note": "accepted, not carried over the wire: the gutter draws no extension icons"
     },
     "ThemableDecorationRenderOptions.letterSpacing": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "no cell counterpart: ignored"
     },
     "ThemableDecorationRenderOptions.opacity": {
       "class": "ok",
       "note": "the glyph color is blended toward the cell's final background"
     },
     "ThemableDecorationRenderOptions.outline": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.outlineColor": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.outlineStyle": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.outlineWidth": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: a cell has no border, outline, letter spacing or mouse cursor"
+      "class": "C",
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.overviewRulerColor": {
       "class": "ok"

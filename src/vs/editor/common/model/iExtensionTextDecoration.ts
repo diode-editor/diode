@@ -9,17 +9,20 @@ import type { TrackedRangeStickiness } from "./trackedDecorations.ts";
  * `ThemableDecorationRenderOptions`), resolved for the current theme by the host; colors are packed RGBA.
  * `swatch`: `contentText` is empty and a color is given — upstream's colored box, drawn as `ColorDetector`'s
  * square. `text`: one line, already without control characters; no `fg` — the editor text color, no `bg` — the
- * line's own background.
+ * line's own background, `style` — the cell attributes of `fontStyle`, `fontWeight` and `textDecoration`, the
+ * text already fitted to `width`. `marginLeft`/`marginRight`: blank cells outside, in the line's own background
+ * (CSS margin lies outside the box); absent — none.
  */
-export type IExtensionDecorationAttachment =
+export type IExtensionDecorationAttachment = (
     | { readonly kind: "swatch"; readonly color: number }
     | {
           readonly kind: "text";
           readonly text: string;
           readonly fg?: number;
           readonly bg?: number;
-          readonly italic: boolean;
-      };
+          readonly style: StyleFlags;
+      }
+) & { readonly marginLeft?: number; readonly marginRight?: number };
 
 /**
  * A text range an extension decoration type paints (`backgroundColor`/`color` of

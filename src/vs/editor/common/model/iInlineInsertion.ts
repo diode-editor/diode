@@ -1,3 +1,5 @@
+import type { StyleFlags } from "@tuidom/core/common/styleFlags";
+
 /**
  * Counterpart of upstream injected text (`IModelDecorationOptions.before/after`): cells absent
  * from the document, drawn BEFORE `offset` of `line`; the tail of the line moves right. The
@@ -22,6 +24,8 @@ export interface IInlineInsertion {
     readonly bg?: number;
     readonly italic?: boolean;
     readonly dim?: boolean;
+    /** More cell attributes (bold, underline, strikethrough of an extension decoration); absent — none. */
+    readonly style?: StyleFlags;
     /** A selection, find match or occurrence spanning the insertion leaves its cells alone (inlay hints). */
     readonly outsideRangeBackgrounds?: boolean;
     /**

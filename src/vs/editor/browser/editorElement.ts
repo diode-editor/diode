@@ -1473,7 +1473,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             bg: this.insertionBg(insertion, editorBg),
             style:
                 (insertion.italic === true ? StyleFlags.Italic : StyleFlags.None) |
-                (insertion.dim === true ? StyleFlags.Dim : StyleFlags.None),
+                (insertion.dim === true ? StyleFlags.Dim : StyleFlags.None) |
+                (insertion.style ?? StyleFlags.None),
         }));
     }
 

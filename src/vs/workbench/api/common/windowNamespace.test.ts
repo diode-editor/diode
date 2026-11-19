@@ -477,12 +477,14 @@ describe("WindowNamespace", () => {
             key: 1,
             options: {
                 rangeBehavior: DecorationRangeBehavior.ClosedClosed,
-                before: { contentText: " " },
+                before: { contentText: " ", margin: "0.1em 0.2em 0", width: "0.8em" },
                 after: {
                     contentText: "  You, 2 days ago",
                     color: { $themeColor: "editorCodeLens.foreground" },
                     backgroundColor: "#102030",
                     fontStyle: "italic",
+                    fontWeight: "bold",
+                    textDecoration: "underline",
                 },
                 dark: { before: { borderColor: "#eeeeee" } },
                 light: { before: { borderColor: "#000000" } },
@@ -512,7 +514,7 @@ describe("WindowNamespace", () => {
             {
                 range: { start: { line: 0, character: 7 }, end: { line: 0, character: 17 } },
                 renderOptions: {
-                    before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)" },
+                    before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)", width: "1em" },
                     after: { contentText: "!", color: { $themeColor: "errorForeground" } },
                     dark: { after: { fontStyle: "normal" } },
                     light: { before: { borderColor: "#000000" } },

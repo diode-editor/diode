@@ -14,10 +14,10 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1462 |
+| ok | 1466 |
 | A | 11 |
-| B | 191 |
-| C | 317 |
+| B | 172 |
+| C | 332 |
 | X | 234 |
 
 | mark | members |
@@ -2314,40 +2314,40 @@ Proposed API or a false hit: class X when real.
 | `TextLine.rangeIncludingLineBreak` | ok |  | 0 | 0 |  |
 | `TextLine.text` | ok |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.backgroundColor` | ok |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.border` | B |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.border` | C |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.borderColor` | ok |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.color` | ok |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.contentIconPath` | B |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.contentIconPath` | C |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.contentText` | ok |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.fontStyle` | ok |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.fontWeight` | B |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.height` | B |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.margin` | B |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.textDecoration` | B |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.width` | B |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.fontWeight` | ok |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.height` | C |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.margin` | ok |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.textDecoration` | ok |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.width` | ok |  | 0 | 0 |  |
 | `ThemableDecorationInstanceRenderOptions.after` | ok |  | 0 | 0 |  |
 | `ThemableDecorationInstanceRenderOptions.before` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.after` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.backgroundColor` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.before` | ok |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.border` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderColor` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderRadius` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderSpacing` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderStyle` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderWidth` | B |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.border` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderColor` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderRadius` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderSpacing` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderStyle` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderWidth` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.color` | ok |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.cursor` | B |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.cursor` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.fontStyle` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.fontWeight` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.gutterIconPath` | B |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.gutterIconSize` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.letterSpacing` | B |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.letterSpacing` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.opacity` | ok |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.outline` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.outlineColor` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.outlineStyle` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.outlineWidth` | B |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.outline` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.outlineColor` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.outlineStyle` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.outlineWidth` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.overviewRulerColor` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.textDecoration` | ok |  | 0 | 0 |  |
 | `ThemeColor` | ok |  | 63 | 532,370,794 |  |
