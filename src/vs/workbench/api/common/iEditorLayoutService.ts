@@ -1,3 +1,4 @@
+import { Event } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type {
@@ -7,6 +8,7 @@ import type {
     IWireCloseTabsParams,
     IWireCreateUntitledParams,
     IWireEditorLayout,
+    IWireEditorPropertiesChanged,
     IWireOpenTextDocumentParams,
     IWireShowTextDocumentParams,
     IWireShowTextDocumentResult,
@@ -24,6 +26,13 @@ export interface IEditorLayoutService {
      * response, otherwise the extension sees a stale `tabGroups` after `await`.
      */
     flushPendingLayout(): void;
+
+    /**
+     * Per visible editor, the sides of a diff included, only what changed since it was last reported; changes within a
+     * microtask coalesce. A newly visible editor reports everything, though its starting values already ride in
+     * {@link getLayoutSnapshot}. The listener sends after {@link flushPendingLayout}.
+     */
+    onDidChangeEditorProperties(cb: (properties: IWireEditorPropertiesChanged) => void): IDisposable;
 
     showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult>;
 
@@ -56,6 +65,7 @@ export const NULL_EDITOR_LAYOUT_SERVICE: IEditorLayoutService = {
     getLayoutSnapshot: () => ({ groups: [] }),
     onDidChangeLayout: () => ({ dispose: () => undefined }),
     flushPendingLayout: () => undefined,
+    onDidChangeEditorProperties: Event.None,
     showTextDocument: () => Promise.reject(new Error("editor layout unavailable")),
     createUntitledDocument: () => {
         throw new Error("editor layout unavailable");

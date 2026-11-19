@@ -1,0 +1,12 @@
+{
+    "name": "visible-ranges-demo",
+    "displayName": "Visible Ranges Demo",
+    "description": "Demo: TextEditor.visibleRanges and window.onDidChangeTextEditorVisibleRanges, shown in the status bar per view column.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"]
+}

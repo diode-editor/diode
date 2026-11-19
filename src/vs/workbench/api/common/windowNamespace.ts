@@ -2,7 +2,9 @@ import * as nodePath from "node:path";
 
 import type * as vscode from "vscode";
 
+import { equals } from "../../../base/common/arrays.ts";
 import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/config/editorCursorStyle.ts";
+import { type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 
 import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
@@ -14,6 +16,7 @@ import {
     normalizeDecorationRanges,
     rangeFrom,
     serializeDecorationRenderOptions,
+    toVscodeRange,
     toVscodeSelection,
     toWireSelection,
 } from "./extHostTypeConverters.ts";
@@ -52,6 +55,7 @@ import {
     type IWireTabSnapshot,
     parseWireColorTheme,
     parseWireEditorLayout,
+    parseWireEditorPropertiesChanged,
     parseWireOpenDialogResult,
     parseWireSaveDialogResult,
     parseWireSelectionChangeKind,
@@ -129,6 +133,8 @@ export function createWindowNamespace(
     /** Single source of `visibleTextEditors`/`tabGroups`/`viewColumn`: API events come from diffing snapshots. */
     let layout: IWireEditorLayout = { groups: [] };
     const selectionsByEditor = new Map<string, readonly IWireSelection[]>();
+    /** Kept while the tab lives: a hidden editor keeps its last value, as upstream. Converted once, read often. */
+    const visibleRangesByEditor = new Map<string, readonly vscode.Range[]>();
     /** Their selection event waits for `editor.activeEditorChanged` (see {@link announceRestoredSelections}). */
     const pendingRestoredSelections = new Map<
         string,
@@ -145,6 +151,7 @@ export function createWindowNamespace(
     const tabsListeners: ((e: vscode.TabChangeEvent) => void)[] = [];
     const tabGroupsListeners: ((e: vscode.TabGroupChangeEvent) => void)[] = [];
     const selectionListeners: ((e: vscode.TextEditorSelectionChangeEvent) => void)[] = [];
+    const visibleRangesListeners: ((e: vscode.TextEditorVisibleRangesChangeEvent) => void)[] = [];
     const colorThemeListeners: ((e: vscode.ColorTheme) => void)[] = [];
     /** Seeded with Dark, the VS Code default: `activeColorTheme.kind` is read unchecked before the first `window.themeChanged`. */
     let activeColorTheme: vscode.ColorTheme = { kind: ColorThemeKind.Dark };
@@ -248,6 +255,21 @@ export function createWindowNamespace(
         fireSelectionChanged(p.uri, groupId, selections, parseWireSelectionChangeKind(p.kind));
     });
 
+    // Upstream `$acceptEditorPropertiesChanged`: the value is applied before the event, and an unchanged one fires nothing.
+    rpc.handleNotification("editor.propertiesChanged", (params) => {
+        const parsed = parseWireEditorPropertiesChanged(params);
+        if (parsed?.visibleRanges === undefined) return;
+        const key = selectionKey(parsed.groupId, parsed.uri);
+        if (equals(visibleRangesByEditor.get(key), parsed.visibleRanges, rangesEqual)) return;
+        const visibleRanges = parsed.visibleRanges.map(toVscodeRange);
+        visibleRangesByEditor.set(key, visibleRanges);
+        const event: vscode.TextEditorVisibleRangesChangeEvent = {
+            textEditor: getEditorFor(registry.getOrCreate(Uri.parse(parsed.uri)), parsed.groupId),
+            visibleRanges,
+        };
+        for (const listener of [...visibleRangesListeners]) listener(event);
+    });
+
     // Fire on EVERY message, even when the kind stays the same (Dark+ → Abyss): upstream
     // documents the event as "the theme changed OR was modified".
     rpc.handleNotification("window.themeChanged", (params) => {
@@ -303,6 +325,10 @@ export function createWindowNamespace(
                 if (tab.selections !== undefined) {
                     selectionsByEditor.set(selectionKey(group.groupId, tab.uri), tab.selections);
                 }
+                seedVisibleRanges(group.groupId, tab.uri, tab.visibleRanges);
+                tab.sideEditors?.forEach((uri, i) => {
+                    seedVisibleRanges(group.groupId, uri, tab.sideVisibleRanges?.[i]);
+                });
             }
         }
 
@@ -322,6 +348,9 @@ export function createWindowNamespace(
         }
         for (const key of [...selectionsByEditor.keys()]) {
             if (!nextTabs.has(key)) selectionsByEditor.delete(key);
+        }
+        for (const key of [...visibleRangesByEditor.keys()]) {
+            if (!nextTabs.has(key) && !visibleNext.has(key)) visibleRangesByEditor.delete(key);
         }
 
         const prevGroups = new Map(previous.groups.map((group) => [group.groupId, group]));
@@ -388,6 +417,16 @@ export function createWindowNamespace(
                 for (const listener of [...viewColumnListeners]) listener(event);
             }
         }
+    }
+
+    /**
+     * The snapshot only starts an editor off: an extension reads its ranges in `onDidChangeActiveTextEditor`, before
+     * `editor.propertiesChanged`. A known value is changed only by that message, which fires the event.
+     */
+    function seedVisibleRanges(groupId: number, uri: string, ranges: readonly IRange[] | undefined): void {
+        const key = selectionKey(groupId, uri);
+        if (ranges !== undefined && !visibleRangesByEditor.has(key))
+            visibleRangesByEditor.set(key, ranges.map(toVscodeRange));
     }
 
     function getEditorFor(doc: ExtHostTextDocument, groupId: number): vscode.TextEditor {
@@ -562,6 +601,9 @@ export function createWindowNamespace(
             },
             set selection(value: vscode.Selection) {
                 pushSelections(document, groupId, [value]);
+            },
+            get visibleRanges(): readonly vscode.Range[] {
+                return visibleRangesByEditor.get(selectionKey(groupId, document.uri.toString())) ?? [];
             },
             get selections(): readonly vscode.Selection[] {
                 const all = editorSelections(groupId, document.uri.toString());
@@ -840,6 +882,7 @@ export function createWindowNamespace(
 
         // A selection set by the extension itself is not echoed back: the echo guard lives on the host side.
         onDidChangeTextEditorSelection: makeListenerEvent(selectionListeners),
+        onDidChangeTextEditorVisibleRanges: makeListenerEvent(visibleRangesListeners),
 
         get activeColorTheme(): vscode.ColorTheme {
             return activeColorTheme;

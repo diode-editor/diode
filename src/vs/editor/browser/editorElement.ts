@@ -202,9 +202,12 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private readonly onWillTypeEmitter = new Emitter<string>();
     private readonly onDidTypeEmitter = new Emitter<string>();
-    private readonly onDidChangeViewportHeightEmitter = new Emitter<void>();
-    /** The view state's height is a plain field written during layout: whoever asks by the visible lines listens here. */
-    public readonly onDidChangeViewportHeight = this.onDidChangeViewportHeightEmitter.event;
+    private readonly onDidChangeViewportSizeEmitter = new Emitter<void>();
+    /**
+     * The view state's size is plain fields written during layout: whoever asks by the visible lines listens here. A
+     * width change counts only under wrap, where it moves the rows.
+     */
+    public readonly onDidChangeViewportSize = this.onDidChangeViewportSizeEmitter.event;
     private readonly onDidClickCodeLensEmitter = new Emitter<CodeLensCommand>();
     /** A left click on the title of a code lens. */
     public readonly onDidClickCodeLens = this.onDidClickCodeLensEmitter.event;
@@ -844,7 +847,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         const changed = this.viewState.viewportWidth !== textWidth || this.viewState.viewportHeight !== size.height;
         if (this.viewState.viewportHeight !== size.height) {
             queueMicrotask(() => {
-                this.onDidChangeViewportHeightEmitter.fire();
+                this.onDidChangeViewportSizeEmitter.fire();
             });
         }
         this.viewState.viewportWidth = textWidth;
@@ -852,6 +855,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (changed && this.viewState.isWordWrapActive) {
             queueMicrotask(() => {
                 this.markDirty();
+                // A height change under wrap fires twice in one tick: listeners coalesce (a scheduler, a compare).
+                this.onDidChangeViewportSizeEmitter.fire();
             });
         }
         return size;
