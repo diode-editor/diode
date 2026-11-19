@@ -1,6 +1,7 @@
 import { Terminal } from "@xterm/headless";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { assertReturnsDefined } from "../../../../../base/common/assert.ts";
 import { ShellIntegrationAddon } from "../../xterm/shellIntegrationAddon.ts";
 
 // The model on a real headless emulator, fed what a shell with the integration script writes.
@@ -27,7 +28,7 @@ function make(scrollback = 100) {
         if (detection === undefined) throw new Error("no command detection");
         return detection.promptInputModel;
     };
-    return { write, model };
+    return { write, model, term, addon };
 }
 
 describe("PromptInputModel — the prompt's state and what is typed on it", () => {
@@ -78,6 +79,24 @@ describe("PromptInputModel — the prompt's state and what is typed on it", () =
         const { write, model } = make();
         await write(`${vsc("A")}$ ${vsc("B")}${"x".repeat(18)}yy z`);
         expect(model().value).toBe(`${"x".repeat(18)}yy z`);
+    });
+
+    it("a line continued onto the next row: the rows are joined, the first one's trailing cells dropped", async () => {
+        const { write, model } = make();
+        await write(`${vsc("A")}$ ${vsc("B")}echo a \\\r\n> b`);
+        expect(model().value).toBe("echo a \\> b");
+    });
+
+    it("the capability disposed with the terminal: the model takes no more listeners and fires none", async () => {
+        const { write, model, term, addon } = make();
+        await write(vsc("A"));
+        const detected = model();
+        const starts: string[] = [];
+        detected.onDidStartInput(() => starts.push("before"));
+        addon.dispose();
+        detected.onDidStartInput(() => starts.push("after"));
+        detected.handleCommandStart(assertReturnsDefined(term.registerMarker(0)), 0);
+        expect(starts).toStrictEqual([]);
     });
 
     it("a start pushed out of the scrollback reads only the cursor's row", async () => {

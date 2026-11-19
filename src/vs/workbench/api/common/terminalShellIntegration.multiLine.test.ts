@@ -129,6 +129,19 @@ describe("ext host shell integration — a multi-line executeCommand", () => {
         expect(h.ends.map(([, line]) => line)).toStrictEqual(["b", ""]);
     });
 
+    it("a single-line request is taken by its trimmed line, not by a prefix of it; its end's line replaces it", async () => {
+        const h = setup();
+        const execution = h.executeCommand(" echo hi ");
+        h.start("echo h");
+        h.end("echo h", 0);
+        h.start("echo hi");
+        h.end("echo hi", 0);
+        await macrotask();
+        expect(h.starts.map((e) => e.commandLine.value)).toStrictEqual(["echo h", "echo hi"]);
+        expect(h.starts[1]).toBe(execution);
+        expect(h.ends.map(([, line]) => line)).toStrictEqual(["echo h", "echo hi"]);
+    });
+
     it("the empty command of a blank line is a part of it while lines remain, and no part once all have run", () => {
         const h = setup();
         h.executeCommand("a\n\nb");

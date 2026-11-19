@@ -214,21 +214,20 @@ class ShellIntegration {
             }
         }
         this.close();
-        // Upstream: a high-confidence line matches its `executeCommand` exactly or as the first lines of a multi-line
-        // one, a lower one takes the oldest.
+        // Upstream: a high-confidence line matches its `executeCommand` (its sanitized lines) or the first lines of a
+        // multi-line one, a lower one takes the oldest.
         let execution: ShellExecution | undefined;
         if (commandLine.confidence === HIGH) {
             for (const [i, pending] of this.pending.entries()) {
                 const requested = pending.value.commandLine.value;
                 // Deviation: an empty command line starts no request (upstream takes it for the first line of any,
                 // even a single-line one, which then waits for that line forever).
-                const rest =
-                    requested === commandLine.value || lines.length === 0
-                        ? undefined
-                        : subExecutionRest(splitAndSanitizeCommandLine(requested), lines);
-                if (requested !== commandLine.value && rest === undefined) continue;
+                if (lines.length === 0) break;
+                const rest = subExecutionRest(splitAndSanitizeCommandLine(requested), lines);
+                if (rest === undefined) continue;
                 execution = this.pending.splice(i, 1)[0];
-                this.unresolvedCommandLines = rest;
+                // No lines left: a single-line request, or the shell took all the lines as one command.
+                if (rest.length > 0) this.unresolvedCommandLines = rest;
                 break;
             }
         } else {
@@ -307,7 +306,8 @@ function splitAndSanitizeCommandLine(commandLine: string): string[] {
 function subExecutionRest(unresolved: readonly string[], lines: readonly string[]): string[] | undefined {
     if (unresolved.length === 0) return undefined;
     let i = 0;
-    while (i < unresolved.length && i < lines.length && unresolved[i] === lines[i]) i++;
+    // Past the unresolved lines `unresolved[i]` is `undefined`, never equal to a line.
+    while (i < lines.length && unresolved[i] === lines[i]) i++;
     return i === lines.length ? unresolved.slice(i) : undefined;
 }
 

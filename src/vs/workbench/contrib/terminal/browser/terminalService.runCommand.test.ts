@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { throwIfLeaked } from "../../../../../TestUtils/disposableLeaks.ts";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { drain, osc633 as osc, ScriptedShell } from "../../../../../TestUtils/scriptedShell.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
+import { DisposableTracker, setDisposableTracker } from "../../../../base/common/lifecycle.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 import { RUN_COMMAND_INTERRUPT_DELAY_MS, TerminalService } from "./terminalService.ts";
@@ -127,5 +129,32 @@ describe("TerminalService.runCommand — an extension's executeCommand", () => {
         h.service.closeInstance(h.id, "extension");
         await h.service.runCommand(h.id, "echo hi");
         expect(h.input).toStrictEqual([]);
+    });
+});
+
+describe("TerminalService.runCommand — the wait's listeners", () => {
+    /** Fails if `run` leaves a disposable it created undisposed. */
+    async function noLeaks(run: () => Promise<void>): Promise<void> {
+        const tracker = new DisposableTracker();
+        setDisposableTracker(tracker);
+        try {
+            await run();
+        } finally {
+            setDisposableTracker(null);
+        }
+        throwIfLeaked(tracker);
+    }
+
+    it("released once the prompt takes input, and on the timeout", async () => {
+        const h = setup({ "terminal.integrated.shellIntegration.timeout": 500 });
+        await h.feed(osc("A"));
+        await noLeaks(async () => {
+            const done = h.service.runCommand(h.id, "echo a");
+            await h.feed(`$ ${osc("B")}`);
+            await done;
+        });
+        await h.feed(`echo a${osc("E;echo a")}\r\n${osc("C")}a\r\n`);
+        await noLeaks(() => h.service.runCommand(h.id, "echo b"));
+        expect(h.input).toStrictEqual(["echo a\r", "echo b\r"]);
     });
 });

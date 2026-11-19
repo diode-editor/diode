@@ -5,6 +5,7 @@
 
 import type { IMarker, Terminal } from "@xterm/headless";
 
+import { assertReturnsDefined } from "../../../../../base/common/assert.ts";
 import { Emitter } from "../../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../../base/common/lifecycle.ts";
 
@@ -37,10 +38,11 @@ export class PromptInputModel implements IDisposable {
         const buffer = this.terminal.buffer.active;
         const end = buffer.baseY + buffer.cursorY;
         const first = start.marker.line < 0 ? end : start.marker.line;
-        // Every row from the top of the buffer to the cursor's exists.
-        const rows: (string | undefined)[] = [];
+        const rows: string[] = [];
         for (let i = first; i <= end; i++) {
-            rows.push(buffer.getLine(i)?.translateToString(true, i === start.marker.line ? start.x : 0));
+            // Every row from the top of the buffer to the cursor's exists.
+            const line = assertReturnsDefined(buffer.getLine(i));
+            rows.push(line.translateToString(true, i === start.marker.line ? start.x : 0));
         }
         return rows.join("").trimEnd();
     }
