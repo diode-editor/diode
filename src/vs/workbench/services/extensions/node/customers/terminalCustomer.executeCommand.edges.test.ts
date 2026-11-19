@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { FakeEditorTerminals } from "../../../../../../TestUtils/FakeEditorTerminals.ts";
+import { findShell } from "../../../../../../TestUtils/findShell.ts";
 import { createTestConfigurationService } from "../../../../../../TestUtils/testConfigurationService.ts";
 import type { HostRpc, SubprocessRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
@@ -72,7 +73,16 @@ function createShell(service: TerminalService, shellPath = "/bin/bash"): number 
         name: path.basename(shellPath),
         shellPath,
         cwd: home,
-        env: { HOME: home, ZDOTDIR: home, XDG_CONFIG_HOME: home, HISTFILE: "/dev/null", PS1: "$ " },
+        // Debian's `/etc/zsh/zshrc` runs `compinit` unless this is set; on a CI runner it finds "insecure directories"
+        // and waits for an answer instead of drawing the prompt.
+        env: {
+            HOME: home,
+            ZDOTDIR: home,
+            XDG_CONFIG_HOME: home,
+            HISTFILE: "/dev/null",
+            PS1: "$ ",
+            skip_global_compinit: "1",
+        },
     }).id;
 }
 
@@ -216,11 +226,11 @@ describe.skipIf(process.platform === "win32")("executeCommand edges — a live b
         const integration = integrationOf(h.ns);
         createShell(h.service);
         const si = await integration;
-        const out = readAll(si.executeCommand("echo 'привет 🎉 世界'"));
+        const out = readAll(si.executeCommand("echo 'héllo 🎉 世界'"));
         await vi.waitFor(() => {
-            expect(h.log).toStrictEqual(["start echo 'привет 🎉 世界'", "end echo 'привет 🎉 世界' exit=0"]);
+            expect(h.log).toStrictEqual(["start echo 'héllo 🎉 世界'", "end echo 'héllo 🎉 世界' exit=0"]);
         }, WAIT);
-        expect(await out).toContain("привет 🎉 世界");
+        expect(await out).toContain("héllo 🎉 世界");
     }, 30_000);
 
     it("typed text with the cursor moved back to its start is cleared", async () => {
@@ -285,7 +295,7 @@ describe.skipIf(process.platform === "win32")("executeCommand edges — a live b
 });
 
 describe.skipIf(process.platform === "win32")("executeCommand — zsh and fish", () => {
-    for (const shell of ["/usr/bin/zsh", "/usr/bin/fish"]) {
+    for (const shell of [findShell("zsh"), findShell("fish")].filter((s) => s !== undefined)) {
         it(`${shell}: called as the integration comes alive runs once`, async () => {
             const h = setup();
             const integration = integrationOf(h.ns);
