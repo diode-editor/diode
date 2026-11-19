@@ -64,6 +64,12 @@ describe("Developer: Write Data to Terminal — target terminal", () => {
         expect(h.container.get(PanelServiceDIToken).getActiveViewId()).toBe(TERMINAL_VIEW_ID);
     });
 
+    it("empty input writes nothing", async () => {
+        boot();
+        await writeData("");
+        expect(printed(0)).toStrictEqual([]);
+    });
+
     it("no terminal: one is created in the default location (editor) and written to", async () => {
         boot({ "terminal.integrated.defaultLocation": "editor" });
         await writeData("x");

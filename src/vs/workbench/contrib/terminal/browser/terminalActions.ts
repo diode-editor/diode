@@ -114,7 +114,10 @@ export const newTerminalAction: CommandAction = {
     },
 };
 
-/** Upstream `createTerminal()` + reveal: in the default location, active and focused. */
+/**
+ * Upstream `createTerminal()` + reveal: in the default location, active and focused. The focus change refreshes the
+ * context keys.
+ */
 export function createTerminal(accessor: ServiceAccessor): ITerminalInstance {
     let instance: ITerminalInstance;
     if (accessor.get(IConfigurationServiceDIToken).get("terminal.integrated.defaultLocation") === "editor") {
@@ -123,7 +126,6 @@ export function createTerminal(accessor: ServiceAccessor): ITerminalInstance {
         showTerminalView(accessor);
         instance = accessor.get(TerminalServiceDIToken).newTerminal();
     }
-    accessor.get(WorkbenchContextKeysDIToken).update();
     return instance;
 }
 
