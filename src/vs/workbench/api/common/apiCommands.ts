@@ -118,15 +118,19 @@ async function executeLinkProvider(deps: IApiCommandsDeps, args: readonly unknow
 
 /** Upstream `DocumentLink.to`: a target that does not parse is dropped, the link stays. */
 function toDocumentLink({ range, target, tooltip }: IWireExecutedDocumentLink): vscode.DocumentLink {
-    let uri: vscode.Uri | undefined;
-    try {
-        uri = target === undefined ? undefined : Uri.parse(target, true);
-    } catch {
-        uri = undefined;
-    }
-    const link = new DocumentLink(toVscodeRange(range), uri);
+    const link = new DocumentLink(toVscodeRange(range), parseLinkTarget(target));
     link.tooltip = tooltip;
     return link;
+}
+
+function parseLinkTarget(target: string | undefined): vscode.Uri | undefined {
+    try {
+        // Stryker disable next-line ConditionalExpression: equivalent: a strict parse of `undefined` throws and lands in the catch below
+        if (target !== undefined) return Uri.parse(target, true);
+    } catch {
+        // Upstream ignores it too.
+    }
+    return undefined;
 }
 
 /** For one command, as upstream's `createModelReference`: the command works on a file nobody opened. */

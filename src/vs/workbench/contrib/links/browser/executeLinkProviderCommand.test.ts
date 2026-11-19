@@ -60,7 +60,8 @@ describe("_executeLinkProvider", () => {
             provideLinks: () => Promise.resolve(libraryLinks(resolve)),
         });
 
-        await expect(execute(uri, 1)).resolves.toEqual([
+        // The second link already has its target: the count reaches `lib:two` only past it.
+        await expect(execute(uri, 2)).resolves.toEqual([
             { range: createRange(0, 4, 0, 11), target: "file:///lib/one", tooltip: "one" },
             { range: createRange(0, 12, 0, 33), target: "https://example.com/x" },
             { range: createRange(1, 0, 1, 7) },
@@ -114,9 +115,10 @@ describe("_executeLinkProvider", () => {
         await expect(execute(uri)).resolves.toHaveLength(1);
     });
 
-    it("a document that is not loaded answers an empty list, as upstream", async () => {
+    it("a document that is not loaded, or no uri at all, answers an empty list, as upstream", async () => {
         const { execute } = setup();
 
         await expect(execute(Uri.file("/ws/other.md"))).resolves.toEqual([]);
+        await expect(execute("not a uri")).resolves.toEqual([]);
     });
 });
