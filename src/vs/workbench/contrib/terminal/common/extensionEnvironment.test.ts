@@ -42,6 +42,10 @@ describe("terminalEnvironmentScope", () => {
 });
 
 describe("createExtensionEnvironmentContributor", () => {
+    const folderB = {
+        type: EnvironmentVariableMutatorType.Prepend,
+        scope: { workspaceFolder: { uri: "file:///w/b", name: "b", index: 1 } },
+    };
     const merged = new MergedEnvironmentVariableCollection(
         new Map([
             [
@@ -78,6 +82,17 @@ describe("createExtensionEnvironmentContributor", () => {
         const inA: Record<string, string | undefined> = {};
         contributor.apply(inA, "/w/a");
         expect(inA).toEqual({ G: "g", PATH: ";x" });
+    });
+
+    it("pathPrefix — the Prepends to PATH in the cwd folder scope", () => {
+        const prefixed = new MergedEnvironmentVariableCollection(
+            new Map([
+                ["x.y", { map: new Map([["PATH:::file:///w/b", { ...folderB, variable: "PATH", value: "/b:" }]]) }],
+            ]),
+        );
+        const contributor = createExtensionEnvironmentContributor(() => prefixed, workspace(["/w/a", "/w/b"]), false);
+        expect(contributor.pathPrefix("/w/b/sub")).toBe("/b:");
+        expect(contributor.pathPrefix("/w/a")).toBeUndefined();
     });
 
     it("the Windows platform reaches the merge (name case)", () => {

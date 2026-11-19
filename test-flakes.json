@@ -2,6 +2,15 @@
     "$comment": "Known flaky tests, unit and e2e: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. A screenshot scenario is keyed by its *.scenario.ts file and name (e2e/scenarios/suite.ts); optional platforms limits an entry to those process.platform values. Process and details: docs/TODO/TestFlakes.md.",
     "flakes": [
         {
+            "file": "e2e/scenarios/quickOpenHistory.scenario.ts",
+            "test": "quick-open-history",
+            "action": "retry",
+            "platforms": [
+                "win32"
+            ],
+            "note": "waitUntil(screen text predicate) timed out after 10000ms waiting for the sample.ts tab after Ctrl+P, both e2e attempts on windows (run 44478670132, PR #1239, whose diff is TextEditor.visibleRanges; the scenario opens no extension); the job's rerun is green, as is main"
+        },
+        {
             "file": "src/vs/workbench/contrib/terminal/node/embeddedTerminalSession.shellIntegrationEdges.test.ts",
             "test": "shell integration — zsh edges > two zsh terminals started at once — both injected",
             "action": "retry",

@@ -122,8 +122,7 @@
       "class": "ok"
     },
     "workspace.registerTextDocumentContentProvider": {
-      "class": "B",
-      "note": "#916: a second provider for a scheme throws"
+      "class": "ok"
     },
     "workspace.rootPath": {
       "class": "ok"

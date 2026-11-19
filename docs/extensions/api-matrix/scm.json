@@ -2,11 +2,11 @@
   "members": {
     "scm.createSourceControl": {
       "class": "C",
-      "note": "needs the source control surface"
+      "note": "needs a source control surface for extensions: the built-in git view is not driven by them, and vscode.scm is not exported (a call throws)"
     },
     "scm.inputBox": {
       "class": "C",
-      "note": "needs the source control surface"
+      "note": "needs a source control surface for extensions: the built-in git view is not driven by them, and vscode.scm is not exported (a call throws)"
     }
   }
 }

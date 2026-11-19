@@ -29,9 +29,9 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 
 | surface | status | members |
 | --- | :-: | --- |
-| [`vscode.languages`](#vscodelanguages) | 🟡 | 21/40 |
-| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 26/45 |
-| [`vscode.window`](#vscodewindow) | 🟡 | 36/57 |
+| [`vscode.languages`](#vscodelanguages) | 🟡 | 37/40 |
+| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 34/45 |
+| [`vscode.window`](#vscodewindow) | 🟡 | 42/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 4/4 |
 | [`vscode.extensions`](#vscodeextensions) | ✅ | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
@@ -45,19 +45,19 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | [`vscode.scm`](#namespaces-not-yet-exposed) | 🕐 | 0/2 |
 | [`vscode.notebooks`](#namespaces-not-yet-exposed) | 🕐 | 0/3 |
 | [`vscode.chat`](#namespaces-not-yet-exposed) | 🕐 | 0/1 |
-| [types and classes](#types-with-a-partial-surface) | — | 315/424 |
-| [activation events](#activation-events-activationevents) | 🟡 | 9/32 |
+| [types and classes](#types-with-a-partial-surface) | — | 412/508 |
+| [activation events](#activation-events-activationevents) | 🟡 | 14/32 |
 
 ## vscode.languages
 
-🟡 **21/40.** The LSP-level language stack is in place; the remaining providers accept
-registration but are not called yet.
+🟡 **37/40.** The LSP-level language stack is in place, every declared provider is called by the
+editor; drag-and-drop and paste edits are not declared, and some providers are partial (see the rows).
 
 | member | status | comment |
 | --- | :-: | --- |
 | `createDiagnosticCollection` | 🟡 | squiggles and the Problems panel; `relatedInformation` is not shown; markers of a dead extension host stay until it restarts |
 | `getDiagnostics`, `onDidChangeDiagnostics` | ✅ | all collections of the extension host plus the editor's own markers (settings, tasks); the event coalesces changes over 50 ms. Deviations: editor markers that existed before the extension host started arrive as an initial batch; removal of an editor marker is reported even when the resource still has markers of its own |
-| `registerCompletionItemProvider` | ✅ | trigger characters, resolve (documentation, auto-import); a deprecated item is struck through, a `preselect` item is selected on open; a `Color` item whose label, detail or documentation edge is a color shows a square of it in place of the icon |
+| `registerCompletionItemProvider` | 🟡 | trigger characters, resolve (documentation, auto-import); a deprecated item is struck through, a `preselect` item is selected on open; a `Color` item whose label, detail or documentation edge is a color shows a square of it in place of the icon. A `SnippetString` in `insertText` goes in as plain text, without tab stops or a snippet session (those work for `TextEditor.insertSnippet` only); of an item's inserting and replacing ranges the replacing one is always used |
 | `registerDefinitionProvider` | ✅ | |
 | `registerImplementationProvider` | ✅ | Go to Implementations (Ctrl+F12): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleImplementations` |
 | `registerTypeDefinitionProvider` | ✅ | Go to Type Definition (Command Palette, editor context menu, no default key): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleTypeDefinitions` |
@@ -88,13 +88,14 @@ registration but are not called yet.
 | `registerWorkspaceSymbolProvider` | ✅ | Go to Symbol in Workspace (Ctrl+T, `#` in Quick Open), `resolveWorkspaceSymbol` on open; symbols join Quick Open results with `search.quickOpen.includeSymbols`; no Open to Side |
 | `registerDocumentLinkProvider` | ✅ | links are underlined with those of the built-in `http(s)`/`file` detector (where they meet, the provider's win); Ctrl+click and **Open Link** open them: `http(s)` and `mailto` outside, `file:` with `#L10` in the editor, `command:` runs the command. `resolveDocumentLink` is called when a link without a target is opened. `DocumentLink.tooltip` is kept but not shown (no mouse hover); `editor.links` turns everything off |
 | `registerInlineValuesProvider` | ✅ | while the debugger is stopped in a file of the provider's language, the provider is asked for the visible lines and a screen above and below (again after a step, a scroll or an edit); `InlineValueText` is shown as is, `InlineValueVariableLookup` and `InlineValueEvaluatableExpression` as `name = value` from the focused frame, the values of a line joined by their columns after the line's end, as with `debug.inlineValues` (`auto`: only with a provider). Several providers are merged, a failing one costs only its own values. `onDidChangeInlineValues` is accepted and, as in VS Code, asks nothing again. No hover over a value |
+| `registerInlineCompletionItemProvider` | 🟡 | ghost text in gray italics after the caret and inside the line (multi-line ones push the lines below), asked again on an edit after `editor.inlineSuggest.delay`, Tab accepts, Escape dismisses, **Trigger Inline Suggestion** (Alt+\\) asks by hand; a stale request is cancelled through its token, `editor.inlineSuggest.requestTimeout` bounds the wait. Not supported: `InlineCompletionItem.command` (not run after accepting), `InlineCompletionContext.selectedCompletionInfo` (always `undefined`) |
 | `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` and linked editing; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs`, `onEnterRules` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
 | `getLanguages`, `setTextDocumentLanguage` | ✅ | The language set on a document without a tab is applied when it gets one. |
 | `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | not declared. The `DocumentDropOrPasteEditKind` class is: extensions build kinds at load time and check for the register function before calling it |
 
 ## vscode.workspace
 
-🟡 **26/45.** Documents, configuration, saving and its events, file watchers, disk access, file
+🟡 **34/45.** Documents, configuration, saving and its events, file watchers, disk access, file
 search by glob and bulk `applyEdit` (including closed files and file operations) work; the notebook
 surface does not.
 
@@ -128,7 +129,7 @@ surface does not.
 
 ## vscode.window
 
-🟡 **35/57.** Editors (including the selection event), the active theme, messages, progress,
+🟡 **42/57.** Editors (including the selection event), the active theme, messages, progress,
 output channels, decorations, status bar items, quick input (text line, list, file dialogs) and
 extension terminals and tree views work; webview is the ceiling.
 
@@ -136,14 +137,14 @@ extension terminals and tree views work; webview is the ceiling.
 | --- | :-: | --- |
 | `activeTextEditor`, `visibleTextEditors` | ✅ | both sides of a visible diff tab are visible editors. Deviation: a snapshot side (a git revision, the clipboard, "on disk") has no document of its own and is not in `visibleTextEditors` |
 | `onDidChangeActiveTextEditor`, `onDidChangeVisibleTextEditors`, `onDidChangeTextEditorViewColumn` | ✅ | |
-| `state`, `onDidChangeWindowState` | ✅ | |
+| `state`, `onDidChangeWindowState` | 🟡 | `state` is always focused and active; the event never fires |
 | `showTextDocument` | ✅ | returns the editor it showed, in its own column; after it resolves `activeTextEditor` is that editor (unless `preserveFocus`) and `document` is the object from `openTextDocument`. Calls made at once each answer for their own document, the last one stays active. A failed open or a missing file rejects and opens no tab. After `vscode.diff` `activeTextEditor` is the modified side. Deviation: a column that does not fit the terminal width opens in the last group that does, so `viewColumn` is always defined but can be smaller than requested |
 | `showInformation/Warning/ErrorMessage` | ✅ | all four overloads, `MessageOptions` (`modal` + `detail`). Non-modal: a toast above the status bar; without buttons it closes on its own (info 10 s, warning 12 s, error 15 s), with buttons it waits about a minute without taking focus; at most three toasts at once; no notification center yet. Modal: a dialog in the center, Escape returns the `isCloseAffordance` button. Deviation: a message without buttons resolves when shown, not when the toast closes |
-| `createOutputChannel` | 🟡 | a channel in the Output panel with log levels; every channel is a `LogOutputChannel` (`{ log: true }` changes nothing, `logLevel` is `Info`); `clear`/`replace` are no-ops |
+| `createOutputChannel` | 🟡 | a channel in the Output panel with log levels; every channel is a `LogOutputChannel` (`{ log: true }` changes nothing, `logLevel` is `Info`); `clear`/`replace` are no-ops; `hide` does nothing. The `trace`…`error` methods log only their message: the extra `...args` are dropped, and an `Error` passed to `error` is logged as `{}` |
 | `withProgress` | 🟡 | `Notification`: a sticky toast with `title: message`, the percent as text and **Cancel** (fires the token); hidden with "Clear All", it goes on in the status bar. `Window`: a spinner in the status bar. `SourceControl` and `{ viewId }` (a view or a view container): a spinner on the view's header, only the indicator — no message, percent or Cancel, as upstream; an unknown id shows nothing and logs "Bad progress location", the task still runs |
 | `tabGroups` | 🟡 | `Tab` objects are snapshots taken at the call (no identity across calls); `onDidChangeTabs` is live, `close` works |
 | `createTextEditorDecorationType` | 🟡 | `backgroundColor` and `color` (CSS strings: hex, `rgb()`, `rgba()`, named colors, `transparent`; or a `ThemeColor`, alpha composited over the text), `isWholeLine`, `light`/`dark` branches, gutter change bars from `overviewRulerColor`. `before`/`after`, also per range in `renderOptions` (merged over the type's, field by field): a non-blank `contentText` is drawn inline (first line) with its `color`, `backgroundColor` and italic `fontStyle`; a blank one with a color is a `■` swatch of `backgroundColor`, `borderColor` or `color`. The range's text takes `fontStyle` (italic), `fontWeight` (bold from 600), `textDecoration` (`underline`, `wavy` as an undercurl, `line-through`) and `opacity` (the text color blended toward the background under it). Ranges follow edits by `rangeBehavior` until the next `setDecorations`. Not drawn: borders, outlines, overline, sizes, margins, paddings, `gutterIconPath`, `contentIconPath`, `hoverMessage` |
-| `registerFileDecorationProvider` | ✅ | decorations in the explorer; `propagate` bubbles up to folders (color and "●") |
+| `registerFileDecorationProvider` | 🟡 | decorations in the explorer; `propagate` bubbles up to folders (color and "●"). Push only: the provider is asked only for the uris it fires in `onDidChangeFileDecorations`, never for the files the explorer shows, and firing `undefined` (everything) does nothing; a provider without the event is never asked. `tooltip` is not carried |
 | `showQuickPick` | 🟡 | strings and `QuickPickItem`s: filtering by `label`, `canPickMany` with `picked`, `placeHolder`, `title`, cancellation, `onDidSelectItem`, a label and description derived from `resourceUri`, a promise of items (the picker opens at once and can be cancelled before they arrive). A multi-select opens with no active row. Not supported: separators (neither shown nor selectable), `iconPath`, `buttons`, `alwaysShow`, `matchOnDescription`/`matchOnDetail`, `ignoreFocusOut`; `detail` is drawn only when `description` is empty (one line per row) |
 | `showInputBox` | 🟡 | `title`, `prompt`, `placeHolder`, `value`, `valueSelection`, `password`, `validateInput` (string and object forms, async, an error blocks Enter), cancellation. Not supported: `ignoreFocusOut` |
 | `createQuickPick` | 🟡 | a live picker with all the events (`onDidChangeValue`/`onDidAccept`/`onDidChangeActive`/`onDidChangeSelection`/`onDidHide`); `items`/`activeItems`/`selectedItems` can change while open; Enter does not close the picker, Enter on an empty list gives `onDidAccept` without a selection; `title` with `step`/`totalSteps`, `placeholder`, `prompt`, `value`, `canSelectMany`, `matchOnDescription`/`matchOnDetail`, `alwaysShow`, `keepScrollPosition`, a label and description derived from `resourceUri`; `activeItems` and `selectedItems` set by the extension come back as events, and a single selection also accepts, as in VS Code. `buttons`: `QuickInputButtons.Back` is drawn in the title and fires `onDidTriggerButton` on a click, `Alt+Left` or `quickInputBack`. Not drawn: separators, `busy`, `enabled: false`, other buttons and item buttons (`onDidTriggerItemButton` exists and stays silent); not supported: `iconPath`, `ignoreFocusOut`; `detail` as in `showQuickPick` |
@@ -200,9 +201,11 @@ extension terminals and tree views work; webview is the ceiling.
 are declared. Tasks are run by the editor: Run Task, the task terminal, Rerun / Restart / Terminate
 / Show Running Tasks, the same as for tasks from `.diode/tasks.json` (VS Code: `.vscode/tasks.json`).
 Problem matchers run for tasks that are not background ones: the built-in ones (`$msCompile`,
-`$eslint-stylish`, `$eslint-compact`, `$go`, …) and inline ones from `tasks.json` turn the task
-output into Problems. Matchers contributed by extensions (`contributes.problemMatchers`, `$tsc`) are
-not supported yet; a background task ignores its matcher and runs until the process exits.
+`$eslint-stylish`, `$eslint-compact`, `$go`, `$tsc`, …), those contributed by extensions
+(`contributes.problemMatchers`, `contributes.problemPatterns`) and inline ones from `tasks.json` turn
+the task output into Problems. A background task (a watcher) ignores its matcher with a warning and
+runs until the process exits, so a debug session whose `preLaunchTask` starts a watcher waits for
+the watcher's process to end (an already running one is taken as ready).
 
 | member | status | comment |
 | --- | :-: | --- |
@@ -219,7 +222,7 @@ The task types follow the contract, with differences:
 | symbol | difference |
 | --- | --- |
 | `Task.group`, `TaskGroup` | stored, but there are no build/test groups yet (Run Build Task); does not affect running |
-| `Task.problemMatchers` | built-in matchers run for tasks that are not background ones; matchers contributed by extensions are not resolved yet |
+| `Task.problemMatchers` | built-in and contributed matchers run for tasks that are not background ones; a background task ignores its matchers |
 | `TaskScope.Global` | a task without a folder; runs as is |
 | `RunOptions` | `reevaluateOnRerun` works; `instancePolicy` for `tasks.json` tasks as well; an `instanceLimit` above 1 behaves as 1; `runOn: folderOpen` does not start on its own |
 | `TaskPresentationOptions` | `reveal`, `focus`, `echo`, `panel` (dedicated/shared/new), `showReuseMessage`, `clear`, `group`, `close` |
@@ -361,7 +364,7 @@ The part of the contract that lives in `package.json` and decides whether the ex
 all. An extension whose events are not supported installs, shows up in the catalog, and stays
 silent forever.
 
-**8 of 32** kinds of upstream 1.127.0 events are active (`*` plus 31 named kinds). The
+**14 of 32** kinds of upstream 1.127.0 events are active (`*` plus 31 named kinds). The
 unsupported ones are grouped by the surface they wait for.
 
 | event | status | comment |
@@ -412,7 +415,7 @@ change the ⛔ status.
 
 ## Types with a partial surface
 
-316 of 424 upstream types and classes are declared. The declared ones are complete, except those
+412 of 508 upstream classes, interfaces and enums are declared (type aliases are not counted). The declared ones are complete, except those
 listed below, where only a subset of members is declared. `TextDocument` is listed for a different
 reason: everything is declared and implemented, but `save` is a 🟡 stub.
 
@@ -430,6 +433,9 @@ reason: everything is declared and implemented, but `save` is a 🟡 stub.
 | `FileSystemProvider` | 5/10 | `readDirectory`, `createDirectory`, `delete`, `rename`, `copy` |
 | `DocumentFilter` | 3/4 | `notebookType` |
 | `CompletionItem` | 16/16 | — (everything is declared). A `range` of `{ inserting, replacing }` follows `editor.suggest.insertMode` (`insert` by default keeps the text right of the cursor); Shift+Enter / Shift+Tab accept with the other mode. Lines 2+ of a multi-line insert text get the indentation of the current line, unless `keepWhitespace`. A commit character of the selected item accepts it and is typed after it, unless `editor.acceptSuggestionOnCommitCharacter` is off. A `Deprecated` tag strikes the label through; `preselect` selects the item among the best matches; the old `textEdit` inserts its text on its range. `additionalTextEdits` works both in the list and when loaded by resolve |
+| `QuickPickItem` | 7/9 | `iconPath`, `buttons` |
+| `QuickPickOptions` | 4/8 | `matchOnDescription`, `matchOnDetail`, `prompt`, `ignoreFocusOut` |
+| `InputBoxOptions` | 7/8 | `ignoreFocusOut` |
 | `DocumentRangeFormattingEditProvider` | 1/2 | `provideDocumentRangesFormattingEdits` |
 | `LanguageStatusItem` | 9/10 | `accessibilityInformation` |
 | `DataTransferFile` | 3/3 | — (declared for `createFile({ contents })`; there is no drag-and-drop, so such `contents` is ignored) |
@@ -448,7 +454,7 @@ The type matches VS Code, the meaning differs:
 | `TextEditor.revealRange` | scrolling is immediate, not smooth, and stops at the end of the document: VS Code's `editor.scrollBeyondLastLine` has no counterpart, so `AtTop` near the end leaves the range lower. An editor showing one side of a diff does not scroll |
 | `TextEditorOptions.cursorStyle` | a terminal has three cursor shapes: `LineThin` draws as `Line`, `BlockOutline` as `Block`, `UnderlineThin` as `Underline`. While neither the extension nor `editor.cursorStyle` sets a style, the editor keeps the terminal's own cursor shape, yet the getter reads `Line`, VS Code's default |
 | `TextEditorOptions.lineNumbers` | the getter follows `editor.lineNumbers` (`On` by default) and an assigned style reads back, but Diode always draws plain line numbers: `Off`, `Relative` and `Interval` are only reported |
-| `environmentVariableCollection` | the whole API (`replace`/`append`/`prepend`, `get`, `forEach`, iteration, `delete`, `clear`, `description`, `persistent`, `getScoped` per folder). Collections of all extensions are merged as in VS Code and applied to every terminal process (a person's shells, extension terminals, tasks), except terminals with `strictEnv`; `persistent` collections survive a restart and are available in `activate()`. Deviations: `applyAtShellIntegration` has no effect (no shell integration); no "environment is stale" indicator and no relaunch on `terminal.integrated.environmentChangesRelaunch`, the next process gets the new values; `${…}` variables in values are not expanded |
+| `environmentVariableCollection` | the whole API (`replace`/`append`/`prepend`, `get`, `forEach`, iteration, `delete`, `clear`, `description`, `persistent`, `getScoped` per folder). Collections of all extensions are merged as in VS Code and applied to every terminal process (a person's shells, extension terminals, tasks), except terminals with `strictEnv`; `persistent` collections survive a restart and are available in `activate()`. With `applyAtShellIntegration` a mutator is applied by the shell integration script after the user's rc files (`VSCODE_ENV_*`, as in VS Code), so `~/.bashrc` or `fish_user_paths` don't override it; `VSCODE_PYTHON_<SHELL>_ACTIVATE` is accepted only from `ms-python.vscode-python-envs`. Deviations: no "environment is stale" indicator and no relaunch on `terminal.integrated.environmentChangesRelaunch`, the next process gets the new values; `${…}` variables in values are not expanded |
 | `SecretStorage` | **unencrypted**: there is no OS keychain, secrets are stored in plain text in `<profileDir>/secrets.json` with `0600` permissions. Everything else follows the contract: `get`/`store`/`delete`/`keys`, `onDidChange` on writes and deletes, values survive a restart, one compartment per extension |
 | `Extension.extensionKind` | always `ExtensionKind.UI`, as VS Code prescribes when there is no remote extension host |
 | `Extension.activate()` | for an already active extension returns its `exports`; for an inactive one rejects with an explanation (activation is driven by activation events only) |
