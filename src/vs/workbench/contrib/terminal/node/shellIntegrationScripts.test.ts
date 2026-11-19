@@ -47,6 +47,8 @@ describe("resolveShellIntegrationScriptsDir", () => {
         const written = statSync(script).mtimeMs;
         expect(resolveShellIntegrationScriptsDir(bundle, cacheRoot)).toBe(dir);
         expect(statSync(script).mtimeMs).toBe(written);
-        expect(existsSync(path.join(dir, "shellIntegration-rc.zsh"))).toBe(true);
+        for (const script of ["shellIntegration-rc.zsh", "shellIntegration.fish", "shellIntegration.ps1"]) {
+            expect(existsSync(path.join(dir, script)), script).toBe(true);
+        }
     });
 });
