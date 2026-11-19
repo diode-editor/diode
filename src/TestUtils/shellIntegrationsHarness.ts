@@ -1,5 +1,6 @@
 import type * as vscode from "vscode";
 
+import { Disposable } from "../vs/base/common/lifecycle.ts";
 import type { SubprocessRpc } from "../vs/workbench/api/common/extHostProtocol.ts";
 import {
     createTerminalShellIntegrations,
@@ -16,7 +17,7 @@ export function setupShellIntegrations() {
     const rpc = {
         handleNotification: (method: string, handler: (params: unknown) => void) => {
             handlers.set(method, handler);
-            return { dispose: () => undefined };
+            return Disposable.None;
         },
         notify: (method: string, params: unknown) => requested.push({ method, params }),
     } as unknown as SubprocessRpc;
@@ -41,9 +42,12 @@ export function setupShellIntegrations() {
         ends.push([execution, execution.commandLine.value, exitCode]);
         log.push(`end ${terminal.name} ${execution.commandLine.value} exit=${String(exitCode)}`);
     });
+    /** A test asks only for an integration it brought alive. */
     const integration = (id: number): vscode.TerminalShellIntegration => {
         const value = terminals.get(id)?.shellIntegration;
+        /* v8 ignore start -- test helper: a test asks only for an integration it brought alive */
         if (value === undefined) throw new Error(`no integration on ${String(id)}`);
+        /* v8 ignore stop */
         return value;
     };
     const start = (id: number, value: string, line = HIGH): void => {

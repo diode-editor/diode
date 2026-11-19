@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { drain, osc633 as osc, ScriptedShell } from "../../../../../TestUtils/scriptedShell.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -105,6 +106,20 @@ describe("TerminalService.runCommand — an extension's executeCommand", () => {
         expect(h.input).toStrictEqual([]);
         await vi.advanceTimersByTimeAsync(1);
         expect(h.input).toStrictEqual(["\x03"]);
+    });
+
+    it("a session without a shell integration addon: Ctrl+C and the line after the timeout", async () => {
+        vi.useFakeTimers();
+        const views = makeViewsHarness();
+        const surface = new FakeTerminalSurface("/bin/sh");
+        const service = new TerminalService(views.service, createTestConfigurationService({}), () => surface);
+        disposables.push(service);
+        const { id } = service.createInstance({ name: "sh" });
+        void service.runCommand(id, "echo hi");
+        await vi.advanceTimersByTimeAsync(4999);
+        expect(surface.writes).toStrictEqual([]);
+        await vi.advanceTimersByTimeAsync(1 + RUN_COMMAND_INTERRUPT_DELAY_MS);
+        expect(surface.writes).toStrictEqual(["\x03", "echo hi\r"]);
     });
 
     it("a closed terminal: nothing", async () => {

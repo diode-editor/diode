@@ -16,6 +16,7 @@ export class ScriptedShell extends ExtensionPtySession {
             rows: options.rows,
             name: options.shell ?? "/bin/bash",
             onInput: (data) => input.push(data),
+            /* v8 ignore next -- test helper: no test resizes a scripted shell */
             onResize: () => undefined,
             ...(options.shellIntegrationNonce !== undefined
                 ? { shellIntegrationNonce: options.shellIntegrationNonce }

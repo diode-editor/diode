@@ -461,9 +461,9 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 if (capabilities === undefined) return;
                 store.add(
                     capabilities.onDidAddCommandDetectionCapability((capability) => {
+                        // Added on its first sequence, before any `B` is handled: never in input yet.
                         commandDetection = capability;
-                        if (capability.promptInputModel.state === "input") resolve();
-                        else store.add(capability.promptInputModel.onDidStartInput(resolve));
+                        store.add(capability.promptInputModel.onDidStartInput(resolve));
                     }),
                 );
             });

@@ -37,11 +37,12 @@ export class PromptInputModel implements IDisposable {
         const buffer = this.terminal.buffer.active;
         const end = buffer.baseY + buffer.cursorY;
         const first = start.marker.line < 0 ? end : start.marker.line;
-        let value = "";
+        // Every row from the top of the buffer to the cursor's exists.
+        const rows: (string | undefined)[] = [];
         for (let i = first; i <= end; i++) {
-            value += buffer.getLine(i)?.translateToString(true, i === start.marker.line ? start.x : 0) ?? "";
+            rows.push(buffer.getLine(i)?.translateToString(true, i === start.marker.line ? start.x : 0));
         }
-        return value.trimEnd();
+        return rows.join("").trimEnd();
     }
 
     /** `B`: the mark is the capability's, which disposes the previous one; the latest is read. */
