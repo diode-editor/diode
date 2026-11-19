@@ -125,6 +125,7 @@ export class ShellIntegrationAddon implements IDisposable {
                 this.shellEnvDetection().startEnvironmentSingleVar(args[0] === "1", args[1] === this.nonce);
                 return true;
             case "EnvSingleEntry":
+                // Stryker disable next-line ConditionalExpression: equivalent: `split` fills args from the first, a second one means a first
                 if (args[0] !== undefined && args[1] !== undefined)
                     this.shellEnvDetection().setEnvironmentSingleVar(
                         args[0],
@@ -133,6 +134,7 @@ export class ShellIntegrationAddon implements IDisposable {
                     );
                 return true;
             case "EnvSingleDelete":
+                // Stryker disable next-line ConditionalExpression: equivalent: `split` fills args from the first, a second one means a first
                 if (args[0] !== undefined && args[1] !== undefined)
                     this.shellEnvDetection().deleteEnvironmentSingleVar(args[0], args[2] === this.nonce);
                 return true;

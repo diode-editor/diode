@@ -157,6 +157,12 @@ describe("ShellIntegrationAddon — commands", () => {
         expect(finished[0].command).toBe(long);
     });
 
+    it("the line ends at the cursor: text to its right (a right prompt) is not the command", async () => {
+        const { write, finished } = make();
+        await write(`${vsc("A")}$ ${vsc("B")}ls  12:00\x1b[7D${vsc("C")}\r\n${vsc("D;0")}`);
+        expect(finished[0].command).toBe("ls");
+    });
+
     it("E after C (fish 4 sends its own 133;C first): the start has the buffer's line, the end the reported one", async () => {
         const { write, executed, finished } = make();
         await write(`${vsc("A")}$ ${vsc("B")}ls${ft("C")}`);
@@ -233,10 +239,10 @@ describe("ShellIntegrationAddon — commands", () => {
         await write(`${ft("A")}$ ${ft("B")}make${ft("C")}\r\n${ft("D;5")}`);
         await write(`${ft("B")}${ft("D")}`);
         await write(`${ft("B")}${ft("C")}${ft("D;1;x")}`);
-        expect(finished.map((c) => [c.command, c.exitCode])).toStrictEqual([
-            ["make", 5],
-            ["", undefined],
-            ["", undefined],
+        expect(finished.map((c) => [c.command, c.commandLineConfidence, c.exitCode])).toStrictEqual([
+            ["make", "medium", 5],
+            ["", "low", undefined],
+            ["", "low", undefined],
         ]);
     });
 
@@ -328,8 +334,8 @@ describe("ShellIntegrationAddon — cwd", () => {
         await write("\x1b]7;file://host/tmp/a%20b/\x07");
         const cwd = addon.capabilities.get("cwdDetection");
         expect([cwd?.getCwd(), cwd?.isTrusted]).toStrictEqual(["/tmp/a b/", false]);
-        await write("\x1b]7;http://host/x/\x07\x1b]7;file://host\x07");
-        expect(takeUnhandled()).toStrictEqual(["7;http://host/x/", "7;file://host"]);
+        await write("\x1b]7;http://host/x/\x07\x1b]7;file://host\x07\x1b]7;x-file://host/y/\x07");
+        expect(takeUnhandled()).toStrictEqual(["7;http://host/x/", "7;file://host", "7;x-file://host/y/"]);
         expect(cwd?.getCwd()).toBe("/tmp/a b/");
         expect(screen()).toBe("");
     });
