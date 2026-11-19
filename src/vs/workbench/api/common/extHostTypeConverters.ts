@@ -71,6 +71,7 @@ import type {
     WireRenamePrepare,
     WireTextEdit,
 } from "./wireTypes.ts";
+import { parseWireStringArray } from "./wireTypes.ts";
 
 function isFiniteNumber(raw: unknown): raw is number {
     return Number.isFinite(raw);
@@ -614,8 +615,8 @@ function readCompletionTags(item: vscode.CompletionItem): CompletionItemTag[] {
 }
 
 function readCommitCharacters(item: vscode.CompletionItem): string[] {
-    const raw = (item as { commitCharacters?: unknown }).commitCharacters;
-    return Array.isArray(raw) ? raw.filter((c): c is string => typeof c === "string" && c !== "") : [];
+    const chars = parseWireStringArray((item as { commitCharacters?: unknown }).commitCharacters) ?? [];
+    return chars.filter((c) => c !== "");
 }
 
 export function readAdditionalTextEdits(item: vscode.CompletionItem): IWireEditorEdit[] {

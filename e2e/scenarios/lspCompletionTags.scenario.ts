@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 
 import { findTextCell } from "../helpers/frame.ts";
@@ -15,8 +16,6 @@ import { defineScenario } from "./framework.ts";
 // class `isRecommended`, the client turns it into `preselect`, and the popup opens on it rather than on its first row.
 
 const require_ = createRequire(import.meta.url);
-/** The engine's `StyleFlags.Strikethrough`. */
-const STRIKETHROUGH = 32;
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-lsp-tags-demo-"));
 const mainFile = join(sampleDir, "main.ts");
@@ -74,8 +73,8 @@ export default defineScenario({
                 return (
                     old !== null &&
                     other !== null &&
-                    (cellAt(frame, old).style & STRIKETHROUGH) !== 0 &&
-                    (cellAt(frame, other).style & STRIKETHROUGH) === 0
+                    (cellAt(frame, old).style & StyleFlags.Strikethrough) !== 0 &&
+                    (cellAt(frame, other).style & StyleFlags.Strikethrough) === 0
                 );
             },
             { describe: "oldFn struck through, otherFn not", timeoutMs: 120_000, intervalMs: 500 },

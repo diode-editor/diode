@@ -3,7 +3,9 @@ import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
+import { typeText } from "../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { settle } from "../../../TestUtils/timing.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { CompletionItemTag, type ICoreCompletionItem } from "../../editor/common/languages/iCompletionSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
@@ -27,14 +29,10 @@ describe("Workbench: completion tags and preselect", () => {
         return h.container.get(SuggestComponentDIToken).view.getSelectedItem()?.label;
     }
 
-    /** Waits for the auto-suggest debounce (120 ms) and the provider's response. */
-    function settle(): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, 300));
-    }
-
+    /** Types, then waits for the auto-suggest debounce (120 ms) and the provider's response. */
     async function type(text: string): Promise<void> {
-        for (const char of text) h.testApp.sendKey(char);
-        await settle();
+        typeText(h.testApp, text);
+        await settle(300);
     }
 
     /** Screen position of the first cell of `label` in the frame. */
@@ -85,7 +83,7 @@ describe("Workbench: completion tags and preselect", () => {
         await type("e");
         expect(selectedLabel()).toBe("onePick");
         h.testApp.sendKey("Enter");
-        await settle();
+        await settle(300);
         expect(editor().viewState.document.getText()).toBe("onePick\n");
     });
 
