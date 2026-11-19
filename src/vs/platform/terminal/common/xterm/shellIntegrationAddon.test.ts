@@ -112,8 +112,8 @@ describe("ShellIntegrationAddon — commands", () => {
 
     it("unicode survives the command line", async () => {
         const { write, finished } = make();
-        await write(`${vsc("B")}${vsc(`E;echo\\x20привет 🚀;${NONCE}`)}${vsc("C")}${vsc("D;0")}`);
-        expect(finished[0].command).toBe("echo привет 🚀");
+        await write(`${vsc("B")}${vsc(`E;echo\\x20γειά 🚀;${NONCE}`)}${vsc("C")}${vsc("D;0")}`);
+        expect(finished[0].command).toBe("echo γειά 🚀");
     });
 
     it("without E the line is read from the buffer: medium after a prompt, low when nothing is to the left", async () => {
@@ -135,6 +135,21 @@ describe("ShellIntegrationAddon — commands", () => {
         const long = "x".repeat(50);
         await write(`${vsc("A")}$ ${vsc("B")}${long}${vsc("C")}\r\n${vsc("D;0")}`);
         expect(finished[0].command).toBe(long);
+    });
+
+    it("E after C (fish 4 sends its own 133;C first): the start has the buffer's line, the end the reported one", async () => {
+        const { write, executed, finished } = make();
+        await write(`${vsc("A")}$ ${vsc("B")}ls${ft("C")}`);
+        expect(executed.map((c) => [c.command, c.commandLineConfidence, c.isTrusted])).toStrictEqual([
+            ["ls", "medium", false],
+        ]);
+        const started = { ...executed[0] };
+        expect(started.command).toBe("ls");
+        await write(`${vsc(`E;ls -a;${NONCE}`)}${vsc("C")}\r\n${ft("D;0")}${vsc("D;0")}`);
+        expect(executed).toHaveLength(1);
+        expect(finished.map((c) => [c.command, c.commandLineConfidence, c.isTrusted, c.exitCode])).toStrictEqual([
+            ["ls -a", "high", true, 0],
+        ]);
     });
 
     it("a repeated C does not start the command again", async () => {
@@ -261,8 +276,8 @@ describe("ShellIntegrationAddon — cwd", () => {
 
     it("a quoted cwd loses its quotes; unicode stays", async () => {
         const { write, addon } = make();
-        await write(vsc(`P;Cwd="/tmp/папка";${NONCE}`));
-        expect(addon.capabilities.get("cwdDetection")?.getCwd()).toBe("/tmp/папка");
+        await write(vsc(`P;Cwd="/tmp/φάκελος";${NONCE}`));
+        expect(addon.capabilities.get("cwdDetection")?.getCwd()).toBe("/tmp/φάκελος");
     });
 
     it("a command takes the cwd known at its start (B)", async () => {

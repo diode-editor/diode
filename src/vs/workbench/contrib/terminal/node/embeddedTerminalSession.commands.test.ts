@@ -41,7 +41,11 @@ interface IRecorded {
     readonly finished: ITerminalCommand[];
     readonly output: Map<ITerminalCommand, string>;
     integrationOn: number;
+    /** `633;B` seen in the raw output: prompts drawn and ready for input. */
+    prompts: number;
 }
+
+const COMMAND_START = "\x1b]633;B\x07";
 
 function start(shell: string): IRecorded {
     const session = new EmbeddedTerminalSession({
@@ -65,7 +69,10 @@ function start(shell: string): IRecorded {
         shellIntegrationEnabled: true,
     });
     sessions.push(session);
-    const recorded: IRecorded = { session, finished: [], output: new Map(), integrationOn: 0 };
+    const recorded: IRecorded = { session, finished: [], output: new Map(), integrationOn: 0, prompts: 0 };
+    session.onWillData((data) => {
+        recorded.prompts += data.split(COMMAND_START).length - 1;
+    });
     session.shellIntegration.capabilities.onDidAddCommandDetectionCapability((detection) => {
         recorded.integrationOn++;
         detection.onCommandFinished((command) => recorded.finished.push(command));
@@ -76,11 +83,14 @@ function start(shell: string): IRecorded {
     return recorded;
 }
 
+/** Typed once the next prompt is drawn: PSReadLine drops what is typed before that. */
 async function run(recorded: IRecorded, line: string): Promise<ITerminalCommand> {
     const before = recorded.finished.length;
+    const prompts = recorded.prompts;
     recorded.session.write(`${line}\r`);
     await vi.waitFor(() => {
         expect(recorded.finished.length).toBeGreaterThan(before);
+        expect(recorded.prompts).toBeGreaterThan(prompts);
     }, WAIT);
     return recorded.finished[before];
 }
@@ -88,15 +98,16 @@ async function run(recorded: IRecorded, line: string): Promise<ITerminalCommand>
 async function waitForIntegration(recorded: IRecorded): Promise<void> {
     await vi.waitFor(() => {
         expect(recorded.integrationOn).toBe(1);
+        expect(recorded.prompts).toBeGreaterThan(0);
     }, WAIT);
 }
 
 /**
  * `echoOutputTail` — what follows `hi\r\n` in the output: nothing for bash; zsh prints its PROMPT_SP (the inverse `%`
  * mark of an unterminated line, then spaces) before `D`, so there it belongs to the output, as upstream. `undefined` —
- * only `hi` is checked (fish and pwsh redraw their line editor around the output).
+ * only that `C` and `hi` are in it (fish and pwsh write their own sequences and line editor redraws around them).
  */
-function commandsTest(shell: string, echoOutputTail: string | undefined) {
+function commandsTest(shell: string, echoOutputTail: string | undefined, trusted = true) {
     return async () => {
         const dir = path.join(tmp, "work dir");
         mkdirSync(dir);
@@ -108,13 +119,14 @@ function commandsTest(shell: string, echoOutputTail: string | undefined) {
         expect(
             [cd, echo, fail].map((c) => [c.command, c.exitCode, c.isTrusted, c.commandLineConfidence]),
         ).toStrictEqual([
-            [`cd '${dir}'`, 0, true, "high"],
-            ["echo hi", 0, true, "high"],
-            ["false", 1, true, "high"],
+            [`cd '${dir}'`, 0, trusted, "high"],
+            ["echo hi", 0, trusted, "high"],
+            ["false", 1, trusted, "high"],
         ]);
         expect([cd.cwd, echo.cwd, fail.cwd]).toStrictEqual([home, dir, dir]);
         const echoOutput = recorded.output.get(echo) ?? "";
-        expect(echoOutput.startsWith(EXECUTED)).toBe(true);
+        // fish 4 starts with its own `133;C;cmdline_url=…` (only a bare `C` is cut out, as upstream): `633;C` comes later.
+        expect(echoOutput).toContain(EXECUTED);
         expect(echoOutput).toContain("hi\r\n");
         if (echoOutputTail !== undefined)
             expect(echoOutput.startsWith(`${EXECUTED}hi\r\n${echoOutputTail}`)).toBe(true);
@@ -201,7 +213,9 @@ describe.skipIf(ZSH === undefined)("EmbeddedTerminalSession — shell integratio
 describe.skipIf(FISH === undefined)("EmbeddedTerminalSession — shell integration commands, fish", () => {
     it(
         "cd, echo hi, false — three trusted commands, their exit codes, cwds and output",
-        commandsTest(FISH ?? "", undefined),
+        // The 1.127.0 fish script sets the nonce with `set -l` inside an `if`: it is gone outside the block, `E`
+        // carries none. Upstream sees these commands untrusted too.
+        commandsTest(FISH ?? "", undefined, false),
         60_000,
     );
 });

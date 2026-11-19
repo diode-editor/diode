@@ -15,9 +15,9 @@ class TerminalCommand implements ITerminalCommand {
     public exitCode: number | undefined;
 
     public constructor(
-        public readonly command: string,
-        public readonly commandLineConfidence: TerminalCommandLineConfidence,
-        public readonly isTrusted: boolean,
+        public command: string,
+        public commandLineConfidence: TerminalCommandLineConfidence,
+        public isTrusted: boolean,
         public readonly cwd: string | undefined,
     ) {}
 }
@@ -75,8 +75,17 @@ export class CommandDetectionCapability implements IDisposable {
             marker === undefined ? undefined : { marker, x: this.terminal.buffer.active.cursorX, cwd: this.cwd };
     }
 
+    /**
+     * An `E` after `C` still sets the running command's line, as upstream sets its partial command's: fish 4 sends its
+     * own `133;C` before the script's `633;E`, so the start carries the buffer's line and the end the reported one.
+     */
     public setCommandLine(value: string, isTrusted: boolean): void {
         this.current.commandLine = { value, isTrusted };
+        const { executed } = this.current;
+        if (executed === undefined) return;
+        executed.command = value;
+        executed.commandLineConfidence = "high";
+        executed.isTrusted = isTrusted;
     }
 
     /** Upstream `UnixPtyHeuristics.handleCommandExecuted`: no event without a command start (`B`). */
