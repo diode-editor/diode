@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
-import { EmbeddedTerminalSession, type EmbeddedTerminalOptions } from "./embeddedTerminalSession.ts";
+import { type EmbeddedTerminalOptions, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
 /** The raw PTY output: the emulator swallows OSC 633, the shell integration script is seen only here. */
 class RecordingSession extends EmbeddedTerminalSession {
@@ -89,7 +89,11 @@ describe("EmbeddedTerminalSession — shell integration injection, bash", () => 
         await vi.waitFor(() => {
             expect(session.raw).toContain(PROMPT_START);
         }, WAIT);
-        const exited = new Promise<void>((resolve) => session.onExit(() => resolve()));
+        const exited = new Promise<void>((resolve) => {
+            session.onExit(() => {
+                resolve();
+            });
+        });
         session.write("exit\r");
         await exited;
         session.raw = "";
@@ -135,7 +139,11 @@ describe("EmbeddedTerminalSession — VSCODE_NONCE", () => {
         const second = start(printNonce);
         const nonce = await nonceOf(first);
         expect(await nonceOf(second)).not.toBe(nonce);
-        await new Promise<void>((resolve) => first.onExit(() => resolve()));
+        await new Promise<void>((resolve) => {
+            first.onExit(() => {
+                resolve();
+            });
+        });
         first.raw = "";
         first.relaunch(printNonce);
         expect(await nonceOf(first)).toBe(nonce);

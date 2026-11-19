@@ -28,7 +28,7 @@ beforeEach(() => {
     tmp = mkdtempSync(path.join(os.tmpdir(), "diode-si-"));
     host = {
         tmpdir: () => tmp,
-        userInfo: () => ({ ...os.userInfo(), username: "alice" }),
+        userInfo: () => ({ username: "alice" }),
         homedir: () => "/home/alice",
     };
 });

@@ -50,7 +50,11 @@ export interface IShellIntegrationOptions {
 }
 
 /** The `node:os` calls the zsh branch makes; tests replace them. */
-export type IShellIntegrationHost = Pick<typeof os, "tmpdir" | "userInfo" | "homedir">;
+export interface IShellIntegrationHost {
+    tmpdir(): string;
+    userInfo(): { readonly username: string };
+    homedir(): string;
+}
 
 const shLoginArgs = ["--login", "-l"];
 const shInteractiveArgs = ["-i", "--interactive"];
@@ -67,7 +71,7 @@ function areZshBashFishLoginArgs(originalArgs: readonly string[]): boolean {
 export function getShellIntegrationInjection(
     launch: IShellIntegrationLaunchConfig,
     options: IShellIntegrationOptions,
-    env: Readonly<Record<string, string>>,
+    env: Readonly<Record<string, string | undefined>>,
     logger: ILogger,
     host: IShellIntegrationHost = os,
 ): IShellIntegrationConfigInjection | IShellIntegrationInjectionFailure {
