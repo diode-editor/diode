@@ -27,7 +27,7 @@ let tmp: string;
 const sessions: EmbeddedTerminalSession[] = [];
 
 beforeEach(() => {
-    home = mkdtempSync(path.join(os.tmpdir(), "diode si home ё-"));
+    home = mkdtempSync(path.join(os.tmpdir(), "diode si home é-"));
     tmp = mkdtempSync(path.join(os.tmpdir(), "diode-si-tmp-"));
     vi.stubEnv("TMPDIR", tmp);
     vi.stubEnv("HOME", home);
@@ -42,7 +42,13 @@ afterEach(() => {
 
 function start(options: Partial<EmbeddedTerminalOptions>, logger?: ILogger): RecordingSession {
     const session = new RecordingSession(
-        { cols: 100, rows: 10, cwd: home, env: { HOME: home, HISTFILE: "/dev/null" }, ...options },
+        {
+            cols: 100,
+            rows: 10,
+            cwd: home,
+            env: { HOME: home, HISTFILE: "/dev/null", skip_global_compinit: "1" },
+            ...options,
+        },
         undefined,
         logger,
     );
@@ -119,10 +125,10 @@ describe.skipIf(ZSH === undefined)("shell integration — zsh edges", () => {
     }, 30_000);
 
     it("a home with spaces and unicode — the user's .zshrc runs", async () => {
-        writeFileSync(path.join(home, ".zshrc"), "alias diodealias='echo from-zshrc-ё'\n");
+        writeFileSync(path.join(home, ".zshrc"), "alias diodealias='echo from-zshrc-é'\n");
         const session = start({ shell: zsh, shellIntegrationEnabled: true });
         await waitFor(session, PROMPT_START);
-        await run(session, "diodealias", "from-zshrc-ё");
+        await run(session, "diodealias", "from-zshrc-é");
     }, 30_000);
 
     it("an existing ZDOTDIR left open to others is locked back to 0o1700", async () => {
