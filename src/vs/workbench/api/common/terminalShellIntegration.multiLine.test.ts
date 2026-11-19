@@ -1,67 +1,36 @@
 import { describe, expect, it } from "vitest";
-import type * as vscode from "vscode";
 
-import type { SubprocessRpc } from "./extHostProtocol.ts";
-import { createTerminalShellIntegrations, type IShellIntegrationTerminal } from "./terminalShellIntegration.ts";
+import { settle } from "../../../../TestUtils/timing.ts";
+
+import { LOW, setupShellIntegrations } from "./terminalShellIntegration.testUtils.ts";
 
 // A multi-line `executeCommand`: each line is a command of its own to the shell, one execution to the extension.
 
-const HIGH = { confidence: 2, isTrusted: true };
-const LOW = { confidence: 0, isTrusted: false };
-
+/** Terminal 1 with its integration alive. */
 function setup() {
-    const handlers = new Map<string, (params: unknown) => void>();
-    const rpc = {
-        handleNotification: (method: string, handler: (params: unknown) => void) => {
-            handlers.set(method, handler);
-            return { dispose: () => undefined };
-        },
-        notify: () => undefined,
-    } as unknown as SubprocessRpc;
-    const terminal: IShellIntegrationTerminal = {
-        value: { name: "t" } as vscode.Terminal,
-        shellIntegration: undefined,
-    };
-    const integrations = createTerminalShellIntegrations(rpc, () => terminal);
-    const send = (method: string, params: unknown): void => {
-        handlers.get(method)?.(params);
-    };
-    send("terminal.shellIntegration.changed", { id: 1, supportsExecuteCommand: true });
-    const starts: vscode.TerminalShellExecution[] = [];
-    const ends: [vscode.TerminalShellExecution, string, number | undefined][] = [];
-    integrations.onDidStartTerminalShellExecution(({ execution }) => starts.push(execution));
-    integrations.onDidEndTerminalShellExecution(({ execution, exitCode }) =>
-        ends.push([execution, execution.commandLine.value, exitCode]),
-    );
-    const executeCommand = (commandLine: string): vscode.TerminalShellExecution => {
-        if (terminal.shellIntegration === undefined) throw new Error("no integration");
-        return terminal.shellIntegration.executeCommand(commandLine);
-    };
-    const start = (value: string, line = HIGH): void => {
-        send("terminal.shellExecution.start", { id: 1, supportsExecuteCommand: true, commandLine: { value, ...line } });
-    };
-    const end = (value: string, exitCode: number): void => {
-        send("terminal.shellExecution.end", { id: 1, commandLine: { value, ...HIGH }, exitCode });
-    };
-    const data = (value: string): void => {
-        send("terminal.shellExecution.data", { id: 1, data: value });
-    };
+    const h = setupShellIntegrations();
+    h.send("terminal.shellIntegration.changed", { id: 1, supportsExecuteCommand: true });
     return {
-        starts,
-        ends,
-        executeCommand,
-        start,
-        end,
-        data,
+        starts: h.starts,
+        ends: h.ends,
+        executeCommand: (commandLine: string) => h.integration(1).executeCommand(commandLine),
+        start: (value: string, line?: typeof LOW) => {
+            h.start(1, value, line);
+        },
+        end: (value: string, exitCode: number) => {
+            h.end(1, value, exitCode);
+        },
+        data: (value: string) => {
+            h.data(1, value);
+        },
         close: () => {
-            integrations.close(1);
+            h.integrations.close(1);
         },
     };
 }
 
-async function macrotask(): Promise<void> {
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
-}
+/** A macrotask: the end event waits for the `read()` streams. */
+const macrotask = (): Promise<void> => settle(0);
 
 async function readAll(stream: AsyncIterable<string>): Promise<string> {
     let out = "";

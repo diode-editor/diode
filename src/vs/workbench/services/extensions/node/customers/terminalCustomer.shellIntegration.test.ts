@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { FakeEditorTerminals } from "../../../../../../TestUtils/FakeEditorTerminals.ts";
+import { drain, osc633 as osc, ScriptedShell } from "../../../../../../TestUtils/scriptedShell.ts";
 import { createTestConfigurationService } from "../../../../../../TestUtils/testConfigurationService.ts";
 import type { HostRpc, SubprocessRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
@@ -12,49 +13,14 @@ import { makeViewsHarness } from "../../../../browser/parts/views/viewsService.t
 import { ExtensionTerminalAdapter } from "../../../../contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TerminalService } from "../../../../contrib/terminal/browser/terminalService.ts";
 import { SHELL_EXECUTION_DATA_DEBOUNCE_MS } from "../../../../contrib/terminal/browser/terminalShellIntegrationRelay.ts";
-import type { ITerminalSessionOptions } from "../../../../contrib/terminal/common/terminalSessionFactory.ts";
 import { ExtensionPtySession } from "../../../../contrib/terminal/node/extensionPtySession.ts";
 
 import { TerminalCustomer } from "./terminalCustomer.ts";
 
-const osc = (body: string): string => `\x1b]633;${body}\x07`;
 const PROMPT = `${osc("A")}$ ${osc("B")}`;
 /** What the injected bash script writes for one command after its prompt. */
 function run(commandLine: string, output: string, exitCode: number, nonce = ""): string {
     return `${commandLine}\r\n${osc(`E;${commandLine};${nonce}`)}${osc("C")}${output}${osc(`D;${String(exitCode)}`)}`;
-}
-
-/** The emulator is a lazy chunk and parses asynchronously; the in-process pair sends via a microtask. */
-async function drain(ms = 0): Promise<void> {
-    if (ms > 0) await new Promise<void>((r) => setTimeout(r, ms));
-    for (let i = 0; i < 10; i++) await new Promise<void>((r) => setTimeout(r, 0));
-}
-
-/** A real emulator over no process: what the test feeds is what a shell would have written. */
-class ScriptedShell extends ExtensionPtySession {
-    public readonly input: string[];
-    public readonly sessionOptions: ITerminalSessionOptions;
-
-    public constructor(options: ITerminalSessionOptions) {
-        const input: string[] = [];
-        super({
-            cols: options.cols,
-            rows: options.rows,
-            name: options.shell ?? "/bin/bash",
-            onInput: (data) => input.push(data),
-            onResize: () => undefined,
-            ...(options.shellIntegrationNonce !== undefined
-                ? { shellIntegrationNonce: options.shellIntegrationNonce }
-                : {}),
-        });
-        this.input = input;
-        this.sessionOptions = options;
-    }
-
-    /** The nonce the shell got as `VSCODE_NONCE`. */
-    public get nonce(): string {
-        return this.shellIntegrationNonce;
-    }
 }
 
 const disposables: { dispose(): void }[] = [];

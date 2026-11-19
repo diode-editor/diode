@@ -11,7 +11,6 @@ import { IConfigurationServiceDIToken } from "../../../../platform/configuration
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { CommandDetectionCapability } from "../../../../platform/terminal/common/capabilities/commandDetectionCapability.ts";
 import {
     guessShellTypeFromExecutable,
     type TerminalShellType,
@@ -455,18 +454,16 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         if (commandDetection?.promptInputModel.state !== "input") {
             const store = new DisposableStore();
             const inputStarted = new Promise<void>((resolve) => {
-                const waitForInput = (capability: CommandDetectionCapability): void => {
-                    if (capability.promptInputModel.state === "input") resolve();
-                    else store.add(capability.promptInputModel.onDidStartInput(resolve));
-                };
                 // Deviation: upstream waits only for a capability added later; one that came alive on `A`, before
                 // its `B`, would cost the whole timeout.
-                if (commandDetection !== undefined) waitForInput(commandDetection);
+                if (commandDetection !== undefined)
+                    store.add(commandDetection.promptInputModel.onDidStartInput(resolve));
                 if (capabilities === undefined) return;
                 store.add(
                     capabilities.onDidAddCommandDetectionCapability((capability) => {
                         commandDetection = capability;
-                        waitForInput(capability);
+                        if (capability.promptInputModel.state === "input") resolve();
+                        else store.add(capability.promptInputModel.onDidStartInput(resolve));
                     }),
                 );
             });

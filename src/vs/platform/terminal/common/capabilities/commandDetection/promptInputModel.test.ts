@@ -80,10 +80,10 @@ describe("PromptInputModel — the prompt's state and what is typed on it", () =
         expect(model().value).toBe(`${"x".repeat(18)}yy z`);
     });
 
-    it("a start pushed out of the scrollback reads the rows still there", async () => {
+    it("a start pushed out of the scrollback reads only the cursor's row", async () => {
         const { write, model } = make(0);
         await write(`${vsc("A")}$ ${vsc("B")}${"a".repeat(18)}${"b".repeat(20)}${"c".repeat(20)}d`);
-        expect(model().value).toBe(`${"b".repeat(20)}${"c".repeat(20)}d`);
+        expect(model().value).toBe("d");
     });
 
     it("no input in the alternate buffer: a B there has no mark", async () => {

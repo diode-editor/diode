@@ -1,7 +1,7 @@
 // Upstream `commandDetectionCapability.ts` + `commandDetection/terminalCommand.ts`, the Unix path: the shell's
-// prompt/command/executed/finished marks become commands, and the prompt input model the minimal slice of upstream's.
-// Not ported: reading the command line from the prompt input model (a command line without `633;E` is read from the
-// buffer between the command start and executed marks — upstream's fallback), the Windows
+// prompt/command/executed/finished marks become commands; the prompt input model is a slice of upstream's. Not ported:
+// the command line read from the prompt input model (without `633;E` it is read from the buffer between the command
+// start and executed marks — upstream's fallback), the Windows
 // heuristics, invalidation on clear, serialization, the bash `history` exit code hack, markers kept per command
 // (they serve decorations).
 

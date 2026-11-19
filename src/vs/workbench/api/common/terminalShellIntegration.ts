@@ -204,9 +204,10 @@ class ShellIntegration {
      * running multi-line execution is no new start.
      */
     public start(commandLine: vscode.TerminalShellExecutionCommandLine, cwd: vscode.Uri | undefined): void {
+        const lines = splitAndSanitizeCommandLine(commandLine.value);
         // Set only while a multi-line execution is the current one.
         if (this.unresolvedCommandLines !== undefined) {
-            const rest = subExecutionRest(this.unresolvedCommandLines, commandLine);
+            const rest = subExecutionRest(this.unresolvedCommandLines, lines);
             if (rest !== undefined) {
                 this.unresolvedCommandLines = rest;
                 return;
@@ -217,13 +218,17 @@ class ShellIntegration {
         // one, a lower one takes the oldest.
         let execution: ShellExecution | undefined;
         if (commandLine.confidence === HIGH) {
-            const index = this.pending.findIndex((e) => {
-                const requested = e.value.commandLine.value;
-                if (requested === commandLine.value) return true;
-                this.unresolvedCommandLines = subExecutionRest(splitAndSanitizeCommandLine(requested), commandLine);
-                return this.unresolvedCommandLines !== undefined;
-            });
-            if (index !== -1) execution = this.pending.splice(index, 1)[0];
+            for (const [i, pending] of this.pending.entries()) {
+                const requested = pending.value.commandLine.value;
+                const rest =
+                    requested === commandLine.value
+                        ? undefined
+                        : subExecutionRest(splitAndSanitizeCommandLine(requested), lines);
+                if (requested !== commandLine.value && rest === undefined) continue;
+                execution = this.pending.splice(i, 1)[0];
+                this.unresolvedCommandLines = rest;
+                break;
+            }
         } else {
             execution = this.pending.shift();
         }
@@ -297,17 +302,10 @@ function splitAndSanitizeCommandLine(commandLine: string): string[] {
  * lines still to run; `undefined` — the command is not a part of the execution. Deviation: an empty command line is
  * not a part of any (upstream takes it for one, and a pending single-line execution for multi-line).
  */
-function subExecutionRest(
-    unresolved: readonly string[],
-    commandLine: vscode.TerminalShellExecutionCommandLine,
-): string[] | undefined {
-    const rest = [...unresolved];
-    const lines = splitAndSanitizeCommandLine(commandLine.value);
-    while (rest.length > 0 && rest[0] === lines[0]) {
-        rest.shift();
-        lines.shift();
-    }
-    return lines.length === 0 && rest.length < unresolved.length ? rest : undefined;
+function subExecutionRest(unresolved: readonly string[], lines: readonly string[]): string[] | undefined {
+    let i = 0;
+    while (i < unresolved.length && i < lines.length && unresolved[i] === lines[i]) i++;
+    return i > 0 && i === lines.length ? unresolved.slice(i) : undefined;
 }
 
 /** Upstream `executeCommand(executable, args)`: an argument with whitespace and no quotes is wrapped in `"…"`. */

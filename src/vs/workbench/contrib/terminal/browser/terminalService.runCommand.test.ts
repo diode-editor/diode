@@ -1,20 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { drain, osc633 as osc, ScriptedShell } from "../../../../../TestUtils/scriptedShell.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
-import { ExtensionPtySession } from "../node/extensionPtySession.ts";
 
 import { RUN_COMMAND_INTERRUPT_DELAY_MS, TerminalService } from "./terminalService.ts";
 
 // `runCommand` (an extension's `executeCommand`) on a real emulator: what the test feeds is what a shell with the
 // integration script would have written, what the shell gets is recorded.
-
-const osc = (body: string): string => `\x1b]633;${body}\x07`;
-
-/** The emulator parses asynchronously. */
-async function drain(): Promise<void> {
-    for (let i = 0; i < 10; i++) await new Promise<void>((r) => setTimeout(r, 0));
-}
 
 const disposables: { dispose(): void }[] = [];
 afterEach(() => {
@@ -24,16 +17,9 @@ afterEach(() => {
 
 function setup(settings: Record<string, unknown> = {}) {
     const views = makeViewsHarness();
-    const input: string[] = [];
-    const shells: ExtensionPtySession[] = [];
+    const shells: ScriptedShell[] = [];
     const service = new TerminalService(views.service, createTestConfigurationService(settings), (o) => {
-        const shell = new ExtensionPtySession({
-            cols: o.cols,
-            rows: o.rows,
-            name: "bash",
-            onInput: (data) => input.push(data),
-            onResize: () => undefined,
-        });
+        const shell = new ScriptedShell(o);
         shells.push(shell);
         return shell;
     });
@@ -43,7 +29,7 @@ function setup(settings: Record<string, unknown> = {}) {
         shells[0].feed(data);
         await drain();
     };
-    return { service, id, input, feed };
+    return { service, id, input: shells[0].input, feed };
 }
 
 describe("TerminalService.runCommand — an extension's executeCommand", () => {

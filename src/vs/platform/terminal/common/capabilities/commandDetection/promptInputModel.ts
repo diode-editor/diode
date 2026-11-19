@@ -13,7 +13,7 @@ export type PromptInputState = "unknown" | "input" | "execute";
 
 export class PromptInputModel implements IDisposable {
     private stateValue: PromptInputState = "unknown";
-    /** Where the typed command begins: the `B` mark and the cursor column then. */
+    /** Where the typed command begins: the `B` mark and the cursor column then; set exactly in the input state. */
     private start: { readonly marker: IMarker; readonly x: number } | undefined;
     private readonly onDidStartInputEmitter = new Emitter<void>();
 
@@ -28,16 +28,17 @@ export class PromptInputModel implements IDisposable {
 
     /**
      * What is typed on the prompt: the cells from the command start to the end of the cursor's line, trailing spaces
-     * trimmed. Empty out of the input state (upstream clears it when the command finishes).
+     * trimmed. Empty out of the input state (upstream clears it when the command finishes). A start trimmed out of
+     * the scrollback (its mark disposed, the line -1) leaves the cursor's line alone.
      */
     public get value(): string {
         const { start } = this;
-        if (this.stateValue !== "input" || start === undefined) return "";
+        if (start === undefined) return "";
         const buffer = this.terminal.buffer.active;
         const end = buffer.baseY + buffer.cursorY;
+        const first = start.marker.line < 0 ? end : start.marker.line;
         let value = "";
-        for (let i = start.marker.line; i <= end; i++) {
-            // A start trimmed out of the scrollback has a disposed mark, its line is -1.
+        for (let i = first; i <= end; i++) {
             value += buffer.getLine(i)?.translateToString(true, i === start.marker.line ? start.x : 0) ?? "";
         }
         return value.trimEnd();
