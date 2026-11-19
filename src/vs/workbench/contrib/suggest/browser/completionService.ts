@@ -746,15 +746,23 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * lags behind the cursor, and accept would leave a tail (`"editor.tabSize"di`).
      */
     private resolveAcceptRange(
+        editor: TextEditorPane,
         core: ICoreCompletionItem,
         prefixRange: IRange,
-        caret: IPosition,
-        replace: boolean,
+        alternative: boolean,
     ): IRange {
         const range = core.range;
         if (range === undefined) return prefixRange;
-        const picked = isCompletionItemRanges(range) ? (replace ? range.replace : range.insert) : range;
-        return followCaret(picked, assertReturnsDefined(this.triggerCaret), caret);
+        const caret = editor.viewState.selections[0].active;
+        return followCaret(
+            isCompletionItemRanges(range)
+                ? this.replacesOnAccept(editor, alternative)
+                    ? range.replace
+                    : range.insert
+                : range,
+            assertReturnsDefined(this.triggerCaret),
+            caret,
+        );
     }
 
     /** Upstream `getOverwriteInfo`: the alternative accept flips the mode. */
@@ -774,6 +782,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const providerOf = new Map<ICoreCompletionItem, CompletionItemProvider>();
         for (const [item, provider] of this.providerOf) {
             if (asked.includes(provider)) continue;
+            const move = (range: IRange): IRange => followCaret(range, from, caret);
             const range = item.range;
             const moved =
                 range === undefined
@@ -781,11 +790,8 @@ export class CompletionService extends Disposable implements IContextKeyContribu
                     : {
                           ...item,
                           range: isCompletionItemRanges(range)
-                              ? {
-                                    insert: followCaret(range.insert, from, caret),
-                                    replace: followCaret(range.replace, from, caret),
-                                }
-                              : followCaret(range, from, caret),
+                              ? { insert: move(range.insert), replace: move(range.replace) }
+                              : move(range),
                       };
             items.push(moved);
             providerOf.set(moved, provider);
@@ -806,16 +812,11 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             return;
         }
         // Read the cursor BEFORE close() — resolveAcceptRange compares it with triggerCaret.
-        const { selections } = editor.viewState;
+        const { document, selections } = editor.viewState;
         const ranges = rangesAroundCarets(
-            editor.viewState.document,
+            document,
             selections,
-            this.resolveAcceptRange(
-                core,
-                prefixRange,
-                selections[0].active,
-                this.replacesOnAccept(editor, alternative),
-            ),
+            this.resolveAcceptRange(editor, core, prefixRange, alternative),
         );
         this.close();
 
@@ -849,15 +850,16 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         additionalEdits: readonly ITextEdit[],
     ): void {
         // Upstream inserts every item as a snippet: `adjustWhitespace` unless the item keeps its whitespace.
-        const adjust = ((core.insertTextRules ?? 0) & CompletionItemInsertTextRule.KeepWhitespace) === 0;
-        const { document, tabSize, insertSpaces } = editor.viewState;
-        const textAt = (range: IRange): string =>
-            adjust
-                ? adjustTextWhitespace(core.insertText, leadingWhitespaceBefore(document, range.start), {
-                      tabSize,
-                      insertSpaces,
-                  })
-                : core.insertText;
+        const { viewState } = editor;
+        const textAt =
+            ((core.insertTextRules ?? 0) & CompletionItemInsertTextRule.KeepWhitespace) === 0
+                ? (range: IRange): string =>
+                      adjustTextWhitespace(
+                          core.insertText,
+                          leadingWhitespaceBefore(viewState.document, range.start),
+                          viewState,
+                      )
+                : (): string => core.insertText;
         // The edit below synchronously calls onCaretChanged — don't let it auto-reopen the popup.
         editor.applyExternalEdits(
             [...ranges.map((range) => createTextEdit(range, textAt(range))), ...additionalEdits],

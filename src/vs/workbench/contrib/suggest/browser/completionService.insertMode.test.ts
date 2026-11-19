@@ -62,6 +62,14 @@ describe("CompletionService — insert mode and whitespace", () => {
         await ctx.harness.container.get(IConfigurationServiceDIToken).updateValue("editor.suggest.insertMode", value);
     }
 
+    /** `con|sole` with the list of {@link CONST} open. */
+    async function openConsole(mode?: "insert" | "replace"): Promise<void> {
+        start("console", 3);
+        if (mode !== undefined) await setInsertMode(mode);
+        register([CONST]);
+        await open();
+    }
+
     function screen(): string {
         ctx.testApp.render();
         return ctx.testApp.backend.screenToString();
@@ -69,19 +77,14 @@ describe("CompletionService — insert mode and whitespace", () => {
 
     describe("editor.suggest.insertMode", () => {
         it("insert by default — the text right of the caret stays", async () => {
-            start("console", 3);
-            register([CONST]);
-            await open();
+            await openConsole();
             ctx.testApp.sendKey("Enter");
             expect(drawSelections(pane())).toBe("const|sole");
             expect(screen()).toContain("constsole");
         });
 
         it("replace — the item overwrites the word right of the caret", async () => {
-            start("console", 3);
-            await setInsertMode("replace");
-            register([CONST]);
-            await open();
+            await openConsole("replace");
             ctx.testApp.sendKey("Tab");
             expect(drawSelections(pane())).toBe("const|");
             expect(screen()).not.toContain("constsole");
@@ -99,19 +102,14 @@ describe("CompletionService — insert mode and whitespace", () => {
         });
 
         it("both ranges follow the characters typed after the list opened", async () => {
-            start("console", 3);
-            register([CONST]);
-            await open();
+            await openConsole();
             ctx.testApp.sendKey("s");
             ctx.testApp.sendKey("Enter");
             expect(drawSelections(pane())).toBe("const|sole");
         });
 
         it("replace after typing takes the whole word, the typed character included", async () => {
-            start("console", 3);
-            await setInsertMode("replace");
-            register([CONST]);
-            await open();
+            await openConsole("replace");
             ctx.testApp.sendKey("s");
             ctx.testApp.sendKey("Enter");
             expect(drawSelections(pane())).toBe("const|");
@@ -127,28 +125,15 @@ describe("CompletionService — insert mode and whitespace", () => {
     });
 
     describe("acceptAlternativeSelectedSuggestion", () => {
-        it("Shift+Enter in insert mode replaces", async () => {
-            start("console", 3);
-            register([CONST]);
-            await open();
-            ctx.testApp.sendKey("Shift+Enter");
+        it.each(["Shift+Enter", "Shift+Tab"])("%s in insert mode replaces", async (key) => {
+            await openConsole();
+            ctx.testApp.sendKey(key);
             expect(drawSelections(pane())).toBe("const|");
             expect(ctx.completion.isOpen()).toBe(false);
         });
 
-        it("Shift+Tab in insert mode replaces", async () => {
-            start("console", 3);
-            register([CONST]);
-            await open();
-            ctx.testApp.sendKey("Shift+Tab");
-            expect(pane().getText()).toBe("const");
-        });
-
         it("Shift+Enter in replace mode inserts", async () => {
-            start("console", 3);
-            await setInsertMode("replace");
-            register([CONST]);
-            await open();
+            await openConsole("replace");
             ctx.testApp.sendKey("Shift+Enter");
             expect(pane().getText()).toBe("constsole");
         });
