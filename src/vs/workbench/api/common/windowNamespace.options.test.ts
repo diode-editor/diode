@@ -151,6 +151,10 @@ describe("WindowNamespace — TextEditor.options reads the editor's values (#123
         editor.options = { tabSize: 8, insertSpaces: false };
         expect(editor.options).toMatchObject({ tabSize: 8, indentSize: 8, insertSpaces: false });
         expect(events).toEqual([]);
+
+        // A scroll before the host answers carries no options: the assignment still reads back.
+        stub.fire("editor.propertiesChanged", { uri: FILE, groupId: 2, visibleRanges: [RANGE] });
+        expect(editor.options).toMatchObject({ tabSize: 8, insertSpaces: false });
         expect(stub.requests.at(-1)).toEqual({
             method: "editor.setOptions",
             params: { tabSize: 8, insertSpaces: false, uri: FILE, groupId: 2 },

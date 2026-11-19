@@ -39,7 +39,7 @@ function makeCtx(user: Record<string, unknown> = {}) {
 describe("WindowNamespace — TextEditor.options.cursorStyle", () => {
     it("[api:TextEditor.options] unset everywhere, the getter reads Line and On, as upstream's defaults", () => {
         const { editor } = makeCtx();
-        expect(editor.options).toEqual({
+        expect({ ...editor.options }).toStrictEqual({
             cursorStyle: TextEditorCursorStyle.Line,
             lineNumbers: TextEditorLineNumbersStyle.On,
         });
