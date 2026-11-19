@@ -77,7 +77,7 @@ export function getShellIntegrationInjection(
 
     const originalArgs = launch.args ?? [];
     const isDefaultArgs = originalArgs.length === 0;
-    const isLoginArgs = !isDefaultArgs && areZshBashFishLoginArgs(originalArgs);
+    const isLoginArgs = areZshBashFishLoginArgs(originalArgs);
     const envMixin: Record<string, string> = { VSCODE_INJECTION: "1" };
 
     switch (path.basename(launch.executable)) {
