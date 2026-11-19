@@ -2,8 +2,8 @@ import { basename } from "node:path";
 
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 
-import { Emitter } from "../../../../base/common/event.ts";
 import { raceTimeout, timeout } from "../../../../base/common/async.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { currentOperatingSystem } from "../../../../base/common/platform.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -19,13 +19,13 @@ import {
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { getShellIntegrationTimeout } from "../common/terminalEnvironment.ts";
 import {
     type ITerminalSession,
     type ITerminalSessionOptions,
     type TerminalSessionFactory,
     TerminalSessionFactoryDIToken,
 } from "../common/terminalSessionFactory.ts";
-import { getShellIntegrationTimeout } from "../common/terminalEnvironment.ts";
 
 export const TERMINAL_VIEW_ID = "terminal";
 

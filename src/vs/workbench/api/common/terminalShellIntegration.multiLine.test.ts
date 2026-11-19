@@ -18,7 +18,10 @@ function setup() {
         },
         notify: () => undefined,
     } as unknown as SubprocessRpc;
-    const terminal: IShellIntegrationTerminal = { value: { name: "t" } as vscode.Terminal, shellIntegration: undefined };
+    const terminal: IShellIntegrationTerminal = {
+        value: { name: "t" } as vscode.Terminal,
+        shellIntegration: undefined,
+    };
     const integrations = createTerminalShellIntegrations(rpc, () => terminal);
     const send = (method: string, params: unknown): void => {
         handlers.get(method)?.(params);
@@ -43,7 +46,17 @@ function setup() {
     const data = (value: string): void => {
         send("terminal.shellExecution.data", { id: 1, data: value });
     };
-    return { starts, ends, executeCommand, start, end, data, close: () => integrations.close(1) };
+    return {
+        starts,
+        ends,
+        executeCommand,
+        start,
+        end,
+        data,
+        close: () => {
+            integrations.close(1);
+        },
+    };
 }
 
 async function macrotask(): Promise<void> {
