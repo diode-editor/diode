@@ -1,7 +1,8 @@
 // Upstream `src/vs/platform/terminal/node/terminalEnvironment.ts`, `getShellIntegrationInjection`: Linux/macOS
-// bash and zsh. Not ported: the Windows branches (pwsh.exe, git bash), fish and pwsh (the next issue of the chain),
+// bash, zsh, fish and pwsh. Not ported: the Windows branches (pwsh.exe, powershell.exe, git bash),
 // `ignoreShellIntegration`/`forceShellIntegration` (no launch sets them), `VSCODE_SHELL_ENV_REPORTING` and
-// `VSCODE_PATH_PREFIX` (they come with the OSC 633 parsing and the environment API).
+// `VSCODE_PATH_PREFIX` (they come with the OSC 633 parsing and the environment API), and upstream's zsh/fish check
+// that passes its own injected args through by array identity (no caller hands them back here).
 
 import { chmodSync, mkdirSync, realpathSync } from "node:fs";
 import * as os from "node:os";
@@ -62,6 +63,27 @@ export interface IShellIntegrationHost {
 
 const shLoginArgs = ["--login", "-l"];
 const shInteractiveArgs = ["-i", "--interactive"];
+const pwshLoginArgs = ["-login", "-l"];
+const pwshImpliedArgs = ["-nol", "-nologo"];
+
+/** A login flag alone, or next to an implied one (`-nologo`) in either order. */
+function arePwshLoginArgs(originalArgs: readonly string[]): boolean {
+    const args = originalArgs.map((arg) => arg.toLowerCase());
+    if (args.length === 1) return pwshLoginArgs.includes(args[0]);
+    return (
+        args.length === 2 &&
+        args.some((arg) => pwshLoginArgs.includes(arg)) &&
+        args.some((arg) => pwshImpliedArgs.includes(arg))
+    );
+}
+
+/** No arguments or only `-nologo`: pwsh starts as a plain interactive shell. */
+function arePwshImpliedArgs(originalArgs: readonly string[]): boolean {
+    return (
+        originalArgs.length === 0 ||
+        (originalArgs.length === 1 && pwshImpliedArgs.includes(originalArgs[0].toLowerCase()))
+    );
+}
 
 function areZshBashFishLoginArgs(originalArgs: readonly string[]): boolean {
     const args = originalArgs.filter((arg) => !shInteractiveArgs.includes(arg.toLowerCase()));
@@ -97,6 +119,29 @@ export function getShellIntegrationInjection(
             return {
                 type: "injection",
                 newArgs: ["--init-file", path.join(options.scriptsDir(), "shellIntegration-bash.sh")],
+                envMixin,
+                filesToCopy: [],
+            };
+        }
+        case "fish": {
+            if (!isDefaultArgs && !isLoginArgs) return { type: "failure", reason: "unsupportedArgs" };
+            const source = `source "${path.join(options.scriptsDir(), "shellIntegration.fish")}"`;
+            return {
+                type: "injection",
+                newArgs: [...(isLoginArgs ? ["-l"] : []), "--init-command", source],
+                envMixin,
+                filesToCopy: [],
+            };
+        }
+        case "pwsh": {
+            const isPwshLogin = arePwshLoginArgs(originalArgs);
+            if (!isPwshLogin && !arePwshImpliedArgs(originalArgs))
+                return { type: "failure", reason: "unsupportedArgs" };
+            const dotSource = `. "${path.join(options.scriptsDir(), "shellIntegration.ps1")}"`;
+            envMixin.VSCODE_STABLE = "1";
+            return {
+                type: "injection",
+                newArgs: [...(isPwshLogin ? ["-l"] : []), "-noexit", "-command", dotSource],
                 envMixin,
                 filesToCopy: [],
             };
