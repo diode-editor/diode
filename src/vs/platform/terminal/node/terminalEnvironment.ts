@@ -27,8 +27,8 @@ export interface IShellIntegrationConfigInjection {
     readonly type: "injection";
     readonly newArgs: readonly string[];
     readonly envMixin: Readonly<Record<string, string>>;
-    /** Copied by the process before the spawn; a failed copy is ignored (another user's identical script). */
-    readonly filesToCopy?: readonly { readonly source: string; readonly dest: string }[];
+    /** Copied by the process before the spawn (zsh's rc files; none for bash); a failed copy is ignored. */
+    readonly filesToCopy: readonly { readonly source: string; readonly dest: string }[];
 }
 
 export interface IShellIntegrationInjectionFailure {
@@ -98,6 +98,7 @@ export function getShellIntegrationInjection(
                 type: "injection",
                 newArgs: ["--init-file", path.join(options.scriptsDir(), "shellIntegration-bash.sh")],
                 envMixin,
+                filesToCopy: [],
             };
         }
         case "zsh": {

@@ -216,7 +216,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
         );
         if (injection.type === "failure") return options.args ?? [];
         Object.assign(env, injection.envMixin);
-        for (const file of injection.filesToCopy ?? []) {
+        for (const file of injection.filesToCopy) {
             try {
                 copyFileSync(file.source, file.dest);
             } catch {

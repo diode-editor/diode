@@ -97,6 +97,7 @@ describe("getShellIntegrationInjection — bash", () => {
             type: "injection",
             newArgs: ["--init-file", path.join(SCRIPTS, "shellIntegration-bash.sh")],
             envMixin: { VSCODE_INJECTION: "1", VSCODE_STABLE: "1" },
+            filesToCopy: [],
         });
         expect(inject("/usr/bin/bash", []).result).toMatchObject({ type: "injection" });
     });
@@ -107,6 +108,7 @@ describe("getShellIntegrationInjection — bash", () => {
                 type: "injection",
                 newArgs: ["--init-file", path.join(SCRIPTS, "shellIntegration-bash.sh")],
                 envMixin: { VSCODE_INJECTION: "1", VSCODE_SHELL_LOGIN: "1", VSCODE_STABLE: "1" },
+                filesToCopy: [],
             });
         }
     });
