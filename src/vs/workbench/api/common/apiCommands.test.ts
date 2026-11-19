@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { createApiCommands, type IApiCommandsDeps } from "./apiCommands.ts";
-import { Position, Range, Selection, SnippetString, Uri } from "./vscodeTypes.ts";
+import { DocumentLink, Position, Range, Selection, SnippetString, Uri } from "./vscodeTypes.ts";
 
 function setup(): { open: (...args: unknown[]) => Promise<unknown>; deps: IApiCommandsDeps } {
     const deps: IApiCommandsDeps = {
@@ -232,9 +232,38 @@ describe("apiCommands — vscode.execute*", () => {
         expect(released).toHaveBeenCalledTimes(1);
     });
 
-    it("vscode.executeLinkProvider answers an empty list: not wired to the link providers", async () => {
-        await expect(run("vscode.executeLinkProvider").call(uri)).resolves.toEqual([]);
-        await expect(run("vscode.executeLinkProvider").call(uri, 5)).resolves.toEqual([]);
+    it("vscode.executeLinkProvider asks the core's _executeLinkProvider and answers DocumentLinks", async () => {
+        const { call, deps } = run("vscode.executeLinkProvider");
+        vi.mocked(deps.executeHostCommand).mockResolvedValue([
+            { range: { start: { line: 0, character: 4 }, end: { line: 0, character: 11 } }, tooltip: "one" },
+            {
+                range: { start: { line: 1, character: 0 }, end: { line: 1, character: 21 } },
+                target: "https://example.com/x",
+            },
+        ]);
+
+        const links = (await call(uri, 2)) as vscode.DocumentLink[];
+
+        expect(deps.executeHostCommand).toHaveBeenCalledWith("_executeLinkProvider", [uri, 2]);
+        expect(links.map((link) => link instanceof DocumentLink)).toEqual([true, true]);
+        expect(links[0].range).toEqual(new Range(0, 4, 0, 11));
+        expect(links[0].target).toBeUndefined();
+        expect(links[0].tooltip).toBe("one");
+        expect(links[1].range).toEqual(new Range(1, 0, 1, 21));
+        expect(links[1].target?.toString()).toBe("https://example.com/x");
+        expect(deps.referenceDocument).not.toHaveBeenCalled();
+    });
+
+    it("vscode.executeLinkProvider drops a target that does not parse, as upstream, and keeps the link", async () => {
+        const { call, deps } = run("vscode.executeLinkProvider");
+        const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } };
+        vi.mocked(deps.executeHostCommand).mockResolvedValue([{ range, target: "no scheme" }]);
+
+        const links = (await call(uri)) as vscode.DocumentLink[];
+
+        expect(deps.executeHostCommand).toHaveBeenCalledWith("_executeLinkProvider", [uri, undefined]);
+        expect(links).toHaveLength(1);
+        expect(links[0].target).toBeUndefined();
     });
 
     it.each([

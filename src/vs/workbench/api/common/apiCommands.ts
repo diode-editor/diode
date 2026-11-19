@@ -1,6 +1,8 @@
 import type * as vscode from "vscode";
 
-import { Position, Range, SnippetString, Uri } from "./vscodeTypes.ts";
+import { toVscodeRange } from "./extHostTypeConverters.ts";
+import { DocumentLink, Position, Range, SnippetString, Uri } from "./vscodeTypes.ts";
+import type { IWireExecutedDocumentLink } from "./wireTypes.ts";
 import type { IDocumentReference } from "./workspaceNamespace.ts";
 
 type ApiCommandHandler = (...args: unknown[]) => unknown;
@@ -33,7 +35,7 @@ export function createApiCommands(deps: IApiCommandsDeps): ReadonlyMap<string, A
     return new Map<string, ApiCommandHandler>([
         ["vscode.open", (...args) => open(deps, args)],
         ["vscode.diff", (...args) => diff(deps, args)],
-        ["vscode.executeLinkProvider", (...args) => executeLinkProvider(args)],
+        ["vscode.executeLinkProvider", (...args) => executeLinkProvider(deps, args)],
         ["vscode.executeCompletionItemProvider", (...args) => executeCompletionItemProvider(deps, args)],
         ["vscode.executeCodeActionProvider", (...args) => executeCodeActionProvider(deps, args)],
         // Upstream's `recursive` only stops an `exclusive` selector from hiding the others; ours never hides them.
@@ -101,16 +103,34 @@ function isHttpString(value: unknown): boolean {
     return typeof value === "string" && /^https?:/i.test(value);
 }
 
-/**
- * Deviation: always empty, the command is not wired to the link providers yet. The arguments are still checked,
- * as upstream.
- */
-function executeLinkProvider(args: readonly unknown[]): Promise<readonly never[]> {
+/** Upstream's argument checks, then the core's `_executeLinkProvider`: the built-in URL detector lives there. */
+async function executeLinkProvider(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<vscode.DocumentLink[]> {
     const [uri, linkResolveCount] = args;
     const validate = validatorOf("vscode.executeLinkProvider");
     validate("uri", uri, Uri.isUri(uri));
     validate("linkResolveCount", linkResolveCount, isOptional(linkResolveCount, "number"));
-    return Promise.resolve([]);
+    const links = (await deps.executeHostCommand("_executeLinkProvider", [
+        uri,
+        linkResolveCount,
+    ])) as readonly IWireExecutedDocumentLink[];
+    return links.map(toDocumentLink);
+}
+
+/** Upstream `DocumentLink.to`: a target that does not parse is dropped, the link stays. */
+function toDocumentLink({ range, target, tooltip }: IWireExecutedDocumentLink): vscode.DocumentLink {
+    const link = new DocumentLink(toVscodeRange(range), parseLinkTarget(target));
+    link.tooltip = tooltip;
+    return link;
+}
+
+function parseLinkTarget(target: string | undefined): vscode.Uri | undefined {
+    try {
+        // Stryker disable next-line ConditionalExpression: equivalent: a strict parse of `undefined` throws and lands in the catch below
+        if (target !== undefined) return Uri.parse(target, true);
+    } catch {
+        // Upstream ignores it too.
+    }
+    return undefined;
 }
 
 /** For one command, as upstream's `createModelReference`: the command works on a file nobody opened. */
