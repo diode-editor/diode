@@ -8,6 +8,7 @@ import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
+import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import {
@@ -192,6 +193,11 @@ export class CompletionService extends Disposable implements IContextKeyContribu
                 store.add(
                     editor.onDidChangeCursorPosition(() => {
                         this.onCaretChanged(editor);
+                    }),
+                );
+                store.add(
+                    editor.onWillType((text) => {
+                        this.onWillType(editor, text);
                     }),
                 );
                 store.add(
@@ -461,6 +467,22 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             }
         }
         this.latest.cancel();
+    }
+
+    /**
+     * Upstream `CommitCharacterController`: a commit character of the selected item accepts it before the character
+     * is typed, so the character lands after the inserted text and is typed as usual (a trigger character opens a new
+     * list).
+     */
+    private onWillType(editor: TextEditorPane, char: string): void {
+        if (!this.isOpen()) return;
+        const item = this.component.view.getSelectedItem();
+        const core = item?.data as ICoreCompletionItem | undefined;
+        if (core?.commitCharacters?.some((commit) => commit.startsWith(char)) !== true) return;
+        const languageId = editor.languageId;
+        if (!this.configuration.get("editor.acceptSuggestionOnCommitCharacter", { overrideIdentifier: languageId }))
+            return;
+        this.accept(assertReturnsDefined(item), true);
     }
 
     /**
@@ -737,7 +759,8 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         return { items, providerOf };
     }
 
-    private accept(item: CompletionListItem): void {
+    /** `beforeTyping` — a commit character: the insertion can't wait for resolve, the character is typed right after. */
+    private accept(item: CompletionListItem, beforeTyping = false): void {
         const editor = this.activeEditor;
         const core = item.data as ICoreCompletionItem | undefined;
         const prefixRange = this.prefixRange;
@@ -760,6 +783,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // for resolve in this case (`suggestController`, "sync additional edits").
         if (core.additionalEdits !== undefined || id === undefined || resolve === undefined) {
             this.applyAccept(editor, ranges, core, core.additionalEdits ?? []);
+            return;
+        }
+        if (beforeTyping) {
+            this.acceptBeforeTyping(editor, ranges, core, id, resolve);
             return;
         }
         // The server returns auto-import edits only on resolve, and the details panel is usually hidden.
@@ -797,6 +824,39 @@ export class CompletionService extends Disposable implements IContextKeyContribu
                 this.commands.execute(command.command, ...(command.arguments ?? []));
             });
         }
+    }
+
+    /**
+     * Upstream's "async additional edits": the item goes in now with the edits resolve already brought, or else the
+     * edits follow when it answers, as their own undo step — unless the document changed before one of them meanwhile.
+     */
+    private acceptBeforeTyping(
+        editor: TextEditorPane,
+        ranges: readonly IRange[],
+        core: ICoreCompletionItem,
+        id: string,
+        resolve: (id: string) => Promise<ICoreResolvedCompletion | null>,
+    ): void {
+        const cached = this.resolvedItems.get(id);
+        this.applyAccept(editor, ranges, core, cached?.additionalEdits ?? []);
+        if (cached !== undefined) return;
+        // The earliest end of a change since the insertion; a reload from disk invalidates every position.
+        let earliest: IPosition | null = null;
+        let flushed = false;
+        const listener = editor.model.document.onDidChangeModelContent((event) => {
+            flushed ||= event.isFlush;
+            for (const { range } of event.changes) {
+                if (earliest === null || comparePositions(range.end, earliest) < 0) earliest = range.end;
+            }
+        });
+        void this.resolveItem(id, resolve).then((resolved) => {
+            listener.dispose();
+            const edits = resolved?.additionalEdits;
+            if (edits === undefined || flushed) return;
+            const changedAt = earliest;
+            if (changedAt !== null && edits.some(({ range }) => comparePositions(changedAt, range.start) < 0)) return;
+            editor.applyExternalEdits(edits, "Accept Completion");
+        });
     }
 
     /** No request while the panel is hidden: for a language server it is a request per list movement. */

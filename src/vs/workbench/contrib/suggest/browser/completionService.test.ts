@@ -128,6 +128,7 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
             cursorListeners.push(l);
             return { dispose: () => cursorListeners.splice(cursorListeners.indexOf(l), 1) };
         },
+        onWillType: () => ({ dispose: () => undefined }),
         onDidType: (l: (text: string) => void) => {
             typeListeners.push(l);
             return { dispose: () => typeListeners.splice(typeListeners.indexOf(l), 1) };
