@@ -773,7 +773,8 @@ export const workbenchModule: ContainerModule = (container) => {
             container.get(IWorkspaceContextServiceDIToken),
             process.platform === "win32",
         );
-        return (options) => new EmbeddedTerminalSession(options, environment);
+        const logger = container.get(ILogServiceDIToken).createLogger("terminal", { label: "Terminal" });
+        return (options) => new EmbeddedTerminalSession(options, environment, logger);
     });
     // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test; end-to-end — e2e scenario extension-terminal

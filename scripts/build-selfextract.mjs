@@ -34,6 +34,7 @@ import { dirname, join, resolve } from "node:path";
 import { buildDistArtifacts } from "./build-dist.mjs";
 import { LAZY_CHUNKS, lazyChunkAssetName } from "./build-lazy-chunks.mjs";
 import { buildNodePtyBundle } from "./pack-node-pty.mjs";
+import { buildShellIntegrationBundle } from "./pack-shell-integration.mjs";
 import { resolveDiodeVersion } from "./resolve-version.mjs";
 import { writeSelfExtract } from "./selfextract-format.mjs";
 import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
@@ -221,6 +222,10 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
     }
 
     stageRipgrep(stageDir);
+
+    // Next to main.cjs, where shellIntegrationScripts.ts (via entryDir()) looks for it: the shell needs the
+    // scripts on disk, and the dev fallback (the sources) is not in the payload.
+    writeFileSync(join(stageDir, "shell-integration.bundle"), buildShellIntegrationBundle({ repoRoot: root }).bundle);
 
     // The native code above comes from the HOST architecture; only node cross-builds legitimately, so warn instead of failing.
     if (target !== HOST_TARGET) {

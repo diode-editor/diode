@@ -117,6 +117,7 @@ describe("ExtensionTerminalAdapter", () => {
         expect(h.factoryCalls[0]).toStrictEqual({
             cols: 80,
             rows: 24,
+            shellIntegrationEnabled: true,
             cwd: "/ws",
             shell: "/bin/zsh",
             args: ["-l"],

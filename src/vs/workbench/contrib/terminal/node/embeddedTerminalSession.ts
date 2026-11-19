@@ -1,16 +1,22 @@
 // PTY half of the embedded terminal (node-pty); the emulator half, shared with extension ptys, is `XtermSurface`.
 
+import { randomUUID } from "node:crypto";
+import { copyFileSync } from "node:fs";
 import { readlink } from "node:fs/promises";
 
 import type { IPty } from "node-pty";
 
 import { sanitizeProcessEnvironment } from "../../../../base/common/processes.ts";
 import { getSystemShell } from "../../../../base/node/shell.ts";
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
+import { getShellIntegrationInjection } from "../../../../platform/terminal/node/terminalEnvironment.ts";
 import { VSCODE_SHIM_VERSION } from "../../../api/common/vscodeShimVersion.ts";
 import type { ITerminalEnvironmentContributor } from "../common/extensionEnvironment.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
 
 import { loadNodePty } from "./loadNodePty.ts";
+import { loadShellIntegrationScriptsDir } from "./shellIntegrationScripts.ts";
 import { XtermSurface } from "./xtermSurface.ts";
 
 export type { CoreMouseEvent } from "./xtermSurface.ts";
@@ -32,6 +38,10 @@ export interface EmbeddedTerminalOptions {
     strictEnv?: boolean;
     message?: string;
     scrollback?: number;
+    /** `terminal.integrated.shellIntegration.enabled`; absent — no injection. */
+    shellIntegrationEnabled?: boolean;
+    /** A task terminal: never injected (upstream `isFeatureTerminal`). */
+    isFeatureTerminal?: boolean;
 }
 
 /**
@@ -82,11 +92,17 @@ export class EmbeddedTerminalSession extends XtermSurface {
     private ptyExited = false;
     // Stryker disable next-line StringLiteral: spawn() in the constructor overwrites it before any read.
     private initialCwd = "";
+    /** Upstream `shellIntegrationNonce`: one per terminal, kept across relaunches; `633;E` carries it back. */
+    private readonly shellIntegrationNonce = randomUUID();
 
-    /** @param environment extension environment collections; not applied with `strictEnv`. */
+    /**
+     * @param environment extension environment collections; not applied with `strictEnv`.
+     * @param logger why shell integration was not injected (upstream logs to the pty host).
+     */
     public constructor(
         options: EmbeddedTerminalOptions,
         private readonly environment?: ITerminalEnvironmentContributor,
+        private readonly logger: ILogger = NULL_LOGGER,
     ) {
         super({ cols: options.cols, rows: options.rows, scrollback: options.scrollback });
 
@@ -158,8 +174,9 @@ export class EmbeddedTerminalSession extends XtermSurface {
                       environment.apply(target, cwd);
                   },
         );
+        const args = this.injectShellIntegration(shell, options, env);
         const { spawn } = loadNodePty();
-        const pty = spawn(shell, options.args ?? [], {
+        const pty = spawn(shell, args, {
             // Stryker disable next-line StringLiteral: equivalent: with an empty name node-pty uses TERM from buildEnv
             name: "xterm-256color",
             cols: options.cols,
@@ -179,5 +196,33 @@ export class EmbeddedTerminalSession extends XtermSurface {
             this.queueProcessExit(exitCode);
         });
         return pty;
+    }
+
+    /**
+     * Upstream `TerminalProcess.start`: the injection's environment and files, else the shell's own arguments. The
+     * nonce is set either way — an extension's own shell integration can use it.
+     */
+    private injectShellIntegration(
+        shell: string,
+        options: EmbeddedTerminalOptions,
+        env: Record<string, string>,
+    ): string[] {
+        env.VSCODE_NONCE = this.shellIntegrationNonce;
+        const injection = getShellIntegrationInjection(
+            { executable: shell, args: options.args, isFeatureTerminal: options.isFeatureTerminal },
+            { enabled: options.shellIntegrationEnabled === true, scriptsDir: loadShellIntegrationScriptsDir() },
+            env,
+            this.logger,
+        );
+        if (injection.type === "failure") return options.args ?? [];
+        Object.assign(env, injection.envMixin);
+        for (const file of injection.filesToCopy ?? []) {
+            try {
+                copyFileSync(file.source, file.dest);
+            } catch {
+                // Upstream: only another user's copy of the same scripts is in the way — keep it.
+            }
+        }
+        return [...injection.newArgs];
     }
 }

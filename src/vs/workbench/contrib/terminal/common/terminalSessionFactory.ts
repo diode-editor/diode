@@ -18,6 +18,10 @@ export interface ITerminalSessionOptions {
     strictEnv?: boolean;
     /** Printed to the emulator before shell output (upstream `initialText`); never sent to the shell. */
     message?: string;
+    /** `terminal.integrated.shellIntegration.enabled` at (re)launch; absent — the shell is not injected. */
+    shellIntegrationEnabled?: boolean;
+    /** A task terminal (upstream `isFeatureTerminal`): never injected with shell integration. */
+    isFeatureTerminal?: boolean;
 }
 
 export type ITerminalRelaunchOptions = Omit<ITerminalSessionOptions, "cols" | "rows"> & {

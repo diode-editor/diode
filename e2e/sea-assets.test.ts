@@ -67,6 +67,7 @@ describe("SEA binary — bundled assets", () => {
         for (const name of [
             "diode.bundle",
             "node-pty.bundle",
+            "shell-integration.bundle",
             "rg.bundle",
             "ts-server.bundle",
             "ts-server.bundle.sha256",

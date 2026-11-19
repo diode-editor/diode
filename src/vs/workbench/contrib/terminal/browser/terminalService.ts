@@ -83,6 +83,8 @@ export interface ITerminalCreateOptions {
     readonly strictEnv?: boolean;
     /** Printed before shell output; not sent to the shell. */
     readonly message?: string;
+    /** A task terminal (upstream `isFeatureTerminal`): the shell is not injected with shell integration. */
+    readonly isFeatureTerminal?: boolean;
     /**
      * The process runs, but it has no tab and doesn't become active until shown
      * ({@link TerminalService.showInstance}).
@@ -283,7 +285,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         const cwd = options.cwd ?? this.cwd ?? process.cwd();
         const session =
             options.session ??
-            this.factory({ cols: INITIAL_COLS, rows: INITIAL_ROWS, ...sessionOptions(options, cwd) });
+            this.factory({
+                cols: INITIAL_COLS,
+                rows: INITIAL_ROWS,
+                ...sessionOptions(options, cwd, this.shellIntegrationEnabled()),
+            });
         this.applyKittyKeyboard(session);
         // For a ready session we print `message` ourselves — a shell session prints it on spawn.
         if (options.session !== undefined && options.message !== undefined)
@@ -343,7 +349,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         instance.exitCode = undefined;
         instance.waitOnExit = options.waitOnExit;
         instance.session.relaunch({
-            ...sessionOptions(options, cwd),
+            ...sessionOptions(options, cwd, this.shellIntegrationEnabled()),
             ...(options.clear === true ? { clear: true } : {}),
         });
         instance.processId = instance.session.pid;
@@ -591,6 +597,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return [...this.instances, ...this.backgroundInstances, ...this.editorInstances];
     }
 
+    /** Upstream reads it when the process starts: a changed value applies to the next (re)launch. */
+    private shellIntegrationEnabled(): boolean {
+        return this.configuration.get("terminal.integrated.shellIntegration.enabled");
+    }
+
     private applyKittyKeyboard(session: ITerminalSession): void {
         session.setKittyKeyboardEnabled(this.configuration.get("terminal.integrated.enableKittyKeyboardProtocol"));
     }
@@ -611,9 +622,12 @@ export class TerminalService extends Disposable implements IContextKeyContributo
 function sessionOptions(
     options: ITerminalRelaunchInstanceOptions,
     cwd: string,
+    shellIntegrationEnabled: boolean,
 ): Omit<ITerminalSessionOptions, "cols" | "rows"> {
     return {
         cwd,
+        shellIntegrationEnabled,
+        ...(options.isFeatureTerminal === true ? { isFeatureTerminal: true } : {}),
         ...(options.shellPath !== undefined ? { shell: options.shellPath } : {}),
         ...(options.shellArgs !== undefined ? { args: [...options.shellArgs] } : {}),
         ...(options.env !== undefined ? { env: { ...options.env } } : {}),
