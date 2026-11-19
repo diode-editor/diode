@@ -11,6 +11,8 @@ import type { IWorkspaceContextService } from "../../../../platform/workspace/co
  */
 export interface ITerminalEnvironmentContributor {
     apply(env: Record<string, string | undefined>, cwd: string): void;
+    /** Upstream `addEnvMixinPathPrefix`: the joined `Prepend`s to `PATH`, re-applied by the shell integration script. */
+    pathPrefix(cwd: string): string | undefined;
 }
 
 /**
@@ -37,5 +39,6 @@ export function createExtensionEnvironmentContributor(
         apply: (env, cwd) => {
             merged().applyToProcessEnvironment(env, terminalEnvironmentScope(cwd, workspace), isWindows);
         },
+        pathPrefix: (cwd) => merged().getPathPrefix(terminalEnvironmentScope(cwd, workspace)),
     };
 }

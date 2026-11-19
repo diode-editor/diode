@@ -1,0 +1,12 @@
+{
+    "name": "shell-env-demo",
+    "displayName": "Shell Integration Environment Demo",
+    "description": "environmentVariableCollection with applyAtShellIntegration: the shell integration script applies the PATH prefix after the user's rc files.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["onStartupFinished"]
+}

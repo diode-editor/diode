@@ -1878,8 +1878,15 @@ workspace-состоянии `terminal.integrated.environmentVariableCollections
 фабрика сессий в `workbenchModule.ts`) и зовёт его на каждый запуск процесса — и при перезапуске
 терминала задачи — поверх унаследованного окружения и `env` терминала, под нашими `TERM`/`TMUX`
 (`buildEnv`); при `strictEnv` — нет (`shouldUseEnvironmentVariableCollection` эталона).
-**Отступления:** `applyAtShellIntegration` не применяется (shell integration нет); нет индикатора
-устаревшего окружения и `environmentChangesRelaunch`; `${…}` в значениях не разворачиваются.
+Мутатор с `applyAtShellIntegration` дописывается и в `VSCODE_ENV_REPLACE|PREPEND|APPEND`
+(`<переменная>=<значение>` через `:`, `:` в значении — `\x3a`, как в эталоне): скрипт shell integration
+применяет их после rc-файлов пользователя; без инъекции переменные лежат в окружении без дела.
+`VSCODE_PYTHON_<SHELL>_ACTIVATE` принимается только от `ms-python.vscode-python-envs`
+(`blockPythonActivationVar`) — на этом держится автоактивация `.venv` у python-envs. Склейка `Prepend`
+к `PATH` уходит в `VSCODE_PATH_PREFIX` для fish и login-шеллов macOS — см.
+[Terminal.md](workbench/Terminal.md#shell-integration-инъекция).
+**Отступления:** нет индикатора устаревшего окружения и `environmentChangesRelaunch`; `${…}` в значениях
+не разворачиваются.
 
 **Задачи расширений (`vscode.tasks`).** Устроено как `ExtHostTask` ↔ `MainThreadTask` эталона;
 задачами владеет сервис ядра (`contrib/tasks`, см. [workbench/Tasks.md](workbench/Tasks.md)).

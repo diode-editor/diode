@@ -174,7 +174,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
                       environment.apply(target, cwd);
                   },
         );
-        const args = this.injectShellIntegration(shell, options, env);
+        const args = this.injectShellIntegration(shell, options, env, environment?.pathPrefix(cwd));
         const { spawn } = loadNodePty();
         const pty = spawn(shell, args, {
             // Stryker disable next-line StringLiteral: equivalent: with an empty name node-pty uses TERM from buildEnv
@@ -206,11 +206,16 @@ export class EmbeddedTerminalSession extends XtermSurface {
         shell: string,
         options: EmbeddedTerminalOptions,
         env: Record<string, string>,
+        pathPrefix: string | undefined,
     ): string[] {
         env.VSCODE_NONCE = this.shellIntegrationNonce;
         const injection = getShellIntegrationInjection(
             { executable: shell, args: options.args, isFeatureTerminal: options.isFeatureTerminal },
-            { enabled: options.shellIntegrationEnabled === true, scriptsDir: loadShellIntegrationScriptsDir },
+            {
+                enabled: options.shellIntegrationEnabled === true,
+                scriptsDir: loadShellIntegrationScriptsDir,
+                pathPrefix,
+            },
             env,
             this.logger,
         );
