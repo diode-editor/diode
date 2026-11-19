@@ -14,7 +14,10 @@ integration из API терминала — то, что видят агенты
 - `data: "\u001b]633;C\u0007…"` — куски `execution.read()`, первые 200 символов, экранированно (JSON);
 - `end: "ls" (High, trusted) exit=0` — `onDidEndTerminalShellExecution`;
 - `executeCommand: …` — команда **Shell Integration Probe: Execute Command** (строка из поля ввода уходит в
-  `shellIntegration.executeCommand` активного терминала).
+  `shellIntegration.executeCommand` активного терминала; JSON-массив `["echo", "a b", "c"]` — в
+  `executeCommand(executable, args)`, а JSON-строка в нём может нести перевод строки: `["echo a\necho b"]`).
+  Терминал открыт только что и интеграция ещё не ожила — команда ждёт её `onDidChangeTerminalShellIntegration`, как
+  ждут расширения.
 
 ## Поставить руками
 

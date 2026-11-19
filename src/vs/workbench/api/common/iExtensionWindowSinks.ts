@@ -179,7 +179,7 @@ export interface IExtensionTerminalSink {
     ptyExit(terminal: IWireTerminalRef, code: number | undefined): void;
     /** The pty's `onDidChangeName`: renames the terminal, over the name it was created with (as upstream). */
     ptyName(terminal: IWireTerminalRef, name: string): void;
-    /** Upstream `$executeCommand`: as `sendText(commandLine, true)`; the next issue waits for the prompt. */
+    /** Upstream `$executeCommand`: `runCommand` — waits for the prompt, clears it, sends the line with Enter. */
     executeCommand(id: number, commandLine: string): void;
     reset(): void;
 }

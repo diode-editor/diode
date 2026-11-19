@@ -1,6 +1,5 @@
 // Upstream `extHostTerminalShellIntegration.ts`: `Terminal.shellIntegration` and the shell execution events from what
-// the host reports (`terminal.shellIntegration.*`, `terminal.shellExecution.*`). Not ported here: multi-line
-// `executeCommand` (sub-executions) — the next issue of the wave.
+// the host reports (`terminal.shellIntegration.*`, `terminal.shellExecution.*`).
 
 import type * as vscode from "vscode";
 
@@ -140,6 +139,13 @@ class ShellIntegration {
     /** `executeCommand` executions waiting for their start. */
     private readonly pending: ShellExecution[] = [];
     private current: ShellExecution | undefined;
+    /**
+     * Upstream `_currentExecutionProperties`: the current execution is a multi-line `executeCommand` — the lines the
+     * shell has not run yet. Each line is a command of its own to the shell, the extension sees one execution: it ends
+     * with the last line. Deviation: upstream keeps it per terminal and sets it on the request, so a stale value (a
+     * request while another command runs, a multi-line execution cut short) holds back the end of the next execution.
+     */
+    private unresolvedCommandLines: readonly string[] | undefined;
     /** Ended, its end event not fired yet: it waits for the `read()` streams to complete. */
     private ending: { readonly execution: ShellExecution; readonly exitCode: number | undefined } | undefined;
     private readonly endLater = new RunOnceScheduler(() => {
@@ -193,13 +199,30 @@ class ShellIntegration {
         this.emitters.change.fire({ terminal: this.terminal, shellIntegration: this.value });
     }
 
-    /** A start ends what is still open: the previous execution's end event goes first, without a code. */
+    /**
+     * A start ends what is still open: the previous execution's end event goes first, without a code. A line of the
+     * running multi-line execution is no new start.
+     */
     public start(commandLine: vscode.TerminalShellExecutionCommandLine, cwd: vscode.Uri | undefined): void {
+        // Set only while a multi-line execution is the current one.
+        if (this.unresolvedCommandLines !== undefined) {
+            const rest = subExecutionRest(this.unresolvedCommandLines, commandLine);
+            if (rest !== undefined) {
+                this.unresolvedCommandLines = rest;
+                return;
+            }
+        }
         this.close();
-        // Upstream: a high-confidence line matches its `executeCommand` exactly, a lower one takes the oldest.
+        // Upstream: a high-confidence line matches its `executeCommand` exactly or as the first lines of a multi-line
+        // one, a lower one takes the oldest.
         let execution: ShellExecution | undefined;
         if (commandLine.confidence === HIGH) {
-            const index = this.pending.findIndex((e) => e.value.commandLine.value === commandLine.value);
+            const index = this.pending.findIndex((e) => {
+                const requested = e.value.commandLine.value;
+                if (requested === commandLine.value) return true;
+                this.unresolvedCommandLines = subExecutionRest(splitAndSanitizeCommandLine(requested), commandLine);
+                return this.unresolvedCommandLines !== undefined;
+            });
             if (index !== -1) execution = this.pending.splice(index, 1)[0];
         } else {
             execution = this.pending.shift();
@@ -221,10 +244,13 @@ class ShellIntegration {
      * with the data by then. A start or a close before that fires it at once.
      */
     public end(commandLine: vscode.TerminalShellExecutionCommandLine, exitCode: number | undefined): void {
+        // A multi-line execution ends with its last line, and keeps the line it was requested with.
+        if (this.unresolvedCommandLines !== undefined && this.unresolvedCommandLines.length > 0) return;
         const execution = this.current;
         if (execution === undefined) return;
         this.current = undefined;
-        execution.end(commandLine);
+        execution.end(this.unresolvedCommandLines === undefined ? commandLine : undefined);
+        this.unresolvedCommandLines = undefined;
         this.ending = { execution, exitCode };
         this.endLater.schedule();
     }
@@ -232,6 +258,7 @@ class ShellIntegration {
     /** Ends what is open (a start, the terminal closing): an execution without its end ends without a code. */
     public close(): void {
         this.fireEnding();
+        this.unresolvedCommandLines = undefined;
         const execution = this.current;
         if (execution === undefined) return;
         this.current = undefined;
@@ -255,6 +282,32 @@ class ShellIntegration {
             exitCode,
         });
     }
+}
+
+/** Upstream `splitAndSanitizeCommandLine`: the non-empty lines, trimmed. */
+function splitAndSanitizeCommandLine(commandLine: string): string[] {
+    return commandLine
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+}
+
+/**
+ * Upstream `isSubExecution`: the shell ran the next of the unresolved lines (one or more of them as one command) — the
+ * lines still to run; `undefined` — the command is not a part of the execution. Deviation: an empty command line is
+ * not a part of any (upstream takes it for one, and a pending single-line execution for multi-line).
+ */
+function subExecutionRest(
+    unresolved: readonly string[],
+    commandLine: vscode.TerminalShellExecutionCommandLine,
+): string[] | undefined {
+    const rest = [...unresolved];
+    const lines = splitAndSanitizeCommandLine(commandLine.value);
+    while (rest.length > 0 && rest[0] === lines[0]) {
+        rest.shift();
+        lines.shift();
+    }
+    return lines.length === 0 && rest.length < unresolved.length ? rest : undefined;
 }
 
 /** Upstream `executeCommand(executable, args)`: an argument with whitespace and no quotes is wrapped in `"…"`. */

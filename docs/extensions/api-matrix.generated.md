@@ -14,9 +14,9 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1461 |
+| ok | 1462 |
 | A | 11 |
-| B | 192 |
+| B | 191 |
 | C | 317 |
 | X | 234 |
 
@@ -2119,7 +2119,7 @@ Proposed API or a false hit: class X when real.
 | `TerminalShellExecutionStartEvent.shellIntegration` | ok |  | 0 | 0 |  |
 | `TerminalShellExecutionStartEvent.terminal` | ok |  | 0 | 0 |  |
 | `TerminalShellIntegration.cwd` | ok |  | 0 | 0 |  |
-| `TerminalShellIntegration.executeCommand` | B |  | 0 | 0 |  |
+| `TerminalShellIntegration.executeCommand` | ok |  | 0 | 0 |  |
 | `TerminalShellIntegrationChangeEvent.shellIntegration` | ok |  | 0 | 0 |  |
 | `TerminalShellIntegrationChangeEvent.terminal` | ok |  | 0 | 0 |  |
 | `TerminalSplitLocationOptions.parentTerminal` | ok |  | 0 | 0 |  |

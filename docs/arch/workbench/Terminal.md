@@ -172,10 +172,10 @@ API расширений — [ниже](#shell-integration-api-расширен�
   от него, когда он известен.
 - **Окружение** — `EnvJson` целиком или `EnvSingle*` по переменной, изменение — одним событием в конце,
   `isTrusted` — все части с nonce.
-- **Не перенесено** (служат UI и Windows): `promptInputModel`, `PartialCommandDetection`,
+- **Не перенесено** (служат UI и Windows): `promptInputModel` сверх среза для `executeCommand` ([ниже](#shell-integration-api-расширений)), `PartialCommandDetection`,
   `PromptTypeDetection`, `BufferMarkCapability` (`SetMark` принимается и игнорируется), эвристики Windows,
   OSC 9;9, метки на команду и `getCwdForLine`, сериализация, телеметрия и статус интеграции, `Prompt`/
-  `ContinuationPrompt` (их потребитель — `promptInputModel`). 133;`B` не отличается от 633;`B` (эталон
+  `ContinuationPrompt` (их потребитель — полный `promptInputModel`). 133;`B` не отличается от 633;`B` (эталон
   выбрасывает строку на конце команды).
 - **Проверить руками** — Developer: Write Data to Terminal с `\x1b]633;D;1\x07` ничего не печатает; Developer:
   Record Terminal Session показывает, что последовательности приходят.
@@ -206,17 +206,38 @@ API расширений — [ниже](#shell-integration-api-расширен�
   стреляют его сразу. Старт без конца предыдущего — сначала конец предыдущего с `exitCode: undefined`.
   **Отступление:** закрытие терминала заканчивает висящее выполнение (конец без кода, потоки закрыты) до
   `onDidCloseTerminal` — у эталона итераторы висят.
-- **`executeCommand`** — базовый: `terminal.shellIntegration.executeCommand` → `sendText(line, true)`; выполнение с
-  `confidence: High`, `isTrusted: true` ждёт старта с точно той же строкой (`High`) или берётся первым (ниже `High`).
-  Ожидание промпта, таймаут, многострочные команды — следующая issue волны. Таск-терминал (`isFeatureTerminal`, в
+- **`executeCommand`** — `terminal.shellIntegration.executeCommand` → `TerminalService.runCommand` (эталонный
+  `TerminalInstance.runCommand(line, true)`): промпт не принимает ввод (`promptInputModel.state !== "input"`) или
+  интеграции ещё нет — ждём начала ввода (`onDidStartInput` той `commandDetection`, что есть, или той, что появится,
+  `onDidAddCommandDetectionCapability`), но не дольше таймаута (`getShellIntegrationTimeout`,
+  `contrib/terminal/common/terminalEnvironment.ts`: `terminal.integrated.shellIntegration.timeout` `-1`/не число →
+  5000 мс при `shellIntegration.enabled`, иначе 2000; `0` → 0; иначе `max(значение, 500)`; минус время с запуска
+  процесса — `processReadyTimestamp` инстанса, ставится на create и relaunch). Затем, если на промпте есть текст или
+  интеграции так и нет, — `\x03` и пауза 100 мс (`RUN_COMMAND_INTERRUPT_DELAY_MS`), потом `sendText(line, true)`.
+  Терминал без интеграции получает команду после таймаута, а его выполнение так и не стартует — как в эталоне.
+  **Отступление:** эталон ждёт только `commandDetection`, добавленную позже, и уже ожившая на `A` (до своего `B`)
+  стоила бы ему всего таймаута. Bracketed paste эталона здесь не нужен: `executeCommand` всегда `shouldExecute`.
+  Ext host: выполнение с `confidence: High`, `isTrusted: true` ждёт старта с точно той же строкой или с её первыми
+  строками (`High`, `splitAndSanitizeCommandLine` + `isSubExecution`) или берётся первым (ниже `High`).
+  Многострочное — одно выполнение: следующие строки шелла (каждая для него — своя команда) — под-выполнения без
+  своих событий, конец — после последней строки, с её кодом и запрошенной строкой. Команда не из него закрывает его
+  концом без кода. **Отступления:** список недовыполненных строк живёт на текущем выполнении, а не на терминале и не
+  ставится в момент запроса (у эталона устаревший список задерживает конец следующего выполнения); пустая строка
+  команды не считается под-выполнением (эталон принимает её за часть любого). Таск-терминал (`isFeatureTerminal`, в
   том числе pty `CustomExecution`) — `supportsExecuteCommand: false`, `executeCommand` бросает.
+- **`promptInputModel`** — минимальный срез эталонного (`platform/terminal/common/capabilities/commandDetection/`),
+  у `CommandDetectionCapability`: состояние `unknown` → `input` на `B` (633 или 133; `onDidStartInput` — раз, повтор
+  `B` на вводе лишь сдвигает начало) → `execute` на `C` (и на `D` без `C`); `value` — ячейки от `B` до конца строки
+  курсора, без хвостовых пробелов, вне ввода пусто. Не перенесено: курсор, ghost text, continuation- и правые
+  промпты (их текст попадёт в `value`, лишний Ctrl+C безвреден), события ввода, сериализация.
 - **Nonce** — `TerminalOptions.shellIntegrationNonce` и `ExtensionTerminalOptions.shellIntegrationNonce` доезжают
   до `XtermSurface` (иначе свежий uuid): шелл получает его как `VSCODE_NONCE`, pty расширения шлёт его в своих 633.
 - **Зонд** — синтетическое расширение `e2e/marketplace/shell-integration-probe` (`onTerminalShellIntegration:*`):
-  пишет каждое событие в OUTPUT «Shell Integration Probe», команда **Shell Integration Probe: Execute Command**.
+  пишет каждое событие в OUTPUT «Shell Integration Probe», команда **Shell Integration Probe: Execute Command**
+  (строка или JSON-массив `["исполняемый", "аргумент", …]`; у только что открытого терминала ждёт его интеграцию).
   Поставить: `node scripts/pack-vsix.mjs e2e/marketplace/shell-integration-probe /tmp/probe.vsix && diode
-  --install-extension /tmp/probe.vsix` (подробно — README зонда). Демо и герметичный e2e — сценарий
-  `shell-integration-probe`.
+  --install-extension /tmp/probe.vsix` (подробно — README зонда). Демо и герметичный e2e — сценарии
+  `shell-integration-probe` и `shell-integration-execute-command`.
 - **Приёмка на стоковом** — `Anthropic.claude-code` (`e2e/claudeCode.test.ts`, сценарий `claude-code`): по
   `changed` он делает `executeCommand("claude")`, по концу с кодом 0 и строкой `claude` закрывает терминал.
   Фейковый `claude` ждёт Enter, как настоящий CLI ждёт выхода.
@@ -494,7 +515,7 @@ xterm.js `InputHandler.kittyKeyboard*`: свой стек у main и alt (до 1
   `command` (`CommandRegistry.onWillExecuteCommand`), `output` (`onWillData` — сырой выход процесса до
   разбора, с escape-последовательностями), `sendText` (`onDidSendText`), `input` (`onDidWriteData` — ввод
   через эмулятор: клавиши, мышь, ответы эмулятора). Через 5 с тишины — `JSON.stringify(events, null, 2)` в
-  буфер обмена. **Отступление:** `promptInputChange` нет — нет `promptInputModel`.
+  буфер обмена. **Отступление:** `promptInputChange` нет — у среза `promptInputModel` нет событий ввода.
 
 Свой текст (`printMessage`: сообщения, Write Data) — не выход процесса: `onWillData` и строки (`onLineData`)
 его не видят. Остальные команды developer-контрибуции (`showTextureAtlas`, `restartPtyHost`, `devMode`) не

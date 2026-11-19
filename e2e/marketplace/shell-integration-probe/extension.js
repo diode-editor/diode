@@ -39,17 +39,39 @@ exports.activate = function activate(context) {
             log(`end: ${commandLineOf(execution.commandLine)} exit=${exitCode}`);
         }),
         vscode.commands.registerCommand("shellIntegrationProbe.executeCommand", async () => {
-            const shellIntegration = vscode.window.activeTerminal?.shellIntegration;
-            if (shellIntegration === undefined) {
-                log("executeCommand: the active terminal has no shell integration");
+            const terminal = vscode.window.activeTerminal;
+            if (terminal === undefined) {
+                log("executeCommand: no active terminal");
                 return;
             }
-            const commandLine = await vscode.window.showInputBox({ prompt: "Command line to execute" });
-            if (commandLine === undefined) return;
-            const execution = shellIntegration.executeCommand(commandLine);
+            const input = await vscode.window.showInputBox({
+                prompt: 'Command line to execute, or a JSON array: ["executable", "arg", ...] (a JSON string may hold \\n)',
+            });
+            if (input === undefined) return;
+            // A terminal opened a moment ago: its integration comes alive once the shell has started, as extensions
+            // wait for it (python-envs, agents).
+            const shellIntegration = terminal.shellIntegration ?? (await integrationOf(terminal));
+            const execution = input.startsWith("[")
+                ? shellIntegration.executeCommand(...executableAndArgs(JSON.parse(input)))
+                : shellIntegration.executeCommand(input);
             log(`executeCommand: ${commandLineOf(execution.commandLine)}`);
         }),
     );
 };
+
+function integrationOf(terminal) {
+    const vscode = require("vscode");
+    return new Promise((resolve) => {
+        const listener = vscode.window.onDidChangeTerminalShellIntegration((event) => {
+            if (event.terminal !== terminal) return;
+            listener.dispose();
+            resolve(event.shellIntegration);
+        });
+    });
+}
+
+function executableAndArgs([executable, ...args]) {
+    return args.length === 0 ? [executable] : [executable, args];
+}
 
 exports.deactivate = function deactivate() {};

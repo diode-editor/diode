@@ -5394,8 +5394,7 @@
       "class": "ok"
     },
     "TerminalShellIntegration.executeCommand": {
-      "class": "B",
-      "note": "basic: the line goes as sendText without waiting for the prompt; a multi-line command is not one execution"
+      "class": "ok"
     },
     "TerminalShellIntegrationChangeEvent.shellIntegration": {
       "class": "ok"
