@@ -4,6 +4,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { findShell } from "../../../../../TestUtils/findShell.ts";
 import type { ITerminalCommand } from "../../../../platform/terminal/common/capabilities/capabilities.ts";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
@@ -12,7 +13,11 @@ import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
 const BASH = "/bin/bash";
 const ZSH = ["/usr/bin/zsh", "/bin/zsh"].find((p) => existsSync(p));
-const WAIT = { timeout: 10_000, interval: 50 };
+// Without the shell its suite is skipped: CI installs zsh and fish and has pwsh (`.github/workflows/ci.yml`).
+const FISH = findShell("fish");
+const PWSH = findShell("pwsh");
+// pwsh is a .NET app: its first start on a cold runner takes seconds.
+const WAIT = { timeout: 20_000, interval: 50 };
 const EXECUTED = "\x1b]633;C\x07";
 
 let home: string;
@@ -45,7 +50,18 @@ function start(shell: string): IRecorded {
         shell,
         cwd: home,
         // Debian's zshrc runs `compinit` unless told not to; on a CI runner it would ask about insecure directories.
-        env: { HOME: home, HISTFILE: "/dev/null", ZDOTDIR: home, skip_global_compinit: "1" },
+        env: {
+            HOME: home,
+            HISTFILE: "/dev/null",
+            ZDOTDIR: home,
+            skip_global_compinit: "1",
+            XDG_CONFIG_HOME: path.join(home, ".config"),
+            XDG_DATA_HOME: path.join(home, ".local/share"),
+            XDG_CACHE_HOME: path.join(home, ".cache"),
+            fish_history: "",
+            POWERSHELL_TELEMETRY_OPTOUT: "1",
+            POWERSHELL_UPDATECHECK: "Off",
+        },
         shellIntegrationEnabled: true,
     });
     sessions.push(session);
@@ -76,10 +92,11 @@ async function waitForIntegration(recorded: IRecorded): Promise<void> {
 }
 
 /**
- * `echoOutputTail` — what follows `hi\r\n` in the output: zsh prints its PROMPT_SP (the inverse `%` mark of an
- * unterminated line, then spaces) before `D`, so there it belongs to the output, as upstream.
+ * `echoOutputTail` — what follows `hi\r\n` in the output: nothing for bash; zsh prints its PROMPT_SP (the inverse `%`
+ * mark of an unterminated line, then spaces) before `D`, so there it belongs to the output, as upstream. `undefined` —
+ * only `hi` is checked (fish and pwsh redraw their line editor around the output).
  */
-function commandsTest(shell: string, echoOutputTail: string) {
+function commandsTest(shell: string, echoOutputTail: string | undefined) {
     return async () => {
         const dir = path.join(tmp, "work dir");
         mkdirSync(dir);
@@ -96,8 +113,12 @@ function commandsTest(shell: string, echoOutputTail: string) {
             ["false", 1, true, "high"],
         ]);
         expect([cd.cwd, echo.cwd, fail.cwd]).toStrictEqual([home, dir, dir]);
-        expect(recorded.output.get(echo)?.startsWith(`${EXECUTED}hi\r\n${echoOutputTail}`)).toBe(true);
-        if (echoOutputTail === "") expect(recorded.output.get(echo)).toBe(`${EXECUTED}hi\r\n`);
+        const echoOutput = recorded.output.get(echo) ?? "";
+        expect(echoOutput.startsWith(EXECUTED)).toBe(true);
+        expect(echoOutput).toContain("hi\r\n");
+        if (echoOutputTail !== undefined)
+            expect(echoOutput.startsWith(`${EXECUTED}hi\r\n${echoOutputTail}`)).toBe(true);
+        if (echoOutputTail === "") expect(echoOutput).toBe(`${EXECUTED}hi\r\n`);
         const cwd = recorded.session.shellIntegration.capabilities.get("cwdDetection");
         // The 1.127.0 scripts send `P;Cwd` without the nonce: untrusted, as upstream.
         expect([cwd?.getCwd(), cwd?.isTrusted]).toStrictEqual([dir, false]);
@@ -174,5 +195,21 @@ describe.skipIf(ZSH === undefined)("EmbeddedTerminalSession — shell integratio
         "cd, echo hi, false — three trusted commands, their exit codes, cwds and output",
         commandsTest(ZSH ?? "", "\x1b[1m\x1b[7m%"),
         30_000,
+    );
+});
+
+describe.skipIf(FISH === undefined)("EmbeddedTerminalSession — shell integration commands, fish", () => {
+    it(
+        "cd, echo hi, false — three trusted commands, their exit codes, cwds and output",
+        commandsTest(FISH ?? "", undefined),
+        60_000,
+    );
+});
+
+describe.skipIf(PWSH === undefined)("EmbeddedTerminalSession — shell integration commands, pwsh", () => {
+    it(
+        "cd, echo hi, false — three trusted commands, their exit codes, cwds and output",
+        commandsTest(PWSH ?? "", undefined),
+        60_000,
     );
 });
