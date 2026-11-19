@@ -165,14 +165,14 @@ describe("MergedEnvironmentVariableCollection — applyAtShellIntegration (VSCOD
             "x.y": collection(
                 ["PATH", mutator("PATH", "/opt/x/bin:", Prepend, AT_SHELL)],
                 ["LIST", mutator("LIST", ":a:b", Append, AT_SHELL)],
-                ["NAME", mutator("NAME", "Привет мир", Replace, AT_SHELL)],
+                ["NAME", mutator("NAME", "Héllo wörld ✓", Replace, AT_SHELL)],
             ),
         }).applyToProcessEnvironment(env, undefined, false);
         expect(env).toEqual({
             PATH: "/usr/bin",
             VSCODE_ENV_PREPEND: "PATH=/opt/x/bin\\x3a",
             VSCODE_ENV_APPEND: "LIST=\\x3aa\\x3ab",
-            VSCODE_ENV_REPLACE: "NAME=Привет мир",
+            VSCODE_ENV_REPLACE: "NAME=Héllo wörld ✓",
         });
     });
 

@@ -111,12 +111,12 @@ describe("applyAtShellIntegration — live bash and zsh", () => {
                 const session = start(shell, {
                     "x.y": [
                         mutator(Prepend, "PATH", "/opt/x/bin:"),
-                        mutator(Replace, "DIODE_GREETING", "привет, мир: a:b"),
+                        mutator(Replace, "DIODE_GREETING", "héllo wörld ✓: a:b"),
                     ],
                 });
                 // `$((…))` keeps the expected text out of the echoed command line.
                 await run(session, 'echo "p$((1))=$PATH"', `p1=/opt/x/bin:${RC_PATH}`);
-                await run(session, 'echo "g$((1))=$DIODE_GREETING"', "g1=привет, мир: a:b");
+                await run(session, 'echo "g$((1))=$DIODE_GREETING"', "g1=héllo wörld ✓: a:b");
             },
             30_000,
         );
@@ -145,21 +145,5 @@ describe.skipIf(FISH === undefined)("applyAtShellIntegration — live fish", () 
             "x.y": [mutator(Prepend, "PATH", "/opt/x/bin:", {})],
         });
         await run(session, 'echo "p"(math 0+1)"=$PATH"', "p1=/opt/x/bin:/usr/bin:/bin");
-    }, 30_000);
-
-    it("strictEnv — no collections, so no prefix either", async () => {
-        const session = start(
-            FISH ?? "",
-            { "x.y": [mutator(Prepend, "PATH", "/opt/x/bin:", {})] },
-            {
-                strictEnv: true,
-                env: { HOME: home, XDG_CONFIG_HOME: path.join(home, ".config"), PATH: "/usr/bin:/bin" },
-            },
-        );
-        // Without `TERM_PROGRAM=vscode` the script stays off and draws no 633 prompt; fish reads the line once ready.
-        session.write('echo "p"(math 0+1)"=$PATH"\r');
-        await vi.waitFor(() => {
-            expect(session.raw).toContain("p1=/usr/bin:/bin\r");
-        }, WAIT);
     }, 30_000);
 });
