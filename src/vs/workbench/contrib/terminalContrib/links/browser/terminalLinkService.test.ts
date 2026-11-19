@@ -150,8 +150,20 @@ describe("TerminalLinkService", () => {
             await links.openRecentLink(await instanceWith("\x1b]633;P;Cwd=/ws/sub\x07./x.txt"));
             await links.openRecentLink(await instanceWith("./x.txt"));
             await links.openRecentLink(await instanceWith("\x1b]633;P;Cwd=\x07./x.txt"));
+            // A session without shell integration (a fake one).
+            const { session } = await instanceWith("\x1b]633;P;Cwd=/ws/sub\x07./x.txt");
+            const bare = {
+                session: { buffer: session.buffer, dimensions: session.dimensions },
+                launch: { cwd: "/ws" },
+            };
+            await links.openRecentLink(bare as unknown as ITerminalInstance);
 
-            expect(opened.map((link) => link.uri.fsPath)).toEqual(["/ws/sub/x.txt", "/ws/x.txt", "/ws/x.txt"]);
+            expect(opened.map((link) => link.uri.fsPath)).toEqual([
+                "/ws/sub/x.txt",
+                "/ws/x.txt",
+                "/ws/x.txt",
+                "/ws/x.txt",
+            ]);
         });
 
         it('opens nothing with `enableFileLinks: "off"` or before the emulator has a buffer', async () => {

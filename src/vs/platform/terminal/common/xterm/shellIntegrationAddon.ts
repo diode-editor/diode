@@ -147,6 +147,7 @@ export class ShellIntegrationAddon implements IDisposable {
 
     /** `633;P;<key>=<value>`; a value without `=` is accepted and ignored, as upstream. */
     private handleProperty(terminal: Terminal, args: readonly (string | undefined)[]): boolean {
+        // Stryker disable next-line StringLiteral: equivalent: any text without `=` is a key without a value
         const { key, value } = parseKeyValueAssignment(deserializeVSCodeOscMessage(args[0] ?? ""));
         if (value === undefined) return true;
         switch (key) {
@@ -169,13 +170,13 @@ export class ShellIntegrationAddon implements IDisposable {
     }
 
     private handleEnvJson(args: readonly (string | undefined)[]): boolean {
+        // Stryker disable next-line ConditionalExpression,BooleanLiteral: equivalent: without the guard the missing value throws in the `try` below and the environment stays as well
         if (args[0] === undefined) return true;
         let env: unknown;
         try {
             env = JSON.parse(deserializeVSCodeOscMessage(args[0]));
         } catch {
             // Upstream logs a warning and keeps the previous environment.
-            return true;
         }
         if (typeof env === "object" && env !== null)
             this.shellEnvDetection().setEnvironment(env as Record<string, unknown>, args[1] === this.nonce);
@@ -184,8 +185,8 @@ export class ShellIntegrationAddon implements IDisposable {
 
     /** iTerm2 interprets no escapes in the value and has no nonce: never trusted. */
     private handleITermSequence(data: string): boolean {
+        // `SetMark` is a key without a value: accepted and ignored.
         const [command] = data.split(";");
-        if (command === "SetMark") return true;
         const { key, value } = parseKeyValueAssignment(command);
         if (value === undefined) return true;
         if (key !== "CurrentDir") return false;
@@ -237,6 +238,7 @@ export class ShellIntegrationAddon implements IDisposable {
 
     public dispose(): void {
         this.capabilities.dispose();
+        // Stryker disable next-line CallExpression: equivalent: with the store empty no command runs, nothing fires; this frees the listeners
         this.onDidWriteCommandOutputEmitter.dispose();
     }
 }

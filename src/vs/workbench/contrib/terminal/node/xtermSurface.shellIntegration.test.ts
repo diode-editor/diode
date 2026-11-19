@@ -139,4 +139,14 @@ describe("XtermSurface — shell integration", () => {
             expect(on).toHaveBeenCalledTimes(2);
         });
     });
+
+    it("dispose: the model goes with the session", async () => {
+        const { session } = make();
+        session.feed(vsc("A"));
+        await vi.waitFor(() => {
+            expect(session.shellIntegration.capabilities.has("commandDetection")).toBe(true);
+        });
+        session.dispose();
+        expect(session.shellIntegration.capabilities.has("commandDetection")).toBe(false);
+    });
 });

@@ -140,6 +140,7 @@ describe("XtermSurface — emulator from a lazy chunk", () => {
         const exits = vi.fn();
         session.onExit(exits);
         session.feed("lost");
+        session.printMessage("lost too");
         const broken = new Error("broken chunk");
         loader.fail(broken);
         await session.xtermReady;

@@ -101,6 +101,8 @@ export class CommandDetectionCapability implements IDisposable {
         } else {
             command = new TerminalCommand(commandLine.value, "high", commandLine.isTrusted, start.cwd);
         }
+        // The mark only serves reading the line above.
+        start.marker.dispose();
         this.current.executed = command;
         this.onCommandExecutedEmitter.fire(command);
     }
@@ -115,7 +117,6 @@ export class CommandDetectionCapability implements IDisposable {
         if (command === undefined) return;
         command.exitCode = exitCode;
         this.commandsList.push(command);
-        this.current.start?.marker.dispose();
         this.current = {};
         this.onCommandFinishedEmitter.fire(command);
     }
@@ -124,20 +125,18 @@ export class CommandDetectionCapability implements IDisposable {
     private readCommandLine(start: IMarker, startX: number): string {
         const buffer = this.terminal.buffer.active;
         const end = buffer.baseY + buffer.cursorY;
-        // Every row from the start to the cursor exists; `join` turns the type's `undefined` into "".
-        const rows: (string | undefined)[] = [];
+        let content = "";
         for (let i = start.line; i <= end; i++) {
-            rows.push(
-                buffer
-                    .getLine(i)
-                    ?.translateToString(
-                        true,
-                        i === start.line ? startX : 0,
-                        i === end ? buffer.cursorX : this.terminal.cols,
-                    ),
+            const line = buffer.getLine(i);
+            // A start trimmed out of the scrollback has a disposed mark, its line is -1.
+            if (line === undefined) continue;
+            content += line.translateToString(
+                true,
+                i === start.line ? startX : 0,
+                i === end ? buffer.cursorX : this.terminal.cols,
             );
         }
-        return rows.join("");
+        return content;
     }
 
     public dispose(): void {
