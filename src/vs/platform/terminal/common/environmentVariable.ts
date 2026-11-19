@@ -135,8 +135,9 @@ export class MergedEnvironmentVariableCollection {
      * it after a profile that rebuilds `PATH` (fish's `fish_user_paths`, macOS `path_helper`).
      */
     public getPathPrefix(scope: IEnvironmentVariableScope | undefined): string | undefined {
-        const prefix = (this.getVariableMap(scope).get("PATH") ?? [])
-            .filter((m) => m.type === EnvironmentVariableMutatorType.Prepend)
+        const prefix = this.getVariableMap(scope)
+            .get("PATH")
+            ?.filter((m) => m.type === EnvironmentVariableMutatorType.Prepend)
             .map((m) => m.value)
             .join("");
         return prefix === "" ? undefined : prefix;
