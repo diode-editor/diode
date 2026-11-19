@@ -6,7 +6,6 @@ import { readlink } from "node:fs/promises";
 import type { IPty } from "node-pty";
 
 import { sanitizeProcessEnvironment } from "../../../../base/common/processes.ts";
-import { generateUuid } from "../../../../base/common/uuid.ts";
 import { getSystemShell } from "../../../../base/node/shell.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
@@ -40,6 +39,8 @@ export interface EmbeddedTerminalOptions {
     scrollback?: number;
     /** `terminal.integrated.shellIntegration.enabled`; absent — no injection. */
     shellIntegrationEnabled?: boolean;
+    /** `terminal.integrated.shellIntegration.environmentReporting`. */
+    shellIntegrationEnvironmentReporting?: boolean;
     /** A task terminal: never injected (upstream `isFeatureTerminal`). */
     isFeatureTerminal?: boolean;
 }
@@ -92,8 +93,6 @@ export class EmbeddedTerminalSession extends XtermSurface {
     private ptyExited = false;
     // Stryker disable next-line StringLiteral: spawn() in the constructor overwrites it before any read.
     private initialCwd = "";
-    /** Upstream `shellIntegrationNonce`: one per terminal, kept across relaunches; `633;E` carries it back. */
-    private readonly shellIntegrationNonce = generateUuid();
 
     /**
      * @param environment extension environment collections; not applied with `strictEnv`.
@@ -213,6 +212,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
             { executable: shell, args: options.args, isFeatureTerminal: options.isFeatureTerminal },
             {
                 enabled: options.shellIntegrationEnabled === true,
+                environmentReporting: options.shellIntegrationEnvironmentReporting === true,
                 scriptsDir: loadShellIntegrationScriptsDir,
                 pathPrefix,
             },

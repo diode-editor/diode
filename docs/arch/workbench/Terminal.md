@@ -83,8 +83,8 @@ terminal.» до первого открытия), несколько терми
 ## Shell integration: инъекция
 
 Шелл стартует со скриптом shell integration эталона — скрипт сам шлёт OSC 633 (начало промпта и ввода,
-запуск и конец команды с кодом выхода, командная строка, cwd). Разбор последовательностей и API —
-следующие issues волны (#1215); здесь только инъекция.
+запуск и конец команды с кодом выхода, командная строка, cwd). Разбор — [ниже](#shell-integration-разбор-и-модель-команд),
+API расширений — следующая issue волны (#1215).
 
 - **Скрипты** — дословно из эталона, с шапкой лицензии: `contrib/terminal/common/scripts/` (зеркальный
   путь): `shellIntegration-bash.sh`, `-rc.zsh`, `-env.zsh`, `-profile.zsh`, `-login.zsh`, `shellIntegration.fish`,
@@ -126,12 +126,59 @@ terminal.» до первого открытия), несколько терми
   `shell-integration.bundle` (`scripts/pack-shell-integration.mjs`, имена файлов без каталогов) распаковывается
   в `<userCacheDir>/shell-integration/<version>-<sha>` тем же `extractBundleToCacheSync`, что и node-pty
   (маркер `.diode-ready`, повторный запуск не пишет). Self-extract кладёт бандл рядом с `main.cjs`.
-- Не сделано здесь: `VSCODE_SHELL_ENV_REPORTING`, `VSCODE_PATH_PREFIX`, `ignoreShellIntegration`/
+- **Окружение шелла** — `terminal.integrated.shellIntegration.environmentReporting` (дефолт `false`: эталонный
+  `product.quality !== 'stable'`, мы стабильный канал; читается при (пере)запуске): включена — инъекция ставит
+  `VSCODE_SHELL_ENV_REPORTING=PATH,VIRTUAL_ENV,HOME,SHELL,PWD`, и скрипт шлёт `EnvSingle*` на каждом промпте.
+- Не сделано здесь: `VSCODE_PATH_PREFIX`, `ignoreShellIntegration`/
   `forceShellIntegration` (их никто не ставит), проброс эталоном своих же аргументов инъекции zsh/fish по
   идентичности массива (их сюда никто не возвращает), Windows-ветки.
 - **Тесты на настоящих шеллах** (`embeddedTerminalSession.shellIntegration*.test.ts`, `e2e/sea-shellIntegration.test.ts`)
   без шелла на машине пропускаются; в CI zsh и fish ставит `apt-get`, pwsh есть в образе `ubuntu-latest`
   (шаг проверяет `command -v pwsh`).
+
+## Shell integration: разбор и модель команд
+
+Перенос эталона, зеркальные пути: `platform/terminal/common/xterm/shellIntegrationAddon.ts` (разбор) и
+`platform/terminal/common/capabilities/` (модель). Аддон живёт в `XtermSurface` (`session.shellIntegration`) —
+его получают и шелл, и pty расширения, который сам пишет 633 (как в эталоне). Nonce терминала (`VSCODE_NONCE`)
+тоже у поверхности.
+
+- **Разбор** — OSC-обработчики xterm: 633 (`A`/`B`/`C`/`D[;код]`/`E;<строка>[;nonce]`, `F`–`I`,
+  `P;<ключ>=<значение>`, `EnvJson`, `EnvSingleStart/Entry/Delete/End`, `SetMark`), 133 (`A`–`D`), 7
+  (`file://host/path`, percent-decoding), 1337 (`CurrentDir=`). Значения 633 — `deserializeVSCodeOscMessage`
+  (`\\`, `\xAB`). Последовательности в кадр не печатаются. Неизвестный код 633/133/1337 и неизвестный ключ `P`
+  — `false` (**отступление:** эталон на неизвестном `P` проваливается в `SetMark` и ставит метку).
+- **Capabilities** — `TerminalCapabilityStore` (`onDidAddCapability`, `onDidAddCommandDetectionCapability`),
+  ключи — имена (`commandDetection`, `cwdDetection`, `shellEnvDetection`), а не enum. Command detection
+  появляется на первой «командной» последовательности (`A`–`I`, `P;IsWindows/HasRichCommandDetection/Prompt/
+  ContinuationPrompt`) — это и есть «интеграция включилась», раз на процесс. Cwd без команд её не включает.
+  Relaunch (`XtermSurface.relaunch`) снимает и выбрасывает все capabilities: новый процесс включает заново.
+- **Команда** (`ITerminalCommand`, один объект от старта до конца): `E` даёт строку с `confidence: high`,
+  `isTrusted` — nonce совпал. Без `E` строка читается из буфера от метки `B` до курсора на `C`: `medium`, если
+  был `A` и `B` не в колонке 0, иначе `low`. `onCommandExecuted` — на `C`, один раз (повторный `C` молчит);
+  `onCommandFinished` — на `D` с кодом (`D` без кода — `undefined`). `D` без `C` (пустой Enter, Ctrl+C) сперва
+  запускает команду — у каждого конца есть старт, как в эталоне; без `B` команды нет. cwd команды — известный
+  на `B`. `E` после `C` обновляет уже запущенную команду (как эталон — свою partial): fish 4 сам шлёт
+  `133;C;cmdline_url=…` раньше `633;E` скрипта, и старт несёт строку из буфера, а конец — присланную. Скрипт
+  fish 1.127.0 теряет nonce (`set -l` внутри `if`) — его команды недоверенные, как и в эталоне.
+- **Вывод** — `shellIntegration.onDidWriteCommandOutput`: сырые куски данных процесса от `C` (сама
+  последовательность — первым куском) до `D` (не входит). `feedOutput` режет чанк PTY по `C`/`D` и пишет куски
+  в xterm по отдельности (эталонный `_onProcessData`); `C` запускает команду во время разбора своего куска, а
+  кусок отдаётся после разбора — поэтому `C` в потоке есть; `D` заканчивает команду до отдачи своего куска —
+  поэтому его нет. Последовательность, разрезанная между чанками, режется по чанку, как в эталоне. Куски не
+  склеиваются: сотни КБ вывода — сотни событий, не квадратичная строка.
+- **cwd** — `P;Cwd=` (доверенный при nonce; скрипты 1.127.0 шлют его без nonce — недоверенный, как в эталоне),
+  OSC 7 и 1337 — всегда недоверенные; кавычки вокруг снимаются (`sanitizeCwd`). Ссылки в терминале резолвятся
+  от него, когда он известен.
+- **Окружение** — `EnvJson` целиком или `EnvSingle*` по переменной, изменение — одним событием в конце,
+  `isTrusted` — все части с nonce.
+- **Не перенесено** (служат UI и Windows): `promptInputModel`, `PartialCommandDetection`,
+  `PromptTypeDetection`, `BufferMarkCapability` (`SetMark` принимается и игнорируется), эвристики Windows,
+  OSC 9;9, метки на команду и `getCwdForLine`, сериализация, телеметрия и статус интеграции, `Prompt`/
+  `ContinuationPrompt` (их потребитель — `promptInputModel`). 133;`B` не отличается от 633;`B` (эталон
+  выбрасывает строку на конце команды).
+- **Проверить руками** — Developer: Write Data to Terminal с `\x1b]633;D;1\x07` ничего не печатает; Developer:
+  Record Terminal Session показывает, что последовательности приходят.
 
 ## Упаковка нативного: embed + runtime-extract
 
@@ -283,9 +330,11 @@ xterm.js `InputHandler.kittyKeyboard*`: свой стек у main и alt (до 1
 - Буфер для детектора — `ITerminalSession.buffer` (`common/terminalBuffer.ts`, структурное подмножество
   `IBuffer` xterm; есть у `XtermSurface`, у фейков — нет, и ссылок там нет). Декоратор обязан отдавать `buffer`
   внутренней поверхности наружу: по нему работает следующий в цепочке.
-- **Отступления.** cwd для относительных путей — не shell integration (её нет), а
+- **cwd для относительных путей** — cwd из shell integration (`cwdDetection`), пока его нет —
   `ITerminalSession.getCwd()`: `/proc/<pid>/cwd` шелла, иначе его начальный cwd, у pty расширения — `cwd`
-  запуска; потом корни воркспейса. Модификатор — всегда Ctrl (ключа `editor.multiCursorModifier` нет, Cmd до
+  запуска; потом корни воркспейса.
+- **Отступления.** cwd берётся текущий, а не на строку ссылки (эталонный `getCwdForLine` держит метки команд,
+  их нет). Модификатор — всегда Ctrl (ключа `editor.multiCursorModifier` нет, Cmd до
   нас в отчёте мыши не доходит), подсказки «Follow link» нет. Папка вне воркспейса — не ссылка. Прохода по
   атрибутам ячеек (`getXtermRangesByAttr`) нет. Голый Ctrl — не событие мыши: нажатие и отпускание без
   движения видны только на tier `kitty` (keydown/keyup `Control`), на остальных подчёркивание следует за
