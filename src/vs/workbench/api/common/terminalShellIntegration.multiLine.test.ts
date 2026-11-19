@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { LOW, setupShellIntegrations } from "../../../../TestUtils/shellIntegrationsHarness.ts";
 import { settle } from "../../../../TestUtils/timing.ts";
-
-import { LOW, setupShellIntegrations } from "./terminalShellIntegration.testUtils.ts";
 
 // A multi-line `executeCommand`: each line is a command of its own to the shell, one execution to the extension.
 

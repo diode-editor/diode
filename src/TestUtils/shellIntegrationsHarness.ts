@@ -1,7 +1,10 @@
 import type * as vscode from "vscode";
 
-import type { SubprocessRpc } from "./extHostProtocol.ts";
-import { createTerminalShellIntegrations, type IShellIntegrationTerminal } from "./terminalShellIntegration.ts";
+import type { SubprocessRpc } from "../vs/workbench/api/common/extHostProtocol.ts";
+import {
+    createTerminalShellIntegrations,
+    type IShellIntegrationTerminal,
+} from "../vs/workbench/api/common/terminalShellIntegration.ts";
 
 export const HIGH = { confidence: 2, isTrusted: true };
 export const LOW = { confidence: 0, isTrusted: false };

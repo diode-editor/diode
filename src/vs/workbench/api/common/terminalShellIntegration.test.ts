@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
+import { HIGH, LOW, setupShellIntegrations as setup } from "../../../../TestUtils/shellIntegrationsHarness.ts";
 import { settle } from "../../../../TestUtils/timing.ts";
-
-import { HIGH, LOW, setupShellIntegrations as setup } from "./terminalShellIntegration.testUtils.ts";
 
 /** A macrotask: the end event waits for the `read()` streams. */
 const macrotask = (): Promise<void> => settle(0);
