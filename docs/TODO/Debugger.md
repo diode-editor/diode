@@ -1,7 +1,8 @@
 # Отладчик (DAP) — заметки и спайк видов
 
-Статус: в работе у агентского лупа — эпик [#1132](https://github.com/diode-editor/diode/issues/1132) (решения
-человека, правила серии, список задач). Спайк UI — ветка `spike/debug-views` (не для влития). Ниже — исследование,
+Статус: все задачи серии эпика [#1132](https://github.com/diode-editor/diode/issues/1132) (#1133–#1162) закрыты на
+2026-11-18, эпик ещё открыт (решения человека, правила серии, список задач). Готовность API — `vscode.debug` в
+[API-COVERAGE](../public/API-COVERAGE.md#vscodedebug). Спайк UI — ветка `spike/debug-views` (не для влития). Ниже — исследование,
 из которого выросла серия.
 
 ## Серия issues (2026-11-14)
@@ -338,21 +339,20 @@ F10/F11/Shift+F11 — шаги, F5 — continue, F6 — pause, Shift+F5 — stop
 - [ ] Посмотреть глазами и потюнить: длительность подсветки изменений (1 с без анимации легко пропустить),
       показ условия брейкпоинта (эталон — только в hover, у нас курсивом в строке), метки состояний потоков,
       маркер `➜` текущего кадра, ширина/отступы строк.
-- [ ] Перенос длинных строк в Debug Console (сейчас обрезаются; у `ListViewElement` есть многострочные строки
-      `height`).
-- [ ] ANSI-цвета в выводе консоли (`debugANSIHandling.ts` эталона).
-- [ ] Автодополнение в строке ввода REPL (у эталона там редактор с suggest); многострочный ввод.
-- [ ] Фильтр консоли в заголовке (эталон: «Filter (e.g. text, !exclude)»).
+- [x] Перенос длинных строк в Debug Console — `debug.console.wordWrap` (`repl.ts`).
+- [x] ANSI-цвета в выводе консоли — `debugANSIHandling.ts`.
+- [x] Автодополнение в строке ввода REPL (`replSuggest.ts`); многострочный ввод.
+- [x] Фильтр консоли в заголовке (`replFilter.ts`).
 - [x] Контекстные меню: Copy Value, Copy as Expression, Set Value (F2, поле на строке), Add to Watch, Break on Value
       Change/Read/Access, Copy Call Stack, консоль (#1155). Edit Condition у брейкпоинта — #1151.
-- [ ] Inline-редактирование watch-выражения (сейчас добавление через quick input).
+- [x] Inline-редактирование watch-выражения — решение 2026-11-14: выражение вводится в quick input, как условие
+      брейкпоинта (`watchExpressionsView.ts`); Set Value — поле на строке, как у эталона.
 - [ ] Тулбар: стоит в активной группе и переезжает за ней — проверить, не раздражает ли; ширину выровнять с find.
 - [x] Цвет статус-бара во время сессии — `statusbarColorProvider.ts` (порт эталона) + `StatusBarComponent.overrideColors`
       (SPIKE-шов; у эталона — `IStatusbarService.overrideStyle`). Цвет — из темы: Dark Modern синий `#0078D4`,
       запасной `#CC6633`.
-- [ ] `ScmActionButtonElement` переиспользован из `contrib/scm` — для влития вынести общую кнопку в `browser/parts/views/`.
+- [x] `ScmActionButtonElement` из `contrib/scm` в отладке больше не используется.
 - [x] Выпадающий выбор конфигурации запуска в заголовке Run and Debug (эталон: ▷ + список `launch.json`) — #1156.
-- [ ] Редактор (вне этого спайка): глифы брейкпоинтов в гаттере, подсветка текущей строки
-      (`editor.stackFrameHighlightBackground`), hover значений, inline values.
-- [ ] После тюнинга — скиллом `spec` нарезать фазы 1–3 на issues для лупа; поправить противоречие в
-      Extensions.md.
+- [x] Редактор: глифы брейкпоинтов в гаттере и подсветка текущей строки (#1148), hover значений (#1194), inline
+      values (#1195).
+- [x] Фазы нарезаны на issues для лупа — серия #1133–#1162 выше.
