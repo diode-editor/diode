@@ -43,6 +43,19 @@ export const CompletionItemInsertTextRule = {
     KeepWhitespace: 1,
 } as const;
 
+/**
+ * Upstream `languages.CompletionItemRanges` (`vscode.CompletionItem.range` as `{ inserting, replacing }`): both start
+ * at the same position, `editor.suggest.insertMode` picks the one accept replaces.
+ */
+export interface ICompletionItemRanges {
+    readonly insert: IRange;
+    readonly replace: IRange;
+}
+
+export function isCompletionItemRanges(range: IRange | ICompletionItemRanges): range is ICompletionItemRanges {
+    return "insert" in range;
+}
+
 /** `insertText` is already normalized: the host falls back to `label` when serializing. */
 export interface ICoreCompletionItem {
     readonly label: string;
@@ -59,7 +72,7 @@ export interface ICoreCompletionItem {
     readonly documentation?: string;
     readonly command?: ICoreCompletionCommand;
     /** Absent: the core uses the prefix. */
-    readonly range?: IRange;
+    readonly range?: IRange | ICompletionItemRanges;
     readonly sortText?: string;
     readonly filterText?: string;
     /** Sent right in the list (gopls): accepting applies them without resolve, like upstream `suggestController`. */

@@ -433,7 +433,7 @@ reason: everything is declared and implemented, but `save` is a 🟡 stub.
 | `FileStat` | 4/5 | `permissions` |
 | `FileSystemProvider` | 5/10 | `readDirectory`, `createDirectory`, `delete`, `rename`, `copy` |
 | `DocumentFilter` | 3/4 | `notebookType` |
-| `CompletionItem` | 16/16 | — (everything is declared, but `keepWhitespace` reaches the editor and does not act yet: every insertion keeps its whitespace as is, with or without it). A commit character of the selected item accepts it and is typed after it, unless `editor.acceptSuggestionOnCommitCharacter` is off. A `Deprecated` tag strikes the label through; `preselect` selects the item among the best matches; the old `textEdit` inserts its text on its range. `additionalTextEdits` works both in the list and when loaded by resolve |
+| `CompletionItem` | 16/16 | — (everything is declared). A `range` of `{ inserting, replacing }` follows `editor.suggest.insertMode` (`insert` by default keeps the text right of the cursor); Shift+Enter / Shift+Tab accept with the other mode. Lines 2+ of a multi-line insert text get the indentation of the current line, unless `keepWhitespace`. A commit character of the selected item accepts it and is typed after it, unless `editor.acceptSuggestionOnCommitCharacter` is off. A `Deprecated` tag strikes the label through; `preselect` selects the item among the best matches; the old `textEdit` inserts its text on its range. `additionalTextEdits` works both in the list and when loaded by resolve |
 | `QuickPickItem` | 7/9 | `iconPath`, `buttons` |
 | `QuickPickOptions` | 4/8 | `matchOnDescription`, `matchOnDetail`, `prompt`, `ignoreFocusOut` |
 | `InputBoxOptions` | 7/8 | `ignoreFocusOut` |

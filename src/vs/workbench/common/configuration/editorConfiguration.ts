@@ -367,6 +367,19 @@ export const editorConfiguration = {
                 "Controls whether suggestions should be accepted on commit characters. For example, in JavaScript, " +
                 "the semi-colon (`;`) can be a commit character that accepts a suggestion and types that character.",
         },
+        "editor.suggest.insertMode": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["insert", "replace"],
+            enumDescriptions: [
+                "Insert suggestion without overwriting text right of the cursor.",
+                "Insert suggestion and overwrite text right of the cursor.",
+            ],
+            default: "insert",
+            description:
+                "Controls whether words are overwritten when accepting completions. Note that this depends on " +
+                "extensions opting into this feature.",
+        },
         "editor.suggestOnTriggerCharacters": {
             scope: "language-overridable",
             type: "boolean",
