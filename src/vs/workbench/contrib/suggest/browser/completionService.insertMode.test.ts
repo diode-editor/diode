@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { drawSelections } from "../../../../../TestUtils/snippetPane.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -112,6 +112,53 @@ describe("CompletionService — insert mode and whitespace", () => {
             await openConsole("replace");
             ctx.testApp.sendKey("s");
             ctx.testApp.sendKey("Enter");
+            expect(drawSelections(pane())).toBe("const|");
+        });
+
+        it("the prefix starts where the ranges do, not at the word start", async () => {
+            // `.` is a word character of the prefix: without the item's range the prefix would be `a.con`.
+            start("a.console", 5);
+            const range = { insert: createRange(0, 2, 0, 5), replace: createRange(0, 2, 0, 9) };
+            register([
+                { label: "const", insertText: "const", range },
+                { label: "other", insertText: "other", range },
+            ]);
+            await open();
+            expect(ctx.completion.view.items.map(({ label }) => label)).toEqual(["const"]);
+            ctx.testApp.sendKey("Enter");
+            expect(drawSelections(pane())).toBe("a.const|sole");
+        });
+
+        it("a commit character accepts in insert mode", async () => {
+            start("console", 3);
+            register([{ ...CONST, commitCharacters: ["."] }]);
+            await open();
+            ctx.testApp.sendKey(".");
+            expect(drawSelections(pane())).toBe("const.|sole");
+        });
+
+        it("a retrigger by another provider's trigger character moves both kept ranges to the new caret", async () => {
+            start("conzz", 3);
+            register([
+                {
+                    label: "con@st",
+                    insertText: "const",
+                    range: { insert: createRange(0, 0, 0, 3), replace: createRange(0, 0, 0, 5) },
+                },
+            ]);
+            // `@` is not a word character: typing it asks this provider again and keeps the other one's item.
+            const retrigger = vi.fn(() => Promise.resolve({ items: [], isIncomplete: false }));
+            ctx.harness.container
+                .get(LanguageFeaturesServiceDIToken)
+                .completionProvider.register("*", { triggerCharacters: ["@"], provideCompletionItems: retrigger });
+            await open();
+            ctx.testApp.sendKey("@");
+            await vi.waitFor(() => {
+                expect(retrigger).toHaveBeenCalledTimes(2);
+            });
+            await new Promise((done) => setTimeout(done));
+            expect(ctx.completion.view.items.map(({ label }) => label)).toEqual(["con@st"]);
+            ctx.testApp.sendKey("Shift+Enter");
             expect(drawSelections(pane())).toBe("const|");
         });
 

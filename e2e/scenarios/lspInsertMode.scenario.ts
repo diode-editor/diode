@@ -49,8 +49,9 @@ export default defineScenario({
         await editor.sendKey("Ctrl+End");
         await editor.sendKey("Home");
 
-        // Typed key by key, as a person does: the list opens on typing, not on a paste.
         for (const key of "cons") await editor.sendKey(key);
+        // Inside a word quick suggestions stay closed, like upstream `shouldAutoTrigger`: the list is asked for.
+        await editor.sendKey("Ctrl+Space");
         await editor.waitForText((t) => t.includes("console"), { timeoutMs: 60_000 });
         await editor.capture("popup");
 
