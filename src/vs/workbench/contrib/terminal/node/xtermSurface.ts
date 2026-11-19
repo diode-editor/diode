@@ -19,6 +19,11 @@ import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { importLazyModule } from "../../../../base/common/lazyModule.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { generateUuid } from "../../../../base/common/uuid.ts";
+import {
+    ShellIntegrationAddon,
+    splitProcessData,
+} from "../../../../platform/terminal/common/xterm/shellIntegrationAddon.ts";
 import { KittyKeyboardState } from "../common/kittyKeyboardState.ts";
 import type { ITerminalBuffer } from "../common/terminalBuffer.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
@@ -112,6 +117,16 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     private readonly kittyKeyboard = new KittyKeyboardState();
     /** `terminal.integrated.enableKittyKeyboardProtocol`; off — the sequences are ignored (upstream `vtExtensions`). */
     private kittyKeyboardEnabled = true;
+    /**
+     * Upstream `shellIntegrationNonce`: one per terminal, kept across relaunches. The shell gets it as `VSCODE_NONCE`
+     * and sends it back to mark its sequences as trusted.
+     */
+    protected readonly shellIntegrationNonce = generateUuid();
+    /**
+     * What shell integration sequences in the output tell: commands, cwd, environment. A pty of an extension that
+     * writes them gets it too, as upstream.
+     */
+    public readonly shellIntegration = new ShellIntegrationAddon(this.shellIntegrationNonce);
 
     protected constructor(options: XtermSurfaceOptions) {
         this.cols = options.cols;
@@ -147,6 +162,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
             this.sendLineData(buffer, row, line);
         });
         this.attachKittyKeyboard(term);
+        this.shellIntegration.activate(term);
         this.term = term;
         for (const item of this.pendingOutput.splice(0)) {
             if (typeof item === "string") this.writeToTerm(term, item);
@@ -259,26 +275,38 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     protected abstract relaunchProcess(options: ITerminalRelaunchOptions): void;
 
-    /** Process output: reported raw ({@link onWillData}) before the emulator parses it. */
+    /**
+     * Process output: reported raw ({@link onWillData}) before the emulator parses it. Each shell integration `C` and `D`
+     * sequence is written on its own, so the command output stream starts and ends on them (upstream `_onProcessData`).
+     */
     protected feedOutput(data: string): void {
-        this.onWillDataEmitter.fire(data);
-        this.writeOutput(data);
+        for (const piece of splitProcessData(data)) {
+            this.onWillDataEmitter.fire(piece);
+            this.writeOutput(piece, () => {
+                this.shellIntegration.handleParsedData(piece);
+            });
+        }
     }
 
     /**
      * `term.write()` is async: emitUpdate runs in the write callback, after buffer.active
      * is updated, otherwise the frame lags one event behind.
      */
-    private writeOutput(data: string): void {
-        if (this.term === undefined) this.pendingOutput.push(data);
-        else this.writeToTerm(this.term, data);
+    private writeOutput(data: string, parsed?: () => void): void {
+        if (this.term !== undefined) {
+            this.writeToTerm(this.term, data, parsed);
+            return;
+        }
+        this.pendingOutput.push(data);
+        if (parsed !== undefined) this.pendingOutput.push(parsed);
     }
 
-    private writeToTerm(term: Terminal, data: string): void {
+    private writeToTerm(term: Terminal, data: string, parsed?: () => void): void {
         term.write(data, () => {
             // New output returns the viewport to the bottom — otherwise the frame drifts against the growing baseY.
             this.viewportScrollOffset = 0;
             this.emitUpdate();
+            parsed?.();
         });
     }
 
@@ -302,6 +330,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      */
     public relaunch(options: ITerminalRelaunchOptions): void {
         const preface = options.clear === true ? CLEAR_ALL : NEW_LINE_AT_START;
+        // The exit waited for the previous process's output to be parsed: nothing of it is still on its way.
+        this.shellIntegration.reset();
         this.printMessage(options.message === undefined ? preface : `${preface}${options.message}\r\n`);
         this.exited = false;
         this.relaunchProcess(options);
@@ -480,6 +510,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     public dispose(): void {
         this.disposed = true;
         this.disposeProcess();
+        this.shellIntegration.dispose();
         // Stryker disable next-line OptionalChaining,CallExpression: emulator disposal isn't observable from outside
         this.term?.dispose();
     }

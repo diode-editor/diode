@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { emulatorWith, fakeFileService } from "../../../../../../TestUtils/terminalLinks.ts";
+import { emulatorWith, type FakeDisk, fakeFileService } from "../../../../../../TestUtils/terminalLinks.ts";
 import { createTestConfigurationService } from "../../../../../../TestUtils/testConfigurationService.ts";
 import type { IEnvironmentService } from "../../../../../platform/environment/common/environment.ts";
 import type { IFileService } from "../../../../../platform/files/common/files.ts";
@@ -23,7 +23,10 @@ describe("TerminalLinkService", () => {
         sessions = [];
     });
 
-    function service(settings: Record<string, unknown> = {}): TerminalLinkService {
+    function service(
+        settings: Record<string, unknown> = {},
+        disk: FakeDisk = { "/ws/a.ts": "file" },
+    ): TerminalLinkService {
         opened = [];
         const opener = {
             open: (link: ITerminalLink) => {
@@ -37,7 +40,7 @@ describe("TerminalLinkService", () => {
         } as unknown as IWorkspaceContextService;
         return new TerminalLinkService(
             createTestConfigurationService(settings),
-            fakeFileService({ "/ws/a.ts": "file" }) as IFileService,
+            fakeFileService(disk) as IFileService,
             workspace,
             { userHome: "/home/user" } as IEnvironmentService,
             opener,
@@ -139,6 +142,28 @@ describe("TerminalLinkService", () => {
             await links.openRecentLink(await instanceWith("a.ts"));
 
             expect(opened.map((link) => link.text)).toEqual(["a.ts"]);
+        });
+
+        it("a relative path resolves against the cwd shell integration reported, else the launch cwd", async () => {
+            const disk: FakeDisk = { "/ws/x.txt": "file", "/ws/sub/x.txt": "file" };
+            const links = service({}, disk);
+            await links.openRecentLink(await instanceWith("\x1b]633;P;Cwd=/ws/sub\x07./x.txt"));
+            await links.openRecentLink(await instanceWith("./x.txt"));
+            await links.openRecentLink(await instanceWith("\x1b]633;P;Cwd=\x07./x.txt"));
+            // A session without shell integration (a fake one).
+            const { session } = await instanceWith("\x1b]633;P;Cwd=/ws/sub\x07./x.txt");
+            const bare = {
+                session: { buffer: session.buffer, dimensions: session.dimensions },
+                launch: { cwd: "/ws" },
+            };
+            await links.openRecentLink(bare as unknown as ITerminalInstance);
+
+            expect(opened.map((link) => link.uri.fsPath)).toEqual([
+                "/ws/sub/x.txt",
+                "/ws/x.txt",
+                "/ws/x.txt",
+                "/ws/x.txt",
+            ]);
         });
 
         it('opens nothing with `enableFileLinks: "off"` or before the emulator has a buffer', async () => {
