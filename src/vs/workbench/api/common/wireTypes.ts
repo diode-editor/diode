@@ -1193,7 +1193,12 @@ export interface SerializedDecorationAttachmentRenderOptions {
     readonly color?: SerializedColor;
     readonly backgroundColor?: SerializedColor;
     readonly borderColor?: SerializedColor;
+    /** CSS strings, as the extension gave them: the host turns them into cell attributes and cell counts. */
     readonly fontStyle?: string;
+    readonly fontWeight?: string;
+    readonly textDecoration?: string;
+    readonly margin?: string;
+    readonly width?: string;
 }
 
 /** Upstream `ThemableDecorationInstanceRenderOptions`. */

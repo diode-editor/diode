@@ -6096,102 +6096,96 @@
       "class": "ok"
     },
     "ThemableDecorationAttachmentRenderOptions.backgroundColor": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationAttachmentRenderOptions.border": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationAttachmentRenderOptions.borderColor": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "colors a swatch (a blank contentText); no border is drawn"
     },
     "ThemableDecorationAttachmentRenderOptions.color": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationAttachmentRenderOptions.contentIconPath": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "not drawn"
     },
     "ThemableDecorationAttachmentRenderOptions.contentText": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "the first line; blank with a color is a swatch"
     },
     "ThemableDecorationAttachmentRenderOptions.fontStyle": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "italic and oblique are drawn italic"
     },
     "ThemableDecorationAttachmentRenderOptions.fontWeight": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "bold, bolder and 600+ are drawn bold"
     },
     "ThemableDecorationAttachmentRenderOptions.height": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has one height: ignored"
     },
     "ThemableDecorationAttachmentRenderOptions.margin": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "the horizontal sides, as blank cells in the line background; lengths rounded to cells"
     },
     "ThemableDecorationAttachmentRenderOptions.textDecoration": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "underline (wavy: undercurl) and line-through are drawn; overline, color and thickness are not"
     },
     "ThemableDecorationAttachmentRenderOptions.width": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "rounded to cells; a longer text is cut instead of spilling out"
     },
     "ThemableDecorationInstanceRenderOptions.after": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationInstanceRenderOptions.before": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationRenderOptions.after": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationRenderOptions.backgroundColor": {
       "class": "ok"
     },
     "ThemableDecorationRenderOptions.before": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationRenderOptions.border": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.borderColor": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.borderRadius": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "no cell counterpart: ignored"
     },
     "ThemableDecorationRenderOptions.borderSpacing": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "no cell counterpart: ignored"
     },
     "ThemableDecorationRenderOptions.borderStyle": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.borderWidth": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.color": {
       "class": "ok"
     },
     "ThemableDecorationRenderOptions.cursor": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "no cell counterpart: ignored"
     },
     "ThemableDecorationRenderOptions.fontStyle": {
       "class": "ok",
@@ -6209,7 +6203,7 @@
     },
     "ThemableDecorationRenderOptions.letterSpacing": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "no cell counterpart: ignored"
     },
     "ThemableDecorationRenderOptions.opacity": {
       "class": "ok",
@@ -6217,19 +6211,19 @@
     },
     "ThemableDecorationRenderOptions.outline": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.outlineColor": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.outlineStyle": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.outlineWidth": {
       "class": "C",
-      "note": "text decorations are not drawn"
+      "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.overviewRulerColor": {
       "class": "ok"
