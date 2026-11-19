@@ -82,9 +82,10 @@ describe("Developer: Set Log Level...", () => {
 
     it("the first row picks Trace; Escape changes nothing", async () => {
         const { commands, testApp, logService } = createApp();
-        void commands.execute("workbench.action.setLogLevel");
+        const cancelled = commands.execute("workbench.action.setLogLevel");
         testApp.sendKey("Escape");
-        await flush();
+        // A cancelled pick finishes the command quietly, not with an error in the Commands log.
+        await expect(cancelled).resolves.toBeUndefined();
         expect(logService.getWindowLevel()).toBe(LogLevel.Info);
         expect(logService.getLevel("any")).toBe(LogLevel.Trace);
 

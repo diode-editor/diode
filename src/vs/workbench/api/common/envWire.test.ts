@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireEnvInitialize, parseWireEnvLogLevel } from "./wireTypes.ts";
+import { parseWireEnvInitialize, parseWireEnvLogLevel } from "./envWire.ts";
 
 describe("parseWireEnvInitialize", () => {
     it("takes the fields as sent", () => {

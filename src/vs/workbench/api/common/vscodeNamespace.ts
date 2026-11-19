@@ -24,6 +24,7 @@ import {
     SourceBreakpoint,
 } from "./debugTypes.ts";
 import { ExtHostEnvironmentVariableCollections } from "./environmentVariableCollection.ts";
+import { parseWireEnvInitialize, parseWireEnvLogLevel } from "./envWire.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
 import type { ExtHostNodeDebugAdapters } from "./extHostDebugAdapter.ts";
@@ -199,8 +200,6 @@ import {
     type IWireEnvInitialize,
     type IWireExtensionDescription,
     parseWireClipboardText,
-    parseWireEnvInitialize,
-    parseWireEnvLogLevel,
     parseWireOpenExternalResult,
 } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
