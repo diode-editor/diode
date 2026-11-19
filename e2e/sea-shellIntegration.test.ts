@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -35,5 +35,35 @@ describeLinux("shell integration scripts — SEA", () => {
         expect(existsSync(join(root, dir, ".diode-ready"))).toBe(true);
         expect(existsSync(join(root, dir, "shellIntegration-bash.sh"))).toBe(true);
         expect(existsSync(join(root, dir, "shellIntegration-rc.zsh"))).toBe(true);
+        expect(existsSync(join(root, dir, "shellIntegration.fish"))).toBe(true);
+        expect(existsSync(join(root, dir, "shellIntegration.ps1"))).toBe(true);
     }, 120_000);
+
+    // CI installs fish and has pwsh in the runner image; without the shell its case is skipped.
+    for (const { shell, check } of [
+        { shell: "/usr/bin/fish", check: 'functions -q __vsc_cmd_finished; and echo "si""-$VSCODE_INJECTION"' },
+        {
+            shell: ["/usr/bin/pwsh", "/usr/local/bin/pwsh"].find((p) => existsSync(p)) ?? "/usr/bin/pwsh",
+            check: "if (Get-Command __VSCode-Escape-Value) { 'si' + '-' + $env:VSCODE_INJECTION }",
+        },
+    ]) {
+        it.skipIf(!existsSync(shell))(
+            `${basename(shell)} starts with the unpacked script from a cache path with spaces`,
+            async () => {
+                const cacheHome = mkdtempSync(join(tmpdir(), "diode cache with spaces "));
+                const { session } = await useHeadlessApp({
+                    env: { SHELL: shell, XDG_CACHE_HOME: cacheHome, POWERSHELL_TELEMETRY_OPTOUT: "1" },
+                });
+                await session.waitForReady();
+                await session.sendKey("Ctrl+K");
+                await session.sendKey("t");
+                // fish's prompt ends with `> `, pwsh's with `> ` too; PSReadLine drops an Enter typed before it.
+                await session.waitForText((t) => /> *$/m.test(t), { timeoutMs: 30_000 });
+                await session.sendText(check);
+                await session.sendKey("Enter");
+                await session.waitForText((t) => t.includes("si-1"), { timeoutMs: 30_000 });
+            },
+            120_000,
+        );
+    }
 });
