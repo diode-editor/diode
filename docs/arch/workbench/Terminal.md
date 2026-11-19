@@ -331,3 +331,23 @@ xterm.js `InputHandler.kittyKeyboard*`: свой стек у main и alt (до 1
 берётся из темы. Опрос — не раньше фазы `restored`, когда tty уже в raw-режиме: из конструктора сервиса
 ответы печатались эхом на основной экран и оставались мусором в шелле (v0.9.0). Гейт —
 `e2e/sea-terminalQueries.test.ts`.
+
+## Команды разработчика
+
+`contrib/terminalContrib/developer/` — две команды `terminal.developer.contribution.ts` эталона, чтобы
+руками видеть байты, идущие через терминал (проверка волны shell integration, #1217):
+
+- **Developer: Write Data to Terminal** (`workbench.action.terminal.writeDataToTerminal`) — строка из поля
+  ввода (`\n`, `\r`, `\xHH`, остальное буквально) уходит в эмулятор активного терминала (`printMessage`), в
+  процесс — нет. Нет терминала — создаётся в месте по умолчанию; терминал во вкладке редактора — вкладка
+  показывается снова.
+- **Developer: Record Terminal Session** (`workbench.action.terminal.recordSession`) — новый терминал и
+  запись слева в статус-баре; события `resize` (сразу текущий размер, потом `onDidChangeDimensions`),
+  `command` (`CommandRegistry.onWillExecuteCommand`), `output` (`onWillData` — сырой выход процесса до
+  разбора, с escape-последовательностями), `sendText` (`onDidSendText`), `input` (`onDidWriteData` — ввод
+  через эмулятор: клавиши, мышь, ответы эмулятора). Через 5 с тишины — `JSON.stringify(events, null, 2)` в
+  буфер обмена. **Отступление:** `promptInputChange` нет — нет `promptInputModel`.
+
+Свой текст (`printMessage`: сообщения, Write Data) — не выход процесса: `onWillData` и строки (`onLineData`)
+его не видят. Остальные команды developer-контрибуции (`showTextureAtlas`, `restartPtyHost`, `devMode`) не
+перенесены: им не на что действовать.
