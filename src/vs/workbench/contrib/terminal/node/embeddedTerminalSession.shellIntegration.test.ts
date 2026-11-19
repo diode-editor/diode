@@ -39,13 +39,14 @@ beforeEach(() => {
 afterEach(() => {
     for (const session of sessions.splice(0)) session.dispose();
     vi.unstubAllEnvs();
-    rmSync(home, { recursive: true, force: true });
-    rmSync(tmp, { recursive: true, force: true });
+    // A killed shell may still be writing into its home for a moment.
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 });
 
 function start(options: Partial<EmbeddedTerminalOptions>, logger?: ILogger): RecordingSession {
     const session = new RecordingSession(
-        { cols: 100, rows: 10, cwd: home, env: { HOME: home, ZDOTDIR: null }, ...options },
+        { cols: 100, rows: 10, cwd: home, env: { HOME: home, HISTFILE: "/dev/null", ZDOTDIR: null }, ...options },
         undefined,
         logger,
     );
