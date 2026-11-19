@@ -931,8 +931,7 @@
       "note": "a SnippetString goes in as plain text, without a snippet session"
     },
     "CompletionItem.keepWhitespace": {
-      "class": "B",
-      "note": "reaches the editor; every insertion keeps its whitespace as is, with or without it (#1233)"
+      "class": "ok"
     },
     "CompletionItem.kind": {
       "class": "ok"

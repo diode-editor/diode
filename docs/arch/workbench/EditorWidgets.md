@@ -125,6 +125,14 @@
   список. Выключает `editor.acceptSuggestionOnCommitCharacter`. Набор не ждёт resolve: правки, которых
   ещё нет в кэше, догоняют вставку отдельным шагом undo, когда resolve ответит (эталонные «async
   additional edits»), и бросаются, если документ менялся раньше их начала или перечитан.
+- **Режим вставки** (`editor.suggest.insertMode`, эталон `getOverwriteInfo`): `range` пункта приходит из
+  хоста как `{ insert, replace }` (`vscode`-шный `{ inserting, replacing }`), дефолт `insert` заменяет
+  только до каретки — `con|sole` + `const` → `constsole`; `replace` затирает слово справа.
+  `acceptAlternativeSelectedSuggestion` (Shift+Enter / Shift+Tab) берёт противоположный режим. Пункт без
+  `range` всегда заменяет префикс: дефолтного replace-диапазона эталона (слово целиком) у нас нет.
+- **Отступы** (эталон вставляет пункт сниппетом с `adjustWhitespace`): строки 2+ многострочного
+  `insertText` получают ведущие пробелы текущей строки, нормализованные по `tabSize`/`insertSpaces`
+  редактора (`adjustTextWhitespace` в `snippetSession.ts`); `keepWhitespace` — вставка как есть.
 - Не сделано: режим `inline` (попап просто не открывает), провайдерский `suppressSuggestions`,
   `snippetsPreventQuickSuggestions`, retrigger при переходе к новому слову (`_onNewContext`).
 

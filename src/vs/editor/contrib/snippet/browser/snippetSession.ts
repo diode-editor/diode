@@ -78,6 +78,21 @@ function indentFollowingLines(
 }
 
 /**
+ * Upstream `SnippetSession.adjustWhitespace` for a plain text (a completion item, which upstream inserts as an
+ * escaped snippet): its first line is only normalized, every further one gets `lineLeadingWhitespace`.
+ */
+export function adjustTextWhitespace(
+    text: string,
+    lineLeadingWhitespace: string,
+    options: Pick<ISnippetInsertOptions, "tabSize" | "insertSpaces">,
+): string {
+    const lines = splitLines(text);
+    lines[0] = normalizeIndentation(lines[0], options);
+    indentFollowingLines(lines, lineLeadingWhitespace, options);
+    return lines.join(EOL);
+}
+
+/**
  * Upstream `SnippetSession.adjustWhitespace` over the markers of one edit: the snippet start is only normalized,
  * every further line and a text that follows a line break get the leading whitespace of the line at `position`.
  */

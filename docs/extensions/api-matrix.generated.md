@@ -14,9 +14,9 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1434 |
+| ok | 1435 |
 | A | 11 |
-| B | 219 |
+| B | 218 |
 | C | 317 |
 | X | 234 |
 
@@ -681,7 +681,7 @@ Proposed API or a false hit: class X when real.
 | `CompletionItem.documentation` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss |
 | `CompletionItem.filterText` | ok |  | 0 | 0 |  |
 | `CompletionItem.insertText` | B |  | 0 | 0 | bradlc.vscode-tailwindcss, redhat.vscode-yaml |
-| `CompletionItem.keepWhitespace` | B | yes | 0 | 0 |  |
+| `CompletionItem.keepWhitespace` | ok | yes | 0 | 0 |  |
 | `CompletionItem.kind` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, redhat.vscode-yaml |
 | `CompletionItem.label` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, redhat.vscode-yaml |
 | `CompletionItem.preselect` | ok | yes | 0 | 0 |  |

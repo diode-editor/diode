@@ -655,6 +655,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Whether subwords (like 'foo' in 'fooBar' or 'foo_bar') should be selected.",
     },
     {
+        key: "editor.suggest.insertMode",
+        type: "string",
+        default: "insert",
+        description:
+            "Controls whether words are overwritten when accepting completions. Note that this depends on extensions opting into this feature.",
+        enum: ["insert", "replace"],
+    },
+    {
         key: "editor.suggestOnTriggerCharacters",
         type: "boolean",
         default: true,
