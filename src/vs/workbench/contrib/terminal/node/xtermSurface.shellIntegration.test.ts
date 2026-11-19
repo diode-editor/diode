@@ -88,6 +88,18 @@ describe("XtermSurface — shell integration", () => {
         expect(output).toStrictEqual(["3;C\x07hi\r\n"]);
     });
 
+    it("an empty chunk still reaches the emulator (an update follows)", async () => {
+        const { session } = make();
+        await session.xtermReady;
+        const updated = new Promise<void>((resolve) =>
+            session.onUpdate(() => {
+                resolve();
+            }),
+        );
+        session.feed("");
+        await updated;
+    });
+
     it("no output outside a command", async () => {
         const { session, output } = make();
         session.feed(`plain${vsc("A")}${vsc("B")}`);

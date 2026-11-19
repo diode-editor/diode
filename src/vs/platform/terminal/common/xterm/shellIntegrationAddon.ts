@@ -244,7 +244,8 @@ export class ShellIntegrationAddon implements IDisposable {
 
 /**
  * Upstream `_onProcessData`: the data split so that each `C` and `D` sequence is a piece of its own. Upstream does it per
- * chunk: a sequence cut between two chunks stays inside one (the emulator still parses it).
+ * chunk: a sequence cut between two chunks stays inside one (the emulator still parses it). Unlike upstream, the empty
+ * pieces around a sequence are dropped; data without sequences, an empty chunk too, is one piece.
  */
 export function splitProcessData(data: string): string[] {
     const pieces: string[] = [];
@@ -253,8 +254,9 @@ export function splitProcessData(data: string): string[] {
         pieces.push(data.substring(i, match.index), match[0]);
         i = match.index + match[0].length;
     }
+    if (i === 0) return [data];
     pieces.push(data.substring(i));
-    return pieces;
+    return pieces.filter((piece) => piece !== "");
 }
 
 /** Upstream: `\\` is a backslash, `\xAB` the character with that hex code. */

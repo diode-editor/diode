@@ -281,7 +281,6 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      */
     protected feedOutput(data: string): void {
         for (const piece of splitProcessData(data)) {
-            if (piece === "") continue;
             this.onWillDataEmitter.fire(piece);
             this.writeOutput(piece, () => {
                 this.shellIntegration.handleParsedData(piece);

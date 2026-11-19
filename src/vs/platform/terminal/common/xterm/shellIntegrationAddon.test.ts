@@ -74,6 +74,8 @@ describe("splitProcessData", () => {
 
     it("data without them is one piece; a sequence cut between chunks is not recognized", () => {
         expect(splitProcessData("plain")).toStrictEqual(["plain"]);
+        expect(splitProcessData("")).toStrictEqual([""]);
+        expect(splitProcessData(`${vsc("C")}${vsc("D")}`)).toStrictEqual([vsc("C"), vsc("D")]);
         expect(splitProcessData("out\x1b]633;")).toStrictEqual(["out\x1b]633;"]);
         expect(splitProcessData(vsc("D;x"))).toStrictEqual([vsc("D;x")]);
     });

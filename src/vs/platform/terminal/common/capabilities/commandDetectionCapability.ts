@@ -37,7 +37,7 @@ interface IPartialCommand {
 export class CommandDetectionCapability implements IDisposable {
     private readonly commandsList: TerminalCommand[] = [];
     private current: IPartialCommand = {};
-    private cwdValue: string | undefined;
+    private cwd: string | undefined;
     private readonly onCommandExecutedEmitter = new Emitter<ITerminalCommand>();
     private readonly onCommandFinishedEmitter = new Emitter<ITerminalCommand>();
 
@@ -53,10 +53,6 @@ export class CommandDetectionCapability implements IDisposable {
         return this.current.executed;
     }
 
-    public get cwd(): string | undefined {
-        return this.cwdValue;
-    }
-
     /** `C`: once per command, a repeated `C` is ignored. */
     public readonly onCommandExecuted = this.onCommandExecutedEmitter.event;
 
@@ -64,7 +60,7 @@ export class CommandDetectionCapability implements IDisposable {
     public readonly onCommandFinished = this.onCommandFinishedEmitter.event;
 
     public setCwd(value: string): void {
-        this.cwdValue = value;
+        this.cwd = value;
     }
 
     public handlePromptStart(): void {
@@ -76,7 +72,7 @@ export class CommandDetectionCapability implements IDisposable {
         this.current.start?.marker.dispose();
         const marker = this.terminal.registerMarker(0);
         this.current.start =
-            marker === undefined ? undefined : { marker, x: this.terminal.buffer.active.cursorX, cwd: this.cwdValue };
+            marker === undefined ? undefined : { marker, x: this.terminal.buffer.active.cursorX, cwd: this.cwd };
     }
 
     public setCommandLine(value: string, isTrusted: boolean): void {
