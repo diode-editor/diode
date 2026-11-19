@@ -7,6 +7,7 @@ import { chmodSync, mkdirSync, realpathSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import { isFileNotFound } from "../../../base/node/fsErrors.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 
 /** Upstream `productService.applicationName`: the zsh `ZDOTDIR` is `<tmp>/<user>-diode-zsh`. */
@@ -45,8 +46,11 @@ export interface IShellIntegrationLaunchConfig {
 export interface IShellIntegrationOptions {
     /** `terminal.integrated.shellIntegration.enabled`. */
     readonly enabled: boolean;
-    /** The directory holding `shellIntegration-*` (upstream `<appRoot>/out/vs/workbench/contrib/terminal/common/scripts`). */
-    readonly scriptsDir: string;
+    /**
+     * The directory holding `shellIntegration-*` (upstream `<appRoot>/out/vs/workbench/contrib/terminal/common/scripts`);
+     * asked only for a shell that gets the scripts — the packaged build unpacks them on the first call.
+     */
+    scriptsDir(): string;
 }
 
 /** The `node:os` calls the zsh branch makes; tests replace them. */
@@ -92,7 +96,7 @@ export function getShellIntegrationInjection(
             envMixin.VSCODE_STABLE = "1";
             return {
                 type: "injection",
-                newArgs: ["--init-file", path.join(options.scriptsDir, "shellIntegration-bash.sh")],
+                newArgs: ["--init-file", path.join(options.scriptsDir(), "shellIntegration-bash.sh")],
                 envMixin,
             };
         }
@@ -104,8 +108,9 @@ export function getShellIntegrationInjection(
             if (failure !== undefined) return { type: "failure", reason: failure };
             envMixin.ZDOTDIR = zdotdir;
             envMixin.USER_ZDOTDIR = env.ZDOTDIR ?? host.homedir();
+            const scriptsDir = options.scriptsDir();
             const copy = (script: string, dest: string) => ({
-                source: path.join(options.scriptsDir, `shellIntegration-${script}`),
+                source: path.join(scriptsDir, `shellIntegration-${script}`),
                 dest: path.join(zdotdir, dest),
             });
             return {
@@ -151,7 +156,7 @@ function ensureZdotdir(zdotdir: string, logger: ILogger): ShellIntegrationInject
         chmodSync(zdotdir, 0o1700);
         return undefined;
     } catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        if (!isFileNotFound(err)) {
             logger.error(`Failed to set sticky bit on ${zdotdir}: ${String(err)}`);
             return "failedToSetStickyBit";
         }

@@ -4,22 +4,15 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ILogger } from "../../log/common/iLogger.ts";
+import { makeLogger } from "../../../../TestUtils/configurationLayersFixture.ts";
 
-import { getShellIntegrationInjection, type IShellIntegrationHost } from "./terminalEnvironment.ts";
+import {
+    getShellIntegrationInjection,
+    type IShellIntegrationHost,
+    type IShellIntegrationLaunchConfig,
+} from "./terminalEnvironment.ts";
 
 const SCRIPTS = "/app/scripts";
-
-function logger() {
-    return {
-        trace: vi.fn(),
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-        isEnabled: () => true,
-    } satisfies ILogger;
-}
 
 let tmp: string;
 let host: IShellIntegrationHost;
@@ -37,27 +30,30 @@ afterEach(() => {
     rmSync(tmp, { recursive: true, force: true });
 });
 
-function inject(executable: string | undefined, args?: readonly string[], env: Record<string, string> = {}) {
-    const log = logger();
+function inject(
+    executable: string | undefined,
+    args?: readonly string[],
+    env: Record<string, string> = {},
+    overrides: { enabled?: boolean; isFeatureTerminal?: boolean } = {},
+) {
+    const log = makeLogger();
+    const scriptsDir = vi.fn(() => SCRIPTS);
+    const launch: IShellIntegrationLaunchConfig = { executable, args, isFeatureTerminal: overrides.isFeatureTerminal };
     const result = getShellIntegrationInjection(
-        { executable, args },
-        { enabled: true, scriptsDir: SCRIPTS },
+        launch,
+        { enabled: overrides.enabled ?? true, scriptsDir },
         env,
         log,
         host,
     );
-    return { result, log };
+    return { result, log, scriptsDir };
 }
 
 describe("getShellIntegrationInjection — refusals", () => {
-    it("the setting is off — before anything else", () => {
-        const result = getShellIntegrationInjection(
-            { executable: "/bin/bash", args: [], isFeatureTerminal: true },
-            { enabled: false, scriptsDir: SCRIPTS },
-            {},
-            logger(),
-        );
+    it("the setting is off — before anything else; a refusal never asks for the scripts", () => {
+        const { result, scriptsDir } = inject("/bin/bash", [], {}, { enabled: false, isFeatureTerminal: true });
         expect(result).toEqual({ type: "failure", reason: "injectionSettingDisabled" });
+        expect(scriptsDir).not.toHaveBeenCalled();
     });
 
     it("no executable", () => {
@@ -66,13 +62,10 @@ describe("getShellIntegrationInjection — refusals", () => {
     });
 
     it("a task terminal", () => {
-        const result = getShellIntegrationInjection(
-            { executable: "/bin/bash", args: undefined, isFeatureTerminal: true },
-            { enabled: true, scriptsDir: SCRIPTS },
-            {},
-            logger(),
-        );
-        expect(result).toEqual({ type: "failure", reason: "featureTerminal" });
+        expect(inject("/bin/bash", undefined, {}, { isFeatureTerminal: true }).result).toEqual({
+            type: "failure",
+            reason: "featureTerminal",
+        });
     });
 
     it("arguments other than none or a login set — bash and zsh, without touching ZDOTDIR", () => {
@@ -87,13 +80,14 @@ describe("getShellIntegrationInjection — refusals", () => {
         expect(existsSync(path.join(tmp, "alice-diode-zsh"))).toBe(false);
     });
 
-    it("another shell — a warning with the executable and args", () => {
-        const { result, log } = inject("/bin/sh", ["-c", "x"]);
+    it("another shell — a warning with the executable and args, the scripts aren't asked for", () => {
+        const { result, log, scriptsDir } = inject("/bin/sh", ["-c", "x"]);
         expect(result).toEqual({ type: "failure", reason: "unsupportedShell" });
         expect(log.warn).toHaveBeenCalledWith('Shell integration cannot be enabled for executable "/bin/sh" and args', [
             "-c",
             "x",
         ]);
+        expect(scriptsDir).not.toHaveBeenCalled();
     });
 });
 

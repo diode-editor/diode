@@ -4,6 +4,7 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { makeLogger } from "../../../../../TestUtils/configurationLayersFixture.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
 import { type EmbeddedTerminalOptions, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
@@ -52,6 +53,20 @@ function start(options: Partial<EmbeddedTerminalOptions>, logger?: ILogger): Rec
     return session;
 }
 
+async function waitForPrompt(session: RecordingSession): Promise<void> {
+    await vi.waitFor(() => {
+        expect(session.raw).toContain(PROMPT_START);
+    }, WAIT);
+}
+
+function exited(session: RecordingSession): Promise<void> {
+    return new Promise((resolve) => {
+        session.onExit(() => {
+            resolve();
+        });
+    });
+}
+
 async function run(session: RecordingSession, command: string, expected: string): Promise<void> {
     session.write(`${command}\r`);
     await vi.waitFor(() => {
@@ -63,9 +78,7 @@ describe("EmbeddedTerminalSession — shell integration injection, bash", () => 
     it("the script reports the prompt and the command's exit code; the user's .bashrc still runs", async () => {
         writeFileSync(path.join(home, ".bashrc"), "alias diodealias='echo from-bashrc'\n");
         const session = start({ shell: BASH, shellIntegrationEnabled: true });
-        await vi.waitFor(() => {
-            expect(session.raw).toContain(PROMPT_START);
-        }, WAIT);
+        await waitForPrompt(session);
         await run(session, "true", "\x1b]633;D;0\x07");
         await run(session, "false", "\x1b]633;D;1\x07");
         // The script consumes `VSCODE_INJECTION` (unsets it); its functions stay.
@@ -77,35 +90,24 @@ describe("EmbeddedTerminalSession — shell integration injection, bash", () => 
         writeFileSync(path.join(home, ".bash_profile"), "echo profile-$((1 + 1))\n");
         writeFileSync(path.join(home, ".bashrc"), "echo bashrc-$((1 + 1))\n");
         const session = start({ shell: BASH, args: ["-l"], shellIntegrationEnabled: true });
-        await vi.waitFor(() => {
-            expect(session.raw).toContain(PROMPT_START);
-        }, WAIT);
+        await waitForPrompt(session);
         expect(session.raw).toContain("profile-2");
         expect(session.raw).not.toContain("bashrc-2");
     }, 30_000);
 
     it("relaunch — injected again", async () => {
         const session = start({ shell: BASH, shellIntegrationEnabled: true });
-        await vi.waitFor(() => {
-            expect(session.raw).toContain(PROMPT_START);
-        }, WAIT);
-        const exited = new Promise<void>((resolve) => {
-            session.onExit(() => {
-                resolve();
-            });
-        });
+        await waitForPrompt(session);
+        const exit = exited(session);
         session.write("exit\r");
-        await exited;
+        await exit;
         session.raw = "";
         session.relaunch({ shell: BASH, cwd: home, env: { HOME: home }, shellIntegrationEnabled: true });
-        await vi.waitFor(() => {
-            expect(session.raw).toContain(PROMPT_START);
-        }, WAIT);
+        await waitForPrompt(session);
     }, 30_000);
 
     it("the setting off, a task terminal, custom arguments — the shell runs as is", async () => {
-        const warn = vi.fn();
-        const logger = { trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn, error: vi.fn(), isEnabled: () => true };
+        const logger = makeLogger();
         const cases: Partial<EmbeddedTerminalOptions>[] = [
             { shellIntegrationEnabled: false },
             { shellIntegrationEnabled: true, isFeatureTerminal: true },
@@ -117,7 +119,7 @@ describe("EmbeddedTerminalSession — shell integration injection, bash", () => 
             expect(session.raw).not.toContain(PROMPT_START);
         }
         // Unsupported args are not a warning upstream — only an unknown shell is.
-        expect(warn).not.toHaveBeenCalled();
+        expect(logger.warn).not.toHaveBeenCalled();
     }, 30_000);
 });
 
@@ -136,14 +138,11 @@ describe("EmbeddedTerminalSession — VSCODE_NONCE", () => {
 
     it("set even without the injection; one per terminal, the same after a relaunch", async () => {
         const first = start(printNonce);
+        const firstExit = exited(first);
         const second = start(printNonce);
         const nonce = await nonceOf(first);
         expect(await nonceOf(second)).not.toBe(nonce);
-        await new Promise<void>((resolve) => {
-            first.onExit(() => {
-                resolve();
-            });
-        });
+        await firstExit;
         first.raw = "";
         first.relaunch(printNonce);
         expect(await nonceOf(first)).toBe(nonce);
@@ -158,9 +157,7 @@ describe.skipIf(ZSH === undefined)("EmbeddedTerminalSession — shell integratio
     it("ZDOTDIR is ours in TMPDIR, the script reports the prompt and exit code, the user's .zshrc runs", async () => {
         writeFileSync(path.join(home, ".zshrc"), "alias diodealias='echo from-zshrc'\n");
         const session = start({ shell: zsh, shellIntegrationEnabled: true });
-        await vi.waitFor(() => {
-            expect(session.raw).toContain(PROMPT_START);
-        }, WAIT);
+        await waitForPrompt(session);
         await run(session, "true", "\x1b]633;D;0\x07");
         await run(session, "diodealias", "from-zshrc");
         await run(session, 'echo "<$ZDOTDIR>"', `<${home}>`);
@@ -172,17 +169,13 @@ describe.skipIf(ZSH === undefined)("EmbeddedTerminalSession — shell integratio
         mkdirSync(own);
         writeFileSync(path.join(own, ".zshrc"), "alias diodealias='echo from-own-zdotdir'\n");
         const session = start({ shell: zsh, env: { HOME: home, ZDOTDIR: own }, shellIntegrationEnabled: true });
-        await vi.waitFor(() => {
-            expect(session.raw).toContain(PROMPT_START);
-        }, WAIT);
+        await waitForPrompt(session);
         await run(session, "diodealias", "from-own-zdotdir");
     }, 30_000);
 
     it("a script that cannot be copied is skipped — the shell still starts with the injection env", async () => {
         mkdirSync(path.join(zdotdir(), ".zlogin"), { recursive: true });
         const session = start({ shell: zsh, shellIntegrationEnabled: true });
-        await vi.waitFor(() => {
-            expect(session.raw).toContain(PROMPT_START);
-        }, WAIT);
+        await waitForPrompt(session);
     }, 30_000);
 });

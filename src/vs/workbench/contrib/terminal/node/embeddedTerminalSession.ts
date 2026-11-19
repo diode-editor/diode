@@ -1,12 +1,12 @@
 // PTY half of the embedded terminal (node-pty); the emulator half, shared with extension ptys, is `XtermSurface`.
 
-import { randomUUID } from "node:crypto";
 import { copyFileSync } from "node:fs";
 import { readlink } from "node:fs/promises";
 
 import type { IPty } from "node-pty";
 
 import { sanitizeProcessEnvironment } from "../../../../base/common/processes.ts";
+import { generateUuid } from "../../../../base/common/uuid.ts";
 import { getSystemShell } from "../../../../base/node/shell.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
@@ -93,7 +93,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
     // Stryker disable next-line StringLiteral: spawn() in the constructor overwrites it before any read.
     private initialCwd = "";
     /** Upstream `shellIntegrationNonce`: one per terminal, kept across relaunches; `633;E` carries it back. */
-    private readonly shellIntegrationNonce = randomUUID();
+    private readonly shellIntegrationNonce = generateUuid();
 
     /**
      * @param environment extension environment collections; not applied with `strictEnv`.
@@ -210,7 +210,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
         env.VSCODE_NONCE = this.shellIntegrationNonce;
         const injection = getShellIntegrationInjection(
             { executable: shell, args: options.args, isFeatureTerminal: options.isFeatureTerminal },
-            { enabled: options.shellIntegrationEnabled === true, scriptsDir: loadShellIntegrationScriptsDir() },
+            { enabled: options.shellIntegrationEnabled === true, scriptsDir: loadShellIntegrationScriptsDir },
             env,
             this.logger,
         );
