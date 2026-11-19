@@ -193,6 +193,7 @@ import { LargeFileOptimizationsWarnerDIToken } from "./contrib/largeFile/browser
 import { LINES_OPERATIONS_ACTIONS } from "./contrib/linesOperations/browser/linesOperationsActions.ts";
 import { LINKED_EDITING_ACTIONS } from "./contrib/linkedEditing/browser/linkedEditingActions.ts";
 import { LinkedEditingServiceDIToken } from "./contrib/linkedEditing/browser/linkedEditingService.ts";
+import { ExecuteLinkProviderCommandContributionDIToken } from "./contrib/links/browser/executeLinkProviderCommand.ts";
 import { LINKS_ACTIONS } from "./contrib/links/browser/linksActions.ts";
 import { LinksServiceDIToken } from "./contrib/links/browser/linksService.ts";
 import { DiagnosticsServiceDIToken } from "./contrib/markers/browser/diagnosticsService.ts";
@@ -322,6 +323,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: KeybindingRecorderComponentDIToken, phase: "blockStartup" },
     // `vscode.diff`: the extension host calls it by id — the command is needed before extensions start.
     { token: VscodeDiffCommandContributionDIToken, phase: "blockStartup" },
+    // `vscode.executeLinkProvider` runs it by id, an extension may do so from activate().
+    { token: ExecuteLinkProviderCommandContributionDIToken, phase: "blockStartup" },
 
     // `afterRestored` is what upstream keeps on `LifecyclePhase.Restored`
     // (`OutputContribution`, `QuickDiffWorkbenchController`, `SCMActiveRepositoryController`,

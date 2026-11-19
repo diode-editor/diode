@@ -272,6 +272,10 @@ import {
     LinkedEditingService,
     LinkedEditingServiceDIToken,
 } from "../../workbench/contrib/linkedEditing/browser/linkedEditingService.ts";
+import {
+    ExecuteLinkProviderCommandContribution,
+    ExecuteLinkProviderCommandContributionDIToken,
+} from "../../workbench/contrib/links/browser/executeLinkProviderCommand.ts";
 import { LinksService, LinksServiceDIToken } from "../../workbench/contrib/links/browser/linksService.ts";
 import {
     DiagnosticsEditorSourceDIToken,
@@ -956,6 +960,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickDiffServiceDIToken, QuickDiffService);
     container.bind(DiffSnapshotRefreshContributionDIToken, DiffSnapshotRefreshContribution);
     container.bind(VscodeDiffCommandContributionDIToken, VscodeDiffCommandContribution);
+    container.bind(ExecuteLinkProviderCommandContributionDIToken, ExecuteLinkProviderCommandContribution);
     container.bind(ScmChangesServiceDIToken, ScmChangesService);
     container.bind(ChangesComponentDIToken, ChangesComponent);
     container.bind(ScmGraphServiceDIToken, ScmGraphService);
