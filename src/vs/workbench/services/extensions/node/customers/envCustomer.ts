@@ -3,8 +3,9 @@ import { DisposableStore, type IDisposable } from "../../../../../base/common/li
 import { getMachineId } from "../../../../../base/node/id.ts";
 import { getSystemShell } from "../../../../../base/node/shell.ts";
 import type { IClipboard } from "../../../../../platform/clipboard/common/iClipboard.ts";
-import { LogLevel } from "../../../../../platform/log/common/logLevel.ts";
+import { DEFAULT_WINDOW_LOG_LEVEL, LogLevel } from "../../../../../platform/log/common/logLevel.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
+import { LogLevel as ApiLogLevel } from "../../../../api/common/vscodeTypes.ts";
 import type { IWireClipboardText } from "../../../../api/common/wireTypes.ts";
 import type { IExternalOpener } from "../../../externalOpener/common/iExternalOpener.ts";
 import { loadRipgrepAppRoot } from "../../../search/node/loadRipgrep.ts";
@@ -30,15 +31,20 @@ export function fallbackExtensionHostEnvironment(): IExtensionHostEnvironment {
         machineId: () => (machineId ??= getMachineId()),
         defaultShell: () => getSystemShell(),
         appRoot: loadRipgrepAppRoot,
-        logLevel: () => LogLevel.Info,
+        logLevel: () => DEFAULT_WINDOW_LOG_LEVEL,
         onDidChangeLogLevel: Event.None,
     };
 }
 
-/** The core's numbering is the API's times ten: Off 0, Trace 10 … Error 50 against Off 0, Trace 1 … Error 5. */
-function toApiLogLevel(level: LogLevel): number {
-    return level / 10;
-}
+/** The core numbers levels Off 0, Trace 10 … Error 50; the API — Off 0, Trace 1 … Error 5. */
+const API_LOG_LEVELS: Record<LogLevel, ApiLogLevel> = {
+    [LogLevel.Off]: ApiLogLevel.Off,
+    [LogLevel.Trace]: ApiLogLevel.Trace,
+    [LogLevel.Debug]: ApiLogLevel.Debug,
+    [LogLevel.Info]: ApiLogLevel.Info,
+    [LogLevel.Warn]: ApiLogLevel.Warning,
+    [LogLevel.Error]: ApiLogLevel.Error,
+};
 
 export class EnvCustomer implements IExtensionHostCustomer {
     private rpc: HostRpc | null = null;
@@ -58,7 +64,7 @@ export class EnvCustomer implements IExtensionHostCustomer {
             machineId: this.environment.machineId(),
             shell: this.environment.defaultShell(),
             appRoot: this.environment.appRoot(),
-            logLevel: toApiLogLevel(this.environment.logLevel()),
+            logLevel: API_LOG_LEVELS[this.environment.logLevel()],
         });
     }
 
@@ -68,7 +74,7 @@ export class EnvCustomer implements IExtensionHostCustomer {
         // Upstream `$setLogLevel` without a resource: every spawn alive at the change hears it.
         store.add(
             this.environment.onDidChangeLogLevel((level) => {
-                rpc.notify("env.didChangeLogLevel", { logLevel: toApiLogLevel(level) });
+                rpc.notify("env.didChangeLogLevel", { logLevel: API_LOG_LEVELS[level] });
             }),
         );
         store.add(

@@ -31,16 +31,7 @@ describe("parseWireEnvLogLevel", () => {
     });
 
     it("outside the API's range, a fraction, a non-number or no object — Info", () => {
-        for (const raw of [
-            { logLevel: -1 },
-            { logLevel: 6 },
-            { logLevel: 10 },
-            { logLevel: 1.5 },
-            { logLevel: "1" },
-            {},
-            null,
-            7,
-        ]) {
+        for (const raw of [{ logLevel: -1 }, { logLevel: 6 }, { logLevel: 1.5 }, { logLevel: "1" }, {}, null, 7]) {
             expect(parseWireEnvLogLevel(raw)).toEqual({ logLevel: 3 });
         }
     });

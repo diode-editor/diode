@@ -24,6 +24,8 @@ import type {
     SerializableEnvironmentVariableCollection,
 } from "../../../platform/terminal/common/environmentVariable.ts";
 
+import { LogLevel } from "./vscodeTypes.ts";
+
 /** `setEndOfLine` is the whole document's `vscode.EndOfLine`: 1=LF, 2=CRLF. */
 export type WireTextEdit = ITextEdit | { readonly setEndOfLine: 1 | 2 };
 
@@ -1658,8 +1660,8 @@ export interface IWireEnvInitialize {
     readonly machineId: string;
     readonly shell: string;
     readonly appRoot: string;
-    /** In the API's `LogLevel` numbering (Off 0 … Error 5), not the core's. */
-    readonly logLevel: number;
+    /** The API's `LogLevel` (Off 0 … Error 5), not the core's numbering. */
+    readonly logLevel: LogLevel;
 }
 
 /** A non-string becomes an empty string, like upstream's "unknown". */
@@ -1680,7 +1682,7 @@ export function parseWireEnvInitialize(raw: unknown): IWireEnvInitialize {
 
 /** `env.didChangeLogLevel`: the window's new level, in the API's numbering. */
 export interface IWireEnvLogLevel {
-    readonly logLevel: number;
+    readonly logLevel: LogLevel;
 }
 
 export function parseWireEnvLogLevel(raw: unknown): IWireEnvLogLevel {
@@ -1688,14 +1690,18 @@ export function parseWireEnvLogLevel(raw: unknown): IWireEnvLogLevel {
     return { logLevel: parseApiLogLevel(logLevel) };
 }
 
-const API_LOG_LEVEL_INFO = 3;
-const API_LOG_LEVEL_MAX = 5;
+const API_LOG_LEVELS: ReadonlySet<unknown> = new Set([
+    LogLevel.Off,
+    LogLevel.Trace,
+    LogLevel.Debug,
+    LogLevel.Info,
+    LogLevel.Warning,
+    LogLevel.Error,
+]);
 
-/** Anything but an API `LogLevel` (an integer Off 0 … Error 5) becomes upstream's default, Info. */
-function parseApiLogLevel(raw: unknown): number {
-    return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) <= API_LOG_LEVEL_MAX
-        ? (raw as number)
-        : API_LOG_LEVEL_INFO;
+/** Anything but an API `LogLevel` (Off 0 … Error 5) becomes upstream's default, Info. */
+function parseApiLogLevel(raw: unknown): LogLevel {
+    return API_LOG_LEVELS.has(raw) ? (raw as LogLevel) : LogLevel.Info;
 }
 
 export interface IWireEnvironmentVariableCollections {

@@ -41,11 +41,10 @@ describe("EnvCustomer — env.initialize seed", () => {
     it("sends the machine id, shell and app root to a live spawn; without a spawn — silent", async () => {
         let shell = "/bin/zsh";
         const h = setup({
+            ...fallbackExtensionHostEnvironment(),
             machineId: () => "m-1",
             defaultShell: () => shell,
             appRoot: () => "/cache/rg/1",
-            logLevel: () => LogLevel.Info,
-            onDidChangeLogLevel: () => ({ dispose: () => undefined }),
         });
         h.customer.pushInitialState();
         h.attachTo();

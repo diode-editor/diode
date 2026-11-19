@@ -1,6 +1,6 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
-import { LogLevel } from "../../../../platform/log/common/logLevel.ts";
+import { DEFAULT_WINDOW_LOG_LEVEL, LogLevel } from "../../../../platform/log/common/logLevel.ts";
 import { ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
@@ -14,9 +14,6 @@ const LEVELS: readonly (readonly [LogLevel, string])[] = [
     [LogLevel.Error, "Error"],
     [LogLevel.Off, "Off"],
 ];
-
-/** Upstream `DefaultLogLevelsService` without `argv.json`: the window starts at Info unless `--log` says otherwise. */
-const DEFAULT_LEVEL = LogLevel.Info;
 
 /**
  * Upstream `SetLogLevelAction` with only the "All" section: the level of every channel at once, as `--log <level>`,
@@ -32,7 +29,7 @@ export const setLogLevelAction: CommandAction = {
         const current = logService.getWindowLevel();
         const items: QuickPickItem[] = LEVELS.map(([level, label], index) => ({
             label: level === current ? `${icons.codicon("check")} ${label}` : label,
-            ...(level === DEFAULT_LEVEL ? { description: "Default" } : {}),
+            ...(level === DEFAULT_WINDOW_LOG_LEVEL ? { description: "Default" } : {}),
             // The separator label goes on its group's first row.
             ...(index === 0 ? { hint: "All" } : {}),
         }));

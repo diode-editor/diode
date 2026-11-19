@@ -3,11 +3,10 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { ILogger } from "./iLogger.ts";
 import type { ILogChannelDescriptor, ILoggerOptions, ILogService, ILogSink, LogEntry } from "./iLogService.ts";
-import { LogLevel } from "./logLevel.ts";
+import { DEFAULT_WINDOW_LOG_LEVEL, LogLevel } from "./logLevel.ts";
 
 const WILDCARD = "*";
 const DEFAULT_LEVEL: LogLevel = LogLevel.Trace;
-const DEFAULT_WINDOW_LEVEL: LogLevel = LogLevel.Info;
 
 /** A logger caches its channel level until `setLevel`, which bumps the version so the logger re-resolves. */
 export class LogService implements ILogService {
@@ -46,7 +45,7 @@ export class LogService implements ILogService {
     }
 
     public getWindowLevel(): LogLevel {
-        return this.levels.get(WILDCARD) ?? DEFAULT_WINDOW_LEVEL;
+        return this.levels.get(WILDCARD) ?? DEFAULT_WINDOW_LOG_LEVEL;
     }
 
     public getLevel(channel: string): LogLevel {
