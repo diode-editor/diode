@@ -842,6 +842,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         this.applyAccept(editor, ranges, core, cached?.additionalEdits ?? []);
         if (cached !== undefined) return;
         // The ends of the changes since the insertion; a reload from disk invalidates every position.
+        // Stryker disable next-line ArrayDeclaration: equivalent — a non-position element compares as NaN and never counts as a change
         const changeEnds: IPosition[] = [];
         let flushed = false;
         const listener = editor.model.document.onDidChangeModelContent((event) => {
