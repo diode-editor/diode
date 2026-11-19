@@ -14,8 +14,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 // Document sync rules are tested in DocumentsCustomer; here only the wiring of the host facade to it.
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),

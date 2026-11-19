@@ -63,9 +63,9 @@
 - [~] Изоляция исключений: упавшее расширение не валит host (RPC + try/catch, `unhandledRejection`-гард);
   осталась диагностика.
 - [ ] Маршрутизация ошибок RPC обратно в `editor.options =`, чтобы fire-and-forget не глотал.
-- [ ] `window.onDidChangeTextEditorOptions` — события нет; `editor.options.cursorStyle` (#888) и отступы
+- [x] `window.onDidChangeTextEditorOptions` — события нет; `editor.options.cursorStyle` (#888) и отступы
   меняются без него. Нужен продюсер на хосте: смена отступов, переопределение формы курсора, смена
-  `editor.cursorStyle`.
+  `editor.cursorStyle`. (#1231: `options` в `editor.propertiesChanged`.)
 - [ ] `registerFileDecorationProvider` работает только «пушем»: провайдера спрашивают лишь об uri из его
   `onDidChangeFileDecorations`, `undefined` (всё) ничего не делает, проводник не спрашивает о показанных файлах
   (`windowNamespace.ts`, `pushFileDecorations`). Эталон тянет декорации по запросу вида (`extHostDecorations`).

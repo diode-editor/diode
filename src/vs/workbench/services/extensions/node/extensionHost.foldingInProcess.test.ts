@@ -14,8 +14,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 // Folds are recomputed on every edit, so requests must not multiply by the number of providers.
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),

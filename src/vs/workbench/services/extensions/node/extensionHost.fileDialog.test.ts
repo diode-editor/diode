@@ -11,8 +11,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 import { parseWireOpenDialogRequest, parseWireSaveDialogRequest } from "./hostWireParsers.ts";
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),

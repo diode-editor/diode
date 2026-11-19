@@ -58,7 +58,7 @@ import type {
     IWireDebugUnregisterBreakpoints,
     WireDebugConfiguration,
 } from "./debugWireTypes.ts";
-import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
+import type { IActiveEditorMeta, IActiveEditorSelections } from "./iEditorOptionsService.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type {
     IWireTask,
@@ -526,8 +526,6 @@ export interface ISubprocessToHost {
         readonly "workspace.save": readonly [IWireUriParams, IWireSaveResult];
 
         readonly "editor.setOptions": readonly [IWireSetEditorOptionsParams, null];
-        /** The handler exists but no sender yet: the subprocess reads options from its own proxy. */
-        readonly "editor.getOptions": readonly [undefined, IEditorOptionsState | null];
         readonly "editor.applyEdit": readonly [IWireApplyEditParams, boolean];
         /** `false`: another version, a read-only or closed editor, overlapping ranges; nothing changed then. */
         readonly "editor.insertSnippet": readonly [IWireInsertSnippetParams, boolean];

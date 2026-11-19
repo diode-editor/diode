@@ -13,8 +13,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 // that an honest subprocess never sends.
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),

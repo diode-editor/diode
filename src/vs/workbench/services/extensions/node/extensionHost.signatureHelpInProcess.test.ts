@@ -17,8 +17,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 // sync, the default timeout, trigger characters in the registration metadata).
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),

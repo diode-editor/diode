@@ -930,6 +930,11 @@ declare module "vscode" {
 		export const onDidChangeTextEditorVisibleRanges: Event<TextEditorVisibleRangesChangeEvent>;
 
 		/**
+		 * An {@link Event} which fires when the options of an editor have changed.
+		 */
+		export const onDidChangeTextEditorOptions: Event<TextEditorOptionsChangeEvent>;
+
+		/**
 		 * An {@link Event} which fires when the view column of an editor has changed.
 		 */
 		export const onDidChangeTextEditorViewColumn: Event<TextEditorViewColumnChangeEvent>;
@@ -2473,6 +2478,20 @@ declare module "vscode" {
 		 * The new value for the {@link TextEditor.visibleRanges text editor's visible ranges}.
 		 */
 		readonly visibleRanges: readonly Range[];
+	}
+
+	/**
+	 * Represents an event describing the change in a {@link TextEditor.options text editor's options}.
+	 */
+	export interface TextEditorOptionsChangeEvent {
+		/**
+		 * The {@link TextEditor text editor} for which the options have changed.
+		 */
+		readonly textEditor: TextEditor;
+		/**
+		 * The new value for the {@link TextEditor.options text editor's options}.
+		 */
+		readonly options: TextEditorOptions;
 	}
 
 	/**

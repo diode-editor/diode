@@ -1,11 +1,8 @@
-export interface IEditorOptionsState {
-    readonly tabSize: number;
-    readonly insertSpaces: boolean;
-}
-
+/** What an extension's `TextEditor.options =` changes; `cursorStyle` is the extension's session override. */
 export interface IEditorOptionsPatch {
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
+    readonly cursorStyle?: EditorCursorStyleSetting;
 }
 
 /**
@@ -45,13 +42,8 @@ import type { RangeRevealType } from "../../../editor/common/viewModel/editorVie
 import type { IWireEditorEdit, IWireSelection, IWireWorkspaceEditOp, WireSelectionChangeKind } from "./wireTypes.ts";
 
 export interface IEditorOptionsService {
-    getActiveEditorOptions(): IEditorOptionsState | null;
-    setActiveEditorOptions(patch: IEditorOptionsPatch): void;
-    /**
-     * The extension's session override of `editor.cursorStyle` for the tab of `uri` in group `groupId`;
-     * no-op if that tab is gone.
-     */
-    setEditorCursorStyle(uri: string, groupId: number, style: EditorCursorStyleSetting): void;
+    /** Applies to the tab of `uri` in group `groupId`, whichever group is active; no-op if that tab is gone. */
+    setEditorOptions(uri: string, groupId: number, patch: IEditorOptionsPatch): void;
     /**
      * Scrolls the tab of `uri` in group `groupId`, whichever group is active; the range is clamped to the
      * document, selection and focus stay. No-op if that tab is gone.

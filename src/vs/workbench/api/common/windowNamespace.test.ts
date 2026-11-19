@@ -139,14 +139,15 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("indentSize is forwarded to editor.setOptions", () => {
+    it("indentSize goes to editor.setOptions as the tab size; an explicit tabSize wins", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         window.activeTextEditor!.options = { indentSize: 3 } as never;
-        expect(stub.requests).toContainEqual({
-            method: "editor.setOptions",
-            params: { indentSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
-        });
+        window.activeTextEditor!.options = { tabSize: 4, indentSize: 8 } as never;
+        expect(stub.requests.map((request) => request.params)).toEqual([
+            { tabSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+            { tabSize: 4, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+        ]);
     });
 
     it('indentSize="tabSize" is not forwarded (same as tabSize)', () => {
@@ -345,7 +346,7 @@ describe("WindowNamespace", () => {
         window.activeTextEditor!.options = { indentSize: "3" } as never;
         expect(stub.requests.at(-1)).toEqual({
             method: "editor.setOptions",
-            params: { indentSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+            params: { tabSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
         });
     });
 

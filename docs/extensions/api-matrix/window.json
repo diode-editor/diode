@@ -68,8 +68,8 @@
       "class": "ok"
     },
     "window.onDidChangeTextEditorOptions": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok",
+      "note": "lineNumbers is read from editor.lineNumbers; a change of that setting fires nothing"
     },
     "window.onDidChangeTextEditorSelection": {
       "class": "ok"
