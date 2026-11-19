@@ -44,12 +44,15 @@ afterEach(() => {
 
 type Mutators = Record<string, readonly IEnvironmentVariableMutator[]>;
 
-function prepend(variable: string, value: string): IEnvironmentVariableMutator {
-    return { variable, value, type: EnvironmentVariableMutatorType.Prepend, options: AT_SHELL };
-}
+const { Prepend, Replace } = EnvironmentVariableMutatorType;
 
-function replace(variable: string, value: string): IEnvironmentVariableMutator {
-    return { variable, value, type: EnvironmentVariableMutatorType.Replace, options: AT_SHELL };
+function mutator(
+    type: EnvironmentVariableMutatorType,
+    variable: string,
+    value: string,
+    options: IEnvironmentVariableMutator["options"] = AT_SHELL,
+): IEnvironmentVariableMutator {
+    return { variable, value, type, options };
 }
 
 function start(shell: string, collections: Mutators, options: Partial<EmbeddedTerminalOptions> = {}): RecordingSession {
@@ -106,7 +109,10 @@ describe("applyAtShellIntegration — live bash and zsh", () => {
             async () => {
                 writeFileSync(path.join(home, rc), `export PATH=${RC_PATH}\n`);
                 const session = start(shell, {
-                    "x.y": [prepend("PATH", "/opt/x/bin:"), replace("DIODE_GREETING", "привет, мир: a:b")],
+                    "x.y": [
+                        mutator(Prepend, "PATH", "/opt/x/bin:"),
+                        mutator(Replace, "DIODE_GREETING", "привет, мир: a:b"),
+                    ],
                 });
                 // `$((…))` keeps the expected text out of the echoed command line.
                 await run(session, 'echo "p$((1))=$PATH"', `p1=/opt/x/bin:${RC_PATH}`);
@@ -119,9 +125,9 @@ describe("applyAtShellIntegration — live bash and zsh", () => {
             `${name}: Python activation runs only when ms-python.vscode-python-envs set it`,
             async () => {
                 const activate = `VSCODE_PYTHON_${name.toUpperCase()}_ACTIVATE`;
-                const allowed = start(shell, { [PYTHON_ENVS]: [replace(activate, "export ACTIVATED=1")] });
+                const allowed = start(shell, { [PYTHON_ENVS]: [mutator(Replace, activate, "export ACTIVATED=1")] });
                 await run(allowed, 'echo "a$((1))=[$ACTIVATED]"', "a1=[1]");
-                const blocked = start(shell, { "other.ext": [replace(activate, "export ACTIVATED=1")] });
+                const blocked = start(shell, { "other.ext": [mutator(Replace, activate, "export ACTIVATED=1")] });
                 await run(blocked, 'echo "a$((1))=[$ACTIVATED]"', "a1=[]");
             },
             30_000,
@@ -136,7 +142,7 @@ describe.skipIf(FISH === undefined)("applyAtShellIntegration — live fish", () 
         writeFileSync(config, "set -gx PATH /usr/bin /bin\n");
         // Process creation as well, as an extension does by default: the prefix re-applies it after the profile.
         const session = start(FISH ?? "", {
-            "x.y": [{ variable: "PATH", value: "/opt/x/bin:", type: EnvironmentVariableMutatorType.Prepend }],
+            "x.y": [mutator(Prepend, "PATH", "/opt/x/bin:", {})],
         });
         await run(session, 'echo "p"(math 0+1)"=$PATH"', "p1=/opt/x/bin:/usr/bin:/bin");
     }, 30_000);
@@ -144,7 +150,7 @@ describe.skipIf(FISH === undefined)("applyAtShellIntegration — live fish", () 
     it("strictEnv — no collections, so no prefix either", async () => {
         const session = start(
             FISH ?? "",
-            { "x.y": [{ variable: "PATH", value: "/opt/x/bin:", type: EnvironmentVariableMutatorType.Prepend }] },
+            { "x.y": [mutator(Prepend, "PATH", "/opt/x/bin:", {})] },
             {
                 strictEnv: true,
                 env: { HOME: home, XDG_CONFIG_HOME: path.join(home, ".config"), PATH: "/usr/bin:/bin" },

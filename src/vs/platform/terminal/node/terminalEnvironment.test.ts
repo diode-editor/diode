@@ -35,7 +35,7 @@ function inject(
     executable: string | undefined,
     args?: readonly string[],
     env: Record<string, string> = {},
-    overrides: { enabled?: boolean; isFeatureTerminal?: boolean; pathPrefix?: () => string | undefined } = {},
+    overrides: { enabled?: boolean; isFeatureTerminal?: boolean; pathPrefix?: string } = {},
 ) {
     const log = makeLogger();
     const scriptsDir = vi.fn(() => SCRIPTS);
@@ -271,40 +271,38 @@ describe("getShellIntegrationInjection — pwsh", () => {
 });
 
 describe("getShellIntegrationInjection — VSCODE_PATH_PREFIX", () => {
-    const prefix = { pathPrefix: () => "/opt/x/bin:" };
+    const prefix = { pathPrefix: "/opt/x/bin:" };
     const mixin = (result: ReturnType<typeof inject>["result"]) =>
         result.type === "injection" ? result.envMixin : undefined;
+    const onMac = () => {
+        host = { ...host, platform: () => "darwin" };
+    };
 
     it("fish — always, login or not, on any platform", () => {
         expect(mixin(inject("/usr/bin/fish", [], {}, prefix).result)?.VSCODE_PATH_PREFIX).toBe("/opt/x/bin:");
         expect(mixin(inject("/usr/bin/fish", ["-l"], {}, prefix).result)?.VSCODE_PATH_PREFIX).toBe("/opt/x/bin:");
     });
 
-    it("bash and zsh — only a login shell on macOS", () => {
+    it("bash and zsh login shells — not on Linux", () => {
         for (const shell of ["/bin/bash", "/bin/zsh"]) {
-            expect(mixin(inject(shell, ["-l"], {}, prefix).result), `${shell} linux`).not.toHaveProperty(
-                "VSCODE_PATH_PREFIX",
-            );
-            host = { ...host, platform: () => "darwin" };
-            expect(mixin(inject(shell, [], {}, prefix).result), `${shell} mac`).not.toHaveProperty(
-                "VSCODE_PATH_PREFIX",
-            );
-            expect(mixin(inject(shell, ["-l"], {}, prefix).result)?.VSCODE_PATH_PREFIX, `${shell} mac login`).toBe(
-                "/opt/x/bin:",
-            );
-            host = { ...host, platform: () => "linux" };
+            expect(mixin(inject(shell, ["-l"], {}, prefix).result), shell).not.toHaveProperty("VSCODE_PATH_PREFIX");
+        }
+    });
+
+    it("bash and zsh on macOS — only a login shell", () => {
+        onMac();
+        for (const shell of ["/bin/bash", "/bin/zsh"]) {
+            expect(mixin(inject(shell, [], {}, prefix).result), shell).not.toHaveProperty("VSCODE_PATH_PREFIX");
+            expect(mixin(inject(shell, ["-l"], {}, prefix).result)?.VSCODE_PATH_PREFIX, shell).toBe("/opt/x/bin:");
         }
     });
 
     it("pwsh — never", () => {
-        host = { ...host, platform: () => "darwin" };
+        onMac();
         expect(mixin(inject("/usr/bin/pwsh", ["-l"], {}, prefix).result)).not.toHaveProperty("VSCODE_PATH_PREFIX");
     });
 
-    it("no prefix (no Prepend to PATH, or strictEnv without collections) — no variable", () => {
-        expect(mixin(inject("fish", [], {}, { pathPrefix: () => undefined }).result)).not.toHaveProperty(
-            "VSCODE_PATH_PREFIX",
-        );
+    it("no prefix (no Prepend to PATH, or strictEnv) — no variable", () => {
         expect(mixin(inject("fish").result)).not.toHaveProperty("VSCODE_PATH_PREFIX");
     });
 });

@@ -53,10 +53,10 @@ export interface IShellIntegrationOptions {
      */
     scriptsDir(): string;
     /**
-     * Upstream `addEnvMixinPathPrefix`: the extensions' joined `Prepend`s to `PATH` (absent with `strictEnv`); asked
-     * only where a profile rebuilds `PATH` — fish always, bash and zsh login shells on macOS.
+     * Upstream `addEnvMixinPathPrefix`: the extensions' joined `Prepend`s to `PATH` (absent with `strictEnv`); it goes
+     * where a profile rebuilds `PATH` — fish always, bash and zsh login shells on macOS.
      */
-    pathPrefix?(): string | undefined;
+    readonly pathPrefix?: string;
 }
 
 /** The `node:os` calls the injection makes; tests replace them. */
@@ -115,18 +115,18 @@ export function getShellIntegrationInjection(
     const isDefaultArgs = originalArgs.length === 0;
     const isLoginArgs = areZshBashFishLoginArgs(originalArgs);
     const envMixin: Record<string, string> = { VSCODE_INJECTION: "1" };
+    const shell = path.basename(launch.executable);
     const addPathPrefix = (): void => {
-        const prefix = options.pathPrefix?.();
-        if (prefix !== undefined) envMixin.VSCODE_PATH_PREFIX = prefix;
+        if ((host.platform() === "darwin" || shell === "fish") && options.pathPrefix !== undefined)
+            envMixin.VSCODE_PATH_PREFIX = options.pathPrefix;
     };
-    const isMacintosh = host.platform() === "darwin";
 
-    switch (path.basename(launch.executable)) {
+    switch (shell) {
         case "bash": {
             if (!isDefaultArgs && !isLoginArgs) return { type: "failure", reason: "unsupportedArgs" };
             if (isLoginArgs) {
                 envMixin.VSCODE_SHELL_LOGIN = "1";
-                if (isMacintosh) addPathPrefix();
+                addPathPrefix();
             }
             // diode is a stable build: the insiders-only parts of the script stay off.
             envMixin.VSCODE_STABLE = "1";
@@ -170,7 +170,7 @@ export function getShellIntegrationInjection(
             if (failure !== undefined) return { type: "failure", reason: failure };
             envMixin.ZDOTDIR = zdotdir;
             envMixin.USER_ZDOTDIR = env.ZDOTDIR ?? host.homedir();
-            if (isLoginArgs && isMacintosh) addPathPrefix();
+            if (isLoginArgs) addPathPrefix();
             const scriptsDir = options.scriptsDir();
             const copy = (script: string, dest: string) => ({
                 source: path.join(scriptsDir, `shellIntegration-${script}`),

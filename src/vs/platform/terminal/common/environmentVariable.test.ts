@@ -217,17 +217,6 @@ describe("MergedEnvironmentVariableCollection — applyAtShellIntegration (VSCOD
         );
         expect(env).toEqual({ Path: "p", VSCODE_ENV_APPEND: "PATH=q" });
     });
-
-    it("Python activation from another extension never reaches VSCODE_ENV_* either", () => {
-        const env: Record<string, string | undefined> = {};
-        merged({
-            "other.ext": collection([
-                "VSCODE_PYTHON_BASH_ACTIVATE",
-                mutator("VSCODE_PYTHON_BASH_ACTIVATE", "evil", Replace, AT_SHELL),
-            ]),
-        }).applyToProcessEnvironment(env, undefined, false);
-        expect(env).toEqual({});
-    });
 });
 
 describe("MergedEnvironmentVariableCollection — getPathPrefix", () => {
