@@ -3,7 +3,6 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { findTextCell } from "../helpers/frame.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
@@ -50,20 +49,14 @@ export default defineScenario({
         );
         await editor.sendKey("Ctrl+End");
 
-        await editor.sendText("consol");
-        await waitUntil(
-            () => editor.captureFrame(),
-            (frame) => findTextCell(frame, "  console  ") !== null,
-            { describe: "console in the popup", timeoutMs: 60_000, intervalMs: 500 },
-        );
+        // Typed key by key, as a person does: the list opens on typing, not on a paste.
+        for (const key of "consol") await editor.sendKey(key);
+        // The source has no `console`: the only one on screen is the popup's item.
+        await editor.waitForText((t) => t.includes("console"), { timeoutMs: 60_000 });
         await editor.capture("popup");
 
         await editor.sendKey(".");
-        await waitUntil(
-            () => editor.captureFrame(),
-            (frame) => findTextCell(frame, "console.") !== null && findTextCell(frame, "  log  ") !== null,
-            { describe: "console. typed and its members listed", timeoutMs: 60_000, intervalMs: 500 },
-        );
+        await editor.waitForText((t) => t.includes("console.") && t.includes("assert"), { timeoutMs: 60_000 });
         await editor.capture("committed");
     },
 });

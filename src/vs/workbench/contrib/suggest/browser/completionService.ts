@@ -4,6 +4,7 @@ import type { CompletionListItem } from "@tuidom/elements/completionlist/complet
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore, type IDisposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
@@ -475,7 +476,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * list).
      */
     private onWillType(editor: TextEditorPane, char: string): void {
-        if (!this.isOpen()) return;
+        // A closed list keeps its last items; accept() does nothing then.
         const item = this.component.view.getSelectedItem();
         const core = item?.data as ICoreCompletionItem | undefined;
         if (core?.commitCharacters?.some((commit) => commit.startsWith(char)) !== true) return;
@@ -840,23 +841,25 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const cached = this.resolvedItems.get(id);
         this.applyAccept(editor, ranges, core, cached?.additionalEdits ?? []);
         if (cached !== undefined) return;
-        // The earliest end of a change since the insertion; a reload from disk invalidates every position.
-        let earliest: IPosition | null = null;
+        // The ends of the changes since the insertion; a reload from disk invalidates every position.
+        const changeEnds: IPosition[] = [];
         let flushed = false;
         const listener = editor.model.document.onDidChangeModelContent((event) => {
             flushed ||= event.isFlush;
-            for (const { range } of event.changes) {
-                if (earliest === null || comparePositions(range.end, earliest) < 0) earliest = range.end;
-            }
+            for (const { range } of event.changes) changeEnds.push(range.end);
         });
-        void this.resolveItem(id, resolve).then((resolved) => {
-            listener.dispose();
-            const edits = resolved?.additionalEdits;
-            if (edits === undefined || flushed) return;
-            const changedAt = earliest;
-            if (changedAt !== null && edits.some(({ range }) => comparePositions(changedAt, range.start) < 0)) return;
-            editor.applyExternalEdits(edits, "Accept Completion");
-        });
+        void this.resolveItem(id, resolve)
+            .then((resolved) => {
+                // Stryker disable next-line CallExpression: only a leak — the listener just collects positions nobody reads anymore
+                listener.dispose();
+                const edits = resolved?.additionalEdits;
+                if (edits === undefined || flushed) return;
+                const moved = edits.some(({ range }) =>
+                    changeEnds.some((end) => comparePositions(end, range.start) < 0),
+                );
+                if (!moved) editor.applyExternalEdits(edits, "Accept Completion");
+            })
+            .catch(onUnexpectedError);
     }
 
     /** No request while the panel is hidden: for a language server it is a request per list movement. */

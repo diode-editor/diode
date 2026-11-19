@@ -127,6 +127,28 @@ describe("CompletionService — commit characters", () => {
         expect(pane().getText()).toBe("consol.");
     });
 
+    it("the language's own value of the setting counts", async () => {
+        await ctx.harness.container
+            .get(IConfigurationServiceDIToken)
+            .updateValue(`[${pane().languageId}]`, { "editor.acceptSuggestionOnCommitCharacter": false });
+        register([consoleItem()]);
+        await open();
+        ctx.testApp.sendKey(".");
+        expect(pane().getText()).toBe("consol.");
+    });
+
+    it("the first character of a longer commit character accepts", async () => {
+        register([consoleItem({ commitCharacters: ["->"] })]);
+        await open();
+        ctx.testApp.sendKey("-");
+        expect(pane().getText()).toBe("console-");
+    });
+
+    it("typing before any list was shown is just typing", () => {
+        ctx.testApp.sendKey(".");
+        expect(pane().getText()).toBe("consol.");
+    });
+
     it("no character accepts with the popup closed", async () => {
         register([consoleItem()]);
         await open();
@@ -174,6 +196,9 @@ describe("CompletionService — commit characters", () => {
         await Promise.resolve();
         ctx.testApp.sendKey(".");
         expect(pane().getText()).toBe("import x;\nconsole.");
+        // Nothing follows later either.
+        await new Promise((done) => setTimeout(done));
+        expect(pane().getText()).toBe("import x;\nconsole.");
         expect(resolve).toHaveBeenCalledTimes(1);
     });
 
@@ -202,8 +227,10 @@ describe("CompletionService — commit characters", () => {
             await open();
             ctx.testApp.sendKey(".");
             expect(drawSelections(pane())).toBe("console.|");
+            const apply = vi.spyOn(pane(), "applyExternalEdits");
             await server.answer({ additionalEdits: [IMPORT] });
             expect(drawSelections(pane())).toBe("import x;\nconsole.|");
+            expect(apply).toHaveBeenCalledWith([IMPORT], "Accept Completion");
             ctx.testApp.sendKey("Ctrl+Z");
             expect(pane().getText()).toBe("console.");
         });
@@ -215,6 +242,36 @@ describe("CompletionService — commit characters", () => {
             ctx.testApp.sendKey(";");
             await server.answer({ additionalEdits: [createTextEdit(createRange(0, 8, 0, 8), " // x")] });
             expect(pane().getText()).toBe("console;");
+        });
+
+        it("one edit after a change drops them all", async () => {
+            const server = deferredResolve();
+            register([consoleItem({ id: "1" })], { resolve: server.resolve });
+            await open();
+            ctx.testApp.sendKey(";");
+            await server.answer({
+                additionalEdits: [IMPORT, createTextEdit(createRange(0, 8, 0, 8), " // x")],
+            });
+            expect(pane().getText()).toBe("console;");
+        });
+
+        it("no answer from resolve — nothing more happens", async () => {
+            const server = deferredResolve();
+            register([consoleItem({ id: "1" })], { resolve: server.resolve });
+            await open();
+            ctx.testApp.sendKey(".");
+            await server.answer(null);
+            expect(pane().getText()).toBe("console.");
+        });
+
+        it("a later change does not hide an earlier one", async () => {
+            const server = deferredResolve();
+            register([consoleItem({ id: "1" })], { resolve: server.resolve });
+            await open();
+            ctx.testApp.sendKey(";");
+            ctx.testApp.sendKey("x");
+            await server.answer({ additionalEdits: [createTextEdit(createRange(0, 8, 0, 8), " // x")] });
+            expect(pane().getText()).toBe("console;x");
         });
 
         it("an edit before every change since the insertion is applied", async () => {
