@@ -57,6 +57,15 @@ export type ITerminalSession = ITerminalSurface &
          * `onExit`), wrapped rows joined, without escape sequences. Task problem matchers read it.
          */
         readonly onLineData: Event<string>;
+        /** Upstream `onWillData`: raw process output, escape sequences included, before the emulator parses it. */
+        readonly onWillData: Event<string>;
+        /** Upstream `xterm.onData`: input written through the emulator (keys, mouse reports, replies). */
+        readonly onDidWriteData: Event<string>;
+        /** Like `write`, but reported as {@link onDidSendText}: text sent by a command or an extension. */
+        sendText(text: string): void;
+        readonly onDidSendText: Event<string>;
+        readonly dimensions: { readonly cols: number; readonly rows: number };
+        readonly onDidChangeDimensions: Event<void>;
         /** The emulator buffer for link detection; absent or `undefined` — no links. */
         readonly buffer?: ITerminalBuffer | undefined;
         /**

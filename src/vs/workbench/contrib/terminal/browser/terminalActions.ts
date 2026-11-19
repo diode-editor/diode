@@ -33,7 +33,7 @@ import { TerminalEditorServiceDIToken } from "./terminalEditorService.ts";
 import type { TerminalTabMenuContext } from "./terminalPanelComponent.ts";
 import { SWITCH_TERMINAL_COMMAND_ID, TerminalPanelComponentDIToken } from "./terminalPanelComponent.ts";
 import { TerminalProfileServiceDIToken } from "./terminalProfileService.ts";
-import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
+import { type ITerminalInstance, TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
 import { SWITCH_TERMINAL_SHOW_TABS, terminalIndexedLabel } from "./terminalTabsList.ts";
 
 /** Tiers where Ctrl+symbol is encoded unambiguously (in legacy, Ctrl+` is NUL). */
@@ -43,7 +43,7 @@ const PLUS_ICON = codicon("plus");
 const TRASH_ICON = codicon("trash");
 
 /** Doesn't wake the lazy spawn; the view opens where it is, like upstream `showPanel`. */
-function showTerminalView(accessor: ServiceAccessor): void {
+export function showTerminalView(accessor: ServiceAccessor): void {
     accessor.get(ViewsServiceDIToken).openView(TERMINAL_VIEW_ID, false, false);
 }
 
@@ -110,15 +110,24 @@ export const newTerminalAction: CommandAction = {
         { menuId: MenuId.MenubarTerminalMenu, group: "1_create", order: 1 },
     ],
     run(accessor) {
-        if (accessor.get(IConfigurationServiceDIToken).get("terminal.integrated.defaultLocation") === "editor") {
-            accessor.get(TerminalEditorServiceDIToken).createTerminal();
-        } else {
-            showTerminalView(accessor);
-            accessor.get(TerminalServiceDIToken).newTerminal();
-        }
-        accessor.get(WorkbenchContextKeysDIToken).update();
+        createTerminal(accessor);
     },
 };
+
+/**
+ * Upstream `createTerminal()` + reveal: in the default location, active and focused. The focus change refreshes the
+ * context keys.
+ */
+export function createTerminal(accessor: ServiceAccessor): ITerminalInstance {
+    let instance: ITerminalInstance;
+    if (accessor.get(IConfigurationServiceDIToken).get("terminal.integrated.defaultLocation") === "editor") {
+        instance = accessor.get(TerminalEditorServiceDIToken).createTerminal();
+    } else {
+        showTerminalView(accessor);
+        instance = accessor.get(TerminalServiceDIToken).newTerminal();
+    }
+    return instance;
+}
 
 const DEFAULT_PROFILE_ICON = "terminal";
 
