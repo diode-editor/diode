@@ -23,6 +23,11 @@ const BASH = "/bin/bash";
 const ZSH = ["/usr/bin/zsh", "/bin/zsh"].find((p) => existsSync(p));
 const WAIT = { timeout: 10_000, interval: 50 };
 const PROMPT_START = "\x1b]633;A\x07";
+/**
+ * Debian's `/etc/zsh/zshrc` runs `compinit` unless this is set; on a CI runner it finds "insecure directories" and
+ * waits for an answer instead of drawing the prompt.
+ */
+const NO_GLOBAL_COMPINIT = { skip_global_compinit: "1" };
 
 let home: string;
 let tmp: string;
@@ -46,7 +51,13 @@ afterEach(() => {
 
 function start(options: Partial<EmbeddedTerminalOptions>, logger?: ILogger): RecordingSession {
     const session = new RecordingSession(
-        { cols: 100, rows: 10, cwd: home, env: { HOME: home, HISTFILE: "/dev/null", ZDOTDIR: null }, ...options },
+        {
+            cols: 100,
+            rows: 10,
+            cwd: home,
+            env: { HOME: home, HISTFILE: "/dev/null", ZDOTDIR: null, ...NO_GLOBAL_COMPINIT },
+            ...options,
+        },
         undefined,
         logger,
     );
@@ -169,7 +180,11 @@ describe.skipIf(ZSH === undefined)("EmbeddedTerminalSession — shell integratio
         const own = path.join(home, "zdot");
         mkdirSync(own);
         writeFileSync(path.join(own, ".zshrc"), "alias diodealias='echo from-own-zdotdir'\n");
-        const session = start({ shell: zsh, env: { HOME: home, ZDOTDIR: own }, shellIntegrationEnabled: true });
+        const session = start({
+            shell: zsh,
+            env: { HOME: home, ZDOTDIR: own, ...NO_GLOBAL_COMPINIT },
+            shellIntegrationEnabled: true,
+        });
         await waitForPrompt(session);
         await run(session, "diodealias", "from-own-zdotdir");
     }, 30_000);

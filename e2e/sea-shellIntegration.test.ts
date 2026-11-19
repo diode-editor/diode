@@ -23,7 +23,8 @@ describeLinux("shell integration scripts — SEA", () => {
         await session.waitForReady();
         await session.sendKey("Ctrl+K");
         await session.sendKey("t");
-        await session.waitForText((t) => t.includes("diode$"));
+        // The runner's system bashrc may set its own prompt over `PS1`: any prompt will do.
+        await session.waitForText((t) => /\$ *$/m.test(t));
         // The marker is split in the command text, so it appears whole only in the output.
         await session.sendText('declare -F __vsc_precmd && echo "si""-$BASH_VERSION"');
         await session.sendKey("Enter");
