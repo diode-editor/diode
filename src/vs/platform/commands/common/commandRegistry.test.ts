@@ -20,6 +20,18 @@ function settleMicrotasks(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+describe("CommandRegistry — onWillExecuteCommand", () => {
+    it("fires before the handler of a registered command runs; an unknown id does not fire", () => {
+        const registry = new CommandRegistry();
+        const order: string[] = [];
+        registry.register("a", () => order.push("run a"));
+        registry.onWillExecuteCommand((event) => order.push(`will ${event.commandId}`));
+        registry.execute("a", 1);
+        registry.execute("missing");
+        expect(order).toEqual(["will a", "run a"]);
+    });
+});
+
 describe("CommandRegistry — shadowing an id", () => {
     it("the later registration wins; disposing it brings the previous handler and title back", () => {
         const registry = new CommandRegistry();

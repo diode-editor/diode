@@ -5,7 +5,10 @@ import type { ITerminalRelaunchOptions } from "../vs/workbench/contrib/terminal/
 
 export type { FakeCellOptions } from "@tuidom/testing/FakeTerminalSurface";
 
-/** Input fires `onDidInput`; after exit it is not written but fires `onDidInputAfterExit` — like a real session. */
+/**
+ * Input fires `onDidInput` and `onDidWriteData` (`sendText` — `onDidSendText`); after exit it is not written but fires
+ * `onDidInputAfterExit` — like a real session. Process output is scripted with {@link emitData}.
+ */
 export class FakeTerminalSurface extends EngineFakeTerminalSurface {
     public pid: number | undefined;
     public readonly relaunches: ITerminalRelaunchOptions[] = [];
@@ -20,6 +23,15 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
     public readonly onDidInput = this.input.event;
     private readonly lineData = new Emitter<string>();
     public readonly onLineData = this.lineData.event;
+    private readonly willData = new Emitter<string>();
+    public readonly onWillData = this.willData.event;
+    private readonly writeData = new Emitter<string>();
+    public readonly onDidWriteData = this.writeData.event;
+    private readonly sentText = new Emitter<string>();
+    public readonly onDidSendText = this.sentText.event;
+    private readonly dimensionsChange = new Emitter<void>();
+    public readonly onDidChangeDimensions = this.dimensionsChange.event;
+    public dimensions = { cols: 80, rows: 24 };
 
     public constructor(
         public shell = "/bin/bash",
@@ -30,12 +42,37 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
     }
 
     public override write(data: string): void {
+        if (this.deliver(data)) this.writeData.fire(data);
+    }
+
+    public sendText(text: string): void {
+        if (this.deliver(text)) this.sentText.fire(text);
+    }
+
+    public override resize(cols: number, rows: number): void {
+        super.resize(cols, rows);
+        this.dimensions = { cols, rows };
+        this.dimensionsChange.fire();
+    }
+
+    /** Raw process output, as the session reports it before parsing. */
+    public emitData(data: string): void {
+        this.willData.fire(data);
+    }
+
+    private deliver(data: string): boolean {
         if (this.isExited) {
             this.inputAfterExit.fire();
-            return;
+            return false;
         }
-        super.write(data);
+        this.sendInput(data);
         this.input.fire();
+        return true;
+    }
+
+    /** Where both `write` and `sendText` deliver the input; recorded in `writes`. */
+    protected sendInput(data: string): void {
+        super.write(data);
     }
 
     /** Output lines as the emulator would report them. */

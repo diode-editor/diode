@@ -93,6 +93,10 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     private readonly onDidInputAfterExitEmitter = new Emitter<void>();
     private readonly onDidInputEmitter = new Emitter<void>();
     private readonly onLineDataEmitter = new Emitter<string>();
+    private readonly onWillDataEmitter = new Emitter<string>();
+    private readonly onDidWriteDataEmitter = new Emitter<string>();
+    private readonly onDidSendTextEmitter = new Emitter<string>();
+    private readonly onDidChangeDimensionsEmitter = new Emitter<void>();
     private loading = true;
     /** While our own text (a message, a relaunch preface) is parsed: it is not output. */
     private linesMuted = false;
@@ -255,11 +259,17 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     protected abstract relaunchProcess(options: ITerminalRelaunchOptions): void;
 
+    /** Process output: reported raw ({@link onWillData}) before the emulator parses it. */
+    protected feedOutput(data: string): void {
+        this.onWillDataEmitter.fire(data);
+        this.writeOutput(data);
+    }
+
     /**
      * `term.write()` is async: emitUpdate runs in the write callback, after buffer.active
      * is updated, otherwise the frame lags one event behind.
      */
-    protected feedOutput(data: string): void {
+    private writeOutput(data: string): void {
         if (this.term === undefined) this.pendingOutput.push(data);
         else this.writeToTerm(this.term, data);
     }
@@ -309,7 +319,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         this.afterOutputParsed(() => {
             this.linesMuted = true;
         });
-        this.feedOutput(text);
+        this.writeOutput(text);
         this.afterOutputParsed(() => {
             this.linesMuted = false;
         });
@@ -391,15 +401,30 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         return { x, y };
     }
 
-    /** Any input returns the viewport to the bottom. */
+    public get dimensions(): { readonly cols: number; readonly rows: number } {
+        return { cols: this.cols, rows: this.rows };
+    }
+
+    /** Keys, pastes, mouse reports and emulator replies. Any input returns the viewport to the bottom. */
     public write(data: string): void {
+        if (this.deliverInput(data)) this.onDidWriteDataEmitter.fire(data);
+    }
+
+    /** Text sent on behalf of a command or an extension (upstream `sendText`), not typed into the emulator. */
+    public sendText(text: string): void {
+        if (this.deliverInput(text)) this.onDidSendTextEmitter.fire(text);
+    }
+
+    /** `false` — the process has exited, the input went nowhere. */
+    private deliverInput(data: string): boolean {
         this.setScrollOffset(0);
         if (this.exited) {
             this.onDidInputAfterExitEmitter.fire();
-            return;
+            return false;
         }
         this.sendInput(data);
         this.onDidInputEmitter.fire();
+        return true;
     }
 
     public resize(cols: number, rows: number): void {
@@ -410,6 +435,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         // Reflow changes the scrollback length; the `scrollOffset` getter clamps the offset.
         this.term?.resize(cols, rows);
         if (!this.exited) this.onDidResize(cols, rows);
+        this.onDidChangeDimensionsEmitter.fire();
     }
 
     /** The emulator decides whether and how to encode a report from the program's mouse mode; col/row are 0-based. */
@@ -439,6 +465,17 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     /** Upstream `onLineData`: each output line once it is complete, wrapped rows joined, without escape sequences. */
     public readonly onLineData = this.onLineDataEmitter.event;
+
+    /** Upstream `onWillData`: process output as it arrives, escape sequences included, before the emulator parses it. */
+    public readonly onWillData = this.onWillDataEmitter.event;
+
+    /** Upstream `xterm.onData`: input that came through the emulator ({@link write}), not {@link sendText}. */
+    public readonly onDidWriteData = this.onDidWriteDataEmitter.event;
+
+    public readonly onDidSendText = this.onDidSendTextEmitter.event;
+
+    /** Upstream `onDimensionsChanged`: see {@link dimensions}. */
+    public readonly onDidChangeDimensions = this.onDidChangeDimensionsEmitter.event;
 
     public dispose(): void {
         this.disposed = true;

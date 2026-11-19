@@ -340,6 +340,8 @@
     "workbench.action.terminal.killAll",
     "workbench.action.terminal.switchTerminal",
     "workbench.action.quickOpenTerm",
+    "workbench.action.terminal.writeDataToTerminal",
+    "workbench.action.terminal.recordSession",
     "workbench.action.terminal.openDetectedLink",
     "workbench.action.terminal.openFileLink",
     "workbench.action.terminal.copySelection",
