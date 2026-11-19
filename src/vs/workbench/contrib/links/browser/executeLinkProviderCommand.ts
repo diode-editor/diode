@@ -12,7 +12,7 @@ import { type IWireExecutedDocumentLink, reviveWireUri } from "../../../api/comm
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
 
-export const EXECUTE_LINK_PROVIDER_COMMAND_ID = "_executeLinkProvider";
+const EXECUTE_LINK_PROVIDER_COMMAND_ID = "_executeLinkProvider";
 
 export const ExecuteLinkProviderCommandContributionDIToken = token<ExecuteLinkProviderCommandContribution>(
     "ExecuteLinkProviderCommandContribution",
