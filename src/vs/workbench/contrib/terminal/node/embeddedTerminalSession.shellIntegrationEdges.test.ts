@@ -22,6 +22,9 @@ const ZSH = ["/usr/bin/zsh", "/bin/zsh"].find((p) => existsSync(p));
 const WAIT = { timeout: 10_000, interval: 50 };
 const PROMPT_START = "\x1b]633;A\x07";
 
+// The user's ZDOTDIR goes through the terminal env: the fallback, `os.homedir()`, reads the process's real HOME — a
+// stubbed one does not reach it in a worker thread (Stryker runs vitest in the `threads` pool). The fallback itself is
+// covered by the port's unit test.
 let home: string;
 let tmp: string;
 const sessions: EmbeddedTerminalSession[] = [];
@@ -30,7 +33,6 @@ beforeEach(() => {
     home = mkdtempSync(path.join(os.tmpdir(), "diode si home é-"));
     tmp = mkdtempSync(path.join(os.tmpdir(), "diode-si-tmp-"));
     vi.stubEnv("TMPDIR", tmp);
-    vi.stubEnv("HOME", home);
     vi.stubEnv("ZDOTDIR", undefined);
 });
 afterEach(() => {
@@ -46,7 +48,7 @@ function start(options: Partial<EmbeddedTerminalOptions>, logger?: ILogger): Rec
             cols: 100,
             rows: 10,
             cwd: home,
-            env: { HOME: home, HISTFILE: "/dev/null", skip_global_compinit: "1" },
+            env: { HOME: home, HISTFILE: "/dev/null", ZDOTDIR: home, skip_global_compinit: "1" },
             ...options,
         },
         undefined,
@@ -107,7 +109,11 @@ describe.skipIf(ZSH === undefined)("shell integration — zsh edges", () => {
         mkdirSync(own, { recursive: true });
         writeFileSync(path.join(own, ".zshrc"), "alias diodealias='echo from-inherited-zdotdir'\n");
         vi.stubEnv("ZDOTDIR", own);
-        const session = start({ shell: zsh, shellIntegrationEnabled: true });
+        const session = start({
+            shell: zsh,
+            env: { HOME: home, HISTFILE: "/dev/null", skip_global_compinit: "1" },
+            shellIntegrationEnabled: true,
+        });
         await waitFor(session, PROMPT_START);
         await run(session, "diodealias", "from-inherited-zdotdir");
         await run(session, 'echo "<$ZDOTDIR>"', `<${own}>`);

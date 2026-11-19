@@ -29,6 +29,9 @@ const PROMPT_START = "\x1b]633;A\x07";
  */
 const NO_GLOBAL_COMPINIT = { skip_global_compinit: "1" };
 
+// The user's ZDOTDIR goes through the terminal env: the fallback, `os.homedir()`, reads the process's real HOME — a
+// stubbed one does not reach it in a worker thread (Stryker runs vitest in the `threads` pool). The fallback itself is
+// covered by the port's unit test.
 let home: string;
 let tmp: string;
 const sessions: EmbeddedTerminalSession[] = [];
@@ -38,8 +41,6 @@ beforeEach(() => {
     tmp = mkdtempSync(path.join(os.tmpdir(), "diode-si-tmp-"));
     // `os.tmpdir()` reads TMPDIR on every call: the zsh ZDOTDIR goes here, not into the machine's /tmp.
     vi.stubEnv("TMPDIR", tmp);
-    // Upstream takes the user ZDOTDIR fallback from `os.homedir()` of the editor process, not the terminal env.
-    vi.stubEnv("HOME", home);
 });
 afterEach(() => {
     for (const session of sessions.splice(0)) session.dispose();
@@ -55,7 +56,7 @@ function start(options: Partial<EmbeddedTerminalOptions>, logger?: ILogger): Rec
             cols: 100,
             rows: 10,
             cwd: home,
-            env: { HOME: home, HISTFILE: "/dev/null", ZDOTDIR: null, ...NO_GLOBAL_COMPINIT },
+            env: { HOME: home, HISTFILE: "/dev/null", ZDOTDIR: home, ...NO_GLOBAL_COMPINIT },
             ...options,
         },
         undefined,
