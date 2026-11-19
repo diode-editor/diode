@@ -220,8 +220,10 @@ class ShellIntegration {
         if (commandLine.confidence === HIGH) {
             for (const [i, pending] of this.pending.entries()) {
                 const requested = pending.value.commandLine.value;
+                // Deviation: an empty command line starts no request (upstream takes it for the first line of any,
+                // even a single-line one, which then waits for that line forever).
                 const rest =
-                    requested === commandLine.value
+                    requested === commandLine.value || lines.length === 0
                         ? undefined
                         : subExecutionRest(splitAndSanitizeCommandLine(requested), lines);
                 if (requested !== commandLine.value && rest === undefined) continue;
@@ -298,14 +300,15 @@ function splitAndSanitizeCommandLine(commandLine: string): string[] {
 }
 
 /**
- * Upstream `isSubExecution`: the shell ran the next of the unresolved lines (one or more of them as one command) — the
- * lines still to run; `undefined` — the command is not a part of the execution. Deviation: an empty command line is
- * not a part of any (upstream takes it for one, and a pending single-line execution for multi-line).
+ * Upstream `isSubExecution`: the shell ran the next of the unresolved lines (one or more of them as one command, or
+ * none — the empty command of a blank line) — the lines still to run; `undefined` — the command is not a part of the
+ * execution.
  */
 function subExecutionRest(unresolved: readonly string[], lines: readonly string[]): string[] | undefined {
+    if (unresolved.length === 0) return undefined;
     let i = 0;
     while (i < unresolved.length && i < lines.length && unresolved[i] === lines[i]) i++;
-    return i > 0 && i === lines.length ? unresolved.slice(i) : undefined;
+    return i === lines.length ? unresolved.slice(i) : undefined;
 }
 
 /** Upstream `executeCommand(executable, args)`: an argument with whitespace and no quotes is wrapped in `"…"`. */

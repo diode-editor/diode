@@ -129,12 +129,17 @@ describe("ext host shell integration — a multi-line executeCommand", () => {
         expect(h.ends.map(([, line]) => line)).toStrictEqual(["b", ""]);
     });
 
-    it("while its last lines run, an empty command line is no part of it", async () => {
+    it("the empty command of a blank line is a part of it while lines remain, and no part once all have run", () => {
         const h = setup();
-        h.executeCommand("a\nb");
+        h.executeCommand("a\n\nb");
         h.start("a");
+        h.end("a", 0);
         h.start("");
-        expect(h.starts.map((e) => e.commandLine.value)).toStrictEqual(["a\nb", ""]);
-        expect(h.ends.map(([, line, code]) => [line, code])).toStrictEqual([["a\nb", undefined]]);
+        h.end("", 0);
+        h.start("b");
+        expect(h.starts.map((e) => e.commandLine.value)).toStrictEqual(["a\n\nb"]);
+        h.start("");
+        expect(h.starts.map((e) => e.commandLine.value)).toStrictEqual(["a\n\nb", ""]);
+        expect(h.ends.map(([, line, code]) => [line, code])).toStrictEqual([["a\n\nb", undefined]]);
     });
 });
