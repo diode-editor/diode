@@ -14,7 +14,6 @@ import type {
     IActiveEditorSelections,
     IEditorOptionsPatch,
     IEditorOptionsService,
-    IEditorOptionsState,
 } from "../../../api/common/iEditorOptionsService.ts";
 import type { IExtensionTaskEvents } from "../../../api/common/iExtensionTaskSink.ts";
 import type { IProtocolMessage, IRequestMessage } from "../../../api/common/rpcEndpoint.ts";
@@ -85,21 +84,16 @@ class FakeStream extends EventEmitter {
 }
 
 class FakeEditorOptions implements IEditorOptionsService {
-    public options: IEditorOptionsState | null = { tabSize: 4, insertSpaces: true };
     public lastPatch: IEditorOptionsPatch | null = null;
+    public lastTarget: { readonly uri: string; readonly groupId: number } | null = null;
     public filePath: string | null = "/active.ts";
     /** All live subscribers, as with a real event: leftovers after a respawn are visible. */
     public readonly activeEditorListeners: ((meta: IActiveEditorMeta) => void)[] = [];
     private readonly selectionListeners: ((selections: IActiveEditorSelections) => void)[] = [];
 
-    public getActiveEditorOptions(): IEditorOptionsState | null {
-        return this.options;
-    }
-    public setActiveEditorOptions(patch: IEditorOptionsPatch): void {
+    public setEditorOptions(uri: string, groupId: number, patch: IEditorOptionsPatch): void {
+        this.lastTarget = { uri, groupId };
         this.lastPatch = patch;
-    }
-    public setEditorCursorStyle(): void {
-        /* no-op */
     }
     public revealEditorRange(): void {
         /* no-op */
@@ -541,23 +535,12 @@ describe("ExtensionHost — editor options RPC handlers", () => {
             kind: "req",
             id: 100,
             method: "editor.setOptions",
-            params: { tabSize: 2, insertSpaces: false, bogus: 1 },
+            params: { tabSize: 2, insertSpaces: false, bogus: 1, uri: "file:///b.ts", groupId: 2 },
         });
 
         await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 100));
+        expect(editorOptions.lastTarget).toEqual({ uri: "file:///b.ts", groupId: 2 });
         expect(editorOptions.lastPatch).toEqual({ tabSize: 2, insertSpaces: false });
-    });
-
-    it("sanitizes a non-object editor.setOptions payload into an empty patch", async () => {
-        const child = new FakeChild();
-        const editorOptions = new FakeEditorOptions();
-        const host = spawnReadyHost(child, editorOptions);
-        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
-
-        child.receiveFromHostPeer({ kind: "req", id: 102, method: "editor.setOptions", params: 42 });
-
-        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 102));
-        expect(editorOptions.lastPatch).toEqual({});
     });
 
     it("drops invalid tabSize / insertSpaces fields from editor.setOptions", async () => {
@@ -570,24 +553,11 @@ describe("ExtensionHost — editor options RPC handlers", () => {
             kind: "req",
             id: 103,
             method: "editor.setOptions",
-            params: { tabSize: -1, insertSpaces: "yes" },
+            params: { tabSize: -1, insertSpaces: "yes", uri: "file:///b.ts", groupId: 1 },
         });
 
         await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 103));
         expect(editorOptions.lastPatch).toEqual({});
-    });
-
-    it("answers editor.getOptions with the current state", async () => {
-        const child = new FakeChild();
-        const editorOptions = new FakeEditorOptions();
-        const host = spawnReadyHost(child, editorOptions);
-        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
-
-        child.receiveFromHostPeer({ kind: "req", id: 101, method: "editor.getOptions", params: undefined });
-
-        await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 101));
-        const res = child.sent.find((m) => m.kind === "res" && m.id === 101);
-        expect(res).toMatchObject({ result: { tabSize: 4, insertSpaces: true } });
     });
 
     it("forwards active-editor changes to the subprocess", async () => {
@@ -2307,29 +2277,6 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
 
         await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 780));
         expect(child.sent.find((m) => m.kind === "res" && m.id === 780)).toMatchObject({ result: { opened: false } });
-
-        host.dispose();
-    });
-
-    it("aliases indentSize to tabSize in editor.setOptions (only when tabSize absent)", async () => {
-        const child = new FakeChild();
-        const editorOptions = new FakeEditorOptions();
-        const host = spawnReadyHost(child, editorOptions, {});
-        await registerAndActivate(host, makeReg("ext.a", "/a.js"));
-
-        child.receiveFromHostPeer({ kind: "req", id: 901, method: "editor.setOptions", params: { indentSize: 3 } });
-        await waitUntil(() => editorOptions.lastPatch !== null);
-        expect(editorOptions.lastPatch).toEqual({ tabSize: 3 });
-
-        editorOptions.lastPatch = null;
-        child.receiveFromHostPeer({
-            kind: "req",
-            id: 902,
-            method: "editor.setOptions",
-            params: { tabSize: 4, indentSize: 8 },
-        });
-        await waitUntil(() => editorOptions.lastPatch !== null);
-        expect(editorOptions.lastPatch).toEqual({ tabSize: 4 });
 
         host.dispose();
     });

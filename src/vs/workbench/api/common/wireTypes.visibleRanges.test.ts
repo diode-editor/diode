@@ -24,6 +24,27 @@ describe("parseWireEditorPropertiesChanged", () => {
         }
     });
 
+    it("keeps complete options and drops incomplete or mistyped ones, not the message", () => {
+        const options = { tabSize: 2, insertSpaces: false, cursorStyle: 2 };
+        expect(parseWireEditorPropertiesChanged({ uri: "file:///a", groupId: 1, options })).toEqual({
+            uri: "file:///a",
+            groupId: 1,
+            options,
+        });
+        for (const broken of [
+            null,
+            7,
+            { ...options, tabSize: "2" },
+            { ...options, insertSpaces: 1 },
+            { ...options, cursorStyle: undefined },
+        ]) {
+            expect(parseWireEditorPropertiesChanged({ uri: "file:///a", groupId: 1, options: broken })).toStrictEqual({
+                uri: "file:///a",
+                groupId: 1,
+            });
+        }
+    });
+
     it("rejects a non-object and a message without an address", () => {
         expect(parseWireEditorPropertiesChanged(null)).toBeNull();
         expect(parseWireEditorPropertiesChanged("x")).toBeNull();

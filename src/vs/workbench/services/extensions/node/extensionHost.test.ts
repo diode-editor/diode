@@ -6,31 +6,17 @@ import {
     subprocessSpawnArgsForTests,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
-import { EditorOptionsServiceAdapter } from "../../../api/browser/editorOptionsServiceAdapter.ts";
 import { NULL_COMMAND_SERVICE } from "../../../api/common/iCommandService.ts";
 import type {
     IActiveEditorMeta,
     IActiveEditorSelections,
-    IEditorOptionsPatch,
     IEditorOptionsService,
-    IEditorOptionsState,
 } from "../../../api/common/iEditorOptionsService.ts";
-import type { IBulkEditService } from "../../../contrib/bulkEdit/common/iBulkEditService.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
-const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
 class FakeOptionsService implements IEditorOptionsService {
-    public state: IEditorOptionsState | null = { tabSize: 4, insertSpaces: true };
-    public patches: IEditorOptionsPatch[] = [];
-    public getActiveEditorOptions(): IEditorOptionsState | null {
-        return this.state;
-    }
-    public setActiveEditorOptions(patch: IEditorOptionsPatch): void {
-        this.patches.push(patch);
-        this.state = { ...(this.state ?? { tabSize: 4, insertSpaces: true }), ...patch };
-    }
-    public setEditorCursorStyle(): void {
+    public setEditorOptions(): void {
         /* no-op */
     }
     public revealEditorRange(): void {
@@ -109,19 +95,5 @@ describe("ExtensionHost (subprocess)", () => {
         expect(host.hasExtension("y")).toBe(true);
         host.dispose();
         await settle(100);
-    });
-});
-
-describe("EditorOptionsServiceAdapter", () => {
-    it("returns null when there is no active editor", () => {
-        const adapter = new EditorOptionsServiceAdapter(
-            {
-                getActiveTabEditor: () => null,
-            } as never,
-            {} as never,
-            NO_BULK_EDITS,
-        );
-        expect(adapter.getActiveEditorOptions()).toBeNull();
-        adapter.setActiveEditorOptions({ tabSize: 2 }); // must not throw
     });
 });

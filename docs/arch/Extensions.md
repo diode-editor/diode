@@ -1146,13 +1146,13 @@
   отбрасывает чужие события Claude Code.
 - **Свойства редактора (`TextEditor.visibleRanges` + `onDidChangeTextEditorVisibleRanges`, #1226):**
   эхо upstream `$acceptEditorPropertiesChanged` — notify `editor.propertiesChanged`
-  (`IWireEditorPropertiesChanged`: адрес редактора `uri` + `groupId` и только изменившиеся свойства).
-  Сейчас там `visibleRanges`; следующие (`options` для `onDidChangeTextEditorOptions`) добавляются
-  полем в то же сообщение. Продюсер — `EditorLayoutServiceAdapter`: он и так знает видимые редакторы
+  (`IWireEditorPropertiesChanged`: адрес редактора `uri` + `groupId` и только изменившиеся свойства:
+  `options` и `visibleRanges`). Продюсер — `EditorLayoutServiceAdapter`: он и так знает видимые редакторы
   (активная текстовая вкладка каждой группы и модельные стороны diff'а — `visibleEditors()`),
-  подписан на `TextEditorPane.onDidChangeVisibleRange` каждого и раз в микрозадачу шлёт значение,
-  отличное от последнего отправленного этим редактором (скрытый редактор хранит своё, как в эталоне).
-  Значение — `EditorViewState.getVisibleRanges()`: целиком видимые строки, разрезанные вокруг
+  подписан на `TextEditorPane.onDidChangeVisibleRange`, `onDidChangeIndentOptions` и
+  `onDidChangeCursorStyleSetting` каждого и раз в микрозадачу шлёт значение, отличное от последнего
+  отправленного этим редактором (скрытый редактор хранит своё, как в эталоне).
+  Значение `visibleRanges` — `EditorViewState.getVisibleRanges()`: целиком видимые строки, разрезанные вокруг
   свёрнутых; строка с переносом, обрезанная краем вьюпорта, выпадает, как частично видимая строка
   в эталоне. Стартовое значение едет в снимке раскладки (`visibleRanges` активной вкладки,
   `sideVisibleRanges` сторон diff'а): errorlens читает его в `onDidChangeActiveTextEditor`, раньше
@@ -1161,6 +1161,18 @@
   неизвестный ключ; известное
   значение меняет лишь сообщение — сначала кэш, потом событие, и только при изменении. Customer
   сначала флашит раскладку: свойства адресуют вкладку, которой субпроцесс уже должен знать.
+  **Опции (`onDidChangeTextEditorOptions`, #1231)** — все разом, если изменилась любая, как
+  `MainThreadTextEditorProperties`: `tabSize`, `insertSpaces` из вью-стейта и `cursorStyle` — то, во что
+  разрешились переопределение расширения и `editor.cursorStyle` (`TextEditorPane.cursorStyleSetting`, до того
+  как терминал свернёт его в три формы; не задан — `Line`). `indentSize` у нас — `tabSize`, его дописывает
+  субпроцесс. `lineNumbers` на проводе нет: ключа `editor.lineNumbers` у ядра нет, субпроцесс читает его из
+  своих настроек, и смена настройки события не даёт. Впервые видимый редактор опций не шлёт — эталонный
+  новый редактор приходит со своими без события; субпроцесс до первого отчёта берёт отступы вкладки из
+  снимка и форму курсора из настроек (переопределения у новой панели ещё нет, так что это то же значение).
+  Субпроцесс держит присланные опции по редактору, поверх — присвоенное самим расширением до ответа хоста
+  (эталонный `ExtHostTextEditorOptions`). Событие стреляет на каждое сообщение с `options` (хост уже
+  отфильтровал неизменённое) и раньше `visibleRanges` того же сообщения. `editor.setOptions` адресует
+  редактор по `uri` + `groupId` (`IEditorOptionsService.setEditorOptions`), а не активный.
 - **Активная тема (`window.activeColorTheme` + `onDidChangeActiveColorTheme`):** notify
   `window.themeChanged {kind}` (host → subprocess) через тот же порт `IThemeColorResolver`, что
   резолвит `ThemeColor` — второго порта к теме не заводим, событие смены у обоих потребителей одно.

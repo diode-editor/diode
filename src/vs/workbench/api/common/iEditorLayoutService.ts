@@ -29,8 +29,9 @@ export interface IEditorLayoutService {
 
     /**
      * Per visible editor, the sides of a diff included, only what changed since it was last reported; changes within a
-     * microtask coalesce. A newly visible editor reports everything, though its starting values already ride in
-     * {@link getLayoutSnapshot}. The listener sends after {@link flushPendingLayout}.
+     * microtask coalesce. A newly visible editor reports its visible ranges, though their starting value already rides
+     * in {@link getLayoutSnapshot}, and no options: the extension starts from its tab's. The listener sends after
+     * {@link flushPendingLayout}.
      */
     onDidChangeEditorProperties(cb: (properties: IWireEditorPropertiesChanged) => void): IDisposable;
 

@@ -1119,10 +1119,10 @@ export interface IWireSetSelectionParams {
 
 /** A normalized `TextEditor.options` patch; `indentSize` is an alias of `tabSize`. */
 export interface IWireSetEditorOptionsParams {
+    /** An assigned `indentSize` arrives here: Diode's indent size is its tab size. */
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
-    readonly indentSize?: number;
-    /** `vscode.TextEditorCursorStyle`, 1..6: applies to the editor at `uri` + `groupId`, not the active one. */
+    /** `vscode.TextEditorCursorStyle`, 1..6. */
     readonly cursorStyle?: number;
     readonly uri: string;
     readonly groupId: number;
@@ -1365,23 +1365,50 @@ export function parseRange(raw: unknown): IRange | null {
 }
 
 /**
- * Upstream `IEditorPropertiesChangeData` of one visible editor: a property is present only when it changed. Editor
- * options are the next to join (`onDidChangeTextEditorOptions`).
+ * Upstream `IResolvedTextEditorConfiguration` without `indentSize` (Diode's is `tabSize`) and `lineNumbers` (Diode
+ * draws plain numbers and has no `editor.lineNumbers`).
  */
+export interface IWireEditorOptions {
+    readonly tabSize: number;
+    readonly insertSpaces: boolean;
+    /** `vscode.TextEditorCursorStyle`: an unset `editor.cursorStyle` is `Line`, upstream's default. */
+    readonly cursorStyle: number;
+}
+
+/** Upstream `IEditorPropertiesChangeData` of one visible editor: a property is present only when it changed. */
 export interface IWireEditorPropertiesChanged {
     readonly uri: string;
     readonly groupId: number;
+    /** All of them when any changed, as upstream. */
+    readonly options?: IWireEditorOptions;
     /** Upstream `codeEditor.getVisibleRanges()`: never empty. */
     readonly visibleRanges?: readonly IRange[];
 }
 
-/** `null` for a message without an editor address; a malformed range drops the property, not the message. */
+/** `null` for a message without an editor address; a malformed property is dropped, not the message. */
 export function parseWireEditorPropertiesChanged(raw: unknown): IWireEditorPropertiesChanged | null {
     // A primitive reads as an object without an address.
-    const p = raw as { uri?: unknown; groupId?: unknown; visibleRanges?: unknown } | null | undefined;
+    const p = raw as
+        | { uri?: unknown; groupId?: unknown; options?: unknown; visibleRanges?: unknown }
+        | null
+        | undefined;
     if (typeof p?.uri !== "string" || !isFiniteNumber(p.groupId)) return null;
+    const options = parseWireEditorOptions(p.options);
     const visibleRanges = parseWireVisibleRanges(p.visibleRanges);
-    return { uri: p.uri, groupId: p.groupId, ...(visibleRanges !== undefined ? { visibleRanges } : {}) };
+    return {
+        uri: p.uri,
+        groupId: p.groupId,
+        ...(options !== undefined ? { options } : {}),
+        ...(visibleRanges !== undefined ? { visibleRanges } : {}),
+    };
+}
+
+function parseWireEditorOptions(raw: unknown): IWireEditorOptions | undefined {
+    const o = raw as { tabSize?: unknown; insertSpaces?: unknown; cursorStyle?: unknown } | null | undefined;
+    if (!isFiniteNumber(o?.tabSize) || typeof o.insertSpaces !== "boolean" || !isFiniteNumber(o.cursorStyle)) {
+        return undefined;
+    }
+    return { tabSize: o.tabSize, insertSpaces: o.insertSpaces, cursorStyle: o.cursorStyle };
 }
 
 function parseWireSideVisibleRanges(raw: unknown): IRange[][] | undefined {

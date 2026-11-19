@@ -6,12 +6,9 @@ import {
 import type { RangeRevealType } from "../../../../../editor/common/viewModel/editorViewState.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorLayoutService } from "../../../../api/common/iEditorLayoutService.ts";
-import type {
-    IEditorOptionsPatch,
-    IEditorOptionsService,
-    IEditorOptionsState,
-} from "../../../../api/common/iEditorOptionsService.ts";
+import type { IEditorOptionsPatch, IEditorOptionsService } from "../../../../api/common/iEditorOptionsService.ts";
 import {
+    isFiniteNumber,
     type IWireSaveResult,
     type IWireShowTextDocumentResult,
     parseRange,
@@ -58,18 +55,11 @@ export class EditorCustomer implements IExtensionHostCustomer {
         const store = new DisposableStore();
         store.add(
             rpc.handleRequest("editor.setOptions", (params): null => {
-                const patch = sanitizeOptionsPatch(params);
-                this.editorOptions.setActiveEditorOptions(patch);
-                const cursorStyle = parseCursorStyleTarget(params);
-                if (cursorStyle !== null) {
-                    this.editorOptions.setEditorCursorStyle(cursorStyle.uri, cursorStyle.groupId, cursorStyle.style);
-                }
+                // Upstream `$trySetOptions` addresses the editor by id: the patch goes to that tab, not the active one.
+                const p = params as { uri?: unknown; groupId?: unknown } | null;
+                if (typeof p?.uri !== "string" || typeof p.groupId !== "number") return null;
+                this.editorOptions.setEditorOptions(p.uri, p.groupId, sanitizeOptionsPatch(p));
                 return null;
-            }),
-        );
-        store.add(
-            rpc.handleRequest("editor.getOptions", (): IEditorOptionsState | null => {
-                return this.editorOptions.getActiveEditorOptions();
             }),
         );
         // Fire-and-forget for the extension, but in arrival order — before a subsequent executeCommand.
@@ -271,35 +261,17 @@ export class EditorCustomer implements IExtensionHostCustomer {
     }
 }
 
-function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {
-    if (typeof raw !== "object" || raw === null) return {};
-    const obj = raw as { tabSize?: unknown; insertSpaces?: unknown; indentSize?: unknown };
-    const patch: { tabSize?: number; insertSpaces?: boolean } = {};
+function sanitizeOptionsPatch(raw: object): IEditorOptionsPatch {
+    const obj = raw as { tabSize?: unknown; insertSpaces?: unknown; cursorStyle?: unknown };
+    const patch: { tabSize?: number; insertSpaces?: boolean; cursorStyle?: EditorCursorStyleSetting } = {};
     if (isFiniteNumber(obj.tabSize) && obj.tabSize > 0) {
         patch.tabSize = Math.floor(obj.tabSize);
-    }
-    // `indentSize` is an alias of tabSize (Diode doesn't distinguish them yet): applied only
-    // when there is no explicit tabSize. editorconfig sends indent_size exactly this way.
-    if (patch.tabSize === undefined && isFiniteNumber(obj.indentSize) && obj.indentSize > 0) {
-        patch.tabSize = Math.floor(obj.indentSize);
     }
     if (typeof obj.insertSpaces === "boolean") {
         patch.insertSpaces = obj.insertSpaces;
     }
+    // Anything but 1..6 is no style.
+    const cursorStyle = cursorStyleFromApi(obj.cursorStyle);
+    if (cursorStyle !== undefined) patch.cursorStyle = cursorStyle;
     return patch;
-}
-
-/** `null` unless the style is 1..6 and the editor is addressed by uri and group. */
-function parseCursorStyleTarget(
-    raw: unknown,
-): { readonly uri: string; readonly groupId: number; readonly style: EditorCursorStyleSetting } | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as { cursorStyle?: unknown; uri?: unknown; groupId?: unknown };
-    const style = cursorStyleFromApi(obj.cursorStyle);
-    if (style === undefined || typeof obj.uri !== "string" || typeof obj.groupId !== "number") return null;
-    return { uri: obj.uri, groupId: obj.groupId, style };
-}
-
-function isFiniteNumber(value: unknown): value is number {
-    return Number.isFinite(value);
 }

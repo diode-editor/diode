@@ -254,16 +254,35 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         expect(adapter.applyActiveEditorEdits(Uri.file(ws.path("nope.ts")).toString(), [edit])).toBe(false);
     });
 
-    it("setEditorCursorStyle shapes THAT group's tab; an unknown group or a foreign uri is a no-op", () => {
+    it("setEditorOptions shapes THAT group's tab, not the active one; an unknown group or a foreign uri is a no-op", () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         const uri = editorAt(0, 0).uri.toString();
+        const [first, second] = service.editorGroups.groups;
+        expect(service.editorGroups.activeGroup).toBe(second);
 
-        adapter.setEditorCursorStyle(uri, service.editorGroups.groups[0].id, "block");
-        adapter.setEditorCursorStyle(uri, 999, "underline");
-        adapter.setEditorCursorStyle(Uri.file(ws.path("b.ts")).toString(), service.editorGroups.groups[1].id, "line");
+        const { tabSize, insertSpaces } = editorAt(1, 0).viewState;
 
+        adapter.setEditorOptions(uri, first.id, { tabSize: 7, insertSpaces: !insertSpaces, cursorStyle: "block" });
+        adapter.setEditorOptions(uri, 999, { tabSize: 3, cursorStyle: "underline" });
+        adapter.setEditorOptions(Uri.file(ws.path("b.ts")).toString(), second.id, { tabSize: 3, cursorStyle: "line" });
+
+        expect(editorAt(0, 0).viewState).toMatchObject({ tabSize: 7, insertSpaces: !insertSpaces });
+        expect(editorAt(1, 0).viewState).toMatchObject({ tabSize, insertSpaces });
         expect(cursorOf(editorAt(0, 0))).toEqual({ shape: "block", blinking: true });
+        expect(editorAt(0, 0).cursorStyleSetting).toBe("block");
         expect(cursorOf(editorAt(1, 0))).toBeNull();
+    });
+
+    it("setEditorOptions without a style leaves the override alone", () => {
+        service.openFile(ws.path("a.ts"));
+        const uri = editorAt(0, 0).uri.toString();
+        const groupId = service.editorGroups.groups[0].id;
+
+        adapter.setEditorOptions(uri, groupId, { cursorStyle: "underline" });
+        adapter.setEditorOptions(uri, groupId, { tabSize: 2 });
+
+        expect(editorAt(0, 0).cursorStyleOverride).toBe("underline");
+        expect(editorAt(0, 0).viewState.tabSize).toBe(2);
     });
 });

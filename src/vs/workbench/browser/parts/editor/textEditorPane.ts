@@ -414,8 +414,23 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
      */
     public cursorStyleOverride: EditorCursorStyleSetting | undefined = undefined;
 
-    public setCursorStyle(style: CursorStyle | null): void {
+    private cursorStyleSettingValue: EditorCursorStyleSetting | undefined = undefined;
+    private readonly onDidChangeCursorStyleSettingEmitter = this.register(new Emitter<void>());
+
+    /** The override or `editor.cursorStyle`, before the terminal folds it into its three shapes. */
+    public get cursorStyleSetting(): EditorCursorStyleSetting | undefined {
+        return this.cursorStyleSettingValue;
+    }
+
+    /** Fires only when {@link cursorStyleSetting} actually changes. */
+    public readonly onDidChangeCursorStyleSetting = this.onDidChangeCursorStyleSettingEmitter.event;
+
+    /** `style` is what the terminal draws for `setting`. */
+    public setCursorStyle(setting: EditorCursorStyleSetting | undefined, style: CursorStyle | null): void {
         this.component.setCursorStyle(style);
+        if (this.cursorStyleSettingValue === setting) return;
+        this.cursorStyleSettingValue = setting;
+        this.onDidChangeCursorStyleSettingEmitter.fire();
     }
 
     public setCursorSurroundingLines(lines: number): void {
