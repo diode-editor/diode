@@ -697,16 +697,16 @@ export class EditorViewState {
         const projection = this.buildProjection();
         const top = this.scrollTop;
         const bottom = top + Math.max(this.viewportHeight, 1);
+        // A line's rows are contiguous: the one that still owns the row under the bottom edge is cut.
+        const cut = projection.docLineOfRow(bottom);
         const ranges: IRange[] = [];
         let first = -1;
         let last = -1;
-        for (let row = top; row < bottom; row++) {
+        // No counter loop: a mutant of its bound or step would spin forever (docs/MUTATION.md).
+        for (const row of Array.from({ length: bottom - top }, (_, i) => top + i)) {
             const line = projection.docLineOfRow(row);
-            if (line < 0 || projection.firstRowOfDocLine(line) < top) continue;
-            let lastRow = row;
-            while (projection.docLineOfRow(lastRow + 1) === line) lastRow++;
-            if (lastRow >= bottom) break;
-            row = lastRow;
+            // Each fully visible line once, at its first row; a line that starts above the top is cut.
+            if (line < 0 || projection.firstRowOfDocLine(line) !== row || line === cut) continue;
             if (first < 0) first = line;
             else if (line !== last + 1) {
                 // A collapsed fold hides the lines in between.
