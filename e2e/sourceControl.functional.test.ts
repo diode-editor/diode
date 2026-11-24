@@ -13,7 +13,6 @@ import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-
 // Letters are NOT mnemonics: F/E/S/V/G/H are taken by the menu bar.
 const SWITCH_KEYS = [
     { key: "alt+c", command: "workbench.view.scm" },
@@ -97,11 +96,17 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
     });
 
     it("switches Explorer → Source Control and shows changed files with statuses", async () => {
-        const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD }, untracked: { "extra.ts": "export const answer = 42;\n" } });
+        const repo = makeRepo({
+            committed: { "app.ts": APP_TS },
+            modify: { "app.ts": APP_TS_MOD },
+            untracked: { "extra.ts": "export const answer = 42;\n" },
+        });
         app = await open(repo);
         const { session } = app;
 
-        await session.waitForText((t) => t.includes(explorerTitle(repo)) && t.includes("app.ts") && t.includes("extra.ts"));
+        await session.waitForText(
+            (t) => t.includes(explorerTitle(repo)) && t.includes("app.ts") && t.includes("extra.ts"),
+        );
 
         await session.key("Alt+C");
         const frame = await session
@@ -143,7 +148,10 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
     }, 120_000);
 
     it("double-clicking an untracked file opens the file itself (nothing to compare with)", async () => {
-        const repo = makeRepo({ committed: { "app.ts": APP_TS }, untracked: { "extra.ts": "export const answer = 42;\n" } });
+        const repo = makeRepo({
+            committed: { "app.ts": APP_TS },
+            untracked: { "extra.ts": "export const answer = 42;\n" },
+        });
         app = await open(repo);
         const { session } = app;
 
@@ -324,7 +332,8 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         // index lines are shown as ghost rows without numbers; no plus lines with text.
         const frame = await session.waitForText((t) => t.includes("app.ts (Deleted)")).then(frameToText);
         expect(frame).toContain("export function greet");
-        expect(frame).not.toMatch(/\d\+ +\S/u);
+        // The editor group's frame line `│` closes every row, so it is not "text" on a plus line.
+        expect(frame).not.toMatch(/\d\+ +[^\s│]/u);
         expect(session.getStderr()).not.toMatch(/Error|Exception|unhandled/i);
     }, 120_000);
 

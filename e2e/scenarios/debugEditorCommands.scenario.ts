@@ -16,7 +16,7 @@ export default defineScenario({
     title: "Run to Cursor from the editor's context menu, the exception's badge after the line, Escape closes it",
     seedUserData: userData,
     open: [folder, helloC],
-    cols: 120,
+    cols: 124,
     rows: 30,
     // The glyphs as plain characters the frame text shows.
     settings: { "diode.icons.nerdFont": "off" },

@@ -26,9 +26,9 @@ export default defineScenario({
 
         await editor.sendKey("Ctrl+Alt+w");
         await editor.waitForText((t) => t.includes("Expression to watch"));
-        await editor.sendText("total / count");
+        await editor.sendText("total / n");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("total / count: not available"));
+        await editor.waitForText((t) => t.includes("total / n: not available"));
         await editor.capture("watch");
     },
 });

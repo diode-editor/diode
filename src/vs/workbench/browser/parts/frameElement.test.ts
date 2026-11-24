@@ -54,6 +54,7 @@ describe("FrameElement", () => {
         const part = new TUIElement();
         const frame = new FrameElement(part);
         frame.openTop = true;
+        expect(frame.openTop).toBe(true);
 
         const backend = renderElement(frame, 6, 3, { themeVars: true });
 
@@ -101,6 +102,38 @@ describe("FrameElement", () => {
 
         expect(app.backend.getTextAt(new Point(0, 1), 6)).toBe("│    │");
         expect(app.backend.getTextAt(new Point(0, 3), 6)).toBe("├    ┤");
+    });
+
+    it("draws an empty frame on its own background when it has no part", () => {
+        const frame = new FrameElement();
+        frame.style = { bg: "sideBar.background" };
+
+        const backend = renderElement(frame, 4, 3, { themeVars: true });
+
+        expect(textRows(backend, 4, 3)).toEqual(["╭──╮", "│  │", "╰──╯"]);
+        expect(frame.getJointRows()).toEqual([]);
+        expect(backend.getBgAt(new Point(0, 0))).toBe(frame.resolvedStyle.bg);
+    });
+
+    it("forgets the part's joints when the part is taken away", () => {
+        const frame = new FrameElement(new SectionsElement([1]));
+        frame.layout(BoxConstraints.tight(new Size(6, 5)));
+        expect(frame.getJointRows()).toEqual([2]);
+
+        frame.setChild(null);
+        frame.layout(BoxConstraints.tight(new Size(6, 5)));
+
+        expect(frame.getJointRows()).toEqual([]);
+    });
+
+    it("draws no lines when there is no room for both sides, only the part", () => {
+        const part = new TUIElement();
+        part.style = { bg: "editor.background" };
+        const frame = new FrameElement(part);
+
+        const backend = renderElement(frame, 1, 3, { themeVars: true });
+
+        expect(textRows(backend, 1, 3)).toEqual([" ", " ", " "]);
     });
 
     it("swaps its part", () => {

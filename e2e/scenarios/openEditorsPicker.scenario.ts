@@ -14,7 +14,8 @@ export default defineScenario({
     name: "open-editors-picker",
     title: "Open editors picker (Ctrl+K Ctrl+P)",
     open: [repoRoot, sampleFile, lspMain, formatMain, foldingFile],
-    cols: 120,
+    // Wide enough for all four tabs: the active (last) tab and its "●" must not be clipped at the strip end.
+    cols: 124,
     rows: 32,
     async run(editor) {
         await editor.waitForText((t) => t.includes("folding.ts") && t.includes("sample.ts"));

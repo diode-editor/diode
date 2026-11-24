@@ -28,7 +28,7 @@ export default defineScenario({
         await editor.capture("auto-close");
 
         await editor.sendKey("Alt+j");
-        await editor.waitForText((t) => /typed\(\{\s*\n[^\n]*\n[^\n]*\}\)/.test(t));
+        await editor.waitForText((t) => /typed\(\{[\s│]*\n[^\n]*\n[^\n]*\}\)/.test(t));
         await editor.capture("enter-expands-block");
     },
 });

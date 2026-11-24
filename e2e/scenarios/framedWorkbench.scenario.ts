@@ -14,6 +14,7 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,
+    userKeybindings: [{ key: "ctrl+alt+d", command: "workbench.view.debug" }],
     async run(editor) {
         let screen: string[] = [];
         const seen =
@@ -43,7 +44,7 @@ export default defineScenario({
 
         // Run and Debug: the container header and every expanded section header in a band between
         // lines, which meet the sidebar frame with joints.
-        await editor.sendKey("Ctrl+Shift+D");
+        await editor.sendKey("Ctrl+Alt+d");
         await editor.waitForText(seen((rows) => rows.some((row) => row.includes("RUN AND DEBUG"))));
         const joints = screen.filter((row) => row.startsWith("├")).length;
         if (joints < 3) throw new Error(`expected header bands with joints, got ${String(joints)}:\n${screen.join("\n")}`);

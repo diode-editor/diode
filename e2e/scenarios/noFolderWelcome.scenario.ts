@@ -28,6 +28,9 @@ function makeFolder(): string {
 
 const lonelyFile = makeLonelyFile();
 const folder = makeFolder();
+// The framed sidebar is 28 columns inside, so the welcome texts wrap: match the part of the first line that fits.
+const SEARCH_WELCOME = "Search needs an open";
+const SCM_WELCOME = "To use source control";
 // A fixture registry instead of the public marketplace: the demo must not depend on the network.
 const registry = resolve(repoRoot, "e2e", "fixtures", "registry");
 
@@ -46,13 +49,13 @@ export default defineScenario({
         // 2. Search without a folder doesn't pretend to work.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("f");
-        await editor.waitForText((t) => t.includes("Search needs an open folder."));
+        await editor.waitForText((t) => t.includes(SEARCH_WELCOME));
         await editor.capture("search-welcome");
 
         // 3. Source Control: the same, instead of the commit input.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("g");
-        await editor.waitForText((t) => t.includes("To use source control, open a"));
+        await editor.waitForText((t) => t.includes(SCM_WELCOME));
         await editor.capture("scm-welcome");
 
         // 4. The extensions marketplace needs no folder and fully works: the catalog
@@ -83,7 +86,7 @@ export default defineScenario({
         // 6. After that, search and SCM work instead of showing welcome.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("f");
-        await editor.waitForText((t) => !t.includes("Search needs an open folder.") && t.includes("SEARCH"));
+        await editor.waitForText((t) => !t.includes(SEARCH_WELCOME) && t.includes("SEARCH"));
         await editor.sendText("greeting");
         await editor.waitForText((t) => t.includes("greeting.ts"));
         await editor.capture("search-works");

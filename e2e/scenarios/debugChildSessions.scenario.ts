@@ -20,7 +20,7 @@ export default defineScenario({
     title: "Child sessions: the reverse startDebugging, the tree of sessions, a console per worker, Stop of the parent",
     seedUserData: userData,
     open: [folder],
-    cols: 120,
+    cols: 124,
     rows: 34,
     async run(editor) {
         await editor.waitForText((t) => t.includes(".diode"));

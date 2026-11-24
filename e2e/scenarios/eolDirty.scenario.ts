@@ -20,7 +20,8 @@ async function expectTabDirty(editor: ScenarioDriver, dirty: boolean): Promise<v
         const tabs = (state?.tabs ?? []) as { modified: boolean }[];
         return tabs.length === 1 && tabs[0].modified === dirty;
     });
-    const row = frameLine(await editor.captureFrame(), strip.box.y);
+    // The label (and the dirty dot) sits on the middle row of the 3-row tab strip.
+    const row = frameLine(await editor.captureFrame(), strip.box.y + 1);
     if (row.includes("●") !== dirty) throw new Error(`tab row "${row}": expected ${dirty ? "●" : "no ●"}`);
 }
 
