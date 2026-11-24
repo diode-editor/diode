@@ -449,6 +449,7 @@ The type matches VS Code, the meaning differs:
 | symbol | deviation |
 | --- | --- |
 | `vscode.version` | the version of **Diode**, not of VS Code |
+| `contributes.colors` | colors an extension contributes resolve through `ThemeColor` (decorations, tree icons, file decorations), a theme that sets the id wins; the `highContrast`/`highContrastLight` defaults are accepted and ignored: high-contrast themes take `dark`, high-contrast light themes take `light`. An entry with an empty or malformed value is skipped (VS Code paints it red); a reference that never resolves (a cycle, an unknown id) leaves the color unset with a warning in the log. A newly installed extension's colors appear after Reload Window, as its themes do |
 | `Event<T>` | subscriptions are wrapped in the extension host's own emitter |
 | `TextEditorOptions.tabSize`, `insertSpaces` | the getter gives the editor's resolved values, detection included, and an assignment applies to the editor it was made on, whichever is active; `options` is live, as in VS Code: a member written in place (`editor.options.tabSize = 2`) applies, and a `tabSize` that is not a number is no change (`"auto"` does not re-detect and reads as the current number; `insertSpaces: "auto"` is `true`); a value the extension assigned wins over a later change by the user. An editor showing one side of a diff has none until assigned or changed |
 | `TextEditorOptions.indentSize` | aliased to `tabSize`; Diode does not distinguish them yet |

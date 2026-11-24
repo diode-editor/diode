@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/darkPlus.ts";
 
 import { parseHexColor } from "./colorUtils.ts";
-import { WorkbenchTheme } from "./workbenchTheme.ts";
+import { followReference, WorkbenchTheme } from "./workbenchTheme.ts";
 
 /** Modeled on Catppuccin: `editorWidget.background` is set (#181825), `quickInput.background` isn't. */
 describe("WorkbenchTheme: derived defaults by reference", () => {
@@ -86,27 +86,42 @@ describe("WorkbenchTheme: derived defaults by reference", () => {
         expect(darkPlus.getRequiredColor("menu.background")).toBe(packRgb(0x25, 0x25, 0x26));
     });
 
-    it("a theme value that is neither hex nor a registry key is an error naming the referencing key", () => {
-        expect(() =>
-            WorkbenchTheme.fromThemeFile({ name: "bad", type: "dark", colors: { "editor.background": "red" } }),
-        ).toThrow('Color "editor.background" refers to unknown color "red"');
-        // Along a chain the last referring key is blamed, not the first.
-        expect(() =>
-            WorkbenchTheme.fromThemeFile({
-                name: "bad-chain",
-                type: "dark",
-                colors: { "editor.background": "editor.foreground", "editor.foreground": "nope" },
-            }),
-        ).toThrow('Color "editor.foreground" refers to unknown color "nope"');
+    it("a value that is neither hex nor a registry key leaves the color unset, the rest resolves", () => {
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "bad",
+            type: "dark",
+            colors: { "editor.background": "red", "editor.foreground": "#123456" },
+        });
+        expect(theme.getColor("editor.background")).toBeUndefined();
+        expect(theme.getColor("editor.foreground")).toBe(packRgb(0x12, 0x34, 0x56));
     });
 
-    it("a reference cycle is an error with the full chain, not infinite recursion", () => {
-        expect(() =>
-            WorkbenchTheme.fromThemeFile({
-                name: "cycle",
-                type: "dark",
-                colors: { "editor.background": "editor.foreground", "editor.foreground": "editor.background" },
-            }),
-        ).toThrow("Color reference cycle: editor.background → editor.foreground → editor.background");
+    it("a reference cycle leaves the colors unset, not infinite recursion", () => {
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "cycle",
+            type: "dark",
+            colors: { "editor.background": "editor.foreground", "editor.foreground": "editor.background" },
+        });
+        expect(theme.getColor("editor.background")).toBeUndefined();
+        expect(theme.getColor("editor.foreground")).toBeUndefined();
+    });
+});
+
+describe("followReference", () => {
+    it("names the last referring key of a chain to an unknown key", () => {
+        expect(followReference({ a: "unknown" }, "a")).toEqual({
+            problem: 'Color "a" refers to unknown color "unknown"',
+        });
+        expect(followReference({ a: "b", b: "nope" }, "a")).toEqual({
+            problem: 'Color "b" refers to unknown color "nope"',
+        });
+    });
+
+    it("names the full chain of a cycle", () => {
+        expect(followReference({ a: "b", b: "a" }, "a")).toEqual({ problem: "Color reference cycle: a → b → a" });
+    });
+
+    it("follows a chain to its hex value", () => {
+        expect(followReference({ a: "b", b: "#010203" }, "a")).toEqual({ value: "#010203" });
     });
 });

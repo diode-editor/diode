@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 
+import { compositeOver, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
 import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -28,6 +29,18 @@ const CODE = "let a = 1 let b = 2;";
 
 function cellAt(frame: GridSnapshot, x: number, y: number) {
     return frame.cells[y * frame.cols + x];
+}
+
+/** Dark Modern `editor.background`, and the errorlens `contributes.colors` defaults for dark themes. */
+const EDITOR_BG = packRgb(0x1f, 0x1f, 0x1f);
+const ERROR_BACKGROUND = compositeOver(packRgba(0xe4, 0x54, 0x54, 0x1b), EDITOR_BG);
+const ERROR_FOREGROUND = packRgb(0xff, 0x64, 0x64);
+
+/** The cell `offset` columns after the first occurrence of `needle`. */
+function cellAfter(frame: GridSnapshot, needle: string, offset: number) {
+    const pos = findTextCell(frame, needle);
+    if (pos === null) throw new Error(`"${needle}" is not on screen:\n${frameToText(frame)}`);
+    return cellAt(frame, pos.x + offset, pos.y);
 }
 
 // Linux only: the extension host and the language server are spawned (docs/TODO/E2E.md).
@@ -84,7 +97,31 @@ describe.skipIf(process.platform !== "linux" || MARKETPLACE_OFFLINE)("SEA binary
         },
     );
 
-    // Error Lens paints with its own `contributes.colors` (`errorLens.errorBackground`, `errorLens.errorForeground`),
-    // which Diode does not register yet: the line has no tint and the message the editor's text color.
-    it.todo("the line is tinted with errorLens.errorBackground, the message in errorLens.errorForeground");
+    it(
+        "the line is tinted with errorLens.errorBackground, the message in errorLens.errorForeground",
+        { timeout: 240_000 },
+        async () => {
+            const { session } = await useHeadlessApp({
+                files: { "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }), "errors.ts": ERRORS },
+                settings: {
+                    "errorLens.maxInlineMessages": 5,
+                    "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
+                    "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
+                },
+                installVsix: ["usernamehw.errorlens"],
+                open: ["errors.ts"],
+            });
+
+            // The second line: the first one is under the cursor; `const` is skipped — the word under the cursor
+            // highlights its occurrences.
+            const frame = await session.waitForText((t) => t.includes(`"x1";    Type 'string' ${MESSAGE}`), {
+                timeoutMs: 120_000,
+                intervalMs: 500,
+            });
+            expect(cellAfter(frame, "const v1:", "const ".length).bg).toBe(ERROR_BACKGROUND);
+            const message = cellAfter(frame, `"x1";    Type`, `"x1";    `.length);
+            expect(message.fg).toBe(ERROR_FOREGROUND);
+            expect(message.bg).toBe(ERROR_BACKGROUND);
+        },
+    );
 });
