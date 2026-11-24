@@ -38,10 +38,10 @@ describe("Inline values with the legacy boolean setting", () => {
         fs.rmSync(root, { recursive: true, force: true });
     });
 
-    /** The text of the screen row of `code`, from its start. */
+    /** The text of the screen row of `code`, from its start to the editor group's frame line on the right. */
     function rowOf(code: string): string {
         const at = t.find(code);
-        return t.lines()[at.y].slice(at.x).trimEnd();
+        return t.lines()[at.y].slice(at.x).replace(/│\s*$/u, "").trimEnd();
     }
 
     it("true shows the values as on does, with no provider of the language", async () => {

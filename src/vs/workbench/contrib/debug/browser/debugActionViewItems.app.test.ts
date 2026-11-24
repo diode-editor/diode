@@ -91,8 +91,11 @@ describe("the launcher in the Run and Debug title", () => {
         return h.testApp.backend.screenToString().split("\n");
     }
 
+    /** The screen row of the container title, past the sidebar frame's left line. */
     function title(): string {
-        return lines().find((line) => line.startsWith(" RUN AND")) ?? "";
+        const line = lines().find((row) => row.startsWith("│ RUN AND"));
+        expect(line, "the RUN AND DEBUG title on screen").toBeDefined();
+        return line!.slice(1);
     }
 
     function find(text: string): Point {

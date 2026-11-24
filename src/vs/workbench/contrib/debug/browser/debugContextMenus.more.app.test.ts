@@ -153,8 +153,16 @@ describe("Run and Debug: more context menus and the keys of the rows", () => {
         t.h.container.get(ReplDIToken).focus();
         for (const char of "count + 1") t.h.testApp.sendKey(char === " " ? "Space" : char);
         t.h.testApp.sendKey("Enter");
+        // The console's own columns of a screen row, without the scrollbar.
+        const consoleText = (line: string): string => {
+            const left = repl.view.globalPosition.x;
+            return line
+                .slice(left, left + repl.view.layoutSize.width)
+                .replace(/[█░▀▄]/gu, "")
+                .trim();
+        };
         await vi.waitFor(() => {
-            expect(t.lines().some((line) => line.replace(/[█░▀▄]/gu, "").trim() === "1")).toBe(true);
+            expect(t.lines().some((line) => consoleText(line) === "1")).toBe(true);
         });
 
         expect(await menuAt("count + 1", "last")).toEqual([

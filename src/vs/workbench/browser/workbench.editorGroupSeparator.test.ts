@@ -2,6 +2,7 @@ import { compositeOver } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import { TAB_HEIGHT } from "@tuidom/elements/editorgroup/editorTabItemElement";
 import { SashElement } from "@tuidom/elements/sash/sashElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -35,7 +36,9 @@ function findSashes(element: TUIElement): SashElement[] {
     return [...own, ...element.getChildren().flatMap(findSashes)];
 }
 
-describe("Workbench — separator between editor groups", () => {
+// Every editor group frames itself (docs/arch/workbench/Frames.md): the boundary between two groups is
+// the two frame lines side by side — no separator cell of its own — and the 2-cell sash lies over both.
+describe("Workbench — boundary between editor groups", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -67,7 +70,7 @@ describe("Workbench — separator between editor groups", () => {
         return views;
     }
 
-    function themeColor(key: "editorGroup.border" | "sash.hoverBorder" | "editor.background"): number {
+    function themeColor(key: "panel.border" | "editorGroup.border" | "sash.hoverBorder" | "editor.background"): number {
         return h.container.get(ThemeServiceDIToken).theme.getRequiredColor(key);
     }
 
@@ -82,64 +85,88 @@ describe("Workbench — separator between editor groups", () => {
         );
     }
 
+    /** Rows of the groups' bodies: below the 3-row tabs, above the frame's bottom line. */
+    function bodyRows(): number[] {
+        const top = part().globalPosition.y + TAB_HEIGHT;
+        const bottom = part().globalPosition.y + part().layoutSize.height - 1;
+        return Array.from({ length: bottom - top }, (_, i) => top + i);
+    }
+
+    /** Both frame lines of a column boundary whose second cell (the right group's left side) is at `x`. */
+    function expectBoundaryAt(x: number, color = themeColor("panel.border")): void {
+        for (const y of bodyRows()) {
+            expect(drawnIn(new Point(x - 1, y), "│", color), `left line, row ${y}`).toBe(true);
+            expect(drawnIn(new Point(x, y), "│", color), `right line, row ${y}`).toBe(true);
+        }
+        const bottom = part().globalPosition.y + part().layoutSize.height - 1;
+        expect(h.testApp.backend.getTextAt(new Point(x - 1, bottom), 2)).toBe("╯╰");
+    }
+
     async function run(command: string): Promise<void> {
         await h.commands.execute(command);
         h.testApp.render();
     }
 
-    it("a single group has no separator", () => {
+    it("a single group has no sash", () => {
         expect(groupSashes()).toEqual([]);
     });
 
-    it("split right: a column of │ in editorGroup.border between the groups, which do not cover it", async () => {
+    it("split right: the groups stand side by side, the boundary is their two frame lines under a 2-cell sash", async () => {
         await run("workbench.action.splitEditor");
 
         const [sash] = groupSashes();
         const [left, right] = groupViews();
-        const x = sash.globalPosition.x;
-        expect(left.globalPosition.x + left.layoutSize.width).toBe(x);
-        expect(right.globalPosition.x).toBe(x + 1);
-        for (let y = part().globalPosition.y; y < part().globalPosition.y + part().layoutSize.height; y++) {
-            expect(drawnIn(new Point(x, y), "│", themeColor("editorGroup.border")), `row ${y}`).toBe(true);
-        }
+        // No separator cell: the right group starts right where the left one ends.
+        expect(left.globalPosition.x + left.layoutSize.width).toBe(right.globalPosition.x);
+        // The sash covers both lines: the left group's last column and the right group's first.
+        expect(sash.globalPosition.x).toBe(right.globalPosition.x - 1);
+        expect(sash.layoutSize.width).toBe(2);
+        expect(sash.layoutSize.height).toBe(part().layoutSize.height);
+        expectBoundaryAt(right.globalPosition.x);
     });
 
-    it("takes the theme's editorGroup.border, an alpha one blended over the editor background", async () => {
+    it("the frame lines take the theme's panel.border, not editorGroup.border", async () => {
         await run("workbench.action.splitEditor");
-        const cell = new Point(groupSashes()[0].globalPosition.x, part().globalPosition.y + 2);
+        const x = groupViews()[1].globalPosition.x;
 
         for (const file of [monokaiTheme, darkModernTheme]) {
             h.container.get(ThemeServiceDIToken).setTheme(WorkbenchTheme.fromThemeFile(file));
             h.testApp.render();
-            expect(drawnIn(cell, "│", themeColor("editorGroup.border")), file.name).toBe(true);
+            expectBoundaryAt(x);
         }
-        // Dark Modern's #FFFFFF17 is a faint line over #1F1F1F, not white.
-        expect(h.testApp.backend.getFgAt(cell)).not.toBe(themeColor("editorGroup.border"));
+        // Dark Modern's editorGroup.border (#FFFFFF17) differs from its panel.border: the old separator color is gone.
+        expect(h.testApp.backend.getFgAt(new Point(x, bodyRows()[0]))).not.toBe(
+            compositeOver(themeColor("editorGroup.border"), themeColor("editor.background")),
+        );
     });
 
-    it("hovering the separator repaints it in sash.hoverBorder, leaving restores editorGroup.border", async () => {
+    it("hovering the sash shows no hover line — only the resize pointer; the frame lines stay as they are", async () => {
         await run("workbench.action.splitEditor");
         const [sash] = groupSashes();
+        const x = groupViews()[1].globalPosition.x;
         const cell = new Point(sash.globalPosition.x, sash.globalPosition.y + 5);
 
         vi.useFakeTimers();
         h.testApp.backend.simulateMouse(hover(cell.x, cell.y));
         h.testApp.render();
-        expect(drawnIn(cell, "│", themeColor("editorGroup.border"))).toBe(true);
-        // Group sashes keep the engine's 300 ms; workbench.sash.hoverDelay covers the shell sashes.
+        expect(h.testApp.backend.pointerShape).toBe("ew-resize");
+        // Past the engine's 300 ms hover delay nothing lights up.
         vi.advanceTimersByTime(300);
         h.testApp.render();
-        expect(drawnIn(cell, "│", themeColor("sash.hoverBorder"))).toBe(true);
+        expectBoundaryAt(x);
+        expect(h.testApp.backend.pointerShape).toBe("ew-resize");
 
         h.testApp.backend.simulateMouse(hover(cell.x + 10, cell.y));
         h.testApp.render();
-        expect(drawnIn(cell, "│", themeColor("editorGroup.border"))).toBe(true);
+        expect(h.testApp.backend.pointerShape).toBe("default");
+        expectBoundaryAt(x);
     });
 
-    it("dragging the separator puts it under the cursor", async () => {
+    it("dragging the right group's frame line puts it under the cursor", async () => {
         await run("workbench.action.splitEditor");
         const [sash] = groupSashes();
-        const from = new Point(sash.globalPosition.x, sash.globalPosition.y + 5);
+        // The sash's second cell is the right group's left line.
+        const from = new Point(sash.globalPosition.x + 1, sash.globalPosition.y + 5);
         const to = from.x + 7;
 
         const press = (action: MouseToken["action"], x: number): void => {
@@ -148,42 +175,50 @@ describe("Workbench — separator between editor groups", () => {
         };
         press("press", from.x);
         press("move", to);
-        expect(drawnIn(new Point(to, from.y), "│", themeColor("sash.hoverBorder"))).toBe(true);
+        // The groups follow the drag live; no hover line is painted over them.
+        expectBoundaryAt(to);
         press("release", to);
 
-        expect(groupSashes()[0].globalPosition.x).toBe(to);
-        expect(groupViews()[1].globalPosition.x).toBe(to + 1);
-        expect(drawnIn(new Point(to, from.y), "│", themeColor("editorGroup.border"))).toBe(true);
+        expect(groupViews()[1].globalPosition.x).toBe(to);
+        expect(groupSashes()[0].globalPosition.x).toBe(to - 1);
+        expectBoundaryAt(to);
     });
 
-    it("toggle layout: the separator becomes a row of ─ that eats neither group's rows", async () => {
+    it("toggle layout: the boundary is the upper frame's bottom line over the lower group's tabs, no row of its own", async () => {
         await run("workbench.action.splitEditor");
         await run("workbench.action.toggleEditorGroupLayout");
 
         const [sash] = groupSashes();
         const [top, bottom] = groupViews();
-        const y = sash.globalPosition.y;
-        expect(top.globalPosition.y + top.layoutSize.height).toBe(y);
+        const y = top.globalPosition.y + top.layoutSize.height - 1;
         expect(bottom.globalPosition.y).toBe(y + 1);
-        for (let x = part().globalPosition.x; x < part().globalPosition.x + part().layoutSize.width; x++) {
-            expect(drawnIn(new Point(x, y), "─", themeColor("editorGroup.border")), `column ${x}`).toBe(true);
-        }
+        expect(sash.globalPosition.y).toBe(y);
+        expect(sash.layoutSize.height).toBe(2);
+        expect(sash.layoutSize.width).toBe(part().layoutSize.width);
+        const x0 = part().globalPosition.x;
+        const width = part().layoutSize.width;
+        expect(h.testApp.backend.getTextAt(new Point(x0, y), width)).toBe(`╰${"─".repeat(width - 2)}╯`);
+        // The lower group's tabs start on the next row: its first tab's top is there.
+        expect(bottom.querySelector("EditorTabStripElement")!.globalPosition.y).toBe(y + 1);
+        expect(h.testApp.backend.getTextAt(new Point(x0, y + 1), 1)).toBe("╭");
     });
 
-    it("a maximized group spans the whole part without a separator, restoring brings it back", async () => {
+    it("a maximized group spans the whole part without a boundary, restoring brings it back", async () => {
         await run("workbench.action.splitEditor");
-        const x = groupSashes()[0].globalPosition.x;
+        const x = groupViews()[1].globalPosition.x;
+        const row = bodyRows()[0];
 
         await run("workbench.action.toggleMaximizeEditorGroup");
         expect(groupSashes()).toEqual([]);
-        expect(h.testApp.backend.getTextAt(new Point(x, part().globalPosition.y + 3), 1)).not.toBe("│");
+        expect(h.testApp.backend.getTextAt(new Point(x - 1, row), 2)).not.toContain("│");
 
         await run("workbench.action.toggleMaximizeEditorGroup");
-        expect(groupSashes()[0].globalPosition.x).toBe(x);
-        expect(drawnIn(new Point(x, part().globalPosition.y + 3), "│", themeColor("editorGroup.border"))).toBe(true);
+        expect(groupViews()[1].globalPosition.x).toBe(x);
+        expect(groupSashes()[0].globalPosition.x).toBe(x - 1);
+        expectBoundaryAt(x);
     });
 
-    it("closing a group removes its separator and gives the width to the neighbor", async () => {
+    it("closing a group removes its sash and gives the width to the neighbor", async () => {
         await run("workbench.action.splitEditor");
         await run("workbench.action.closeEditorsAndGroup");
 

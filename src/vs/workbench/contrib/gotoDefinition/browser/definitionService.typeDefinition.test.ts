@@ -16,6 +16,7 @@ import {
 } from "../../../../editor/common/services/languageFeatures.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import type { ViewTitleRowElement } from "../../../browser/parts/views/viewTitleRowElement.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
@@ -143,7 +144,12 @@ describe.each(CASES)("DefinitionService — $label", (c) => {
         const shown = screen();
         // The narrow sidebar header clips a long title, the buttons keep their columns (ViewTitleRowElement);
         // the whole title is asserted in extensionHost.typeDefinition.test.ts.
-        expect(shown).toContain(c.title.slice(0, 15));
+        // The header row itself holds the whole title; the framed sidebar shows its first 13 cells.
+        const titles = h.testApp.root
+            .querySelectorAll("ViewTitleRowElement")
+            .map((row) => (row as ViewTitleRowElement).getTitle());
+        expect(titles).toContain(c.title);
+        expect(shown).toContain(c.title.slice(0, 13));
         expect(shown).toContain("2 results in 1 file");
     });
 

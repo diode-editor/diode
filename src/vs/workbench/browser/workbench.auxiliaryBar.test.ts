@@ -23,6 +23,10 @@ const INCREASE = "workbench.action.increaseViewSize";
 const DECREASE = "workbench.action.decreaseViewSize";
 
 const SIZE = new Size(100, 20);
+/** The part's first row: below the menu bar (row 0) and its frame's top line (row 1). */
+const PART_ROW = 2;
+/** The part's first row ends with the `×` button, then the frame's right line. */
+const CLOSE_AT_ROW_END = " × │";
 
 class FocusableBody extends TUIElement {
     public constructor(id: string) {
@@ -53,6 +57,11 @@ describe("Workbench — secondary side bar", () => {
 
     function part(): PanelContainerElement {
         return h.workbench.workbenchLayout.getRightPanel() as PanelContainerElement;
+    }
+
+    /** The part's slot in the layout: the frame around it. */
+    function slot(): TUIElement {
+        return part().getParent()!;
     }
 
     function frame(): string[] {
@@ -95,23 +104,26 @@ describe("Workbench — secondary side bar", () => {
         expect(part().id).toBe("auxiliarybar");
         expect(visible()).toBe(false);
         expect(contextKey("auxiliaryBarVisible")).toBe(false);
-        expect(frame()[1].endsWith(" × ")).toBe(false);
+        expect(frame()[PART_ROW].endsWith(CLOSE_AT_ROW_END)).toBe(false);
     });
 
     it("Ctrl+Alt+B shows the empty part on the right with a close button and hides it again", () => {
         h.testApp.sendKey("Ctrl+Alt+B");
         expect(visible()).toBe(true);
         expect(contextKey("auxiliaryBarVisible")).toBe(true);
-        // Row 1 is the part's first row (below the menu bar): the `×` button is at its right end.
-        expect(frame()[1].endsWith(" × ")).toBe(true);
+        // The `×` button is at the right end of the part's first row, inside the frame.
+        expect(frame()[PART_ROW].endsWith(CLOSE_AT_ROW_END)).toBe(true);
+        expect(part().globalPosition.y).toBe(PART_ROW);
         const close = part().inspectState().close as { x: number };
-        // 100 columns: the default width is a quarter of the window, 25.
-        expect(close.x).toBe(SIZE.width - 3);
-        expect(part().globalPosition.x).toBe(SIZE.width - 25);
+        // 100 columns: the default width is a quarter of the window, 25; the part sits a column inside it.
+        expect(close.x).toBe(SIZE.width - 1 - 3);
+        expect(slot().globalPosition.x).toBe(SIZE.width - 25);
+        expect(slot().layoutSize.width).toBe(25);
+        expect(part().globalPosition.x).toBe(SIZE.width - 25 + 1);
 
         h.testApp.sendKey("Ctrl+Alt+B");
         expect(visible()).toBe(false);
-        expect(frame()[1].endsWith(" × ")).toBe(false);
+        expect(frame()[PART_ROW].endsWith(CLOSE_AT_ROW_END)).toBe(false);
     });
 
     it("the × button closes the part via the command; Hide is disabled on a hidden part", () => {
@@ -125,13 +137,13 @@ describe("Workbench — secondary side bar", () => {
 
     it("showing focuses the active container, hiding returns focus to the editor", () => {
         const body = addContainer("test.aux.one", "ONE", 1);
-        expect(frame()[1]).not.toContain("ONE");
+        expect(frame()[PART_ROW]).not.toContain("ONE");
 
         h.commands.execute(TOGGLE);
         expect(focused() === body).toBe(true);
         expect(contextKey("auxiliaryBarFocus")).toBe(true);
         expect(contextKey("activeAuxiliary")).toBe("test.aux.one");
-        const row = frame()[1];
+        const row = frame()[part().globalPosition.y];
         expect(row.slice(part().globalPosition.x)).toContain("ONE");
 
         h.commands.execute(TOGGLE);
@@ -179,8 +191,9 @@ describe("Workbench — secondary side bar", () => {
         h.commands.execute(TOGGLE);
         h.commands.execute(INCREASE);
         frame();
-        expect(part().layoutSize.width).toBe(28);
-        expect(part().globalPosition.x).toBe(SIZE.width - 28);
+        expect(slot().layoutSize.width).toBe(28);
+        expect(slot().globalPosition.x).toBe(SIZE.width - 28);
+        expect(part().layoutSize.width).toBe(28 - 2);
     });
 
     it("Decrease Current View Size with focus in the editor gives its columns to the part and its rows to the panel", () => {
@@ -194,7 +207,7 @@ describe("Workbench — secondary side bar", () => {
         const height = bottom.layoutSize.height;
         h.commands.execute(DECREASE);
         frame();
-        expect(part().layoutSize.width).toBe(28);
+        expect(slot().layoutSize.width).toBe(28);
         expect(bottom.layoutSize.height).toBe(height + 1);
     });
 
@@ -205,8 +218,9 @@ describe("Workbench — secondary side bar", () => {
         layout.setAuxiliaryBarVisible(true);
         h.workbench.workbenchLayout.setRightPanelWidth(60);
         frame();
-        const left = h.workbench.workbenchLayout.getLeftPanel()!.layoutSize.width;
-        expect(part().layoutSize.width).toBe(80 - 20 - left);
+        // Slot widths: the parts' frames included.
+        const left = h.workbench.workbenchLayout.getLeftPanel()!.getParent()!.layoutSize.width;
+        expect(slot().layoutSize.width).toBe(80 - 20 - left);
         expect(h.workbench.workbenchLayout.getCenterContent()!.layoutSize.width).toBe(20);
     });
 });

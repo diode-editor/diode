@@ -64,6 +64,9 @@ describe("PanelComponent — tabs leave and come back", () => {
 });
 
 describe("PanelComponent — tab context menu", () => {
+    /** The panel's tab row is its first row: the part's frame separates it from the editor. */
+    const TAB_ROW = 0;
+
     function scene() {
         const service = new PanelService();
         const component = new PanelComponent(service, new CommandRegistry());
@@ -91,9 +94,11 @@ describe("PanelComponent — tab context menu", () => {
 
     it("a right click on a tab requests a menu with its id, the click point and the owning panel", () => {
         const { component, requests, menu } = scene();
-        // The panel tab row is its row 1; OUTPUT occupies panel columns 11..18.
-        expect(menu("mouse", 5 + 13, 3 + 1)).toBe(true);
-        expect(requests).toEqual([{ id: "output", anchor: { screenX: 18, screenY: 4 }, owner: component.view }]);
+        // OUTPUT occupies panel columns 11..18.
+        expect(menu("mouse", 5 + 13, 3 + TAB_ROW)).toBe(true);
+        expect(requests).toEqual([
+            { id: "output", anchor: { screenX: 18, screenY: 3 + TAB_ROW }, owner: component.view },
+        ]);
         expect(component.view.getActiveViewId()).toBe("problems");
     });
 
@@ -101,7 +106,7 @@ describe("PanelComponent — tab context menu", () => {
         const { component, requests, menu } = scene();
         menu("keyboard", 0, 0);
         expect(requests).toEqual([
-            { id: "problems", anchor: { screenX: 5 + 1, screenY: 3 + 2 }, owner: component.view },
+            { id: "problems", anchor: { screenX: 5 + 1, screenY: 3 + TAB_ROW + 1 }, owner: component.view },
         ]);
     });
 
@@ -110,7 +115,7 @@ describe("PanelComponent — tab context menu", () => {
         let map = "";
         for (let x = 0; x < 24; x++) {
             requests.length = 0;
-            menu("mouse", 5 + x, 3 + 1);
+            menu("mouse", 5 + x, 3 + TAB_ROW);
             map += requests.at(0)?.id.charAt(0) ?? ".";
         }
         // PROBLEMS is columns 1..10 (with tab padding), OUTPUT is 11..18.
@@ -122,7 +127,7 @@ describe("PanelComponent — tab context menu", () => {
         component.view.setActiveView("output");
         menu("keyboard", 0, 0);
         expect(requests).toEqual([
-            { id: "output", anchor: { screenX: 5 + 11, screenY: 3 + 2 }, owner: component.view },
+            { id: "output", anchor: { screenX: 5 + 11, screenY: 3 + TAB_ROW + 1 }, owner: component.view },
         ]);
     });
 
@@ -144,9 +149,10 @@ describe("PanelComponent — tab context menu", () => {
 
     it("off the tabs and outside the tab row requests no menu and does not consume the event", () => {
         const { requests, menu } = scene();
-        expect(menu("mouse", 5 + 30, 3 + 1)).toBe(false);
+        expect(menu("mouse", 5 + 30, 3 + TAB_ROW)).toBe(false);
         expect(menu("mouse", 5 + 13, 3 + 4)).toBe(false);
-        expect(menu("mouse", 5 + 13, 3)).toBe(false);
+        // The first content row, right under OUTPUT.
+        expect(menu("mouse", 5 + 13, 3 + TAB_ROW + 1)).toBe(false);
         expect(requests).toEqual([]);
     });
 

@@ -232,8 +232,8 @@ describe("CALL STACK in the workbench", () => {
             const title = t.find("CALL STACK");
             expect(t.lines()[title.y]).toContain("Paused o");
         });
-        // The frames are at the top level, without the thread row.
-        expect(t.find("accumulate(").y).toBe(t.find("CALL STACK").y + 1);
+        // The frames are at the top level, without the thread row: right under the line under the header.
+        expect(t.find("accumulate(").y).toBe(t.find("CALL STACK").y + 2);
         expect(t.screen()).not.toContain("PAUSED ON BREAKPOINT");
     });
 

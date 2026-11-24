@@ -36,28 +36,28 @@ function bodyHeights(view: PaneViewElement): Record<string, number> {
 describe("PaneViewElement layout", () => {
     it("splits the remainder evenly between expanded sections with equal weights", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
-        layout(view, 30, 20); // 2 headers → 18 rows left
-        expect(bodyHeights(view)).toEqual({ a: 9, b: 9 });
+        layout(view, 30, 21); // 2 headers + a line between them + a line under each → 16 rows left
+        expect(bodyHeights(view)).toEqual({ a: 8, b: 8 });
     });
 
     it("weights set the proportions", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
         view.setWeights({ a: 2, b: 1 });
-        layout(view, 30, 20);
-        expect(bodyHeights(view)).toEqual({ a: 12, b: 6 });
+        layout(view, 30, 20); // 2 headers + 3 lines → 15 rows left
+        expect(bodyHeights(view)).toEqual({ a: 10, b: 5 });
     });
 
     it("largest remainder is deterministic: the remainder goes to earlier sections", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }, { id: "c" }]);
-        layout(view, 30, 20); // 3 headers → 17 rows left = 6 + 6 + 5
-        expect(bodyHeights(view)).toEqual({ a: 6, b: 6, c: 5 });
+        layout(view, 30, 22); // 3 headers + 2 lines between + 3 under → 14 rows left = 5 + 5 + 4
+        expect(bodyHeights(view)).toEqual({ a: 5, b: 5, c: 4 });
     });
 
     it("a collapsed section is only its header, the remainder goes to the expanded one", () => {
         const { view, bodies } = makeView([{ id: "a" }, { id: "b" }]);
         view.setCollapsed("b", true);
-        layout(view, 30, 20);
-        expect(bodyHeights(view)).toEqual({ a: 18, b: 0 });
+        layout(view, 30, 20); // 2 headers, a line under a and one above b → 16 rows
+        expect(bodyHeights(view)).toEqual({ a: 16, b: 0 });
         expect(bodies.get("b")!.hidden).toBe(true);
         expect(view.isCollapsed("b")).toBe(true);
     });
@@ -68,13 +68,14 @@ describe("PaneViewElement layout", () => {
         view.setCollapsed("b", true);
         layout(view, 30, 20);
         expect(bodyHeights(view)).toEqual({ a: 0, b: 0 });
+        // A collapsed header has no line under it: only the line between the headers.
         const headerB = view.querySelector("#paneHeader-b")!;
-        expect(headerB.localPosition.dy).toBe(1);
+        expect(headerB.localPosition.dy).toBe(2);
     });
 
     it("min height raises a cramped section's share, the tail is clipped", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }, { id: "c" }]);
-        layout(view, 30, 10); // 7 rows left, min 3: shares 3/2/2 → desired 3/3/3 → 3/3/1
+        layout(view, 30, 15); // 3 headers + 5 lines → 7 rows left, min 3: shares 3/2/2 → desired 3/3/3 → 3/3/1
         expect(bodyHeights(view)).toEqual({ a: 3, b: 3, c: 1 });
     });
 
@@ -100,7 +101,7 @@ describe("PaneViewElement layout", () => {
         view.setWeights({ a: 2, ghost: 5, b: Number.NaN });
         layout(view, 30, 20);
         expect(view.getWeights()).toEqual({ a: 2, b: 1 });
-        expect(bodyHeights(view)).toEqual({ a: 12, b: 6 });
+        expect(bodyHeights(view)).toEqual({ a: 10, b: 5 });
     });
 
     it("the only expanded section gets the whole remainder regardless of weights", () => {
@@ -108,7 +109,7 @@ describe("PaneViewElement layout", () => {
         view.setWeights({ a: 1, b: 100 });
         view.setCollapsed("b", true);
         layout(view, 30, 20);
-        expect(bodyHeights(view)).toEqual({ a: 18, b: 0 });
+        expect(bodyHeights(view)).toEqual({ a: 16, b: 0 });
     });
 
     it("addPane with a duplicate id throws, removePane removes the section", () => {
@@ -119,8 +120,8 @@ describe("PaneViewElement layout", () => {
         view.removePane("ghost"); // unknown id is a silent no-op
         view.removePane("b");
         expect(view.getPaneIds()).toEqual(["a"]);
-        layout(view, 30, 20);
-        expect(bodyHeights(view)).toEqual({ a: 19 });
+        layout(view, 30, 20); // a header and the line under it
+        expect(bodyHeights(view)).toEqual({ a: 18 });
     });
 
     it("the header renders the chevron, title and ⋯ button", () => {

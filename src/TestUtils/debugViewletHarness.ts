@@ -35,12 +35,16 @@ export interface IDebugViewletHarness {
     dispose(): Promise<void>;
 }
 
-/** `programRoot`: where the synthetic program's sources are (`src/main.cpp`...), which the stop opens. */
+/**
+ * `programRoot`: where the synthetic program's sources are (`src/main.cpp`...), which the stop opens. `height`: the
+ * screen's rows, for a test that needs taller sidebar sections than the default 50 give.
+ */
 export async function createDebugViewletHarness(
     workspaceFolder?: string,
     programRoot?: string,
+    options: { readonly height?: number } = {},
 ): Promise<IDebugViewletHarness> {
-    const h = createAppTestHarness({ size: new Size(120, 50), workspaceFolder });
+    const h = createAppTestHarness({ size: new Size(120, options.height ?? 50), workspaceFolder });
     await h.workbench.activate();
     // Plain glyphs: the icons are characters the screen text shows.
     await h.container.get(IConfigurationServiceDIToken).updateValue("diode.icons.nerdFont", "off");

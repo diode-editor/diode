@@ -135,12 +135,14 @@ describe("OpenEditorsView", () => {
             .map((line) => line.trimEnd());
     }
 
-    /** The rows of the section body (between its header and the next one). */
+    /** The rows of the section body: between the line under its header and the line above the next header. */
     async function rows(): Promise<string[]> {
         const lines = await screen();
         const start = lines.findIndex((line) => line.includes("OPEN EDITORS"));
         const end = lines.findIndex((line, index) => index > start && line.includes("FILES"));
-        return lines.slice(start + 1, end);
+        expect(lines[start + 1]).toMatch(/^─+$/u);
+        expect(lines[end - 1]).toMatch(/^─+$/u);
+        return lines.slice(start + 2, end - 1);
     }
 
     /** Rows without file icons and the cursor row's ×, spaces collapsed: "a.ts src". */

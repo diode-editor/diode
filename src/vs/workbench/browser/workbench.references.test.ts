@@ -147,8 +147,8 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(shown).toContain("3 results in 2 files");
         expect(shown).toContain("defs.ts");
         expect(shown).toContain("main.ts");
-        // Code lines are read from disk — they are not in the main.ts buffer.
-        expect(shown).toContain("export function greet(");
+        // Code lines are read from disk — they are not in the main.ts buffer (the framed sidebar clips the `(`).
+        expect(shown).toContain("export function greet");
         expect(shown).not.toContain(folderTitle());
         expect(h.contextKey("referencesViewletVisible")).toBe(true);
         expect(h.contextKey("hasReferenceResult")).toBe(true);
@@ -167,10 +167,11 @@ describe("Workbench — Find All References end-to-end", () => {
         h.execute(FIND_REFERENCES);
         await h.awaitResults();
 
-        // The sidebar is 30 columns wide: rows from the title down to the end of the list.
+        // The sidebar is 30 columns wide, its content 28 inside the frame (from column 1): rows from the title
+        // down to the end of the list.
         const lines = h.screen().split("\n");
         const title = lines.findIndex((line) => line.includes("results in"));
-        const rows = lines.slice(title, title + 7).map((line) => line.slice(0, 26).trimEnd());
+        const rows = lines.slice(title, title + 7).map((line) => line.slice(1, 27).trimEnd());
         // Files keep the order of first appearance (here the later registered provider answers first);
         // within a file rows go by range, and only the overlapping range stays a second row on line 3.
         // `\uf107` is the chevron of an expanded file row.

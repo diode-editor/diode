@@ -28,6 +28,7 @@ import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateS
 import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { PANEL_HEIGHT_STATE } from "../../../common/stateKeys.ts";
 import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 import { type IDebugSession, REPL_VIEW_ID } from "../common/debug.ts";
 
@@ -48,6 +49,9 @@ describe("Debug Console in the workbench", () => {
 
     beforeEach(async () => {
         state = mockStateService();
+        // The panel's frame takes two rows and its gone top line gave one back: a row taller panel keeps the
+        // console's rows the expansions below need.
+        state.values.set(PANEL_HEIGHT_STATE.key, PANEL_HEIGHT_STATE.default + 1);
         h = createAppTestHarness({
             size: new Size(120, 40),
             stateService: { ...NULL_STATE_SERVICE, get: state.get, store: state.store, remove: state.remove },
@@ -84,6 +88,13 @@ describe("Debug Console in the workbench", () => {
 
     function rowOf(text: string): string {
         return lines()[find(text).y];
+    }
+
+    /** The console's own columns of the screen row `y`: no sidebar, no frame lines. */
+    function consoleRow(y: number): string {
+        const view = h.container.get(ReplDIToken).view;
+        const left = view.globalPosition.x;
+        return lines()[y].slice(left, left + view.layoutSize.width);
     }
 
     function vars(): Record<string, number> {
@@ -201,7 +212,7 @@ describe("Debug Console in the workbench", () => {
         await evaluate("6 * 7");
 
         await vi.waitFor(() => {
-            expect(lines()[find(echo("6 * 7")).y + 1].trim()).toMatch(/^\d+$/u);
+            expect(consoleRow(find(echo("6 * 7")).y + 1).trim()).toMatch(/^\d+$/u);
         });
         const y = find(echo("6 * 7")).y + 1;
         const result = new Point(lines()[y].search(/\d/u), y);
@@ -278,8 +289,8 @@ describe("Debug Console in the workbench", () => {
         await vi.waitFor(() => {
             expect(screen()).toContain("sum=");
         });
-        const sum = rowOf("sum=");
-        expect(sum.trimEnd()).toMatch(/sum=\d+ i=100 +main\.cpp:35 *│?$/u);
+        const sum = consoleRow(find("sum=").y);
+        expect(sum.trimEnd()).toMatch(/sum=\d+ i=100 +main\.cpp:35 *[█░]?$/u);
         expect(fg("main.cpp:35")).toBe(vars()["debugConsole.sourceForeground"]);
 
         session.appendToRepl({ output: "boom\nboom\nboom\n", sev: "error" });

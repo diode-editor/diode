@@ -109,7 +109,9 @@ function setup(
         logger: options.withoutLogger === true ? undefined : logger,
         icons: options.icons,
     });
-    const app = TestApp.createWithContent(h.root("sb"), new Size(40, 12));
+    // The container header, its line, two section headers, the line between them and one under each:
+    // 16 rows leave the sections the room 12 did before the lines.
+    const app = TestApp.createWithContent(h.root("sb"), new Size(40, 16));
     const frame = (): string => {
         app.render();
         return app.backend.screenToString();

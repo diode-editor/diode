@@ -9,6 +9,7 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ImplementationProvider } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import type { ViewTitleRowElement } from "../../../browser/parts/views/viewTitleRowElement.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
@@ -91,7 +92,12 @@ describe("DefinitionService — Go to Implementations", () => {
 
         expect(group().getActiveEditor()?.uri.toString()).toBe(uriOf("main.ts"));
         const shown = screen();
-        expect(shown).toContain("Implementations");
+        // The framed sidebar's header clips the title ("Implementatio"); the row still holds it whole.
+        const titles = h.testApp.root
+            .querySelectorAll("ViewTitleRowElement")
+            .map((row) => (row as ViewTitleRowElement).getTitle());
+        expect(titles).toContain("Implementations");
+        expect(shown).toContain("Implementatio");
         expect(shown).toContain("2 results in 1 file");
     });
 

@@ -46,10 +46,10 @@ describe("Inline values when the text changes under a stop", () => {
         fs.rmSync(root, { recursive: true, force: true });
     });
 
-    /** The text of the screen row of `code`, from its start. */
+    /** The text of the screen row of `code`, from its start to the editor group's frame line on the right. */
     function rowOf(code: string): string {
         const at = t.find(code);
-        return t.lines()[at.y].slice(at.x).trimEnd();
+        return t.lines()[at.y].slice(at.x).replace(/│\s*$/u, "").trimEnd();
     }
 
     it("a line inserted above the stop does not move the values onto other lines", async () => {

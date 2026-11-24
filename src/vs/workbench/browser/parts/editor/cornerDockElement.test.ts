@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 
-import { CornerDockElement } from "./cornerDockElement.ts";
+import { CORNER_RIGHT_MARGIN, CornerDockElement } from "./cornerDockElement.ts";
 
 function widget(text: string): SizedBoxElement {
     const box = new SizedBoxElement(text.length, 2);
@@ -14,19 +14,20 @@ function widget(text: string): SizedBoxElement {
 }
 
 describe("CornerDockElement", () => {
-    it("keeps the widget at the right edge, a column in, at any width", () => {
+    it("keeps the widget at the right edge, the frame line and a column in, at any width", () => {
         const dock = new CornerDockElement();
         dock.setChild(widget("[tool]"));
 
-        expect(renderElement(dock, 30, 3).screenToString().split("\n")[0]).toBe(`${" ".repeat(23)}[tool] `);
-        expect(renderElement(dock, 12, 3).screenToString().split("\n")[0]).toBe("     [tool] ");
+        expect(CORNER_RIGHT_MARGIN).toBe(2);
+        expect(renderElement(dock, 30, 3).screenToString().split("\n")[0]).toBe(`${" ".repeat(22)}[tool]  `);
+        expect(renderElement(dock, 12, 3).screenToString().split("\n")[0]).toBe("    [tool]  ");
     });
 
     it("clips a widget wider than the room to it", () => {
         const dock = new CornerDockElement();
         dock.setChild(widget("[a long tool]"));
 
-        expect(renderElement(dock, 8, 2).screenToString().split("\n")[0]).toBe("[a long ");
+        expect(renderElement(dock, 8, 2).screenToString().split("\n")[0]).toBe("[a lon  ");
     });
 
     it("without a widget the row is empty and paints nothing", () => {
@@ -39,7 +40,7 @@ describe("CornerDockElement", () => {
         const dock = new CornerDockElement();
         dock.setChild(widget("[tool]"));
 
-        expect(renderElement(dock, 10, 1).screenToString()).toBe("   [tool] ");
+        expect(renderElement(dock, 10, 1).screenToString()).toBe("  [tool]  ");
     });
 
     it("a point beside the widget is not the dock's; the widget's is the widget's", () => {
@@ -50,6 +51,7 @@ describe("CornerDockElement", () => {
 
         expect(dock.elementFromPoint(new Point(2, 0))).toBeNull();
         expect(dock.elementFromPoint(new Point(25, 0))?.getAncestorPath()).toContain(tool);
+        expect(dock.elementFromPoint(new Point(28, 0))).toBeNull();
     });
 
     it("reports a new width after the frame, once per width; replacing the widget keeps the width", async () => {
