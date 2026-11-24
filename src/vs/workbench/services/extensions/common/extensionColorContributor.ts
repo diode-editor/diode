@@ -78,7 +78,7 @@ function isColorValue(value: string): boolean {
 export function registerExtensionColors(
     extensions: readonly IExtension[],
     registry: ThemeRegistry,
-    logger?: ILogger,
+    logger: ILogger,
 ): void {
     const owners = new Map<string, string>();
     const contributed: Record<string, IColorDefinition> = {};
@@ -86,7 +86,7 @@ export function registerExtensionColors(
         const colors = ext.manifest.contributes?.colors;
         if (colors === undefined) continue;
         const error = (message: string): void => {
-            logger?.error(`${ext.id}: ${message}`);
+            logger.error(`${ext.id}: ${message}`);
         };
         if (!Array.isArray(colors)) {
             error("'configuration.colors' must be a array");
@@ -103,12 +103,12 @@ export function registerExtensionColors(
                 continue;
             }
             if (Object.hasOwn(COLOR_CONTRIBUTIONS, id)) {
-                logger?.warn(`${ext.id}: color "${id}" is a built-in color — the contribution is ignored`);
+                logger.warn(`${ext.id}: color "${id}" is a built-in color — the contribution is ignored`);
                 continue;
             }
             const owner = owners.get(id);
             if (owner !== undefined) {
-                logger?.warn(
+                logger.warn(
                     `${ext.id}: color "${id}" is already contributed by ${owner} — the contribution is ignored`,
                 );
                 continue;
@@ -126,7 +126,7 @@ export function registerExtensionColors(
 function warnBrokenReferences(
     contributed: ColorContribution,
     owners: ReadonlyMap<string, string>,
-    logger?: ILogger,
+    logger: ILogger,
 ): void {
     const reported = new Set<string>();
     for (const kind of THEME_KINDS) {
@@ -135,7 +135,7 @@ function warnBrokenReferences(
             const resolved = followReference(table, id);
             if (!("problem" in resolved)) continue;
             const message = `${owner}: color "${id}" is left unset — ${resolved.problem}`;
-            if (!reported.has(message)) logger?.warn(message);
+            if (!reported.has(message)) logger.warn(message);
             reported.add(message);
         }
     }
