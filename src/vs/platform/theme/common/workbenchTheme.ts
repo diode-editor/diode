@@ -1,4 +1,10 @@
-import { type ColorContribution, deriveDefaultColors, isColorReference, themeKindOf } from "./colorRegistry.ts";
+import {
+    type ColorContribution,
+    DEFAULT_COLOR_CONFIG_VALUE,
+    deriveDefaultColors,
+    isColorReference,
+    themeKindOf,
+} from "./colorRegistry.ts";
 import { defaultWorkbenchColors, type IWorkbenchColors } from "./colors/colorContributions.ts";
 import { parseHexColor } from "./colorUtils.ts";
 import type { IEditorTokenTheme } from "./iEditorTokenTheme.ts";
@@ -31,14 +37,27 @@ export class WorkbenchTheme {
      * `extensionColors` (`contributes.colors`) go under the registry defaults, so a built-in key always
      * wins. A broken reference (cycle, unknown key) leaves the color unset: for an extension color the
      * contributor has logged it, the built-in table is guarded by colorContributions.test.ts.
+     *
+     * `customColors` (`workbench.colorCustomizations` for this theme) go on top: a hex wins over the theme,
+     * `"default"` drops the theme's value back to the registry default. References resolve over the result,
+     * so a color derived from a customized one follows it, as upstream `getColor` → `getDefault`.
      */
-    public static fromThemeFile(json: IThemeFile, extensionColors: ColorContribution = {}): WorkbenchTheme {
+    public static fromThemeFile(
+        json: IThemeFile,
+        extensionColors: ColorContribution = {},
+        customColors: Readonly<Record<string, string>> = {},
+    ): WorkbenchTheme {
         const kind = themeKindOf(json.type);
-        const merged: Record<string, string> = {
+        const defaults: Record<string, string> = {
             ...deriveDefaultColors(extensionColors, kind),
             ...defaultWorkbenchColors(kind),
-            ...json.colors,
         };
+        const merged: Record<string, string> = { ...defaults, ...json.colors };
+        for (const [key, value] of Object.entries(customColors)) {
+            if (value !== DEFAULT_COLOR_CONFIG_VALUE) merged[key] = value;
+            else if (key in defaults) merged[key] = defaults[key];
+            else Reflect.deleteProperty(merged, key);
+        }
         const colors: Record<string, number> = {};
         for (const key of Object.keys(merged)) {
             const resolved = followReference(merged, key);
