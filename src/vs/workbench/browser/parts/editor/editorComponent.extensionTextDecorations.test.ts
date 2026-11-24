@@ -136,6 +136,43 @@ describe("EditorComponent — setExtensionTextDecorations", () => {
         expect(app.backend.getBgAt(new Point(GUTTER + 16, 0))).toBe(PAINT);
     });
 
+    function expectErrorLensRow(app: TestApp, row: (y?: number) => string, y: number): void {
+        const line = row(y);
+        const message = line.indexOf("Msg");
+        expect(message, line).toBeGreaterThanOrEqual(4);
+        for (let x = message - 4; x < message; x++) {
+            expect(app.backend.getBgAt(new Point(GUTTER + x, y)), `gap cell ${x}`).toBe(PAINT);
+        }
+        for (let x = message; x < message + 3; x++) {
+            expect(app.backend.getBgAt(new Point(GUTTER + x, y)), `message cell ${x}`).toBe(NAVY);
+        }
+    }
+
+    const errorLens = (end: number) =>
+        deco(createRange(0, 0, 0, end), {
+            isWholeLine: true,
+            bg: PAINT,
+            after: text("Msg", { fg: GRAY, bg: NAVY, marginLeft: 4 }),
+        });
+
+    it("a whole-line background leaves the message its own background when scrolled sideways", () => {
+        const { pane, app, row, editor } = open("foo()\nbar");
+        pane.setExtensionTextDecorations({ key: 1, decorations: [errorLens(5)] });
+        editor().viewState.scrollLeft = 2;
+        app.render();
+        expect(row()).toBe("o()    Msg");
+        expectErrorLensRow(app, row, 0);
+    });
+
+    it("a whole-line background leaves the message its own background on a wrapped row", () => {
+        const { pane, app, row, editor } = open("abcdefghijklmnopqrst\nbar", new Size(20, 4));
+        editor().viewState.wordWrap = "on";
+        pane.setExtensionTextDecorations({ key: 1, decorations: [errorLens(20)] });
+        app.render();
+        expect(row(0)).not.toContain("Msg");
+        expectErrorLensRow(app, row, 1);
+    });
+
     it("a before's right margin stands between it and the text; the caret before the text passes the margin too", () => {
         const { pane, app, row, editor } = open("ab cd");
         pane.setExtensionTextDecorations({
