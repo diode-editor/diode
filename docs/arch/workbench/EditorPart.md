@@ -164,18 +164,19 @@
   делит долю источника пополам); хуки сервису (`canAddGroupHook`,
   `focusGroupContentHook`) и персисту (`onDidChangeGroupLayout`,
   `IEditorGroupsLayoutView` для `WorkbenchStateService`).
-  Разделитель групп — `separatorColorVar = "editorGroup.border"` (аналог
-  `separatorBorder` grid-а VS Code): у каждой границы своя колонка `│` или
-  строка `─` на фоне `editor.background`, саш лежит на ней и на hover/drag
-  перекрашивает её в `sash.hoverBorder`. Отступление от эталона: линия не
-  тоньше клетки, поэтому каждая граница отнимает у групп клетку; доли и
-  минимумы — без неё, `canFit(n)` = `n×min + (n−1) ≤ main` (#894).
+  Каждая группа — в собственной рамке (`framedGroups`, [Frames.md](Frames.md)):
+  группы стоят вплотную, граница — две линии рамок, саш в две клетки лежит на
+  обеих и не подсвечивается. Разделитель `editorGroup.border` (аналог
+  `separatorBorder` grid-а VS Code, #894) больше не ставится: место заняли
+  рамки; токен остаётся зарегистрированным ради тем.
 - `browser/parts/editor/editorGroupComponent.ts` — контрол ОДНОЙ группы;
   **композиционный корень** из примитивов tuidom: `view` = `OverlayHostElement`
   (локальный OverlayLayer для find-виджета группы; `view.id =
   "editorGroup-<groupId>"`) поверх `VFlexElement` [`EditorTabStripElement`
-  (1 ряд), контент-слот (остаток; пустой — фон-филлер `editor.background`,
-  focusable у пустой группы)]: по `group.onDidChangeEditors` вставляет view
+  (3 ряда: вкладки-коробки на базовой линии — верхе рамки группы; с кнопками
+  заголовка — ряд «полоса + `EditorTitleActionsBox`»), `FrameElement` с
+  `openTop` вокруг контент-слота (остаток; пустой — фон-филлер
+  `editor.background`, focusable у пустой группы)]: по `group.onDidChangeEditors` вставляет view
   активной вкладки и перерисовывает табы (метки с минимальной разводкой тёзок
   пер-стрип, иконки, маркер изменённости — `getTabStripStyles`); клики по
   табам возвращает в группу (`activateTab`; крестик — `EditorService.closeEditor(group,

@@ -240,9 +240,11 @@ describe("Workbench — Preferences commands", () => {
             expect(pane.uri.scheme).toBe("keybindings");
 
             const rows = pane.view.querySelectorAll("TextLabelElement");
+            // The row text is clipped to the Command column ("Recorder Targ…" in the framed 48-column editor).
             const row = rows.find((r) =>
-                (r as unknown as { getText(): string }).getText().startsWith("Recorder Target"),
+                (r as unknown as { getText(): string }).getText().startsWith("Recorder Targ"),
             )!;
+            expect(row).toBeDefined();
             const list = pane.view.querySelector("#keybindingsList")!;
             (list as unknown as { onActivate: ((el: unknown) => void) | null }).onActivate?.(row);
             h.testApp.render();
@@ -274,8 +276,8 @@ describe("Workbench — Preferences commands", () => {
                 () => {
                     h.testApp.render();
                     const screen = h.testApp.backend.screenToString();
-                    expect(screen).toContain("Recorder Target");
-                    expect(screen).toContain("F6");
+                    // The row (its title clipped to the Command column) carries the new combination.
+                    expect(screen).toMatch(/Recorder Targ…\s+F6\s/u);
                 },
                 { timeout: 5000 },
             );

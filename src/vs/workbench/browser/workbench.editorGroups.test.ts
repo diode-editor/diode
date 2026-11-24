@@ -279,15 +279,24 @@ describe("Workbench — editor groups (splits)", () => {
         expect(activeFired).toBeGreaterThan(0);
     });
 
-    it("rows: the sash takes its own row — the lower group's tab is reachable by mouse", () => {
+    it("rows: the sash lies on the two frame lines — the lower group's tab label is reachable by mouse", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditorDown");
         h.testApp.render();
 
-        // The bottom group's first row is its tab strip: a sash over it would steal the hit-test.
+        // The boundary is the upper group's bottom frame line and the lower group's tab tops (its frame's
+        // top): the 2-row sash covers exactly those, so the tabs' label row right below stays clickable.
+        const top = h.testApp.querySelector("#editorGroup-1")!;
         const bottom = h.testApp.querySelector("#editorGroup-2")!;
         const tabStrip = bottom.querySelector("EditorTabStripElement")!;
-        const point = new Point(tabStrip.globalPosition.x + 2, tabStrip.globalPosition.y);
+        const x = tabStrip.globalPosition.x + 2;
+        const upperBottomLine = top.globalPosition.y + top.layoutSize.height - 1;
+        expect(tabStrip.globalPosition.y).toBe(upperBottomLine + 1);
+        expect(h.testApp.root.elementFromPoint(new Point(x, upperBottomLine))?.constructor.name).toBe("SashElement");
+        expect(h.testApp.root.elementFromPoint(new Point(x, tabStrip.globalPosition.y))?.constructor.name).toBe(
+            "SashElement",
+        );
+        const point = new Point(x, tabStrip.globalPosition.y + 1);
         let hit = h.testApp.root.elementFromPoint(point);
         expect(hit?.constructor.name).not.toBe("SashElement");
         while (hit !== null && hit !== tabStrip) hit = hit.getParent();
@@ -410,7 +419,11 @@ describe("Workbench — editor groups (splits)", () => {
         const leftView = groups[0].activePane!.view;
         const rightView = groups[1].activePane!.view;
         const part = h.testApp.querySelector("EditorPartElement")!;
-        expect(rightView.layoutSize.width).toBe(part.layoutSize.width);
+        expect(h.testApp.querySelector(`#editorGroup-${String(groups[1].id)}`)!.layoutSize.width).toBe(
+            part.layoutSize.width,
+        );
+        // The group frames itself: the editor is the whole part minus the frame's two side lines.
+        expect(rightView.layoutSize.width).toBe(part.layoutSize.width - 2);
         expect(leftView.getAncestorPath().some((el) => el.hidden)).toBe(true);
 
         h.commands.execute("workbench.action.toggleMaximizeEditorGroup");
@@ -906,7 +919,11 @@ describe("Workbench — editor groups (splits)", () => {
 
         const groups = service().editorGroups.groups;
         const part = h.testApp.querySelector("EditorPartElement")!;
-        expect(groups[0].activePane!.view.layoutSize.width).toBe(part.layoutSize.width);
+        expect(h.testApp.querySelector(`#editorGroup-${String(groups[0].id)}`)!.layoutSize.width).toBe(
+            part.layoutSize.width,
+        );
+        // The group frames itself: the editor is the whole part minus the frame's two side lines.
+        expect(groups[0].activePane!.view.layoutSize.width).toBe(part.layoutSize.width - 2);
         expect(groups[1].activePane!.view.getAncestorPath().some((el) => el.hidden)).toBe(true);
     });
 

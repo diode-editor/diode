@@ -381,7 +381,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 // the expected and the actual value, so it reads `actual != expected`, as in VS Code.
                 await waitUntil("fails' message", () => /toBe\(2\); {3}\S/.test(row("expect(2 - 1).toBe(2);")), 60_000);
                 const badge = row("expect(2 - 1).toBe(2);");
-                expect(badge).toMatch(/expect\(2 - 1\)\.toBe\(2\); {3}✗ 1 != 2\s*$/);
+                expect(badge).toMatch(/expect\(2 - 1\)\.toBe\(2\); {3}✗ 1 != 2\s*│$/);
                 expect(row("expect(1 + 1).toBe(2);")).not.toContain("expected");
                 // Go to Next Test Failure reads the badges back from the editor.
                 const [editor] = harness.group.getEditors();

@@ -2,6 +2,8 @@ import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { SashElement } from "@tuidom/elements/sash/sashElement";
 
+import { FrameElement } from "./parts/frameElement.ts";
+
 const DEFAULT_LEFT_WIDTH = 30;
 /** Fits the "  EXPLORER" title without clipping. */
 const MIN_LEFT_WIDTH = 12;
@@ -15,15 +17,33 @@ const DEFAULT_RIGHT_WIDTH = 30;
 const MIN_RIGHT_WIDTH = MIN_LEFT_WIDTH;
 
 const DEFAULT_PANEL_HEIGHT = 12;
-/** Fits the tab header + a couple of content rows. */
-const MIN_PANEL_HEIGHT = 3;
-const MIN_EDITOR_HEIGHT = 3;
+/** The frame's two lines, the tab header and a content row. */
+const MIN_PANEL_HEIGHT = 4;
+/** An editor group's three tab rows, its bottom frame line and a line of text. */
+const MIN_EDITOR_HEIGHT = 5;
+
+/**
+ * A sash between two parts lies over both frame lines at the boundary — the last cell of one
+ * frame and the first of the next — and reports the second: where the next part starts.
+ */
+function frameSash(orientation: "vertical" | "horizontal"): SashElement {
+    const sash = new SashElement(orientation);
+    sash.anchor = 1;
+    // The frame lines already show the boundary; only the pointer shape marks the sash.
+    sash.hoverColorVar = null;
+    return sash;
+}
 
 /**
  * Upstream counterpart: `workbench/browser/layout.ts`. When width runs short, the right
  * panel shrinks first (upstream: `LayoutPriority.Low`), then the left one.
  * Clamping happens only during layout: saved widths stay unchanged, so a temporarily
  * narrow terminal does not spoil them.
+ *
+ * Every part sits in a rounded frame (docs/arch/workbench/Frames.md): the side bar, the panel and
+ * the auxiliary bar in frames of the layout's, the editor groups each in their own (their tabs are
+ * the frame's top). Frames stand side by side; between them shows the workbench surface
+ * (`editorGroupHeader.tabsBackground` — beside the tabs, above the editor frames).
  */
 export class WorkbenchLayoutElement extends TUIElement {
     private leftPanel: TUIElement | null = null;
@@ -44,22 +64,26 @@ export class WorkbenchLayoutElement extends TUIElement {
     /** NOT called from `performLayout`: display clamps are not a user action. */
     public onDidChangeLayout?: () => void;
 
-    private sash = new SashElement("vertical");
-    private rightSash = new SashElement("vertical");
+    private readonly leftFrame = new FrameElement();
+    private readonly bottomFrame = new FrameElement();
+    private readonly rightFrame = new FrameElement();
+
+    private sash = frameSash("vertical");
+    private rightSash = frameSash("vertical");
     // Stryker disable next-line StringLiteral: SashElement only checks the orientation against "vertical"; any other string means horizontal, so the mutant is equivalent
-    private bottomSash = new SashElement("horizontal");
+    private bottomSash = frameSash("horizontal");
 
     public constructor() {
         super();
+        this.style = { bg: "editorGroupHeader.tabsBackground" };
         this.syncChildren();
+        // Each sash reports the first cell of the part after the boundary.
         this.sash.onDrag = (boundaryScreenX) => {
             this.leftPanelWidth = this.clampWidth(boundaryScreenX - this.globalPosition.x);
             this.markDirty();
             this.onDidChangeLayout?.();
         };
         this.rightSash.onDrag = (boundaryScreenX) => {
-            // The sash sits on the right panel's first column, so the boundary column
-            // belongs to the panel.
             const containerRight = this.globalPosition.x + this.layoutSize.width;
             this.rightPanelWidth = this.clampRightWidth(containerRight - boundaryScreenX);
             this.markDirty();
@@ -75,6 +99,7 @@ export class WorkbenchLayoutElement extends TUIElement {
 
     public setLeftPanel(element: TUIElement | null): void {
         this.leftPanel = element;
+        this.leftFrame.setChild(element);
         this.syncChildren();
     }
 
@@ -85,11 +110,13 @@ export class WorkbenchLayoutElement extends TUIElement {
 
     public setBottomPanel(element: TUIElement | null): void {
         this.bottomPanel = element;
+        this.bottomFrame.setChild(element);
         this.syncChildren();
     }
 
     public setRightPanel(element: TUIElement | null): void {
         this.rightPanel = element;
+        this.rightFrame.setChild(element);
         this.syncChildren();
     }
 
@@ -206,18 +233,21 @@ export class WorkbenchLayoutElement extends TUIElement {
         const children: TUIElement[] = [];
         if (this.leftPanel !== null) {
             this.leftPanel.hidden = !this.leftPanelVisible;
-            children.push(this.leftPanel);
+            this.leftFrame.hidden = !this.leftPanelVisible;
+            children.push(this.leftFrame);
         }
         if (this.centerContent !== null) {
             children.push(this.centerContent);
         }
         if (this.bottomPanel !== null) {
             this.bottomPanel.hidden = !this.bottomPanelVisible;
-            children.push(this.bottomPanel);
+            this.bottomFrame.hidden = !this.bottomPanelVisible;
+            children.push(this.bottomFrame);
         }
         if (this.rightPanel !== null) {
             this.rightPanel.hidden = !this.rightPanelVisible;
-            children.push(this.rightPanel);
+            this.rightFrame.hidden = !this.rightPanelVisible;
+            children.push(this.rightFrame);
         }
         this.sash.hidden = !this.isLeftShown();
         children.push(this.sash);
@@ -300,7 +330,7 @@ export class WorkbenchLayoutElement extends TUIElement {
         const centerHeight = Math.max(0, containerSize.height - panelHeight);
 
         if (this.isLeftShown() && this.leftPanel) {
-            this.layoutChild(this.leftPanel, 0, 0, BoxConstraints.tight(new Size(leftWidth, containerSize.height)));
+            this.layoutChild(this.leftFrame, 0, 0, BoxConstraints.tight(new Size(leftWidth, containerSize.height)));
         }
 
         if (this.centerContent) {
@@ -314,39 +344,38 @@ export class WorkbenchLayoutElement extends TUIElement {
 
         if (showBottom && this.bottomPanel) {
             this.layoutChild(
-                this.bottomPanel,
+                this.bottomFrame,
                 leftWidth,
                 centerHeight,
                 BoxConstraints.tight(new Size(centerWidth, panelHeight)),
             );
         }
 
+        // Sashes span the two frame lines at a boundary: the last cell before it and the first after.
+        // They must be laid out explicitly, otherwise a lazy layoutSize would report a stale box at
+        // (0,0) and break hit-testing.
         if (this.isRightShown() && this.rightPanel) {
             const rightX = leftWidth + centerWidth;
             this.layoutChild(
-                this.rightPanel,
+                this.rightFrame,
                 rightX,
                 0,
                 BoxConstraints.tight(new Size(rightWidth, containerSize.height)),
             );
-            // 1-column hit target on the right panel's first column — not on the
-            // editor's last one, where the editor's scrollbar lives.
-            this.layoutChild(
-                this.rightSash,
-                rightX,
-                0,
-                BoxConstraints.tight(new Size(Math.min(1, rightWidth), containerSize.height)),
-            );
+            this.layoutChild(this.rightSash, rightX - 1, 0, BoxConstraints.tight(new Size(2, containerSize.height)));
         }
 
         if (this.isLeftShown()) {
-            // Must be laid out explicitly, otherwise its lazy layoutSize would report a
-            // stale box at (0,0) and break hit-testing.
-            this.layoutChild(this.sash, leftWidth, 0, BoxConstraints.tight(new Size(1, containerSize.height)));
+            this.layoutChild(this.sash, leftWidth - 1, 0, BoxConstraints.tight(new Size(2, containerSize.height)));
         }
 
         if (showBottom) {
-            this.layoutChild(this.bottomSash, leftWidth, centerHeight, BoxConstraints.tight(new Size(centerWidth, 1)));
+            this.layoutChild(
+                this.bottomSash,
+                leftWidth,
+                centerHeight - 1,
+                BoxConstraints.tight(new Size(centerWidth, 2)),
+            );
         }
 
         return containerSize;

@@ -69,12 +69,19 @@ describe("Snippet session — a choice", () => {
     }
 
     it("reaching a choice opens the popup with its options in order, drawn at the caret", async () => {
+        // The frame the user sees before the snippet: the editor's place on the screen is laid out, so the
+        // caret anchor is not taken from a stale geometry.
+        h.testApp.render();
         await insert("${1|get,set|} $2");
         expect(drawSelections(pane)).toBe("[get] ");
         expect(popup()).toEqual(["get", "set"]);
         expect(inSnippetChoice()).toBe(true);
-        const [line, first, second] = editorRows();
-        expect(line).toMatch(/ 1 {3}get ?╭─+╮/);
+        const [line, border, first, second] = editorRows();
+        expect(line).toMatch(/ 1 {3}get /);
+        // Right under the caret: the popup's corner is in the caret's column, on the next row.
+        const caret = pane.getCaretAnchor();
+        expect(border).toMatch(/╭─+╮/);
+        expect(border.indexOf("╭")).toBe(caret?.screenX);
         expect(first).toMatch(/│.*get.*│/);
         expect(second).toMatch(/│.*set.*│/);
     });

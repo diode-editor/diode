@@ -8,7 +8,8 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 function hasPrompt(text: string, fromX = 0): boolean {
     return text.split("\n").some((row) => {
-        const tail = row.slice(fromX).trimEnd();
+        // The part's frame line `│` closes the row on the right.
+        const tail = row.slice(fromX).trimEnd().replace(/│$/u, "").trimEnd();
         return tail.endsWith("$") || tail.includes("❯");
     });
 }
@@ -29,7 +30,10 @@ export default defineScenario({
     // With the terminal focused its keys go to the shell (#820); like in VS Code, the user's own bindings
     // pressed from there have to be in the skip set.
     settings: {
-        "terminal.integrated.commandsToSkipShell": ["workbench.action.moveFocusedView", "workbench.action.reloadWindow"],
+        "terminal.integrated.commandsToSkipShell": [
+            "workbench.action.moveFocusedView",
+            "workbench.action.reloadWindow",
+        ],
     },
     userKeybindings: [
         { key: "ctrl+alt+t", command: "workbench.action.terminal.focus" },
@@ -48,7 +52,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("New Secondary Side Bar Entry"));
         await editor.sendKey("Enter");
         let part = await editor.waitForNode("#auxiliarybar");
-        await editor.waitForText((t) => t.split("\n")[1].slice(part.box.x).includes("TERMINAL"));
+        await editor.waitForText((t) => t.split("\n")[part.box.y].slice(part.box.x).includes("TERMINAL"));
         await editor.capture("moved");
 
         await editor.sendText('echo aux-term""-ok');
@@ -56,20 +60,23 @@ export default defineScenario({
         await editor.waitForText((t) => t.split("\n").some((row) => row.slice(part.box.x).includes("aux-term-ok")));
         await editor.capture("shell-live");
 
+        // The sash lies over both frame lines at the boundary: grab the part's own left line, just left of it.
+        const sashX = part.box.x - 1;
         const midY = part.box.y + Math.floor(part.box.height / 2);
-        await editor.sendMouse({ action: "press", button: "left", x: part.box.x, y: midY });
-        await editor.sendMouse({ action: "move", button: "left", x: part.box.x - 20, y: midY });
-        await editor.sendMouse({ action: "release", button: "left", x: part.box.x - 20, y: midY });
+        await editor.sendMouse({ action: "press", button: "left", x: sashX, y: midY });
+        await editor.sendMouse({ action: "move", button: "left", x: sashX - 20, y: midY });
+        await editor.sendMouse({ action: "release", button: "left", x: sashX - 20, y: midY });
         part = await editor.waitForNode("#auxiliarybar");
-        if (part.box.width !== 50) throw new Error(`secondary side bar width ${part.box.width}, expected 50`);
+        // 28 inside the frame of the default 30-column slot, 20 wider.
+        if (part.box.width !== 48) throw new Error(`secondary side bar width ${part.box.width}, expected 48`);
         await editor.capture("resized");
 
         // Window reload: TERMINAL stays on the right, and so does its width.
         await editor.sendKey("Ctrl+Alt+R");
         await editor.reconnect();
         part = await editor.waitForNode("#auxiliarybar");
-        await editor.waitForText((t) => t.split("\n")[1].slice(part.box.x).includes("TERMINAL"));
-        if (part.box.width !== 50) throw new Error(`width after reload ${part.box.width}, expected 50`);
+        await editor.waitForText((t) => t.split("\n")[part.box.y].slice(part.box.x).includes("TERMINAL"));
+        if (part.box.width !== 48) throw new Error(`width after reload ${part.box.width}, expected 48`);
         // The shell starts on activation, same as in the bottom panel.
         await editor.sendKey("Ctrl+Alt+T");
         await editor.waitForText((t) => hasPrompt(t, part.box.x));

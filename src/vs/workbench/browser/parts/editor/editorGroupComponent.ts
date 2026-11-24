@@ -1,5 +1,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
+import { TAB_HEIGHT } from "@tuidom/elements/editorgroup/editorTabItemElement";
 import type { TabInfo } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
@@ -15,8 +16,10 @@ import type { IEditorService } from "../../../services/editor/common/editorServi
 import {} from "../../../services/themes/common/themeTokens.ts";
 import type { EditorTitleMenuContext } from "../../actions/menuContexts.ts";
 import { Component } from "../../component.ts";
+import { FrameElement } from "../frameElement.ts";
 
 import { EditorTitleActions, type IEditorTitleActionsServices } from "./editorTitleActions.ts";
+import { EditorTitleActionsBox } from "./editorTitleActionsBox.ts";
 import { computeTabLabels } from "./tabLabels.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
 
@@ -31,6 +34,8 @@ export class EditorGroupComponent extends Component {
     private readonly tabStrip = new EditorTabStripElement();
     private readonly titleRow = new HFlexElement();
     private readonly titleActions: EditorTitleActions | null;
+    private readonly titleActionsBox: EditorTitleActionsBox | null;
+    private readonly bodyFrame = new FrameElement();
     private readonly emptyFiller = new FillerElement();
     private contentSlot: TUIElement;
 
@@ -50,13 +55,17 @@ export class EditorGroupComponent extends Component {
         );
         this.titleActions =
             titleActions === undefined ? null : this.register(new EditorTitleActions(group, titleActions));
-        this.titleRow.layoutStyle = { height: vflexFixed(1), width: "fill" };
+        this.titleActionsBox = this.titleActions === null ? null : new EditorTitleActionsBox(this.titleActions.element);
+        this.titleRow.layoutStyle = { height: vflexFixed(TAB_HEIGHT), width: "fill" };
+        // The tabs' baseline is the frame's top; the frame closes the group's sides and bottom.
+        this.bodyFrame.openTop = true;
+        this.bodyFrame.layoutStyle = { height: vflexFill(), width: "fill" };
         this.view = new OverlayHostElement();
         // Group id, not ViewColumn: column numbers are recomputed when groups collapse.
         this.view.id = `editorGroup-${String(group.id)}`;
         // emptyFiller inherits the background through the cascade.
         this.view.style = { fg: "editor.foreground", bg: "editor.background" };
-        this.tabStrip.layoutStyle = { height: vflexFixed(1), width: "fill" };
+        this.tabStrip.layoutStyle = { height: vflexFixed(TAB_HEIGHT), width: "fill" };
         this.contentSlot = this.emptyFiller;
         this.syncSlot(this.emptyFiller);
         this.view.setContent(this.vflex);
@@ -129,20 +138,25 @@ export class EditorGroupComponent extends Component {
     }
 
     private syncSlot(slot: TUIElement): void {
-        slot.layoutStyle = { height: vflexFill(), width: "fill" };
-        this.vflex.replaceChildren([this.syncTitleRow(), slot]);
+        this.bodyFrame.setChild(slot);
+        this.vflex.replaceChildren([this.syncTitleRow(), this.bodyFrame]);
         this.contentSlot = slot;
     }
 
-    /** With an empty action bar the tab strip is used as is (same tree and frame as without the bar). */
+    /**
+     * With an empty action bar the tab strip is used as is (same tree and frame as without the bar)
+     * and closes the frame's top itself; with buttons, their box does.
+     */
     private syncTitleRow(): TUIElement {
-        if (this.titleActions?.isVisible !== true) {
-            this.tabStrip.layoutStyle = { height: vflexFixed(1), width: "fill" };
+        if (this.titleActions?.isVisible !== true || this.titleActionsBox === null) {
+            this.tabStrip.endCorner = true;
+            this.tabStrip.layoutStyle = { height: vflexFixed(TAB_HEIGHT), width: "fill" };
             return this.tabStrip;
         }
-        this.tabStrip.layoutStyle = { height: 1, width: hflexFill() };
-        this.titleActions.element.layoutStyle = { height: 1, width: hflexFit() };
-        this.titleRow.replaceChildren([this.tabStrip, this.titleActions.element]);
+        this.tabStrip.endCorner = false;
+        this.tabStrip.layoutStyle = { height: TAB_HEIGHT, width: hflexFill() };
+        this.titleActionsBox.layoutStyle = { height: TAB_HEIGHT, width: hflexFit() };
+        this.titleRow.replaceChildren([this.tabStrip, this.titleActionsBox]);
         return this.titleRow;
     }
 

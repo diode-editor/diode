@@ -1,14 +1,24 @@
-import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/core/common/geometryPromitives";
-import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
-import { TerminalScreen } from "@tuidom/core/rendering/terminalScreen";
+import { BoxConstraints, Offset, Point, Size } from "@tuidom/core/common/geometryPromitives";
+import type { RenderContext } from "@tuidom/core/dom/tuiElement";
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { SashElement } from "@tuidom/elements/sash/sashElement";
-import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
+import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { describe, expect, it } from "vitest";
 
+import { renderElement } from "../../../TestUtils/renderElement.ts";
+
+import { FrameElement } from "./parts/frameElement.ts";
 import { WorkbenchLayoutElement } from "./workbenchLayoutElement.ts";
 
 function createPanel(): TUIElement {
     return new TUIElement();
+}
+
+/** The layout puts each side/bottom part into a frame of its own; the part sits at (+1,+1) inside it. */
+function frameOf(part: TUIElement): FrameElement {
+    const frame = part.getParent();
+    expect(frame).toBeInstanceOf(FrameElement);
+    return frame as FrameElement;
 }
 
 class MarkerPanel extends TUIElement {
@@ -38,9 +48,11 @@ describe("WorkbenchLayoutElement", () => {
             layout.localPosition = new Offset(0, 0);
             layout.layout(BoxConstraints.tight(new Size(80, 24)));
 
-            expect(leftPanel.layoutSize).toEqual(new Size(25, 24));
-            expect(leftPanel.localPosition).toEqual(new Offset(0, 0));
-            expect(leftPanel.globalPosition).toEqual(new Point(0, 0));
+            const frame = frameOf(leftPanel);
+            expect(frame.layoutSize).toEqual(new Size(25, 24));
+            expect(frame.localPosition).toEqual(new Offset(0, 0));
+            expect(leftPanel.layoutSize).toEqual(new Size(23, 22));
+            expect(leftPanel.globalPosition).toEqual(new Point(1, 1));
         });
 
         it("positions center content after left panel", () => {
@@ -72,7 +84,8 @@ describe("WorkbenchLayoutElement", () => {
             layout.localPosition = new Offset(0, 1);
             layout.layout(BoxConstraints.tight(new Size(80, 22)));
 
-            expect(leftPanel.globalPosition).toEqual(new Point(0, 1));
+            expect(frameOf(leftPanel).globalPosition).toEqual(new Point(0, 1));
+            expect(leftPanel.globalPosition).toEqual(new Point(1, 2));
             expect(center.globalPosition).toEqual(new Point(30, 1));
         });
     });
@@ -161,10 +174,12 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
 
             const children = layout.getChildren();
-            expect(children.slice(0, 2)).toEqual([leftPanel, center]);
+            // The left panel is a child through its frame.
+            expect(children.slice(0, 2)).toEqual([frameOf(leftPanel), center]);
             expect(children[2]).toBeInstanceOf(SashElement);
             expect(children[2].hidden).toBe(false);
             expect(leftPanel.hidden).toBe(false);
+            expect(frameOf(leftPanel).hidden).toBe(false);
         });
 
         it("a hidden left panel stays a child with hidden=true (and so does its sash)", () => {
@@ -176,8 +191,9 @@ describe("WorkbenchLayoutElement", () => {
             layout.setCenterContent(center);
             layout.setLeftPanelVisible(false);
 
-            expect(layout.getChildren()).toContain(leftPanel);
+            expect(layout.getChildren()).toContain(frameOf(leftPanel));
             expect(leftPanel.hidden).toBe(true);
+            expect(frameOf(leftPanel).hidden).toBe(true);
             expect(center.hidden).toBe(false);
             const sashes = layout.getChildren().filter((c) => c instanceof SashElement);
             expect(sashes.every((s) => s.hidden)).toBe(true);
@@ -210,11 +226,11 @@ describe("WorkbenchLayoutElement", () => {
             const panel2 = createPanel();
 
             layout.setLeftPanel(panel1);
-            expect(panel1.getParent()).toBe(layout);
+            expect(frameOf(panel1).getParent()).toBe(layout);
 
             layout.setLeftPanel(panel2);
             expect(panel1.getParent()).toBeNull();
-            expect(panel2.getParent()).toBe(layout);
+            expect(frameOf(panel2).getParent()).toBe(layout);
         });
     });
 
@@ -278,8 +294,9 @@ describe("WorkbenchLayoutElement", () => {
             layout.localPosition = new Offset(0, 0);
             layout.layout(BoxConstraints.tight(new Size(80, 24)));
 
-            // 80 - MIN_CENTER_WIDTH(20) = 60 reserved for the panel, 20 for the editor.
-            expect(leftPanel.layoutSize.width).toBe(60);
+            // 80 - MIN_CENTER_WIDTH(20) = 60 reserved for the panel (with its frame), 20 for the editor.
+            expect(frameOf(leftPanel).layoutSize.width).toBe(60);
+            expect(leftPanel.layoutSize.width).toBe(58);
             expect(center.layoutSize.width).toBe(20);
         });
 
@@ -294,7 +311,7 @@ describe("WorkbenchLayoutElement", () => {
             expect(layout.getLeftPanelWidth()).toBe(50);
 
             layout.layout(BoxConstraints.tight(new Size(120, 24)));
-            expect(layout.getLeftPanel()?.layoutSize.width).toBe(50);
+            expect(frameOf(layout.getLeftPanel()!).layoutSize.width).toBe(50);
         });
     });
 
@@ -308,7 +325,8 @@ describe("WorkbenchLayoutElement", () => {
             layout.localPosition = new Offset(0, 0);
 
             expect(() => layout.layout(BoxConstraints.tight(new Size(40, 10)))).not.toThrow();
-            expect(left.layoutSize).toEqual(new Size(20, 10));
+            expect(frameOf(left).layoutSize).toEqual(new Size(20, 10));
+            expect(left.layoutSize).toEqual(new Size(18, 8));
         });
 
         it("setLeftPanel(null) clears the panel without re-parenting", () => {
@@ -316,7 +334,7 @@ describe("WorkbenchLayoutElement", () => {
             const left = createPanel();
 
             layout.setLeftPanel(left);
-            expect(left.getParent()).toBe(layout);
+            expect(frameOf(left).getParent()).toBe(layout);
 
             layout.setLeftPanel(null);
             expect(left.getParent()).toBeNull();
@@ -325,14 +343,9 @@ describe("WorkbenchLayoutElement", () => {
     });
 
     describe("render", () => {
+        // A theme is required: the part frames read `panel.border`.
         function renderLayout(layout: WorkbenchLayoutElement, size: Size): MockTerminalBackend {
-            const backend = new MockTerminalBackend(size);
-            const termScreen = new TerminalScreen(size);
-            layout.localPosition = new Offset(0, 0);
-            layout.layout(BoxConstraints.tight(size));
-            layout.render(new RenderContext(termScreen, new Offset(0, 0), new Rect(new Point(0, 0), size)));
-            termScreen.flush(backend);
-            return backend;
+            return renderElement(layout, size.width, size.height, { themeVars: true });
         }
 
         it("renders the left panel and center content through the pipeline", () => {
@@ -343,7 +356,9 @@ describe("WorkbenchLayoutElement", () => {
 
             const backend = renderLayout(layout, new Size(40, 5));
 
-            expect(backend.getTextAt(new Point(0, 0), 1)).toBe("L");
+            // The part inside its frame; the center (editor groups frame themselves) at the boundary.
+            expect(backend.getTextAt(new Point(1, 1), 1)).toBe("L");
+            expect(backend.getTextAt(new Point(0, 0), 1)).toBe("╭");
             expect(backend.getTextAt(new Point(12, 0), 1)).toBe("C");
         });
 
@@ -354,7 +369,7 @@ describe("WorkbenchLayoutElement", () => {
 
             const backend = renderLayout(layout, new Size(30, 5));
 
-            expect(backend.getTextAt(new Point(0, 0), 1)).toBe("L");
+            expect(backend.getTextAt(new Point(1, 1), 1)).toBe("L");
         });
 
         it("skips the hidden left panel and renders center at the origin", () => {
@@ -430,10 +445,11 @@ describe("WorkbenchLayoutElement", () => {
             return { layout, sash };
         }
 
-        it("positions the sash at the panel/editor boundary, 1 column wide", () => {
+        it("positions the sash over both frame lines at the panel/editor boundary, 2 columns wide", () => {
             const { sash } = laidOut(20);
-            expect(sash.globalPosition).toEqual(new Point(20, 0));
-            expect(sash.layoutSize).toEqual(new Size(1, 24));
+            // The left frame's last column (19) and the editor's first one (20).
+            expect(sash.globalPosition).toEqual(new Point(19, 0));
+            expect(sash.layoutSize).toEqual(new Size(2, 24));
         });
 
         it("dragging the sash updates the panel width", () => {
@@ -537,15 +553,18 @@ describe("WorkbenchLayoutElement", () => {
             const { center, panel } = laidOut({ height: 8 });
             expect(center.layoutSize).toEqual(new Size(80, 16));
             expect(center.localPosition).toEqual(new Offset(0, 0));
-            expect(panel.layoutSize).toEqual(new Size(80, 8));
-            expect(panel.globalPosition).toEqual(new Point(0, 16));
+            expect(frameOf(panel).layoutSize).toEqual(new Size(80, 8));
+            expect(frameOf(panel).globalPosition).toEqual(new Point(0, 16));
+            expect(panel.layoutSize).toEqual(new Size(78, 6));
+            expect(panel.globalPosition).toEqual(new Point(1, 17));
         });
 
         it("aligns the panel to the editor width when the sidebar is shown", () => {
             const { center, panel } = laidOut({ withLeft: true, height: 6 });
             expect(center.layoutSize).toEqual(new Size(60, 18));
-            expect(panel.layoutSize).toEqual(new Size(60, 6));
-            expect(panel.globalPosition).toEqual(new Point(20, 18));
+            expect(frameOf(panel).layoutSize).toEqual(new Size(60, 6));
+            expect(frameOf(panel).globalPosition).toEqual(new Point(20, 18));
+            expect(panel.globalPosition).toEqual(new Point(21, 19));
         });
 
         it("the panel and the horizontal sash are children, the sash last (hit-test on top)", () => {
@@ -559,12 +578,9 @@ describe("WorkbenchLayoutElement", () => {
 
         it("renders the visible bottom panel at its position", () => {
             const { layout } = laidOut({ height: 8 });
-            const size = new Size(80, 24);
-            const backend = new MockTerminalBackend(size);
-            const screen = new TerminalScreen(size);
-            layout.render(new RenderContext(screen, new Offset(0, 0), new Rect(new Point(0, 0), size)));
-            screen.flush(backend);
-            expect(backend.getTextAt(new Point(0, 16), 1)).toBe("B");
+            const backend = renderElement(layout, 80, 24, { themeVars: true });
+            expect(backend.getTextAt(new Point(0, 16), 1)).toBe("╭");
+            expect(backend.getTextAt(new Point(1, 17), 1)).toBe("B");
         });
 
         it("resizes the panel height by dragging the horizontal sash", () => {
@@ -584,10 +600,10 @@ describe("WorkbenchLayoutElement", () => {
                 .getChildren()
                 .filter((c) => c instanceof SashElement)
                 .at(-1)!;
-            sash.onDrag?.(23); // height 1 → clamped up to MIN (3)
-            expect(layout.getBottomPanelHeight()).toBe(3);
-            sash.onDrag?.(-100); // height 124 → clamped to containerHeight - MIN_EDITOR_HEIGHT (21)
-            expect(layout.getBottomPanelHeight()).toBe(21);
+            sash.onDrag?.(23); // height 1 → clamped up to MIN (4: two frame lines, the tabs, a content row)
+            expect(layout.getBottomPanelHeight()).toBe(4);
+            sash.onDrag?.(-100); // height 124 → clamped to containerHeight - MIN_EDITOR_HEIGHT (24 - 5 = 19)
+            expect(layout.getBottomPanelHeight()).toBe(19);
         });
     });
 });

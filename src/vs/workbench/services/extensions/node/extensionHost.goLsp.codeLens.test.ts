@@ -80,13 +80,18 @@ async function openTestFile(): Promise<ILensSession> {
             const y = rows.findIndex((row) => row.includes(title));
             if (y < 0) throw new Error(`"${title}" is not on the frame`);
             const x = rows[y].indexOf(title);
-            // The frame starts with the tab bar; the editor's own rows start below it.
-            const localY = y - 1;
-            editor.component.view
-                .getChild()
-                .dispatchEvent(
-                    new TUIMouseEvent("mousedown", { button: "left", screenX: x, screenY: y, localX: x, localY }),
-                );
+            // The editor's own cells start below the tabs and inside the group's frame.
+            const target = editor.component.view.getChild();
+            const origin = target.globalPosition;
+            target.dispatchEvent(
+                new TUIMouseEvent("mousedown", {
+                    button: "left",
+                    screenX: x,
+                    screenY: y,
+                    localX: x - origin.x,
+                    localY: y - origin.y,
+                }),
+            );
         },
     };
 }

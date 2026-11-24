@@ -51,7 +51,8 @@ describe("ExtensionHost — TextEditor.insertSnippet", () => {
 
         expect(text()).toBe("    foo(\n        \n    )\n");
         expect(caret()).toEqual({ line: 1, character: 8 });
-        expect(frame()).toMatch(/foo\(\s*\n[^\n]*2\s/);
+        // `foo(` ends its row (up to the group's frame line), the next row is line 2.
+        expect(frame()).toMatch(/foo\(\s*│?\n[^\n]*2\s/);
     });
 
     it("[api:TextEditor.insertSnippet] undo removes the whole insertion in one step", async () => {

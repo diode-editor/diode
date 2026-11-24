@@ -30,7 +30,9 @@ export default defineScenario({
     seedUserData: userData,
     open: [workspace, file],
     cols: 100,
-    rows: 20,
+    // The run opens TEST RESULTS in the panel: the framed group (3-row tabs, bottom line) still has to show the
+    // tests' lines above it.
+    rows: 24,
     // The extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
     // K: F/E/S/V/G/H/T are menu bar mnemonics and O is the SS3 prefix.
@@ -61,6 +63,8 @@ export default defineScenario({
         await editor.sendMouse({ x: adds.x, y: adds.y, button: "right", action: "press" });
         await editor.sendMouse({ x: adds.x, y: adds.y, button: "right", action: "release" });
         await editor.waitForText((t) => t.includes("Reveal in Test Explorer") && t.includes("Update Snapshot"));
-        await editor.capture("a right click on adds' glyph: Run Test, Reveal in Test Explorer and the extension's item");
+        await editor.capture(
+            "a right click on adds' glyph: Run Test, Reveal in Test Explorer and the extension's item",
+        );
     },
 });

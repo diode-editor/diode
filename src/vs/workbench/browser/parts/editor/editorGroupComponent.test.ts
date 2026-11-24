@@ -5,6 +5,7 @@ import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
+import { TAB_HEIGHT } from "@tuidom/elements/editorgroup/editorTabItemElement";
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,6 +34,7 @@ import { EditorService } from "../../../services/editor/browser/editorService.ts
 import { ORPHAN_CHECK_DELAY_MS } from "../../../services/textfile/common/textFileModel.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import { FrameElement } from "../frameElement.ts";
 
 import { EditorGroupComponent } from "./editorGroupComponent.ts";
 
@@ -178,9 +180,11 @@ describe("EditorGroupComponent", () => {
     });
 
     describe("content host", () => {
-        /** The content slot occupant: the second vflex row, below the tab strip. */
-        function contentSlot(component: EditorGroupComponent): TUIElement {
-            return component.view.getContent()!.getChildren()[1];
+        /** The content slot occupant: inside the frame of the second vflex row, below the tab strip. */
+        function contentSlot(component: EditorGroupComponent): TUIElement | null {
+            const frame = component.view.getContent()!.getChildren()[1];
+            expect(frame).toBeInstanceOf(FrameElement);
+            return (frame as FrameElement).getChild();
         }
 
         it("view is a single overlay host with a stable per-group id", () => {
@@ -213,10 +217,11 @@ describe("EditorGroupComponent", () => {
 
         it("an empty group is painted with editor.background below the tab strip", () => {
             const { component } = createEditorGroup();
-            const backend = renderElement(component.view, 10, 5, { themeVars: true });
+            const backend = renderElement(component.view, 10, 6, { themeVars: true });
 
+            // The frame around the body lies on the body's background too.
             const bg = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("editor.background");
-            for (let y = 1; y < 5; y++) {
+            for (let y = TAB_HEIGHT; y < 6; y++) {
                 for (let x = 0; x < 10; x++) {
                     expect(backend.getBgAt(new Point(x, y))).toBe(bg);
                 }
@@ -381,9 +386,11 @@ describe("EditorGroupComponent", () => {
             expect(tabLabels(component)).toEqual(["a.ts (deleted)"]);
             // Frame: the name is painted with list.errorForeground (registry default #F88070).
             const backend = renderElement(component.view, 40, 3, { themeVars: true });
+            const labelRow = 1;
             const labelX =
-                item().globalPosition.x + backend.getTextAt(new Point(item().globalPosition.x, 0), 20).indexOf("a.ts");
-            expect(backend.getFgAt(new Point(labelX, 0))).toBe(0xf88070);
+                item().globalPosition.x +
+                backend.getTextAt(new Point(item().globalPosition.x, labelRow), 20).indexOf("a.ts");
+            expect(backend.getFgAt(new Point(labelX, labelRow))).toBe(0xf88070);
 
             fs.writeFileSync(fp, "a");
             onChange();

@@ -25,6 +25,7 @@ import { ProductIconServiceDIToken } from "../../../../platform/theme/common/pro
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
+import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 import {
     BREAKPOINTS_VIEW_ID,
@@ -42,8 +43,12 @@ describe("Run and Debug viewlet in the workbench", () => {
     let registration: (IDisposable & { factory: SyntheticDebugAdapterFactory }) | undefined;
 
     beforeEach(async () => {
-        h = createAppTestHarness({ size: new Size(120, 50) });
+        // The sidebar's frame, its container line and the lines around the four section headers take 10 rows:
+        // the sections keep the heights they had in 50.
+        h = createAppTestHarness({ size: new Size(120, 60) });
         await h.workbench.activate();
+        // The frame also takes a column on each side: the rows keep the width the texts below are cut at.
+        h.container.get(LayoutServiceDIToken).nudgeSidebarWidth(2);
         registration = undefined;
     });
 

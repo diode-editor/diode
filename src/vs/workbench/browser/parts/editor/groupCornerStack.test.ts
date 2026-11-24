@@ -1,3 +1,4 @@
+import { TAB_HEIGHT } from "@tuidom/elements/editorgroup/editorTabItemElement";
 import { describe, expect, it } from "vitest";
 
 import { CORNER_ORDER, GroupCornerStack } from "./groupCornerStack.ts";
@@ -7,15 +8,15 @@ describe("GroupCornerStack", () => {
         const corners = new GroupCornerStack();
         const toolbar = corners.addSlot(1, CORNER_ORDER.debugToolbar);
 
-        expect(toolbar.top()).toBe(1);
-        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(1);
+        expect(toolbar.top()).toBe(TAB_HEIGHT);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(TAB_HEIGHT);
 
         toolbar.setHeight(3);
-        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(4);
-        expect(toolbar.top()).toBe(1);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(TAB_HEIGHT + 3);
+        expect(toolbar.top()).toBe(TAB_HEIGHT);
 
         toolbar.setHeight(0);
-        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(1);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(TAB_HEIGHT);
     });
 
     it("a slot further down does not push the ones above it", () => {
@@ -23,15 +24,15 @@ describe("GroupCornerStack", () => {
         const lower = corners.addSlot(1, CORNER_ORDER.find);
         lower.setHeight(3);
 
-        expect(corners.topOf(1, CORNER_ORDER.debugToolbar)).toBe(1);
-        expect(lower.top()).toBe(1);
+        expect(corners.topOf(1, CORNER_ORDER.debugToolbar)).toBe(TAB_HEIGHT);
+        expect(lower.top()).toBe(TAB_HEIGHT);
     });
 
     it("groups do not share a corner", () => {
         const corners = new GroupCornerStack();
         corners.addSlot(1, CORNER_ORDER.debugToolbar).setHeight(3);
 
-        expect(corners.topOf(2, CORNER_ORDER.find)).toBe(1);
+        expect(corners.topOf(2, CORNER_ORDER.find)).toBe(TAB_HEIGHT);
     });
 
     it("tells which group's corner changed; the same height again is not a change", () => {
@@ -56,10 +57,10 @@ describe("GroupCornerStack", () => {
 
         shown.dispose();
         expect(changed).toEqual([1]);
-        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(1);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(TAB_HEIGHT);
         // A disposed slot no longer counts, whatever its owner reports afterwards.
         shown.setHeight(3);
-        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(1);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(TAB_HEIGHT);
 
         changed.length = 0;
         corners.addSlot(1, CORNER_ORDER.debugToolbar).dispose();

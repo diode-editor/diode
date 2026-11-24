@@ -112,16 +112,23 @@ describe("Workbench — Run or Debug split button (editor/title/run)", () => {
         h.testApp.render();
         return h.testApp.backend.screenToString().split("\n");
     };
-    const tabRow = (): string => screen()[1];
+    /** The tabs' label row (row 1 of the 3-row tab boxes): the title buttons sit on it too. */
+    const labelY = (): number => {
+        h.testApp.render();
+        const strip = h.testApp.querySelector("EditorTabStripElement");
+        expect(strip).not.toBeNull();
+        return strip!.globalPosition.y + 1;
+    };
+    const tabRow = (): string => screen()[labelY()];
     const press = (x: number, y: number): void => {
         h.testApp.backend.simulateMouse(click(x, y, "press"));
         h.testApp.backend.simulateMouse(click(x, y, "release"));
     };
     const pickFromArrow = (label: string): void => {
-        press(tabRow().indexOf(ARROW), 1);
+        press(tabRow().indexOf(ARROW), labelY());
         const lines = screen();
         const y = lines.findIndex((line) => line.includes(label));
-        expect(y).toBeGreaterThan(1);
+        expect(y).toBeGreaterThan(labelY());
         press(lines[y].indexOf(label), y);
     };
 
@@ -141,7 +148,7 @@ describe("Workbench — Run or Debug split button (editor/title/run)", () => {
         boot();
         keys().setRaw("isJBangFile", true);
         await flush();
-        press(tabRow().indexOf(PLAY), 1);
+        press(tabRow().indexOf(PLAY), labelY());
         expect(runs).toStrictEqual(["jbang.script.run"]);
     });
 
@@ -149,7 +156,7 @@ describe("Workbench — Run or Debug split button (editor/title/run)", () => {
         boot();
         keys().setRaw("isJBangFile", true);
         await flush();
-        press(tabRow().indexOf(ARROW), 1);
+        press(tabRow().indexOf(ARROW), labelY());
         const popup = screen().join("\n");
         expect(popup).toContain("Run JBang");
         expect(popup).toContain("Debug JBang");
@@ -158,7 +165,7 @@ describe("Workbench — Run or Debug split button (editor/title/run)", () => {
         pickFromArrow("Debug JBang");
         expect(runs).toStrictEqual(["jbang.script.debug"]);
 
-        press(tabRow().indexOf(PLAY), 1);
+        press(tabRow().indexOf(PLAY), labelY());
         expect(runs).toStrictEqual(["jbang.script.debug", "jbang.script.debug"]);
     });
 
@@ -183,7 +190,7 @@ describe("Workbench — Run or Debug split button (editor/title/run)", () => {
         keys().setRaw("isJBangFile", true);
         await flush();
         runs.length = 0;
-        press(tabRow().indexOf(PLAY), 1);
+        press(tabRow().indexOf(PLAY), labelY());
         expect(runs).toStrictEqual(["jbang.script.debug"]);
     });
 
@@ -197,7 +204,7 @@ describe("Workbench — Run or Debug split button (editor/title/run)", () => {
         keys().setRaw("resourceExtname", ".kt");
         await flush();
         runs.length = 0;
-        press(tabRow().indexOf(PLAY), 1);
+        press(tabRow().indexOf(PLAY), labelY());
         expect(runs).toStrictEqual(["jbang.script.run"]);
     });
 

@@ -31,7 +31,7 @@ export default defineScenario({
         await editor.sendKey("Enter");
 
         const part = await editor.waitForNode("#auxiliarybar");
-        await editor.waitForText((t) => t.split("\n")[1].slice(part.box.x).includes("PROBLEMS"));
+        await editor.waitForText((t) => t.split("\n")[part.box.y].slice(part.box.x).includes("PROBLEMS"));
         await editor.capture("moved");
 
         const tabs = part.state?.tabs as { centerX: number }[];

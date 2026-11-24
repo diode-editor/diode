@@ -96,7 +96,8 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Untitled-1"));
         await editor.sendKey("Ctrl+V");
-        await editor.waitForText((t) => /1\s+other\s*(\n|$)/mu.test(t));
+        // Only the word is on the line: blanks up to the group's frame line.
+        await editor.waitForText((t) => /1\s+other\s*│?\s*(\n|$)/mu.test(t));
         await editor.capture("pasted");
     },
 });

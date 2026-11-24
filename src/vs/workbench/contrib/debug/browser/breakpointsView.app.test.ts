@@ -97,8 +97,9 @@ describe("BREAKPOINTS in the workbench", () => {
         const plain = t.find("● sample.ts");
         expect(t.h.testApp.backend.getFgAt(plain)).toBe(vars["debugIcon.breakpointForeground"]);
         expect(t.h.testApp.backend.getFgAt(t.find("e2e/fixtures"))).toBe(vars.descriptionForeground);
-        // The line on the right edge, muted.
-        expect(t.lines()[plain.y].trimEnd()).toMatch(/ 2 *[█░▀▄]?$/u);
+        // The line on the right edge, muted: the row up to the sidebar frame's right line.
+        const row = t.lines()[plain.y];
+        expect(row.slice(0, row.indexOf("│", plain.x)).trimEnd()).toMatch(/ 2 *[█░▀▄]?$/u);
         expect(t.screen()).toContain("◆ sample.ts e2e/fixtures  if answer > 1");
         expect(t.screen()).toContain('◈ sample.ts e2e/fixtures  log "greeting {name}"');
         expect(t.h.testApp.backend.getFgAt(t.find("if answer"))).toBe(vars.descriptionForeground);

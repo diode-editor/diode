@@ -1,3 +1,4 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
@@ -18,7 +19,8 @@ describe("Workbench — bottom panel visibility commands", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-panel-" });
-        h = createAppTestHarness({ workspaceFolder: ws.dir });
+        // Wide enough for the Problems welcome line inside the panel's frame, next to the sidebar.
+        h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(100, 24) });
         contextKeys = h.container.get(ContextKeyServiceDIToken);
     });
 

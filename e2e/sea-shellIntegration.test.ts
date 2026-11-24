@@ -25,8 +25,9 @@ describeLinux("shell integration scripts — SEA", () => {
         await session.waitForReady();
         await session.sendKey("Ctrl+K");
         await session.sendKey("t");
-        // The runner's system bashrc may set its own prompt over `PS1`: any prompt will do.
-        await session.waitForText((t) => /\$ *$/m.test(t));
+        // The runner's system bashrc may set its own prompt over `PS1`: any prompt will do. The panel frame's right
+        // line closes the row.
+        await session.waitForText((t) => /\$ *│?$/m.test(t));
         // The marker is split in the command text, so it appears whole only in the output.
         await session.sendText('declare -F __vsc_precmd && echo "si""-$BASH_VERSION"');
         await session.sendKey("Enter");
@@ -58,7 +59,7 @@ describeLinux("shell integration scripts — SEA", () => {
                 await session.sendKey("Ctrl+K");
                 await session.sendKey("t");
                 // fish's prompt ends with `> `, pwsh's with `> ` too; PSReadLine drops an Enter typed before it.
-                await session.waitForText((t) => /> *$/m.test(t), { timeoutMs: 30_000 });
+                await session.waitForText((t) => /> *│?$/m.test(t), { timeoutMs: 30_000 });
                 await session.sendText(check);
                 await session.sendKey("Enter");
                 await session.waitForText((t) => t.includes("si-1"), { timeoutMs: 30_000 });

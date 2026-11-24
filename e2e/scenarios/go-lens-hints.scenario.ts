@@ -37,7 +37,7 @@ export default defineScenario({
     env: { ...GO_SESSION_ENV, GOBIN: GO_TOOLS_BIN },
     settings: { "go.inlayHints.parameterNames": true, "go.inlayHints.assignVariableTypes": true },
     cols: 110,
-    rows: 28,
+    rows: 32,
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("run test | debug test"), { timeoutMs: 180_000 });

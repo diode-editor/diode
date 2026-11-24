@@ -1,8 +1,12 @@
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
-/** A column between the widget and the group's right edge, as find. */
-export const CORNER_RIGHT_MARGIN = 1;
+/**
+ * The group frame's right line plus a column between it and the widget, as find
+ * (docs/arch/workbench/Frames.md).
+ */
+export const CORNER_RIGHT_MARGIN = BORDER_THICKNESS + 1;
 
 /**
  * A row of an editor group's overlay layer that keeps its widget at the right edge on every layout: the overlay

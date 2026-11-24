@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { frameLine } from "../helpers/frame.ts";
+import { $ } from "../helpers/query.ts";
+import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
@@ -68,12 +70,19 @@ export default defineScenario({
 
         await editor.sendKey("Enter");
         await editor.sendKey("F6");
-        await editor.waitForText((text) => text.includes("get _name() { return this._name; }") && text.includes("╭"));
+        // The workbench frames draw `╭` too: the popup is told by its node, not by its corner.
+        await editor.waitForText((text) => text.includes("get _name() { return this._name; }"));
+        await editor.waitForNode("#suggestWidget");
         await editor.capture("choice-popup");
 
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
-        await editor.waitForText((text) => text.includes("set _name()") && !text.includes("╭"));
+        await editor.waitForText((text) => text.includes("set _name()"));
+        await waitUntil(
+            async () => $((await editor.getDocument()).root, "#suggestWidget"),
+            (popup) => popup === null,
+            { describe: "the choice popup closed", timeoutMs: 10_000 },
+        );
         await editor.sendText("_count");
         await editor.waitForText((text) => text.includes("set _count() { return this._count; }"));
         await editor.capture("choice-picked-field-typed");

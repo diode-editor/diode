@@ -16,6 +16,7 @@ DI-модули и профили — `src/vs/diode/modules/` (см. [../DI.md](
 | [Commands.md](workbench/Commands.md) | конвенции системы команд, кейбинды и их досягаемость, when-вычислитель, контекст-ключи, клавиатурный диспатч, где живут экшены |
 | [Keyboard.md](workbench/Keyboard.md) | ОС клавиатуры, мак-лестница и мак-раскладка, сегмент окружения в статус-баре, где теряется клавиша в tmux/kitty/iTerm2 |
 | [Menus.md](workbench/Menus.md) | `MenuRegistry`/`MenuService`, точки меню, пункты расширений, `enablement` |
+| [Frames.md](workbench/Frames.md) | рамки частей: правила UI (линии вместо фона, вкладки — верх рамки группы, саши на двух линиях) и где это в коде |
 | [Shell.md](workbench/Shell.md) | корневой компонент и последовательность старта, жизненный цикл, layout, строка меню, статус-бар, нижняя и вторичная боковая панели |
 | [Views.md](workbench/Views.md) | модель container↔view (`ViewsService`), расположение видов, общие контролы списков |
 | [EditorPart.md](workbench/EditorPart.md) | модели буферов, вкладки, группы редакторов, `EditorService`, дифф-вкладка, история навигации |

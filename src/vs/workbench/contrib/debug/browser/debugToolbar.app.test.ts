@@ -3,6 +3,7 @@
 // another group, `debug.toolBarLocation`, a session without the toolbar, and the status bar in debugging colors.
 
 import { Point } from "@tuidom/core/common/geometryPromitives";
+import { TAB_HEIGHT } from "@tuidom/elements/editorgroup/editorTabItemElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDebugViewletHarness, type IDebugViewletHarness } from "../../../../../TestUtils/debugViewletHarness.ts";
@@ -10,6 +11,7 @@ import { SYNTHETIC_LAUNCH_CONFIG } from "../../../../../TestUtils/syntheticDebug
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { CORNER_RIGHT_MARGIN } from "../../../browser/parts/editor/cornerDockElement.ts";
 import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
 import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 import { FindComponentDIToken } from "../../find/browser/findComponent.ts";
@@ -44,6 +46,17 @@ describe("the debug toolbar in the workbench", () => {
     /** The row of the tab strip of the (single) editor group. */
     function tabRow(): number {
         return t.find("main.cpp").y;
+    }
+
+    /**
+     * The active group on screen: its top row, and the column of the toolbar's (or find's) right border — the group's
+     * last column is its frame's right line, a free column lies between it and the widget.
+     */
+    function activeGroup(): { top: number; frameLine: number; widgetRight: number } {
+        const id = t.h.container.get(EditorGroupsServiceDIToken).activeGroup.id;
+        const view = t.h.testApp.querySelector(`#editorGroup-${String(id)}`)!;
+        const frameLine = view.globalPosition.x + view.layoutSize.width - 1;
+        return { top: view.globalPosition.y, frameLine, widgetRight: frameLine - CORNER_RIGHT_MARGIN };
     }
 
     function click(point: Point, button: "left" | "right" = "left"): void {
@@ -81,11 +94,22 @@ describe("the debug toolbar in the workbench", () => {
         await t.startStopped();
 
         const buttons = t.find(BUTTONS);
-        // The box's top border is the row under the tabs; a padding column, the border and a margin on the right.
-        expect(buttons.y).toBe(tabRow() + 2);
-        expect(buttons.x + BUTTONS.length).toBe(SCREEN_WIDTH - 3);
+        const group = activeGroup();
+        // The box's top border is the editor's first row, right under the tab strip; its buttons are the row below.
+        expect(buttons.y).toBe(group.top + TAB_HEIGHT + 1);
+        // The tab strip keeps its tab: the active tab's label is still on its row.
+        expect(tabRow()).toBe(group.top + 1);
+        expect(t.lines()[group.top + 1]).toContain("main.cpp ×");
+        // A padding column and the border on the right, then a free column, then the group frame's line.
+        expect(buttons.x + BUTTONS.length).toBe(group.widgetRight - 1);
+        expect(group.frameLine).toBe(SCREEN_WIDTH - 1);
         const vars = t.vars();
         const backend = t.h.testApp.backend;
+        const cell = (x: number): string => backend.getTextAt(new Point(x, buttons.y), 1);
+        expect(cell(group.widgetRight)).toBe("│");
+        expect(cell(group.frameLine - 1)).toBe(" ");
+        expect(backend.getBgAt(new Point(group.frameLine - 1, buttons.y))).not.toBe(vars["editorWidget.background"]);
+        expect(cell(group.frameLine)).toBe("│");
         expect(backend.getFgAt(buttons)).toBe(vars["debugIcon.continueForeground"]);
         expect(backend.getFgAt(new Point(buttons.x + BUTTONS.indexOf("■"), buttons.y))).toBe(
             vars["debugIcon.stopForeground"],
@@ -112,7 +136,8 @@ describe("the debug toolbar in the workbench", () => {
     it("find opened first goes down when the toolbar comes", async () => {
         openFind("zzz");
         const before = t.find("No results").y;
-        expect(before).toBe(tabRow() + 2);
+        // Find's top border is the editor's first row, right under the tab strip.
+        expect(before).toBe(activeGroup().top + TAB_HEIGHT + 1);
 
         await t.startStopped();
 
@@ -210,7 +235,7 @@ describe("the debug toolbar in the workbench", () => {
         await t.startStopped();
 
         const glyphs = t.find(GLYPHS);
-        expect(glyphs.y).toBe(tabRow() + 2);
+        expect(glyphs.y).toBe(activeGroup().top + TAB_HEIGHT + 1);
         expect(has("Continue")).toBe(false);
     });
 
@@ -224,14 +249,14 @@ describe("the debug toolbar in the workbench", () => {
         await vi.waitFor(() => {
             expect(has(GLYPHS)).toBe(true);
         });
-        expect(t.find(GLYPHS).x + GLYPHS.length).toBe(SCREEN_WIDTH - 3);
+        expect(t.find(GLYPHS).x + GLYPHS.length).toBe(activeGroup().widgetRight - 1);
 
         layout.nudgeSidebarWidth(-20);
         t.lines();
         await vi.waitFor(() => {
             expect(has(BUTTONS)).toBe(true);
         });
-        expect(t.find(BUTTONS).x + BUTTONS.length).toBe(SCREEN_WIDTH - 3);
+        expect(t.find(BUTTONS).x + BUTTONS.length).toBe(activeGroup().widgetRight - 1);
     });
 
     it("follows the active group", async () => {
@@ -246,12 +271,14 @@ describe("the debug toolbar in the workbench", () => {
         });
         const right = t.find(GLYPHS);
         expect(right.y).toBe(single.y);
-        expect(right.x + GLYPHS.length).toBe(SCREEN_WIDTH - 3);
+        expect(right.x + GLYPHS.length).toBe(activeGroup().widgetRight - 1);
+        expect(activeGroup().frameLine).toBe(SCREEN_WIDTH - 1);
 
         t.h.commands.execute("workbench.action.focusFirstEditorGroup");
         const left = t.find(GLYPHS);
         expect(left.y).toBe(single.y);
         expect(left.x).toBeLessThan(right.x);
+        expect(left.x + GLYPHS.length).toBe(activeGroup().widgetRight - 1);
         expect(t.lines().join("\n").split("▶  ↷")).toHaveLength(2);
     });
 

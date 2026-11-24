@@ -10,24 +10,28 @@ const sampleDir = resolve(repoRoot, "e2e", "fixtures", "indentGuides");
 
 const GUIDE = "│";
 
-/** Guides left of the label on the Explorer row with `label`: `[column, …]`. */
-function guidesBefore(frame: GridSnapshot, label: string): number[] {
+/**
+ * Guides left of the label on the Explorer row with `label`: `[column, …]`. Only columns from `left` (the tree's
+ * left edge) count: the sidebar frame's side line `│` lies just left of the tree.
+ */
+function guidesBefore(frame: GridSnapshot, label: string, left: number): number[] {
     for (let y = 0; y < frame.rows; y++) {
         const row = frame.cells.slice(y * frame.cols, (y + 1) * frame.cols);
         const text = row.map((cell) => cell.char).join("");
         const at = text.indexOf(` ${label}`);
         // The Explorer is the leftmost occurrence: the editor tab and breadcrumbs sit to the right.
         if (at < 0 || at > 30) continue;
-        return row.flatMap((cell, x) => (x < at && cell.char === GUIDE ? [x] : []));
+        return row.flatMap((cell, x) => (x >= left && x < at && cell.char === GUIDE ? [x] : []));
     }
     throw new Error(`no Explorer row "${label}"`);
 }
 
 /** Waits until every row has as many guides as expected (a mouse move repaints on the next frame). */
 async function expectGuides(editor: ScenarioDriver, expected: Record<string, number>): Promise<void> {
+    const left = (await editor.waitForNode("TreeViewElement")).box.x;
     const mismatch = (frame: GridSnapshot): string | null => {
         for (const [label, count] of Object.entries(expected)) {
-            const actual = guidesBefore(frame, label).length;
+            const actual = guidesBefore(frame, label, left).length;
             if (actual !== count) return `row "${label}": ${actual} guides, expected ${count}`;
         }
         return null;

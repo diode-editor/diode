@@ -119,12 +119,13 @@ describe("Output panel fix — regressions in neighboring mechanisms", () => {
         await clickText(session, "const greeting", { dx: "const ".length });
 
         await session.key("Alt+R"); // toggleActiveEditorReadonlyInSession
-        expect(frameLine(await session.captureFrame(), 1)).toContain("\uea75"); // nf-cod-lock on the tab
+        // nf-cod-lock on the tab: the label row is screen row 2 (row 1 holds the tabs' top lines).
+        expect(frameLine(await session.captureFrame(), 2)).toContain("\uea75");
         await session.text("NOPE");
         expect(frameToText(await session.captureFrame())).not.toContain("NOPE");
 
         await session.key("Alt+R"); // clear read-only
-        expect(frameLine(await session.captureFrame(), 1)).not.toContain("\uea75");
+        expect(frameLine(await session.captureFrame(), 2)).not.toContain("\uea75");
         await session.text("YES");
         expect(frameToText(await session.captureFrame())).toContain("YES");
     }, 180_000);
