@@ -49,8 +49,8 @@ describe("HoverService — hoverMessage of extension decorations (upstream Markd
     };
     const service = () => h.container.get(HoverServiceDIToken);
     const lines = () => h.container.get(HoverComponentDIToken).view.linesFor(30);
-    const decorate = (key: number, decorations: readonly IExtensionTextDecoration[], restyle?: boolean) => {
-        editor().setExtensionTextDecorations({ key, decorations, ...(restyle === true ? { restyle } : {}) });
+    const decorate = (key: number, decorations: readonly IExtensionTextDecoration[]) => {
+        editor().setExtensionTextDecorations({ key, decorations });
     };
     const showAt = async (line: number, character: number) => {
         editor().goToPosition(line, character);
@@ -130,7 +130,11 @@ describe("HoverService — hoverMessage of extension decorations (upstream Markd
         decorate(1, [hover(createRange(0, 6, 0, 12), ["answer"])]);
         decorate(2, [hover(createRange(1, 6, 1, 11), ["other"])]);
 
-        decorate(1, [hover(createRange(0, 6, 0, 12), ["answer"], { fg: 0x112233ff })], true);
+        editor().setExtensionTextDecorations({
+            key: 1,
+            decorations: [hover(createRange(0, 6, 0, 12), ["answer"], { fg: 0x112233ff })],
+            restyle: true,
+        });
         await showAt(0, 6);
         expect(lines()).toEqual(["answer"]);
         service().close();

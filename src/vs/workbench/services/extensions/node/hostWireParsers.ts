@@ -734,9 +734,7 @@ export function parseDecorationOptions(raw: unknown): IWireDecorationOptions[] {
         } = (item ?? {}) as { range?: unknown; renderOptions?: unknown; hoverMessage?: unknown };
         const range = parseRange(rawRange);
         if (range === null) continue;
-        const hoverMessage = Array.isArray(rawHover)
-            ? rawHover.filter((block): block is string => typeof block === "string")
-            : [];
+        const hoverMessage = parseWireStringArray(rawHover) ?? [];
         result.push({
             range,
             ...(typeof renderOptions === "object" && renderOptions !== null ? { renderOptions } : {}),

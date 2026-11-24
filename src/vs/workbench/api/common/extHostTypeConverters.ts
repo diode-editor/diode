@@ -121,7 +121,7 @@ export function normalizeDecorationRanges(
         const range = rangeFrom(item.range);
         if (range === null) return [];
         const renderOptions = asObject(item.renderOptions);
-        const hoverMessage = item.hoverMessage == null ? [] : serializeHoverContents(item.hoverMessage);
+        const hoverMessage = serializeHoverContents(item.hoverMessage);
         return [
             {
                 range,
