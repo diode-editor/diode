@@ -7,7 +7,7 @@
  * - `png` — a PNG file: no color of its own;
  * - `broken` — a file that does not exist;
  * - `ruler` — todo-tree's highlight: a CSS `overviewRulerColor` and no icon.
- * `contributes.breakpoints` lets F9 put a breakpoint on a plain text line.
+ * A dormant debugger with `contributes.breakpoints` for plain text lets F9 put a breakpoint on a line.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

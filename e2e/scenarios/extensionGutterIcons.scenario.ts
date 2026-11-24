@@ -78,6 +78,8 @@ export default defineScenario({
     open: [file],
     cols: 80,
     rows: 16,
+    // The breakpoint's glyph as the plain `●` the frame text shows.
+    settings: { "diode.icons.nerdFont": "off" },
     // The extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
     async prepare() {

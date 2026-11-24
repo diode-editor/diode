@@ -16,6 +16,12 @@
             {
                 "language": "plaintext"
             }
+        ],
+        "debuggers": [
+            {
+                "type": "gutter-icons",
+                "label": "Gutter Icons"
+            }
         ]
     }
 }
