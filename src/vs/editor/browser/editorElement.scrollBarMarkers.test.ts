@@ -185,7 +185,7 @@ describe("EditorElement — scrollbar markers", () => {
         }
     });
 
-    it("[api:DecorationRenderOptions.overviewRulerColor] marks an extension type's ranges on the scrollbar, not in the gutter", () => {
+    it("[api:ThemableDecorationRenderOptions.overviewRulerColor] marks an extension type's ranges on the scrollbar, not in the gutter", () => {
         const RULER = packRgb(0xff, 0, 0);
         const editor = makeEditor(lines(100));
         editor.overviewRulerDecorations = [{ range: createRange(55, 0, 55, 2), color: RULER }];

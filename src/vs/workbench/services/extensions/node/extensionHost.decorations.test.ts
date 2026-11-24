@@ -128,7 +128,7 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
         }
     });
 
-    it("[api:DecorationRenderOptions.gutterIconPath] a data: URI icon crosses the wire and lands in the glyph lane", async () => {
+    it("[api:ThemableDecorationRenderOptions.gutterIconPath] a data: URI icon crosses the wire and lands in the glyph lane", async () => {
         const editorSpy = makeEditorSpy();
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "a\nb\nc\nd\ne\n" },

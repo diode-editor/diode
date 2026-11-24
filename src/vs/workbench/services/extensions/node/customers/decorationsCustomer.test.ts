@@ -125,7 +125,7 @@ describe("DecorationsCustomer — overview ruler marks", () => {
         expect(h.rpcLogger.warn).not.toHaveBeenCalled();
     });
 
-    it("[api:DecorationRenderOptions.overviewRulerColor] a ThemeColor resolves through the theme, types without it or with an unknown one mark nothing", async () => {
+    it("[api:ThemableDecorationRenderOptions.overviewRulerColor] a ThemeColor resolves through the theme, types without it or with an unknown one mark nothing", async () => {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 1,
@@ -146,7 +146,7 @@ describe("DecorationsCustomer — overview ruler marks", () => {
         expect(h.rpcLogger.warn).not.toHaveBeenCalled();
     });
 
-    it("[api:DecorationRenderOptions.overviewRulerColor] a CSS string is parsed like the other colors, the theme branch wins", async () => {
+    it("[api:ThemableDecorationRenderOptions.overviewRulerColor] a CSS string is parsed like the other colors, the theme branch wins", async () => {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", { key: 1, options: { overviewRulerColor: "#ff0000" } });
         h.peer.notify("window.createTextEditorDecorationType", {
@@ -962,7 +962,7 @@ describe("DecorationsCustomer — gutter icons", () => {
         return { ...h, reads };
     }
 
-    it("[api:DecorationRenderOptions.gutterIconPath] a file icon puts one glyph of its color on every line of each range, after one read", async () => {
+    it("[api:ThemableDecorationRenderOptions.gutterIconPath] a file icon puts one glyph of its color on every line of each range, after one read", async () => {
         const h = iconSetup();
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 7,
@@ -990,7 +990,7 @@ describe("DecorationsCustomer — gutter icons", () => {
         expect(h.reads).toEqual(["/icons/dark.svg"]);
     });
 
-    it("[api:DecorationRenderOptions.gutterIconPath] a data: URI needs no read; the theme branch picks the icon", async () => {
+    it("[api:ThemableDecorationRenderOptions.gutterIconPath] a data: URI needs no read; the theme branch picks the icon", async () => {
         const h = iconSetup();
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 1,

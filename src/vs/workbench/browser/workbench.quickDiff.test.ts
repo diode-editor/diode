@@ -139,7 +139,7 @@ describe("Workbench: live quick diff gutter", () => {
      * keystroke (Claude Code's hunk bars) erased the git bars. The real extension path (customer → adapter) runs
      * next to the real quick diff.
      */
-    it("[api:DecorationRenderOptions.overviewRulerColor] an extension type marks the scrollbar, not the gutter, and leaves the git bar alone", async () => {
+    it("[api:ThemableDecorationRenderOptions.overviewRulerColor] an extension type marks the scrollbar, not the gutter, and leaves the git bar alone", async () => {
         const decorations = new DecorationsCustomer(
             new EditorDecorationsServiceAdapter(editors),
             { setFileDecorations: () => undefined },

@@ -167,7 +167,7 @@ describe("decorations", () => {
                 color: { $themeColor: "foreground" },
             });
         });
-        it("[api:DecorationRenderOptions.gutterIconPath] a path string goes as a file URI, a Uri as its string, also in theme branches", () => {
+        it("[api:ThemableDecorationRenderOptions.gutterIconPath] a path string goes as a file URI, a Uri as its string, also in theme branches", () => {
             const data = Uri.parse("data:image/svg+xml,%3Csvg%2F%3E");
             expect(
                 serializeDecorationRenderOptions({
