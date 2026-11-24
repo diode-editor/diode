@@ -53,6 +53,8 @@ export interface IExtensionTextDecoration {
     readonly before?: IExtensionDecorationAttachment;
     /** At `range.end` (the line end with `isWholeLine`). */
     readonly after?: IExtensionDecorationAttachment;
+    /** Raw markdown of the range's `hoverMessage`, as `contents` of a hover provider; absent — none. */
+    readonly hoverMessage?: readonly string[];
 }
 
 /**
