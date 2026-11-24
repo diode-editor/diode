@@ -106,6 +106,8 @@ describe("HoverService — hoverMessage of extension decorations (upstream Markd
         service().close();
         await showAt(0, 19);
         expect(service().isOpen()).toBe(false);
+        await showAt(2, 0);
+        expect(service().isOpen()).toBe(false);
     });
 
     it("blocks: diagnostics, then decorations by where they start, then the providers; each decoration its own block", async () => {

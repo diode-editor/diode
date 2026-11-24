@@ -159,7 +159,7 @@ interface IDecorationType extends IEdgeLayers {
 interface IDecorationRange {
     readonly range: IRange;
     readonly edges: IEdgeLayers;
-    readonly hoverMessage?: readonly string[];
+    readonly hoverMessage: readonly string[] | undefined;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -354,11 +354,7 @@ function decorationTypeOf(options: Record<string, unknown>): IDecorationType {
 }
 
 function decorationRangeOf({ range, renderOptions, hoverMessage }: IWireDecorationOptions): IDecorationRange {
-    return {
-        range,
-        edges: edgeLayersOf(asRecord(renderOptions)),
-        ...(hoverMessage === undefined ? {} : { hoverMessage }),
-    };
+    return { range, edges: edgeLayersOf(asRecord(renderOptions)), hoverMessage };
 }
 
 /**
