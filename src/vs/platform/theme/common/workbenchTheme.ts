@@ -29,8 +29,8 @@ export class WorkbenchTheme {
      * (tuidom STYLES.md, "Color model").
      *
      * `extensionColors` (`contributes.colors`) go under the registry defaults, so a built-in key always
-     * wins. A broken reference in an extension color leaves that color unset instead of failing the theme
-     * (the contributor has already logged it); the theme's own value for such a key wins as for any other.
+     * wins. A broken reference (cycle, unknown key) leaves the color unset: for an extension color the
+     * contributor has logged it, the built-in table is guarded by colorContributions.test.ts.
      */
     public static fromThemeFile(json: IThemeFile, extensionColors: ColorContribution = {}): WorkbenchTheme {
         const kind = themeKindOf(json.type);
@@ -41,12 +41,8 @@ export class WorkbenchTheme {
         };
         const colors: Record<string, number> = {};
         for (const key of Object.keys(merged)) {
-            if (Object.hasOwn(extensionColors, key)) {
-                const value = tryResolveReference(merged, key);
-                if (value !== undefined) colors[key] = parseHexColor(value);
-            } else {
-                colors[key] = parseHexColor(resolveReference(merged, key));
-            }
+            const resolved = followReference(merged, key);
+            if ("value" in resolved) colors[key] = parseHexColor(resolved.value);
         }
 
         const tokenTheme: IEditorTokenTheme = {
@@ -76,29 +72,23 @@ export class WorkbenchTheme {
     }
 }
 
-/** Follows references along the chain; a cycle or a reference to an unregistered key is a color definition error (guarded by colorContributions.test.ts). */
-export function resolveReference(table: Readonly<Record<string, string>>, key: string): string {
+/** Follows references along the chain to a hex value, or names why the chain is broken (a cycle, an unknown key). */
+export function followReference(
+    table: Readonly<Record<string, string>>,
+    key: string,
+): { readonly value: string } | { readonly problem: string } {
     const trail = [key];
     let value = table[key];
     while (isColorReference(value)) {
         if (trail.includes(value)) {
-            throw new Error(`Color reference cycle: ${[...trail, value].join(" → ")}`);
+            return { problem: `Color reference cycle: ${[...trail, value].join(" → ")}` };
         }
         const next = (table as Readonly<Partial<Record<string, string>>>)[value];
         if (next === undefined) {
-            throw new Error(`Color "${trail[trail.length - 1]}" refers to unknown color "${value}"`);
+            return { problem: `Color "${trail[trail.length - 1]}" refers to unknown color "${value}"` };
         }
         trail.push(value);
         value = next;
     }
-    return value;
-}
-
-/** {@link resolveReference} for colors from extensions: a broken chain is `undefined`, not an error. */
-function tryResolveReference(table: Readonly<Record<string, string>>, key: string): string | undefined {
-    try {
-        return resolveReference(table, key);
-    } catch {
-        return undefined;
-    }
+    return { value };
 }

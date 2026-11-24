@@ -1,7 +1,10 @@
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import {
+    type ColorContribution,
+    deriveDefaultColors,
     type IColorDefaults,
+    type IColorDefinition,
     isColorReference,
     type ThemeKind,
 } from "../../../../platform/theme/common/colorRegistry.ts";
@@ -10,7 +13,7 @@ import {
     defaultWorkbenchColors,
 } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import { isHexColor } from "../../../../platform/theme/common/colorUtils.ts";
-import { resolveReference } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { followReference } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { ThemeRegistry } from "../../themes/common/themeRegistry.ts";
 
 /** Upstream `colorIdPattern` (colorExtensionPoint.ts). */
@@ -77,7 +80,8 @@ export function registerExtensionColors(
     registry: ThemeRegistry,
     logger?: ILogger,
 ): void {
-    const registered = new Map<string, { readonly owner: string; readonly defaults: IColorDefaults }>();
+    const owners = new Map<string, string>();
+    const contributed: Record<string, IColorDefinition> = {};
     for (const ext of extensions) {
         const colors = ext.manifest.contributes?.colors;
         if (colors === undefined) continue;
@@ -102,38 +106,37 @@ export function registerExtensionColors(
                 logger?.warn(`${ext.id}: color "${id}" is a built-in color — the contribution is ignored`);
                 continue;
             }
-            const previous = registered.get(id);
-            if (previous !== undefined) {
+            const owner = owners.get(id);
+            if (owner !== undefined) {
                 logger?.warn(
-                    `${ext.id}: color "${id}" is already contributed by ${previous.owner} — the contribution is ignored`,
+                    `${ext.id}: color "${id}" is already contributed by ${owner} — the contribution is ignored`,
                 );
                 continue;
             }
             const colorDefaults: IColorDefaults = { dark: defaults.dark, light: defaults.light };
-            registered.set(id, { owner: ext.id, defaults: colorDefaults });
+            owners.set(id, ext.id);
+            contributed[id] = { defaults: colorDefaults, description };
             registry.registerColor(id, colorDefaults, description);
         }
     }
-    warnBrokenReferences(registered, logger);
+    warnBrokenReferences(contributed, owners, logger);
 }
 
 /** Checked once against the registry defaults, not on every theme `resolve`. */
 function warnBrokenReferences(
-    registered: ReadonlyMap<string, { readonly owner: string; readonly defaults: IColorDefaults }>,
+    contributed: ColorContribution,
+    owners: ReadonlyMap<string, string>,
     logger?: ILogger,
 ): void {
     const reported = new Set<string>();
     for (const kind of THEME_KINDS) {
-        const table: Record<string, string> = { ...defaultWorkbenchColors(kind) };
-        for (const [id, { defaults }] of registered) table[id] = defaults[kind];
-        for (const [id, { owner }] of registered) {
-            try {
-                resolveReference(table, id);
-            } catch (err) {
-                const message = `${owner}: color "${id}" is left unset — ${(err as Error).message}`;
-                if (!reported.has(message)) logger?.warn(message);
-                reported.add(message);
-            }
+        const table = { ...deriveDefaultColors(contributed, kind), ...defaultWorkbenchColors(kind) };
+        for (const [id, owner] of owners) {
+            const resolved = followReference(table, id);
+            if (!("problem" in resolved)) continue;
+            const message = `${owner}: color "${id}" is left unset — ${resolved.problem}`;
+            if (!reported.has(message)) logger?.warn(message);
+            reported.add(message);
         }
     }
 }
