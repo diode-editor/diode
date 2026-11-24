@@ -753,6 +753,8 @@ describe("DecorationsCustomer — before/after attachments", () => {
         // GitLens's file blame.
         expect(await marginOf("0 26px -1px 0")).toStrictEqual({ left: undefined, right: 3 });
         expect(await marginOf("  0\t1ch  0 2ch ")).toStrictEqual({ left: 2, right: 1 });
+        // Whitespace inside calc() doesn't split, and the values after it are split again.
+        expect(await marginOf("0 calc(1ch + 2ch) 0 1ch")).toStrictEqual({ left: 1, right: 3 });
     });
 
     it("lengths become cells: ch as is, em and rem twice, 8 px a cell, calc() by its ch addends; the rest and negatives are none", async () => {

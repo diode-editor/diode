@@ -421,6 +421,20 @@ describe("EditorComponent — setExtensionTextDecorations", () => {
         expect(app.backend.getBgAt(new Point(GUTTER + 5, 0))).toBe(selected);
     });
 
+    it("a selection over an attachment's margin leaves its cells alone, as the attachment's own", () => {
+        const { pane, app, row } = open("ab cd");
+        pane.setExtensionTextDecorations({
+            key: 1,
+            decorations: [deco(createRange(0, 0, 0, 1), { after: text("T", { marginLeft: 2 }) })],
+        });
+        const editorBg = app.backend.getBgAt(new Point(GUTTER + 30, 0));
+        pane.viewState.selections = [createSelection(0, 0, 0, 5)];
+        app.render();
+        expect(row()).toBe("a  Tb cd");
+        expect(app.backend.getBgAt(new Point(GUTTER, 0))).not.toBe(editorBg);
+        for (let x = 1; x < 4; x++) expect(app.backend.getBgAt(new Point(GUTTER + x, 0)), `cell ${x}`).toBe(editorBg);
+    });
+
     it("[api:TextEditor.setDecorations] a type with only opacity or only attributes reaches the frame; its text cells stay as they are", () => {
         const { pane, app } = open("dead\nstrike\nkeep");
         const fgAt = (x: number, y: number) => app.backend.getFgAt(new Point(GUTTER + x, y));
