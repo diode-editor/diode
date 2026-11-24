@@ -15,9 +15,12 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-debug-demo
 const folder = mkdtempSync(join(tmpdir(), "diode-debug-launcher-"));
 const helloC = join(folder, "hello.c");
 
-/** The Run and Debug title: the second row; in the default sidebar the launcher's label is cut to 8 columns. */
+/**
+ * The Run and Debug title: the third row (under the menu bar and the frame's top line); in the default sidebar the
+ * launcher's label is cut to 8 columns.
+ */
 function title(text: string): string {
-    return text.split("\n")[1] ?? "";
+    return text.split("\n")[2] ?? "";
 }
 
 export default defineScenario({
@@ -26,7 +29,8 @@ export default defineScenario({
     seedUserData: userData,
     open: [folder, helloC],
     cols: 120,
-    rows: 32,
+    // The welcome's "create a launch.json" is its fifth row: a taller window gives VARIABLES the room for it.
+    rows: 36,
     async prepare() {
         copyFileSync(resolve(repoRoot, "e2e", "fixtures", "debug-provider", "hello.c"), helloC);
     },

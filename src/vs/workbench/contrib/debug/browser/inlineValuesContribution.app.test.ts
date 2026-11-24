@@ -49,10 +49,10 @@ describe("Inline values in the editor", () => {
         fs.rmSync(root, { recursive: true, force: true });
     });
 
-    /** The text of the screen row of `code`, from its start. */
+    /** The text of the screen row of `code`, from its start to the editor group's frame line on the right. */
     function rowOf(code: string): string {
         const at = t.find(code);
-        return t.lines()[at.y].slice(at.x).trimEnd();
+        return t.lines()[at.y].slice(at.x).replace(/│\s*$/u, "").trimEnd();
     }
 
     it("on: the stop shows the values after the lines up to it; a step and a continue update them", async () => {
@@ -78,8 +78,8 @@ describe("Inline values in the editor", () => {
 
         t.h.testApp.sendKey("F10");
         await vi.waitFor(() => {
-            // `i` follows, cut by the editor's edge.
-            expect(rowOf("sum += nums[i];")).toMatch(/^sum \+= nums\[i\]; {2}sum = 0, nums = size=1000/);
+            // `i` follows, cut by the editor's edge (inside the group's frame).
+            expect(rowOf("sum += nums[i];")).toMatch(/^sum \+= nums\[i\]; {2}sum = 0, nums = size=100/);
         });
 
         t.h.testApp.sendKey("F5");

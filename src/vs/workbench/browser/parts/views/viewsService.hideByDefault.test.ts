@@ -110,7 +110,7 @@ describe("ViewsService — hideByDefault", () => {
         const state = view.inspectState() as { panes: { id: string; bodyHeight: number }[] };
         expect(state.panes.map((pane) => [pane.id, pane.bodyHeight])).toEqual([
             ["openEditors", 4],
-            ["files", 16],
+            ["files", 13], // 22 − 2 headers − 3 lines − 4
         ]);
     });
 
@@ -125,7 +125,7 @@ describe("ViewsService — hideByDefault", () => {
         const state = view.inspectState() as { panes: { id: string; bodyHeight: number }[] };
         expect(state.panes.map((pane) => [pane.id, pane.bodyHeight])).toEqual([
             ["openEditors", 4],
-            ["files", 16],
+            ["files", 13], // 22 − 2 headers − 3 lines − 4
         ]);
     });
 

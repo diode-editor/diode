@@ -16,6 +16,14 @@ const SHOW_PROBE_LOG = `workbench.action.output.show.extensions.${PROBE_ID}.shel
 const EXECUTE = "shellIntegrationProbe.executeCommand";
 const probeVsix = join(mkdtempSync(join(tmpdir(), "diode-probe-")), `${PROBE_ID}-0.0.1.vsix`);
 
+/** The screen without the frame side lines `│` that open and close every row of the terminal editor. */
+function unframed(text: string): string {
+    return text
+        .split("\n")
+        .map((row) => row.replace(/^│/u, "").replace(/│\s*$/u, ""))
+        .join("\n");
+}
+
 export default defineScenario({
     name: "shell-integration-execute-command",
     title: "executeCommand: waits for the prompt of a new terminal, clears typed text, quotes arguments",
@@ -34,7 +42,11 @@ export default defineScenario({
     prepare() {
         const result = spawnSync(
             process.execPath,
-            [join(repoRoot, "scripts", "pack-vsix.mjs"), resolve(repoRoot, "e2e", "marketplace", "shell-integration-probe"), probeVsix],
+            [
+                join(repoRoot, "scripts", "pack-vsix.mjs"),
+                resolve(repoRoot, "e2e", "marketplace", "shell-integration-probe"),
+                probeVsix,
+            ],
             { encoding: "utf8" },
         );
         if (result.status !== 0) throw new Error(`pack-vsix: ${result.stderr}`);
@@ -54,23 +66,26 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Command line to execute"), { timeoutMs: 30_000 });
         await editor.sendText("echo hi");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => /\$ echo hi\s*$/mu.test(t) && /^hi\s*$/mu.test(t), { timeoutMs: 30_000 });
+        await editor.waitForText((t) => /\$ echo hi\s*$/mu.test(unframed(t)) && /^hi\s*$/mu.test(unframed(t)), {
+            timeoutMs: 30_000,
+        });
         await editor.sendKey("F8");
         await editor.waitForText(
-            (t) => t.includes('start: "echo hi" (High, trusted)') && t.includes('end: "echo hi" (High, trusted) exit=0'),
+            (t) =>
+                t.includes('start: "echo hi" (High, trusted)') && t.includes('end: "echo hi" (High, trusted) exit=0'),
             { timeoutMs: 15_000 },
         );
         await editor.capture("new-terminal");
 
         // Text left on the prompt: Ctrl+C clears it, only the command runs.
         await editor.sendText("abc");
-        await editor.waitForText((t) => /\$ abc\s*$/mu.test(t));
+        await editor.waitForText((t) => /\$ abc\s*$/mu.test(unframed(t)));
         await editor.sendKey("F9");
         await editor.waitForText((t) => t.includes("Command line to execute"));
         await editor.sendText("echo ok");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes('end: "echo ok" (High, trusted) exit=0'), { timeoutMs: 15_000 });
-        await editor.waitForText((t) => /\$ abc\^C\s*$/mu.test(t) && /^ok\s*$/mu.test(t));
+        await editor.waitForText((t) => /\$ abc\^C\s*$/mu.test(unframed(t)) && /^ok\s*$/mu.test(unframed(t)));
         await editor.capture("typed-text-cleared");
 
         // An executable and its arguments.
@@ -81,7 +96,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes('end: "echo \\"a b\\" c" (High, trusted) exit=0'), {
             timeoutMs: 15_000,
         });
-        await editor.waitForText((t) => t.includes('$ echo "a b" c') && /^a b c\s*$/mu.test(t));
+        await editor.waitForText((t) => t.includes('$ echo "a b" c') && /^a b c\s*$/mu.test(unframed(t)));
         await editor.capture("arguments");
     },
 });

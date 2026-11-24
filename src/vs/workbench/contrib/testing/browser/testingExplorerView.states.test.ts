@@ -164,9 +164,9 @@ describe("Test Explorer — the summary in detail", () => {
         second.state(["c", "b"], Running);
         clock = 30;
         await explorer.waitFrame((text) => text.includes(" 1/2 20ms"));
-        const line = explorer.lines()[2];
+        const line = explorer.lines()[3];
         expect(line.trimEnd()).toMatch(/1\/2 20ms$/);
-        expect(explorer.fgAt(1, 2)).not.toBe(red);
+        expect(explorer.fgAt(1, 3)).not.toBe(red);
     });
 });
 

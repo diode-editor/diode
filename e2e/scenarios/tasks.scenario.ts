@@ -52,7 +52,8 @@ export default defineScenario({
         });
         await runCommand(editor, "Tasks: Rerun Last Task");
         await editor.waitForText((t) => {
-            const pid = /about to fail in (\d+)\s*$/mu.exec(t.split("Executing task").at(-1) ?? "")?.[1];
+            // The pid ends its line; the panel's frame line `│` closes the row.
+            const pid = /about to fail in (\d+)\s*│$/mu.exec(t.split("Executing task").at(-1) ?? "")?.[1];
             return pid !== undefined && pid !== firstPid && t.includes("exit code: 3.");
         });
         await editor.capture("rerun-same-terminal");

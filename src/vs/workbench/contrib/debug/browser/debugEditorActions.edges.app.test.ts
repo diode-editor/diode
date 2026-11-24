@@ -15,6 +15,7 @@ import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 import { REPL_VIEW_ID } from "../common/debug.ts";
 
 import { RUN_TO_CURSOR_ID } from "./debugEditorActions.ts";
@@ -166,6 +167,8 @@ describe("The editor's commands while debugging, on the edges", () => {
     });
 
     it("the exception's badge goes away when the program runs on", async () => {
+        // The editor group's frame takes two columns: the sidebar gives them back, the badge's text fits as before.
+        t.h.container.get(LayoutServiceDIToken).nudgeSidebarWidth(-2);
         await start();
         for (const line of [28, 29, 30]) {
             editor().focusEditor();

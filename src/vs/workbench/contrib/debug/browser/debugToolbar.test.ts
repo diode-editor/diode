@@ -4,6 +4,7 @@
 
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
+import { TAB_HEIGHT } from "@tuidom/elements/editorgroup/editorTabItemElement";
 import { SelectBoxElement } from "@tuidom/elements/selectbox/selectBoxElement";
 import { describe, expect, it } from "vitest";
 
@@ -11,6 +12,7 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IMenuEntryGroup, ResolvedMenuEntry } from "../../../../platform/actions/common/menuRegistry.ts";
+import { CORNER_RIGHT_MARGIN } from "../../../browser/parts/editor/cornerDockElement.ts";
 import { GroupCornerStack } from "../../../browser/parts/editor/groupCornerStack.ts";
 import { State } from "../common/debug.ts";
 
@@ -93,10 +95,13 @@ function setup(initial: Partial<IFakes> = {}) {
     };
 }
 
+/** The tab strip, the toolbar's three rows and a row for find under it. */
+const GROUP_HEIGHT = TAB_HEIGHT + 4;
+
 /** Two frames: the dock reports the group's width after the first, and the toolbar picks its labels by it. */
 async function frame(host: OverlayHostElement | null, width = 40): Promise<TestApp> {
     if (host === null) throw new Error("no host");
-    const app = TestApp.createWithContent(host, new Size(width, 5));
+    const app = TestApp.createWithContent(host, new Size(width, GROUP_HEIGHT));
     app.render();
     await Promise.resolve();
     app.render();
@@ -113,7 +118,7 @@ describe("DebugToolbar on fakes", () => {
 
         expect(await screen(fakes.host)).toContain("▶ Go");
         expect(fakes.host?.querySelector("#debugToolbar")).not.toBeNull();
-        expect(corners.topOf(1, 1)).toBe(4);
+        expect(corners.topOf(1, 1)).toBe(TAB_HEIGHT + 3);
     });
 
     it("hidden while inactive, even with sessions that would show it", async () => {
@@ -183,7 +188,7 @@ describe("DebugToolbar on fakes", () => {
 
         toolbar.dispose();
         expect(await screen(fakes.host)).not.toContain("Go");
-        expect(corners.topOf(1, 1)).toBe(1);
+        expect(corners.topOf(1, 1)).toBe(TAB_HEIGHT);
     });
 
     it("a group the view layer does not know gets no toolbar; the next known one does", async () => {
@@ -194,13 +199,13 @@ describe("DebugToolbar on fakes", () => {
         expect(await screen(fakes.host)).toContain("▶ Go");
     });
 
-    it("labels while the toolbar and a column of margin fit in the group, glyphs only below that", async () => {
+    it("labels while the toolbar and its margin (the frame line and a column) fit in the group, glyphs only below that", async () => {
         // `▶ Go` + the box and its padding: 8 columns, and the margin.
         const fits = setup();
-        expect(await screen(fits.fakes.host, 9)).toContain("▶ Go");
+        expect(await screen(fits.fakes.host, 8 + CORNER_RIGHT_MARGIN)).toContain("▶ Go");
 
         const narrow = setup();
-        const shown = await screen(narrow.fakes.host, 8);
+        const shown = await screen(narrow.fakes.host, 8 + CORNER_RIGHT_MARGIN - 1);
         expect(shown).toContain("▶");
         expect(shown).not.toContain("Go");
     });

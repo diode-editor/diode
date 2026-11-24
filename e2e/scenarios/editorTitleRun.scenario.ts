@@ -13,7 +13,8 @@ import { defineScenario, repoRoot } from "./framework.ts";
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-editor-title-run-"));
 const sampleFile = join(sampleDir, "hello.demo.txt");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-run-button");
-const TAB_ROW = 1;
+// Row 1 is the tabs' top line, row 2 the tab labels and the title buttons.
+const TAB_ROW = 2;
 const ARROW = "▾";
 const tabRow = (text: string): string => text.split("\n")[TAB_ROW] ?? "";
 

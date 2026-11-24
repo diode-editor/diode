@@ -19,8 +19,8 @@ export const CLOSE_AUXILIARY_BAR_COMMAND_ID = "workbench.action.closeAuxiliaryBa
 
 /**
  * Upstream `AuxiliaryBarPart` has no colors of its own: background and text come from `sideBar.*`,
- * tabs from `panelTitle.*`. The first column belongs to the sash; upstream draws
- * `sideBar.border` there.
+ * tabs from `panelTitle.*`. The part sits in a frame like the sidebar (docs/arch/workbench/Frames.md);
+ * its messages keep a column off the frame's line.
  */
 export class AuxiliaryBarComponent extends PaneCompositePartComponent implements IContextKeyContributor {
     public static dependencies = [AuxiliaryBarServiceDIToken, CommandRegistryDIToken] as const;
@@ -32,7 +32,6 @@ export class AuxiliaryBarComponent extends PaneCompositePartComponent implements
         super(auxiliaryBarService, commands, "auxiliarybar", CLOSE_AUXILIARY_BAR_COMMAND_ID, {
             background: "sideBar.background",
             foreground: "sideBar.foreground",
-            topBorder: false,
             contentLeft: 1,
             // Deviation: upstream says "Drag a view here to display.", but we have no view drag and drop.
             emptyMessage: EMPTY_AUXILIARY_BAR_MESSAGE,

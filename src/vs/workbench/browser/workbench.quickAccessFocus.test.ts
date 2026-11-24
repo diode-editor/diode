@@ -94,7 +94,8 @@ describe("Workbench — accepting a location in quick access focuses the editor"
         h.testApp.sendKey("t");
         await waitUntil("the row", () => {
             h.testApp.render();
-            return h.testApp.backend.screenToString().includes("third");
+            // The picker's row (symbol and its file), not the buffer's own `third` line below the picker.
+            return /third\s+a\.txt/u.test(h.testApp.backend.screenToString());
         });
         h.testApp.sendKey("Enter");
         await waitUntil("the jump", () => h.activeEditor().viewState.primaryCursorLine === 2);

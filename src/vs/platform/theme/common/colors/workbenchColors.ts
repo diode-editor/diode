@@ -56,6 +56,14 @@ export const workbenchColors = {
         defaults: { dark: "#FFFFFF80", light: "#868686" },
         description: "Inactive Tab foreground color in an active group.",
     },
+    // Deviation: upstream defaults to #252526 / #F3F3F3. Our tabs are boxes on the editor frame's top
+    // line, drawn in this color; a theme without its own tab.border gets the part frames' color, so
+    // the tabs and the frame below them are one line.
+    "tab.border": {
+        defaults: { dark: "panel.border", light: "panel.border" },
+        description:
+            "Border to separate tabs from each other. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups.",
+    },
     "panel.background": {
         defaults: { dark: "#181818", light: "#F8F8F8" },
         description: "Panel background color.",

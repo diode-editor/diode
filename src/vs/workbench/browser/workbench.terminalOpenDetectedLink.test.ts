@@ -102,11 +102,17 @@ describe("Workbench — Terminal: Open Detected Link", () => {
     /** The frame's lines that hold `text`, blanks collapsed; the picker is above the terminal. */
     function frameLines(text: string): string[] {
         h.testApp.render();
-        return h.testApp.backend
-            .screenToString()
-            .split("\n")
-            .filter((line) => line.includes(text))
-            .map((line) => line.replace(/\s+/g, " ").trim());
+        return (
+            h.testApp.backend
+                .screenToString()
+                .split("\n")
+                .filter((line) => line.includes(text))
+                // The quick pick row between its own side lines (the parts' frames run outside them).
+                .map((line) => {
+                    const inner = line.split("│").find((segment) => segment.includes(text)) ?? "";
+                    return `│ ${inner.replace(/\s+/g, " ").trim()} │`;
+                })
+        );
     }
 
     /** `_` per underlined cell of the widget row, trailing blanks trimmed. */

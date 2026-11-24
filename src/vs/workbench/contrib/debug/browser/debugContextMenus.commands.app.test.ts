@@ -35,7 +35,9 @@ describe("Run and Debug: the commands of the rows' menus", () => {
     let shown: MenuEntry[][];
 
     beforeEach(async () => {
-        t = await createDebugViewletHarness(process.cwd());
+        // The sidebar's frame, its container line and the lines around the section headers take 11 rows: the
+        // sections keep the heights they had in 50, where a watch's member is on screen.
+        t = await createDebugViewletHarness(process.cwd(), undefined, { height: 61 });
         shown = [];
         const contextMenu = t.h.container.get(ContextMenuServiceDIToken);
         const show = contextMenu.showContextMenu.bind(contextMenu);
@@ -286,14 +288,23 @@ describe("Run and Debug: the commands of the rows' menus", () => {
     it("Copy of an evaluation in the Debug Console asks the adapter for the clipboard form", async () => {
         await startStopped();
         t.h.container.get(ViewsServiceDIToken).openView(REPL_VIEW_ID, true);
-        t.h.container.get(ReplDIToken).focus();
+        const repl = t.h.container.get(ReplDIToken);
+        repl.focus();
         for (const char of "count") t.h.testApp.sendKey(char);
         t.h.testApp.sendKey("Enter");
+        // The console's own columns of a screen row, without the scrollbar.
+        const consoleText = (line: string): string => {
+            const left = repl.view.globalPosition.x;
+            return line
+                .slice(left, left + repl.view.layoutSize.width)
+                .replace(/[█░▀▄]/gu, "")
+                .trim();
+        };
         await vi.waitFor(() => {
-            expect(t.lines().some((line) => line.replace(/[█░▀▄]/gu, "").trim() === "0")).toBe(true);
+            expect(t.lines().some((line) => consoleText(line) === "0")).toBe(true);
         });
-        const answer = t.lines().findLastIndex((line) => line.replace(/[█░▀▄]/gu, "").trim() === "0");
-        const x = t.lines()[answer].indexOf("0");
+        const answer = t.lines().findLastIndex((line) => consoleText(line) === "0");
+        const x = t.lines()[answer].indexOf("0", repl.view.globalPosition.x);
         mouse(x, answer, "right");
         await vi.waitFor(() => {
             expect(shown.at(-1)?.length).toBeGreaterThan(0);

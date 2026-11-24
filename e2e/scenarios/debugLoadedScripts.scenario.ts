@@ -40,7 +40,10 @@ export default defineScenario({
         if (include === null) throw new Error("no /usr/include");
         await editor.click(include.x + 2, include.y);
         await editor.sendKey("ArrowRight");
-        await editor.waitForText((t) => t.includes("stdio.h") && t.includes("string.h"));
+        await editor.waitForText((t) => t.includes("stdio.h") && t.includes("stdlib.h"));
+        // The pane shows three rows: walk down to string.h (from the `loadedSource` event) so the tree scrolls to it.
+        for (let i = 0; i < 3; i++) await editor.sendKey("ArrowDown");
+        await editor.waitForText((t) => t.includes("string.h"));
         await editor.capture("view");
 
         await editor.sendKey("F1");

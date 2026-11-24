@@ -1,5 +1,8 @@
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
+
+import type { IFrameJointSource } from "../frameElement.ts";
 
 import type { IPaneMenuAnchor } from "./paneHeaderElement.ts";
 import { PaneHeaderElement } from "./paneHeaderElement.ts";
@@ -61,8 +64,13 @@ interface PaneRecord {
  * Stack of collapsible sections (like upstream PaneView/SplitView). Expanded bodies split the remaining
  * height by weight; a collapsed body stays in the tree with `hidden = true`. The boundary is the header of
  * the lower section: dragging it moves rows between neighbors and freezes the weights to the actual heights.
+ *
+ * Headers sit in bands of their own (docs/arch/workbench/Frames.md): a line above every header but the
+ * first, and one under the header of an expanded section, so its buttons stand apart from the content.
+ * A collapsed section's header needs no line of its own: the next one's line closes it. The lines run
+ * the whole width; the part's frame meets them with joints ({@link getFrameJointRows}).
  */
-export class PaneViewElement extends TUIElement {
+export class PaneViewElement extends TUIElement implements IFrameJointSource {
     /** Fires only on user action, not from performLayout or programmatic setters. */
     public onDidChangeState?: () => void;
     public onDidRequestPaneMenu?: (paneId: string, anchor: IPaneMenuAnchor) => void;
@@ -283,29 +291,59 @@ export class PaneViewElement extends TUIElement {
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
-        const headerRows = this.panes.filter((p) => p.headerVisible).length;
-        const avail = Math.max(0, size.height - headerRows);
+        const headed = this.panes.filter((p) => p.headerVisible);
+        // A line above every header but the first, and one under every expanded header.
+        const lineRows = Math.max(0, headed.length - 1) + headed.filter((p) => !p.collapsed).length;
+        const avail = Math.max(0, size.height - headed.length - lineRows);
         const heights = this.computeBodyHeights(avail);
 
+        const separators: number[] = [];
+        // A separator row, when there is room for it: past the bottom it is clipped like a header.
+        const addSeparator = (y: number): number => {
+            if (y >= size.height) return y;
+            separators.push(y);
+            return y + 1;
+        };
         let y = 0;
+        let headersSoFar = 0;
         for (let i = 0; i < this.panes.length; i++) {
             const pane = this.panes[i];
+            if (pane.headerVisible && headersSoFar > 0) y = addSeparator(y);
             // Headers are always laid out: when height runs short, trailing ones
             // are clipped to zero height (nesting invariant). A section without a
             // header (panel tab) takes no row for it.
             const headerHeight = pane.headerVisible ? Math.max(0, Math.min(1, size.height - y)) : 0;
             this.layoutChild(pane.header, 0, y, BoxConstraints.tight(new Size(size.width, headerHeight)));
             y += headerHeight;
+            if (pane.headerVisible) headersSoFar++;
             if (pane.collapsed) {
                 pane.lastBodyHeight = 0;
                 continue;
             }
+            if (pane.headerVisible) y = addSeparator(y);
             const bodyHeight = Math.max(0, Math.min(heights[i], size.height - y));
             this.layoutChild(pane.body, 0, y, BoxConstraints.tight(new Size(size.width, bodyHeight)));
             pane.lastBodyHeight = bodyHeight;
             y += bodyHeight;
         }
+        this.separatorRows = separators;
         return size;
+    }
+
+    private separatorRows: readonly number[] = [];
+
+    public getFrameJointRows(): readonly number[] {
+        return this.separatorRows;
+    }
+
+    public override render(context: RenderContext): void {
+        this.paintOwnBackground(context);
+        const fg = this.styleVar("panel.border");
+        const bg = this.resolvedStyle.bg;
+        for (const row of this.separatorRows) {
+            for (let x = 0; x < this.layoutSize.width; x++) context.setCell(x, row, { char: "─", fg, bg });
+        }
+        this.renderChildren(context);
     }
 
     /** Body heights by section index (0 for collapsed ones and those past the available height). */

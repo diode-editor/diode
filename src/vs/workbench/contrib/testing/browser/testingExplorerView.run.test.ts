@@ -133,7 +133,7 @@ describe("Test Explorer — a run from the title", () => {
         let clock = 10_000;
         const explorer = await withTests({ now: () => clock, progress: { delayMs: 0 } });
         expect(titleButtons(explorer)).toContain("▷");
-        expect(explorer.lines()[2]).toContain("No test results yet.");
+        expect(explorer.lines()[3]).toContain("No test results yet.");
         void explorer.views.commands.execute("testing.runSelected");
         expect(explorer.saves).toHaveLength(1);
         await vi.waitFor(() => {
@@ -163,7 +163,7 @@ describe("Test Explorer — a run from the title", () => {
         // The parents show the highest priority: Running.
         expect(explorer.lines().find((line) => line.includes(" math "))).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] math/);
         // No rerun while it runs.
-        expect(explorer.lines()[2]).not.toContain("↻");
+        expect(explorer.lines()[3]).not.toContain("↻");
         run.state(ADDS, Passed, 12);
         run.state(FAILS, Failed, 3400);
         clock += 2000;
@@ -171,7 +171,7 @@ describe("Test Explorer — a run from the title", () => {
         await explorer.waitFrame((text) => text.includes("✗ 1/2 3.5s"));
         expect(titleButtons(explorer)).toContain("▷");
         expect(explorer.views.contextKeys.get("testing.isRunning")).toBe(false);
-        expect(explorer.lines()[2]).toMatch(/✗ 1\/2 3\.5s\s+↻/);
+        expect(explorer.lines()[3]).toMatch(/✗ 1\/2 3\.5s\s+↻/);
         const frame = explorer.frame();
         expect(frame).toContain("✓ adds 12ms");
         expect(frame).toContain("✗ fails 3.4s");
@@ -296,7 +296,7 @@ describe("Test Explorer — results", () => {
         second.end();
         // `adds` keeps its state from the first run.
         await explorer.waitFrame((text) => text.includes("✓ fails 1.0ms") && text.includes("✓ adds 12ms"));
-        expect(explorer.lines()[2]).toContain("✓ 1/1");
+        expect(explorer.lines()[3]).toContain("✓ 1/1");
         // Nothing failed any more: nothing to rerun.
         void explorer.views.commands.execute("testing.reRunFailTests");
         expect(explorer.runs).toHaveLength(2);
@@ -383,7 +383,7 @@ describe("Test Explorer — results", () => {
         await explorer.waitFrame(
             (text) => text.includes("↷ adds") && text.includes("↷ fails") && text.includes("⊙ slow 5.0ms"),
         );
-        expect(explorer.lines()[2]).toContain("⊙ 0/1");
+        expect(explorer.lines()[3]).toContain("⊙ 0/1");
         void Skipped;
     });
 

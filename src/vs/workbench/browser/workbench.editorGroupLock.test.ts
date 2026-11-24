@@ -36,7 +36,14 @@ describe("Workbench: locked editor group (terminal beside the file)", () => {
         h.testApp.render();
         return h.testApp.backend.screenToString();
     };
-    const tabRow = (): string => screen().split("\n")[1];
+    /** The tabs' label row (row 1 of the 3-row tab boxes): the title buttons sit on it too. */
+    const labelY = (): number => {
+        h.testApp.render();
+        const strip = h.testApp.querySelector("EditorTabStripElement");
+        expect(strip).not.toBeNull();
+        return strip!.globalPosition.y + 1;
+    };
+    const tabRow = (): string => screen().split("\n")[labelY()];
     const openFromScm = (name: string) => h.commands.execute("scm.action.openFile", Uri.file(ws.path(name)).toString());
 
     const click = (x: number, y: number): void => {
@@ -120,7 +127,7 @@ describe("Workbench: locked editor group (terminal beside the file)", () => {
         await openFromScm("b.txt");
         expect(groups().activeGroup).toBe(left);
 
-        click(tabRow().indexOf(LOCK_GLYPH), 1);
+        click(tabRow().indexOf(LOCK_GLYPH), labelY());
 
         expect(right.isLocked).toBe(false);
         expect(tabRow()).not.toContain(LOCK_GLYPH);

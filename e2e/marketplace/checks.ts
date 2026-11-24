@@ -754,9 +754,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await typeKeys("def f(x):");
                 await app.session.key("Enter");
                 await typeKeys("y");
-                // The second row of the frame, with the indent guide in the first column of the indent.
+                // The second row of the frame, with the indent guide in the first column of the indent; the group
+                // frame's right line closes the row.
                 await app.session.waitForText(
-                    (text) => /\b2\s+\S\s{3}y\s*$/m.test(text) && text.includes("Ln 2, Col 6"),
+                    (text) => /\b2\s+\S\s{3}y\s*│?$/m.test(text) && text.includes("Ln 2, Col 6"),
                     {
                         timeoutMs: 20_000,
                     },

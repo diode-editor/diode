@@ -31,9 +31,11 @@ const ITALIC = 2;
 async function expectItalic(editor: ScenarioDriver, label: string, italic: boolean): Promise<void> {
     const strip = await editor.waitForNode("EditorTabStripElement");
     const frame = await editor.captureFrame();
-    const x = frameLine(frame, strip.box.y).indexOf(label);
-    if (x < 0) throw new Error(`"${label}" not in the tab strip row`);
-    const isItalic = (frame.cells[strip.box.y * frame.cols + x].style & ITALIC) !== 0;
+    // Tabs are 3-row boxes: the label sits on the middle row, between the tops and the baseline.
+    const labelRow = strip.box.y + 1;
+    const x = frameLine(frame, labelRow).indexOf(label);
+    if (x < 0) throw new Error(`"${label}" not in the tab label row`);
+    const isItalic = (frame.cells[labelRow * frame.cols + x].style & ITALIC) !== 0;
     if (isItalic !== italic) throw new Error(`tab "${label}" is ${isItalic ? "" : "not "}italic`);
 }
 

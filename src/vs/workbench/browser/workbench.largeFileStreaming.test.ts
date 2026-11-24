@@ -50,7 +50,8 @@ describe("Workbench — Enable Editing while the file changes on disk", { timeou
         ws = createTempWorkspace({ prefix: "diode-stream-wb-", files: { "app.log": bigLog() } });
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
-            size: new Size(120, 30),
+            // Wide enough for a whole log line beside the 30-column sidebar, inside the editor group frame.
+            size: new Size(124, 30),
             configurationService: createTestConfigurationService({ "editor.largeFileSizeThreshold": 1 }),
             containerOverrides: (container) => {
                 container.bind(IFileWatcherDIToken, () => watcher);
@@ -190,7 +191,8 @@ describe("Workbench — a reload of a large buffer in memory", { timeout: 2 * ST
         ws = createTempWorkspace({ prefix: "diode-stream-reload-wb-", files: { "app.log": bigLog() } });
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
-            size: new Size(120, 30),
+            // Wide enough for a whole log line beside the 30-column sidebar, inside the editor group frame.
+            size: new Size(124, 30),
             configurationService: createTestConfigurationService({ "editor.largeFileSizeThreshold": 1 }),
             containerOverrides: (container) => {
                 container.bind(IFileWatcherDIToken, () => watcher);

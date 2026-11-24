@@ -48,7 +48,6 @@ describe("Workbench — the terminal's text selection, edges", () => {
     let h: IAppHarness;
     let sessions: ExtensionPtySession[];
     let cols: number[];
-    let rowsOf: number[];
     /** What reached the shell, per session. */
     let input: string[][];
 
@@ -60,7 +59,6 @@ describe("Workbench — the terminal's text selection, edges", () => {
         ws = createTempWorkspace({ prefix: "diode-terminal-selection-edges-", files: { "a.txt": "alpha beta\n" } });
         sessions = [];
         cols = [];
-        rowsOf = [];
         input = [];
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -72,7 +70,6 @@ describe("Workbench — the terminal's text selection, edges", () => {
                     const written: string[] = [];
                     input.push(written);
                     cols.push(options.cols);
-                    rowsOf.push(options.rows);
                     const session = new ExtensionPtySession({
                         cols: options.cols,
                         rows: options.rows,
@@ -130,13 +127,14 @@ describe("Workbench — the terminal's text selection, edges", () => {
         return h.testApp.backend.getBgAt(new Point(x + col, y + row));
     }
 
+    /** A row of the widget, its own cells only: the session's initial 80 columns would run into the panel's frame. */
     function rowText(row: number): string {
         const { x, y } = widget().globalPosition;
-        return h.testApp.backend.getTextAt(new Point(x, y + row), cols[0]);
+        return h.testApp.backend.getTextAt(new Point(x, y + row), widget().layoutSize.width);
     }
 
     function findRow(text: string): number {
-        for (let row = 0; row < rowsOf[0]; row++) {
+        for (let row = 0; row < widget().layoutSize.height; row++) {
             if (rowText(row).includes(text)) return row;
         }
         return -1;

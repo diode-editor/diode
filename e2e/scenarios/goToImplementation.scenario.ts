@@ -23,6 +23,7 @@ export default defineScenario({
     cols: 100,
     rows: 24,
     skipOn: ["win32", "darwin"],
+    userKeybindings: [{ key: "f7", command: "workbench.action.increaseSidebarWidth" }],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const reply"));
 
@@ -43,6 +44,8 @@ export default defineScenario({
         // `area` in the interface (line 1, column 4).
         await editor.sendKey("ArrowDown");
         for (let i = 0; i < 4; i++) await editor.sendKey("ArrowRight");
+        // The default framed sidebar clips the "Implementations" title.
+        await editor.sendKey("F7");
         await editor.sendKey("Ctrl+F12");
         await editor.waitForText((t) => t.includes("Implementations") && t.includes("2 results in 1 file"), {
             timeoutMs: 60_000,

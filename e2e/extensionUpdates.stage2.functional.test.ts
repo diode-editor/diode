@@ -184,9 +184,11 @@ async function toastText(app: HeadlessApp, head: string): Promise<string> {
     const lines = (await waitForScreen(app, head)).split("\n");
     const first = lines.findIndex((line) => line.includes(head));
     const border = lines[first]!.lastIndexOf("│", lines[first]!.indexOf(head));
+    // The toast's right border is not the line's last "│": the editor group's frame line follows it.
+    const right = lines[first]!.indexOf("│", lines[first]!.indexOf(head));
     return lines
         .slice(first)
-        .map((line) => line.slice(border + 1).replace(/│\s*$/u, ""))
+        .map((line) => line.slice(border + 1, right))
         .join(" ")
         .replace(/\s+/gu, " ");
 }
