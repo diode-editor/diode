@@ -77,7 +77,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — inlay hints from the sto
                 // The hints push the line over the column, so it takes two rows. When the column is the edge of the
                 // viewport (`wordWrap: on` in a narrow terminal), not wrapping here cuts real text off the frame.
                 expect(frame()).not.toContain("result_value_name: int = f(a=1111111, b=2222222)");
-                expect(frame().replace(/\s+/g, "")).toContain("result_value_name:int=f(a=1111111,b=2222222)");
+                // Rows joined without blanks and the editor group's frame lines at their ends.
+                expect(frame().replace(/[\s│]+/gu, "")).toContain("result_value_name:int=f(a=1111111,b=2222222)");
             });
         },
     );

@@ -267,14 +267,17 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         );
         if (ticket.isStale()) return;
 
-        // Upstream `MarkerHoverParticipant`: its ordinal puts the diagnostics above the providers' answers.
+        // Upstream participant order: `MarkerHoverParticipant` above `MarkdownHoverParticipant`, whose decoration
+        // messages come before the providers' answers.
         const markerBlocks = this.markers
             .read({ resource: editor.uri.toString() })
             .filter((marker) => rangeContainsPosition(marker.range, caret))
             .map((marker) => `${marker.message} ${markerOriginLabel(marker)}`);
-        const blocks = [...markerBlocks, ...hovers.flatMap((hover) => hoverBlocks(hover.contents))].filter(
-            (block) => block !== "",
-        );
+        const blocks = [
+            ...markerBlocks,
+            ...editor.getDecorationHoverMessages(caret).flatMap(hoverBlocks),
+            ...hovers.flatMap((hover) => hoverBlocks(hover.contents)),
+        ].filter((block) => block !== "");
         if (blocks.length === 0) return;
 
         // The cursor may have moved during the await, so take the current anchor.

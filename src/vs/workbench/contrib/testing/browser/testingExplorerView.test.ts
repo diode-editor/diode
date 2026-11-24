@@ -140,8 +140,10 @@ describe("TestingExplorerComponent — the tree", () => {
         const { lines } = await withTests();
         const shown = lines().map((line) => line.trimEnd());
         // The filter field fills the row, the glyph sits at its end.
-        expect(shown.slice(0, 7)).toEqual([
+        expect(shown.slice(0, 8)).toEqual([
             " TEST EXPLORER ▾                  › │ ⋯",
+            // The line under the section header.
+            "─".repeat(40),
             " Filter (e.g. text, !exclude, @tag)   ▽",
             " No test results yet.",
             " ▾ ○ src",
@@ -291,7 +293,7 @@ describe("TestingExplorerComponent — the filter", () => {
         await waitFrame((text) => !text.includes("src"));
         expect(
             lines()
-                .slice(3)
+                .slice(4)
                 .every((line) => line.trim() === ""),
         ).toBe(true);
     });
@@ -498,7 +500,7 @@ describe("TestingExplorerComponent — the edges", () => {
             add(wireItem(SRC), NotExpandable),
         ]);
         await waitFrame((text) => text.includes("No vitest config"));
-        expect(lines()[3].trim()).toBe("No vitest config");
+        expect(lines()[4].trim()).toBe("No vitest config");
     });
 
     it("an error row neither opens nor has a menu", async () => {
@@ -599,8 +601,9 @@ describe("TestingExplorerComponent — the details", () => {
         expect([container?.title, container?.label]).toEqual(["TESTING", "Testing"]);
         const summary = locate("No test results yet.");
         expect(fgAt(summary.x, summary.y)).toBe(THEME.getColor("sideBar.foreground"));
-        expect(fgAt(width - 3, 1)).toBe(THEME.getColor("sideBar.foreground"));
-        expect(bgAt(width - 3, 1)).toBe(THEME.getColor("sideBar.background"));
+        // The filter row, under the header and its line.
+        expect(fgAt(width - 3, 2)).toBe(THEME.getColor("sideBar.foreground"));
+        expect(bgAt(width - 3, 2)).toBe(THEME.getColor("sideBar.background"));
         expect(bgAt(2, 10)).toBe(THEME.getColor("sideBar.background"));
     });
 
@@ -775,7 +778,7 @@ describe("TestingExplorerComponent — the details", () => {
         tests.publishDiff([add(wireItem(["go"], "Go"), Expanded)]);
         tests.publishDiff([add(wireItem(ROOT, "Vitest"), Expanded), add(wireItem(SRC), NotExpandable)]);
         await waitFrame((text) => text.includes("src"));
-        expect(lines()[3].trim()).toBe("○ src");
+        expect(lines()[4].trim()).toBe("○ src");
         expect(lines().join("\n")).not.toContain("Go");
     });
 

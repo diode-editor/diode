@@ -22,7 +22,9 @@ describe("Run and Debug: edges of the context menus", () => {
     let shown: MenuEntry[][];
 
     beforeEach(async () => {
-        t = await createDebugViewletHarness(process.cwd());
+        // The sidebar's frame, its container line and the lines around the section headers take 11 rows: the
+        // sections keep the heights they had in 50, where `p` and a watch's member are on screen.
+        t = await createDebugViewletHarness(process.cwd(), undefined, { height: 61 });
         shown = [];
         const contextMenu = t.h.container.get(ContextMenuServiceDIToken);
         const show = contextMenu.showContextMenu.bind(contextMenu);
@@ -180,22 +182,25 @@ describe("Run and Debug: edges of the context menus", () => {
         t.h.container.get(ReplDIToken).focus();
         for (const char of "count") t.h.testApp.sendKey(char);
         t.h.testApp.sendKey("Enter");
+        // The console's own columns of a screen row, without the scrollbar.
+        const consoleText = (line: string): string => {
+            const left = repl.view.globalPosition.x;
+            return line
+                .slice(left, left + repl.view.layoutSize.width)
+                .replace(/[█░▀▄]/gu, "")
+                .trim();
+        };
         await vi.waitFor(() => {
-            expect(t.lines().some((line) => line.replace(/[█░▀▄]/gu, "").trim() === "0")).toBe(true);
+            expect(t.lines().some((line) => consoleText(line) === "0")).toBe(true);
         });
 
         // Cleared, the console is empty space where the answer was.
         const lines = t.lines();
-        const answer = lines.findIndex((line) => line.replace(/[█░▀▄]/gu, "").trim() === "0");
-        const x = lines[answer].indexOf("0");
+        const answer = lines.findIndex((line) => consoleText(line) === "0");
+        const x = lines[answer].indexOf("0", repl.view.globalPosition.x);
         repl.clearRepl();
         await vi.waitFor(() => {
-            expect(
-                t
-                    .lines()
-                    [answer].replace(/[█░▀▄]/gu, "")
-                    .trim(),
-            ).toBe("");
+            expect(consoleText(t.lines()[answer])).toBe("");
         });
         const before = shown.length;
         rightClick(x, answer);

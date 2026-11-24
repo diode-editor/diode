@@ -1438,8 +1438,8 @@
       "class": "ok"
     },
     "DecorationOptions.hoverMessage": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: the hover does not show it"
+      "class": "ok",
+      "note": "shown by Show Hover (no mouse hover yet); markdown as plain text, like the hover providers'"
     },
     "DecorationOptions.range": {
       "class": "ok"
@@ -5835,8 +5835,7 @@
       "class": "ok"
     },
     "TextEditor.setDecorations": {
-      "class": "ok",
-      "note": "hoverMessage is not shown"
+      "class": "ok"
     },
     "TextEditor.show": {
       "class": "B",

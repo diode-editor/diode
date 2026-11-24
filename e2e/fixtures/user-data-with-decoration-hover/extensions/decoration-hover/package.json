@@ -1,0 +1,14 @@
+{
+    "name": "decoration-hover",
+    "displayName": "Decoration Hover",
+    "description": "E2E demo extension: a hoverMessage on a range in the middle of a line and a Git Blame-shaped after text at the line end with its own hoverMessage, plus a diagnostic on the same line.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ]
+}

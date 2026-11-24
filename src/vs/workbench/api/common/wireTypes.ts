@@ -1309,10 +1309,12 @@ export interface SerializedDecorationInstanceRenderOptions extends SerializedThe
     readonly dark?: SerializedThemableDecorationInstanceRenderOptions;
 }
 
-/** `vscode.DecorationOptions` without `hoverMessage`; a bare `Range` goes without `renderOptions`. */
+/** `vscode.DecorationOptions`; a bare `Range` goes without `renderOptions` and `hoverMessage`. */
 export interface IWireDecorationOptions {
     readonly range: IRange;
     readonly renderOptions?: SerializedDecorationInstanceRenderOptions;
+    /** Raw markdown of each non-blank `hoverMessage` entry, as `contents` of a hover provider; absent — none. */
+    readonly hoverMessage?: readonly string[];
 }
 
 export interface IWireCreateDecorationType {

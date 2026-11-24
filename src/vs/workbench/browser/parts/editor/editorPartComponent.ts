@@ -61,10 +61,11 @@ export class EditorPartComponent extends Component {
         super();
         this.view = new EditorPartElement();
         this.view.id = "editorPart";
-        // Each group boundary gets a cell of its own with a line in vscode's separatorBorder color,
-        // over the editor background like the diff editor's separator.
-        this.view.separatorColorVar = "editorGroup.border";
-        this.view.style = { bg: "editor.background" };
+        // Every group sits in a frame of its own (docs/arch/workbench/Frames.md): the boundary is
+        // the two frame lines, and the sash lies over both.
+        this.view.framedGroups = true;
+        // Between the groups' frames (above them, beside the tabs) shows the workbench surface.
+        this.view.style = { bg: "editorGroupHeader.tabsBackground" };
         this.view.onDidChangeWeights = () => {
             this.onDidChangeGroupLayout?.();
         };

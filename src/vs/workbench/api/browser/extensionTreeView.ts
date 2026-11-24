@@ -42,8 +42,8 @@ export interface IExtensionTreeViewHost {
     /** Upstream `notificationService.error` for a row command that failed. */
     notifyError(message: string): void;
     /**
-     * A `ThemeIcon` color is a token of the theme only if the theme has it: an unknown token (an
-     * extension's own `contributes.colors`) would throw in the frame.
+     * A `ThemeIcon` color is a token of the theme only if the theme has it (built-in or `contributes.colors`):
+     * an unknown token, or one whose reference never resolves, would throw in the frame.
      */
     hasColor(token: string): boolean;
     /** `description: true`: the folder of the resource relative to its workspace folder, `""` at its root. */

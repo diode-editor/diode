@@ -31,7 +31,11 @@ const flush = (): Promise<void> =>
 function pickerRows(screen: string): string[] {
     const lines = screen.split("\n");
     const first = lines.findIndex((line) => /\bTrace\b/.test(line));
-    return lines.slice(first, first + 6).map((line) => line.replace(/[│|]/g, "").replace(/\s+/g, " ").trim());
+    // From the picker's left border: the sidebar underneath (its frame, the welcome view) is not the picker's.
+    const left = lines[first].lastIndexOf("│", lines[first].search(/\bTrace\b/));
+    return lines
+        .slice(first, first + 6)
+        .map((line) => line.slice(left).replace(/[│|]/g, "").replace(/\s+/g, " ").trim());
 }
 
 describe("Developer: Set Log Level...", () => {

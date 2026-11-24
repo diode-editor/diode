@@ -62,6 +62,23 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
     throw new Error("expected a rejection");
 }
 
+describe("FileService — onWillActivateFileSystemProvider (upstream, for onFileSystem:<scheme>)", () => {
+    it("fires the scheme of the first operation on it, once per scheme, also for a scheme without a provider", async () => {
+        const { files } = setup();
+        const schemes: string[] = [];
+        disposables.add(files.onWillActivateFileSystemProvider((scheme) => schemes.push(scheme)));
+
+        await files.writeFile(mem("/a"), bytes("x"));
+        await files.readFile(mem("/a"));
+        await files.stat(mem("/a"));
+        expect(schemes).toEqual(["mem"]);
+
+        await rejection(files.readFile(Uri.from({ scheme: "other", path: "/b" })));
+        await rejection(files.stat(Uri.from({ scheme: "other", path: "/b" })));
+        expect(schemes).toEqual(["mem", "other"]);
+    });
+});
+
 describe("FileService — provider registration", () => {
     it("a taken scheme is an error; unregistering frees the scheme", () => {
         const files = disposables.add(new FileService());

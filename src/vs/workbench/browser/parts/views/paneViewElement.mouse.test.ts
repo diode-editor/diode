@@ -94,7 +94,7 @@ describe("PaneViewElement mouse", () => {
 
     it("dragging a header moves rows between sections and does not collapse", () => {
         const { app, view, stateChanges, headerPos } = makeHarness();
-        const before = bodyHeights(view); // 10/10 at height 22
+        const before = bodyHeights(view); // 9/8 at height 22 (2 headers, 3 lines)
         const pos = headerPos("b");
         drag(app, pos.x + 2, pos.y, pos.y - 3);
         app.render();
@@ -108,7 +108,7 @@ describe("PaneViewElement mouse", () => {
         const pos = headerPos("b");
         drag(app, pos.x + 2, pos.y, pos.y - 15); // past section a's minimum
         app.render();
-        expect(bodyHeights(view)).toEqual({ a: 3, b: 17 });
+        expect(bodyHeights(view)).toEqual({ a: 3, b: 14 });
     });
 
     it("dragging the top header (nothing expanded above) changes nothing and does not collapse", () => {
@@ -187,7 +187,7 @@ describe("PaneViewElement mouse", () => {
         const headerB = app.querySelector("#paneHeader-b")!;
         (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y - 5);
         app.render();
-        expect(bodyHeights(view)).toEqual({ a: 3, b: 17 });
+        expect(bodyHeights(view)).toEqual({ a: 3, b: 14 });
         expect(stateChanges()).toBe(1);
     });
 
@@ -200,7 +200,7 @@ describe("PaneViewElement mouse", () => {
         }
         let changes = 0;
         view.onDidChangeState = () => changes++;
-        const app = TestApp.createWithContent(view, new Size(30, 7)); // bodies 3 and 2 < 3+3
+        const app = TestApp.createWithContent(view, new Size(30, 10)); // 2 headers + 3 lines: bodies 3 and 2 < 3+3
         const headerB = app.querySelector("#paneHeader-b")!;
         (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y - 1);
         app.render();
@@ -222,7 +222,8 @@ describe("PaneViewElement mouse", () => {
         app.render();
         const weights = view.getWeights();
         expect(weights.c).toBe(1); // the collapsed section's weight is untouched
-        expect(weights.a + weights.b).toBe(19); // actual heights of the expanded sections (22 − 3 headers)
+        // Actual heights of the expanded sections: 22 − 3 headers − 2 lines between them − 2 under the expanded ones.
+        expect(weights.a + weights.b).toBe(15);
     });
 
     it("a click on an inline header button is reported up with the section id", () => {

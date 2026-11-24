@@ -257,7 +257,9 @@ undefined`), **текущий каталог не трогается вообщ�
   `paneCompositeFocusContribution.ts`. `PanelService`/`PanelComponent`/
   `PanelFocusContribution` — их наследники ради своих DI-токенов. Вид части
   задают опции `PanelContainerElement` (`IPanelContainerOptions`: токены фона и
-  текста, полоса `panel.border`, отступ контента, подсказка пустой части).
+  текста, отступ контента, подсказка пустой части). Своей верхней полосы
+  `panel.border` у панели больше нет: обе части в рамках ([Frames.md](Frames.md)),
+  таб-строка — первая строка внутри рамки.
 
 Обитатели панели:
 
@@ -311,8 +313,8 @@ Secondary Side Bar (`browser/parts/auxiliarybar/`) — правая колонк
 - `auxiliaryBarService.ts` — реестр вкладок и видимость (истина видимости;
   `LayoutService` двигает layout и ключ `auxiliaryBarVisible`).
 - `auxiliaryBarComponent.ts` — `view.id = "auxiliarybar"`, в одежде сайдбара:
-  фон/текст `sideBar.*` (своих токенов у эталона нет), без полосы
-  `panel.border`, первая колонка — под саш (у эталона там `sideBar.border`).
+  фон/текст `sideBar.*` (своих токенов у эталона нет), в рамке, как сайдбар
+  ([Frames.md](Frames.md)); у эталона на месте рамки `sideBar.border`.
   Контрибьютор ключей `auxiliaryBarFocus` и `activeAuxiliary`.
 - `auxiliaryBarActions.ts` — `workbench.action.toggleAuxiliaryBar`
   (Ctrl+Alt+B), `closeAuxiliaryBar` (кнопка `×`), `focusAuxiliaryBar`,
@@ -324,12 +326,12 @@ Secondary Side Bar (`browser/parts/auxiliarybar/`) — правая колонк
   и `workbench.action.increaseViewSize`/`decreaseViewSize` (часть с фокусом,
   `LayoutService.resizeFocusedPart`).
 - Саши (сайдбар, вторичная панель, нижняя панель) — `SashElement` tuidom в
-  `WorkbenchLayoutElement`; подсветка при наведении ждёт
-  `workbench.sash.hoverDelay` (`workbenchComponent` раздаёт значение всем трём,
-  смена в settings.json — на лету, как `SashSettingsController` эталона).
-  Отступление: дефолт 0, а не 300 — саш в одну колонку почти не мелькает при
-  пролёте курсора, а мгновенный отклик важнее. `workbench.sash.size` не
-  поддержан: саш всегда в одну ячейку.
+  `WorkbenchLayoutElement`, в две клетки на обеих линиях рамок у границы
+  ([Frames.md](Frames.md)); тянуть можно за любую. Линии подсветки нет — границу
+  показывают рамки, саш выдаёт курсор ресайза. `workbench.sash.hoverDelay`
+  по-прежнему раздаётся всем трём (`workbenchComponent`, смена в settings.json —
+  на лету, как `SashSettingsController` эталона), но видимого эффекта у этих
+  сашей больше нет. `workbench.sash.size` не поддержан: толщина — две линии рамок.
 - Видимость на старте — `workbench.secondarySideBar.defaultVisibility` для
   впервые открытого воркспейса, дальше — сохранённая
   (`workbench.auxiliaryBar.hidden`); часть без единого контейнера не

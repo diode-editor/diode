@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { PanelContainerElement } from "./panelContainerElement.ts";
 
-// Tab row geometry (see TAB_INDENT=1, TAB_PAD=1, TAB_ROW=1):
+// Tab row geometry (see TAB_INDENT=1, TAB_PAD=1; the tab row is the first row):
 // "PROBLEMS" (8) → segment [1, 11); "OUTPUT" (6) → [11, 19).
 // The `×` button is the three rightmost columns: at width 40 that is [37, 40).
 describe("PanelContainerElement.inspectState", () => {
@@ -17,7 +17,7 @@ describe("PanelContainerElement.inspectState", () => {
 
         const state = panel.inspectState();
         expect(state.activeId).toBe("b");
-        expect(state.tabRow).toBe(1);
+        expect(state.tabRow).toBe(0);
         expect(state.tabs).toEqual([
             { id: "a", title: "PROBLEMS", active: false, x: 1, width: 10, centerX: 6 },
             { id: "b", title: "OUTPUT", active: true, x: 11, width: 8, centerX: 15 },
@@ -31,7 +31,7 @@ describe("PanelContainerElement.inspectState", () => {
         panel.layout(BoxConstraints.tight(new Size(40, 8)));
 
         const state = panel.inspectState();
-        expect(state.tabRow).toBe(13);
+        expect(state.tabRow).toBe(12);
         expect((state.tabs as { x: number }[])[0].x).toBe(31);
     });
 

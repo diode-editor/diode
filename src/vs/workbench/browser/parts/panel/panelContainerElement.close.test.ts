@@ -21,6 +21,9 @@ const VARS = {
     "toolbar.hoverBackground": HOVER_BG,
 };
 
+/** The tab row is the panel's first row: the frame around the part separates it from the editor. */
+const TAB_ROW = 0;
+
 /** Panel with two tabs; at width 40 the `×` button occupies columns 37..39. */
 function panel(): PanelContainerElement {
     const element = new PanelContainerElement();
@@ -39,7 +42,7 @@ function mouse(
     init: { x?: number; y?: number; button?: "left" | "right" } = {},
 ): void {
     const x = init.x ?? 0;
-    const y = init.y ?? 1;
+    const y = init.y ?? TAB_ROW;
     element.dispatchEvent(
         new TUIMouseEvent(type, { button: init.button ?? "left", screenX: x, screenY: y, localX: x, localY: y }),
     );
@@ -49,11 +52,11 @@ describe("PanelContainerElement: panel close button", () => {
     it("draws ` × ` in the three rightmost columns of the tab row", () => {
         const backend = render(panel());
 
-        expect(backend.getTextAt(new Point(37, 1), 3)).toBe(" × ");
-        expect(backend.getFgAt(new Point(38, 1))).toBe(CLOSE_FG);
-        expect(backend.getBgAt(new Point(38, 1))).toBe(BG);
-        expect(backend.getTextAt(new Point(38, 0), 1)).toBe("─");
-        expect(backend.getTextAt(new Point(38, 2), 1)).toBe(" ");
+        expect(backend.getTextAt(new Point(37, TAB_ROW), 3)).toBe(" × ");
+        expect(backend.getFgAt(new Point(38, TAB_ROW))).toBe(CLOSE_FG);
+        expect(backend.getBgAt(new Point(38, TAB_ROW))).toBe(BG);
+        // Only the tab row: the content row under it stays empty.
+        expect(backend.getTextAt(new Point(38, TAB_ROW + 1), 1)).toBe(" ");
     });
 
     it("a click on the button calls onClose and does not switch the tab", () => {
@@ -92,7 +95,7 @@ describe("PanelContainerElement: panel close button", () => {
         const onClose = vi.fn();
         element.onClose = onClose;
 
-        expect(backend.getTextAt(new Point(0, 1), 3)).toBe(" × ");
+        expect(backend.getTextAt(new Point(0, TAB_ROW), 3)).toBe(" × ");
         mouse(element, "mousedown", { x: 1 });
         expect(onClose).toHaveBeenCalledTimes(1);
     });
@@ -107,7 +110,7 @@ describe("PanelContainerElement: panel close button", () => {
         element.onClose = onClose;
         element.onActivateView = onActivate;
 
-        expect(backend.getTextAt(new Point(9, 1), 3)).toBe(" × ");
+        expect(backend.getTextAt(new Point(9, TAB_ROW), 3)).toBe(" × ");
 
         mouse(element, "mousedown", { x: 10 });
         expect(onClose).toHaveBeenCalledTimes(1);
@@ -121,7 +124,7 @@ describe("PanelContainerElement: panel close button", () => {
         const onClose = vi.fn();
         element.onClose = onClose;
 
-        expect(backend.getTextAt(new Point(0, 1), 2)).not.toContain("×");
+        expect(backend.getTextAt(new Point(0, TAB_ROW), 2)).not.toContain("×");
         for (const x of [0, 1]) mouse(element, "mousedown", { x });
         expect(onClose).not.toHaveBeenCalled();
     });
@@ -151,7 +154,7 @@ describe("PanelContainerElement: panel close button", () => {
         const onClose = vi.fn();
         element.onClose = onClose;
 
-        mouse(element, "mousedown", { x: 38, y: 0 }); // top border strip
+        mouse(element, "mousedown", { x: 38, y: TAB_ROW + 1 }); // first content row
         mouse(element, "mousedown", { x: 38, y: 4 }); // content area
 
         expect(onClose).not.toHaveBeenCalled();
@@ -162,16 +165,16 @@ describe("PanelContainerElement: panel close button", () => {
         render(element);
 
         mouse(element, "mousemove", { x: 38 });
-        expect(render(element).getBgAt(new Point(38, 1))).toBe(HOVER_BG);
+        expect(render(element).getBgAt(new Point(38, TAB_ROW))).toBe(HOVER_BG);
 
         // Without waiting for mouseleave.
         mouse(element, "mousemove", { x: 20 });
-        expect(render(element).getBgAt(new Point(38, 1))).toBe(BG);
+        expect(render(element).getBgAt(new Point(38, TAB_ROW))).toBe(BG);
 
         mouse(element, "mousemove", { x: 38 });
-        expect(render(element).getBgAt(new Point(38, 1))).toBe(HOVER_BG);
+        expect(render(element).getBgAt(new Point(38, TAB_ROW))).toBe(HOVER_BG);
         mouse(element, "mouseleave");
-        expect(render(element).getBgAt(new Point(38, 1))).toBe(BG);
+        expect(render(element).getBgAt(new Point(38, TAB_ROW))).toBe(BG);
     });
 
     it("does not redraw the panel while the pointer moves inside the button", () => {
@@ -216,12 +219,12 @@ describe("PanelContainerElement: panel close button", () => {
             const close = element.inspectState().close as { centerX: number };
             const tabRow = element.inspectState().tabRow as number;
             expect(close.centerX).toBe(ORIGIN.dx + 38);
-            expect(tabRow).toBe(ORIGIN.dy + 1);
+            expect(tabRow).toBe(ORIGIN.dy + TAB_ROW);
 
             screenMouse(element, "mousedown", close.centerX, tabRow);
             expect(onClose).toHaveBeenCalledTimes(1);
 
-            screenMouse(element, "mousedown", 38, 1);
+            screenMouse(element, "mousedown", 38, TAB_ROW);
             expect(onClose).toHaveBeenCalledTimes(1);
         });
 
@@ -244,7 +247,7 @@ describe("PanelContainerElement: panel close button", () => {
             const tabRow = element.inspectState().tabRow as number;
             const markDirty = vi.spyOn(element, "markDirty");
 
-            screenMouse(element, "mousemove", 38, 1); // without the offset correction it is not the button
+            screenMouse(element, "mousemove", 38, TAB_ROW); // without the offset correction it is not the button
             expect(markDirty).not.toHaveBeenCalled();
 
             screenMouse(element, "mousemove", close.centerX, tabRow);
@@ -259,6 +262,6 @@ describe("PanelContainerElement: panel close button", () => {
 
         mouse(element, "mousemove", { x: 38, y: 3 });
 
-        expect(render(element).getBgAt(new Point(38, 1))).toBe(BG);
+        expect(render(element).getBgAt(new Point(38, TAB_ROW))).toBe(BG);
     });
 });

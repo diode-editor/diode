@@ -45,7 +45,8 @@ export default defineScenario({
         await editor.sendText("View: Show Run and Debug");
         await editor.waitForText((t) => t.includes("View: Show Run and Debug"));
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("BREAKPOINTS") && t.includes("hello.c") && t.includes("printf"));
+        // The title is cut to "BREAKPOINT" by its actions in the default sidebar.
+        await editor.waitForText((t) => t.includes("BREAKPOINT") && t.includes("hello.c") && t.includes("printf"));
         await editor.capture("breakpoints-of-the-extension");
     },
 });

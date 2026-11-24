@@ -42,6 +42,9 @@ describe("Workbench — extension terminal", () => {
         return h.testApp.backend.screenToString();
     };
 
+    /** The rightmost cell of a row inside the panel's frame: the tab list, at the panel's right edge. */
+    const tabListCell = (line: string): string => (line.trimEnd().split("│").at(-2) ?? "").trimEnd();
+
     afterEach(() => {
         h.dispose();
         ws.dispose();
@@ -74,7 +77,7 @@ describe("Workbench — extension terminal", () => {
             .filter((line) => line.includes("│ "));
         // The tab list is narrow — the long name is truncated to fit.
         expect(tabs.some((line) => line.includes("Bazel Build Statu"))).toBe(true);
-        expect(tabs.some((line) => line.trimEnd().endsWith(" bash"))).toBe(true);
+        expect(tabs.some((line) => tabListCell(line).endsWith(" bash"))).toBe(true);
         expect(h.container.get(PanelServiceDIToken).getActiveViewId()).toBe(TERMINAL_VIEW_ID);
     });
 
@@ -87,10 +90,10 @@ describe("Workbench — extension terminal", () => {
             screen()
                 .split("\n")
                 .filter((line) => line.includes("│ "));
-        expect(tabs().some((line) => line.trimEnd().endsWith(" foo"))).toBe(true);
+        expect(tabs().some((line) => tabListCell(line).endsWith(" foo"))).toBe(true);
         adapter.ptyName({ extHostId: 1 }, "bar");
-        expect(tabs().some((line) => line.trimEnd().endsWith(" bar"))).toBe(true);
-        expect(tabs().some((line) => line.trimEnd().endsWith(" foo"))).toBe(false);
+        expect(tabs().some((line) => tabListCell(line).endsWith(" bar"))).toBe(true);
+        expect(tabs().some((line) => tabListCell(line).endsWith(" foo"))).toBe(false);
     });
 
     it("[api:Terminal.state] a key typed into the focused terminal is reported as the interaction to the extension host", () => {

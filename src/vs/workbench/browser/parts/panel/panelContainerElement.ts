@@ -28,7 +28,6 @@ const TAB_INDENT = 1;
 export interface IPanelContainerOptions {
     readonly background?: string;
     readonly foreground?: string;
-    readonly topBorder?: boolean;
     readonly contentLeft?: number;
     /** Upstream: "Drag a view here to display." in `paneCompositePart.ts`. */
     readonly emptyMessage?: string;
@@ -52,17 +51,14 @@ export class PanelContainerElement extends TUIElement {
     private activeId: string | null = null;
     private closeHovered = false;
 
-    private readonly tabRow: number;
-    private readonly contentTop: number;
+    /** The part's frame separates it from the editor (docs/arch/workbench/Frames.md): tabs take the first row. */
+    private readonly tabRow = 0;
+    private readonly contentTop = 1;
     private readonly contentLeft: number;
-    private readonly topBorder: boolean;
     private readonly emptyMessage: string | undefined;
 
     public constructor(options: IPanelContainerOptions = {}) {
         super();
-        this.topBorder = options.topBorder ?? true;
-        this.tabRow = this.topBorder ? 1 : 0;
-        this.contentTop = this.tabRow + 1;
         this.contentLeft = options.contentLeft ?? 2;
         this.emptyMessage = options.emptyMessage;
         this.style = { fg: options.foreground, bg: options.background ?? "panel.background" };
@@ -279,12 +275,6 @@ export class PanelContainerElement extends TUIElement {
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 context.setCell(x, y, { char: " ", bg: this.resolvedStyle.bg });
-            }
-        }
-
-        if (this.topBorder) {
-            for (let x = 0; x < width; x++) {
-                context.setCell(x, 0, { char: "─", fg: this.styleVar("panel.border"), bg: this.resolvedStyle.bg });
             }
         }
 

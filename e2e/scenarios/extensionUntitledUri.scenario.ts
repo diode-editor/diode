@@ -1,8 +1,11 @@
+import { rmSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-untitled-uri");
+// No folder is open: Save As proposes the name in the process's cwd, the repo root.
+const savedFile = resolve(repoRoot, "new.txt");
 
 export default defineScenario({
     name: "extension-untitled-uri",
@@ -10,6 +13,11 @@ export default defineScenario({
     seedUserData: userData,
     cols: 110,
     rows: 22,
+    // A file left by an earlier run turns Save into an overwrite confirmation, and every retry would fail on it.
+    prepare() {
+        rmSync(savedFile, { force: true });
+        return Promise.resolve();
+    },
     async run(editor) {
         await editor.waitForReady();
         await editor.sendKey("F1");
@@ -30,5 +38,6 @@ export default defineScenario({
         // The tab is the file now: the dialog is gone and the text is still there.
         await editor.waitForText((t) => !t.includes("Save As") && t.includes("text from the extension"));
         await editor.capture("saved-file");
+        rmSync(savedFile, { force: true });
     },
 });

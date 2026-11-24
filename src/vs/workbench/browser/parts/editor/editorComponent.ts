@@ -9,6 +9,7 @@ import { Emitter } from "../../../../base/common/event.ts";
 import { combinedDisposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
+import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { ITokenizationSupport } from "../../../../editor/common/languages.ts";
@@ -771,6 +772,11 @@ export class EditorComponent extends Component {
             }),
         );
         this.extensionTextDecorations.set(set);
+    }
+
+    /** The `hoverMessage` of each extension decoration at the position, in upstream's hover order. */
+    public getDecorationHoverMessages(position: IPosition): (readonly string[])[] {
+        return this.extensionTextDecorations?.hoverMessagesAt(position) ?? [];
     }
 
     /** An owner's glyphs left of the line numbers (tests, breakpoints): they ride their lines through edits. */

@@ -56,7 +56,7 @@ describe("PanelContainerElement: tab controls in the header", () => {
         const { backend } = panelWithActions(new LabelStub("Bootstrap"));
 
         // The label must end at the `×` button, not right after the tabs.
-        const row = backend.getTextAt(new Point(0, 1), 60);
+        const row = backend.getTextAt(new Point(0, 0), 60);
         expect(row).toContain("PROBLEMS");
         expect(row.trimEnd().endsWith("Bootstrap ×")).toBe(true);
     });
@@ -92,7 +92,7 @@ describe("PanelContainerElement: tab controls in the header", () => {
     it("controls do not overlap the tabs when space is tight", () => {
         const { backend } = panelWithActions(new LabelStub("VeryLongChannelName"), 30);
 
-        const row = backend.getTextAt(new Point(0, 1), 30);
+        const row = backend.getTextAt(new Point(0, 0), 30);
         expect(row).toContain("PROBLEMS");
         expect(row).toContain("OUTPUT");
     });
@@ -124,7 +124,7 @@ describe("PanelContainerElement: tab controls in the header", () => {
         panel.onActivateView = onActivate;
 
         actions.dispatchEvent(
-            new TUIMouseEvent("mousedown", { button: "left", screenX: 3, screenY: 1, localX: 0, localY: 0 }),
+            new TUIMouseEvent("mousedown", { button: "left", screenX: 3, screenY: 0, localX: 0, localY: 0 }),
         );
 
         expect(onActivate).not.toHaveBeenCalled();
@@ -137,7 +137,7 @@ describe("PanelContainerElement: tab controls in the header", () => {
         panel.onActivateView = onActivate;
 
         panel.dispatchEvent(
-            new TUIMouseEvent("mousedown", { button: "left", screenX: 3, screenY: 1, localX: 3, localY: 1 }),
+            new TUIMouseEvent("mousedown", { button: "left", screenX: 3, screenY: 0, localX: 3, localY: 0 }),
         );
 
         expect(onActivate).toHaveBeenCalledWith("problems");

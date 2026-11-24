@@ -126,8 +126,8 @@ describe.skipIf(process.platform === "win32")("Developer terminal commands in th
             type("echo hi");
             h.testApp.sendKey("Enter");
             await vi.waitFor(() => {
-                // The output line, not the echoed command.
-                expect(frame()).toMatch(/^\s*hi\s*│/mu);
+                // The output line, not the echoed command: alone between the panel's frame and the tab list.
+                expect(frame()).toMatch(/│\s*hi\s*│/u);
             });
             terminals().sendText(recorded?.id, "true", true);
             void h.commands.execute("workbench.action.terminal.focus");

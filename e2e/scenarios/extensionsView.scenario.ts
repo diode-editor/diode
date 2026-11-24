@@ -20,7 +20,9 @@ export default defineScenario({
         { key: "f7", command: "workbench.action.increaseSidebarWidth" },
     ],
     cols: 110,
-    rows: 28,
+    // Tall enough for the MARKETPLACE section to show its third (incompatible) entry: the framed sidebar spends
+    // rows on frame and section lines.
+    rows: 34,
     async run(editor) {
         await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
         await editor.sendKey("F6");

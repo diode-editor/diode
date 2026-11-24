@@ -19,6 +19,12 @@ function withoutTitle(text: string): string {
         .join("\n");
 }
 
+/**
+ * The compressed folder row of the tree mode. The framed sidebar (28 columns inside) clips the row at
+ * "contrib/search/browse", so the check uses the part that fits; list mode never shows it as a row.
+ */
+const TREE_FOLDER = "contrib/search/brow";
+
 async function typeText(driver: { sendKey(name: string): Promise<void> }, text: string): Promise<void> {
     for (const ch of text) {
         await driver.sendKey(ch);
@@ -30,7 +36,8 @@ export default defineScenario({
     title: "Search in files: header buttons and '⋯' menu, details behind '···', list/tree modes, Collapse All",
     open: [repoRoot],
     cols: 100,
-    rows: 30,
+    // Tall enough for the tree mode to reach `contrib/search/browser` from the top inside the framed sidebar.
+    rows: 34,
     // The e2e key-DSL can't encode Ctrl+Shift+letter (Ctrl+Shift+F, Ctrl+Shift+J), so the commands are bound to
     // encodable keys.
     userKeybindings: [
@@ -64,7 +71,7 @@ export default defineScenario({
         // the scroll down.
         await driver.sendKey("F8");
         await driver.sendKey("Home");
-        await driver.waitForText((t) => t.includes("contrib/search/browser"));
+        await driver.waitForText((t) => t.includes(TREE_FOLDER));
         await driver.capture("tree");
 
         // "⋯" is the rightmost 3 columns of the SEARCH header.
@@ -84,7 +91,7 @@ export default defineScenario({
 
         await driver.sendKey("F11");
         await driver.sendKey("F7");
-        await driver.waitForText((t) => !t.includes("contrib/search/browser"));
+        await driver.waitForText((t) => !t.includes(TREE_FOLDER));
         await driver.sendKey("F6");
         await driver.sendKey("F9"); // hide details so Down goes straight to the list
         await driver.waitForText((t) => !t.includes("files to include"));

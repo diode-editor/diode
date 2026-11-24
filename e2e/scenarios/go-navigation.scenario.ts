@@ -34,7 +34,10 @@ export default defineScenario({
         ensureGopls();
     },
     env: { ...GO_SESSION_ENV, GOBIN: GO_TOOLS_BIN, DISPLAY: "", WAYLAND_DISPLAY: "" },
-    userKeybindings: [{ key: "ctrl+alt+o", command: "editor.action.openLink" }],
+    userKeybindings: [
+        { key: "ctrl+alt+o", command: "editor.action.openLink" },
+        { key: "f7", command: "workbench.action.increaseSidebarWidth" },
+    ],
     cols: 110,
     rows: 28,
     skipOn: ["win32", "darwin"],
@@ -75,6 +78,8 @@ export default defineScenario({
         // `Greet` in the interface: line 6, Home lands on its first character.
         for (let i = 0; i < 4; i++) await editor.sendKey("ArrowDown");
         await editor.sendKey("Home");
+        // The default framed sidebar clips the "Implementations" title.
+        await editor.sendKey("F7");
         await editor.sendKey("Ctrl+F12");
         await editor.waitForText((t) => t.includes("Implementations") && t.includes("2 results in 1 file"), {
             timeoutMs: 60_000,

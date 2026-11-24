@@ -97,6 +97,7 @@ import {
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
+import { registerExtensionColors } from "../workbench/services/extensions/common/extensionColorContributor.ts";
 import { ExtensionConfigurationContributor } from "../workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import { ExtensionServiceDIToken } from "../workbench/services/extensions/common/extensions.ts";
 import { registerExtensionSemanticTokens } from "../workbench/services/extensions/common/extensionSemanticTokensContributor.ts";
@@ -380,6 +381,7 @@ async function runEditor(): Promise<void> {
     const themeRegistry = createBuiltinThemeRegistry();
     const themeContributor = new ExtensionThemeContributor(assets, allExtensions, themeRegistry, extensionsLogger);
     await themeContributor.apply();
+    registerExtensionColors(allExtensions, themeRegistry, extensionsLogger);
     // The setting is left alone: if the extension comes back, so does its theme. With scheme detection the
     // terminal hasn't answered yet — the scheme it reported last time picks the key (HostColorSchemeService).
     const lastHostColorScheme = stateService.get(LAST_HOST_COLOR_SCHEME) ?? undefined;

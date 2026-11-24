@@ -9,6 +9,7 @@ import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EditorCursorStyleSetting } from "../../../../editor/common/config/editorCursorStyle.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
+import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ILink } from "../../../../editor/common/languages/iLinkSource.ts";
@@ -543,6 +544,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setExtensionTextDecorations(set: IExtensionTextDecorationSet): void {
         this.component.setExtensionTextDecorations(set);
+    }
+
+    public getDecorationHoverMessages(position: IPosition): (readonly string[])[] {
+        return this.component.getDecorationHoverMessages(position);
     }
 
     public setGhostText(ghost: IGhostText | null): void {

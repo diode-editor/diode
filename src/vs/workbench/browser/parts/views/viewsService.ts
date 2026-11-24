@@ -1,6 +1,5 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
-import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
@@ -53,6 +52,7 @@ import type { IPaneContentBounds } from "./paneViewElement.ts";
 import { PaneViewElement } from "./paneViewElement.ts";
 import { inlineActions, isSelectionSubmenu, NAVIGATION_GROUP, overflowEntries, runAction } from "./titleMenuEntries.ts";
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
+import { ViewContainerStackElement } from "./viewContainerStackElement.ts";
 import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 import type { IViewWelcomeBlock } from "./viewWelcomeElement.ts";
 import { ViewWelcomeElement } from "./viewWelcomeElement.ts";
@@ -222,7 +222,7 @@ interface ContainerEntry {
      * Sidebar "header + sections". Stable: merged mode changes the SET of children, otherwise the
      * location would hold a stale root. The panel has no stack — the header lives in the tab bar.
      */
-    stack: VFlexElement | null;
+    stack: ViewContainerStackElement | null;
     /** What the location holds (the stack in the sidebar, the PaneView itself in the panel); null — not attached. */
     view: TUIElement | null;
     /** Title buttons were not recomputed while the container was hidden; showing it catches up. */
@@ -691,7 +691,7 @@ export class ViewsService implements IContextKeyContributor {
                 this.fireContainerEvent(containerId, this.onDidShowViewEmitter);
             return;
         }
-        const stack = new VFlexElement();
+        const stack = new ViewContainerStackElement();
         // Stable location selector for e2e/inspector (`#explorer`, `#scm`).
         stack.id = domId;
         stack.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
@@ -1436,10 +1436,7 @@ export class ViewsService implements IContextKeyContributor {
         const stack = entry.stack;
         if (stack === null) return;
         const paneView = attached(entry).paneView;
-        const header = attached(entry).header;
-        header.layoutStyle = { height: vflexFixed(1), width: "fill" };
-        paneView.layoutStyle = { height: vflexFill(), width: "fill" };
-        stack.replaceChildren(this.isMerged(entry) ? [paneView] : [header, paneView]);
+        stack.setParts(this.isMerged(entry) ? null : attached(entry).header, paneView);
     }
 
     private containerOrThrow(id: string): ContainerEntry {

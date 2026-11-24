@@ -101,7 +101,8 @@ function setup(colors: Record<string, number> = COLORS, readGutterIcon?: GutterI
                         d.style !== undefined ||
                         d.opacity !== undefined ||
                         d.before !== undefined ||
-                        d.after !== undefined,
+                        d.after !== undefined ||
+                        d.hoverMessage !== undefined,
                 );
         },
     };
@@ -579,6 +580,50 @@ describe("DecorationsCustomer — text attributes and opacity", () => {
                 isWholeLine: false,
             },
         ]);
+    });
+});
+
+describe("DecorationsCustomer — hoverMessage", () => {
+    it("[api:DecorationOptions.hoverMessage] each range carries its own hoverMessage, also on a type that draws nothing", async () => {
+        const h = setup();
+        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options: {} });
+        h.peer.notify("editor.setDecorations", {
+            key: 1,
+            uri: A_TS,
+            ranges: [
+                { range: span(0, 1, 2), hoverMessage: ["**a**"] },
+                { range: span(1, 1, 2) },
+                { range: span(2, 0, 9), renderOptions: { after: { contentText: "blame" } }, hoverMessage: ["c", "d"] },
+            ],
+        });
+        await flushMicrotasks(10);
+        expect(h.textCalls.at(-1)?.set.decorations).toStrictEqual([
+            { range: span(0, 1, 2), isWholeLine: false, hoverMessage: ["**a**"] },
+            { range: span(1, 1, 2), isWholeLine: false },
+            {
+                range: span(2, 0, 9),
+                isWholeLine: false,
+                after: { kind: "text", text: "blame", style: StyleFlags.None },
+                hoverMessage: ["c", "d"],
+            },
+        ]);
+    });
+
+    it("a theme change restyles the ranges and keeps their hoverMessage", async () => {
+        const h = setup();
+        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options: {} });
+        h.peer.notify("editor.setDecorations", {
+            key: 1,
+            uri: A_TS,
+            ranges: [{ range: span(0, 1, 2), hoverMessage: ["m"] }],
+        });
+        await flushMicrotasks(10);
+        h.changeTheme(ColorThemeKind.Light);
+        expect(h.textCalls.at(-1)?.set).toStrictEqual({
+            key: 1,
+            restyle: true,
+            decorations: [{ range: span(0, 1, 2), isWholeLine: false, hoverMessage: ["m"] }],
+        });
     });
 });
 

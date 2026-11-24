@@ -31,7 +31,8 @@ describe.skipIf(process.platform === "win32")("runInTerminal in the workbench", 
         ws = createTempWorkspace({ prefix: "diode-debug-terminal-" });
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
-            size: new Size(100, 30),
+            // The panel's frame takes two columns: the terminal's tab still fits its whole name.
+            size: new Size(102, 30),
             containerOverrides: (container) => {
                 container.bind(TerminalSessionFactoryDIToken, () => (options) => new EmbeddedTerminalSession(options));
                 // A shell without the user's rc files: a plain prompt, ready at once.

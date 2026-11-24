@@ -1,3 +1,5 @@
+import { TAB_HEIGHT } from "@tuidom/elements/editorgroup/editorTabItemElement";
+
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -8,8 +10,8 @@ export const GroupCornerStackDIToken = token<GroupCornerStack>("GroupCornerStack
 /** Who sits in the corner, top to bottom. */
 export const CORNER_ORDER = { debugToolbar: 0, find: 1 } as const;
 
-/** The row under the tab strip: a group's overlay host starts with its tabs. */
-const FIRST_ROW = 1;
+/** The row under the tab strip: a group's overlay host starts with its tabs (docs/arch/workbench/Frames.md). */
+const FIRST_ROW = TAB_HEIGHT;
 
 export interface IGroupCornerSlot extends IDisposable {
     /** Rows the widget takes while shown; 0 while hidden. */

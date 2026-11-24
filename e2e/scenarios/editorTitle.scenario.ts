@@ -10,7 +10,8 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-editor-tit
 
 const CHECK = "";
 const DISCARD = "";
-const TAB_ROW = 1;
+/** The tab label row: row 1 is the tabs' top lines, row 3 their baseline. */
+const TAB_ROW = 2;
 
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {
     await editor.sendKey("F1");

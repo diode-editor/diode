@@ -81,7 +81,9 @@ function setup(options: { settings?: Record<string, unknown>; registered?: boole
         colors: { resolve: () => undefined },
         notifyError: () => undefined,
     });
-    const app = TestApp.createWithContent(h.root("sb"), new Size(40, 14));
+    // The container header, its line, two section headers, the line between them and one under each: 18
+    // rows leave the welcome the room its longest text needs.
+    const app = TestApp.createWithContent(h.root("sb"), new Size(40, 18));
     const frame = (): string => {
         app.render();
         return app.backend.screenToString().replace(/\s+/g, " ");

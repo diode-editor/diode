@@ -506,6 +506,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             void service.activateByEvent(`onLanguage:${languageId}`);
             void service.activateByEvent("onLanguage");
         });
+        // Upstream `AbstractExtensionService`: the first use of a scheme starts the extensions waiting for it (gitblame
+        // on `onFileSystem:file`).
+        const files = container.get(IFileServiceDIToken);
+        // Stryker disable next-line ArrowFunction,CallExpression,StringLiteral: production module wiring — the producer is covered by the FileService unit tests, end to end by the stock Git Blame e2e suite
+        files.onWillActivateFileSystemProvider((s) => void service.activateByEvent(`onFileSystem:${s}`));
         // Views shown before registration (layout restore of an extension's container) are buffered the same way.
         // Stryker disable next-line ArrowFunction,CallExpression: production module wiring — the producer is covered by the bindViewActivation unit tests, end to end by the view-container-switcher e2e scenario
         bindViewActivation(container.get(ViewsServiceDIToken).onDidShowView, (event) => service.activateByEvent(event));

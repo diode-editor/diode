@@ -24,7 +24,8 @@ export default defineScenario({
 
         await editor.sendKey("Ctrl+k");
         await editor.sendKey("b");
-        await editor.waitForText((t) => t.includes("BREAKPOINTS"));
+        // The title is cut to "BREAKPOINT" by its actions in the default sidebar.
+        await editor.waitForText((t) => t.includes("BREAKPOINT"));
 
         await editor.sendKey("Ctrl+Alt+b");
         await editor.waitForText((t) => t.includes("Function to break on"));
