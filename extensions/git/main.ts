@@ -16,6 +16,7 @@ import {
 import { classifyGitStderr } from "./lib/classifyGitError.ts";
 import type { IDotGit } from "./lib/dotGit.ts";
 import { parseDotGit, refsRoot, upstreamRefPath } from "./lib/dotGit.ts";
+import { configuredGitPath } from "./lib/gitPath.ts";
 import { showFileAtRevision, toRepoRelativePath } from "./lib/gitShow.ts";
 import { fromGitUri, GIT_SCHEME, gitRefOf, ORIGINAL_RESOURCE_COMMAND, toGitUri } from "./lib/gitUri.ts";
 import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
@@ -900,8 +901,8 @@ function normalizeDebounce(value: unknown): number {
     return Math.min(n, 5000);
 }
 
-function gitEnvFor(gitPath: string): NodeJS.ProcessEnv | undefined {
-    if (gitPath === "") return undefined;
+function gitEnvFor(gitPath: string | undefined): NodeJS.ProcessEnv | undefined {
+    if (gitPath === undefined) return undefined;
     const dir = path.dirname(gitPath);
     const sep = path.delimiter;
     const currentPath = process.env.PATH ?? "";
@@ -934,8 +935,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             return;
         }
 
-        const gitPath = vscode.workspace.getConfiguration("git").get<string>("path", "");
-        const gitEnv = gitEnvFor(gitPath);
+        const gitEnv = gitEnvFor(configuredGitPath(vscode.workspace.getConfiguration("git").get<unknown>("path")));
 
         const repository = await detectRepository(cwd, gitEnv);
         if (repository === null) {

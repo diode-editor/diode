@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1466 |
+| ok | 1467 |
 | A | 11 |
-| B | 172 |
+| B | 171 |
 | C | 332 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 244 |
+| test | 245 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 584 |
 
@@ -857,7 +857,7 @@ Proposed API or a false hit: class X when real.
 | `DeclarationProvider.provideDeclaration` | ok |  | 0 | 0 |  |
 | `DecorationInstanceRenderOptions.dark` | ok |  | 0 | 0 |  |
 | `DecorationInstanceRenderOptions.light` | ok |  | 0 | 0 |  |
-| `DecorationOptions.hoverMessage` | B |  | 0 | 0 |  |
+| `DecorationOptions.hoverMessage` | ok | yes | 0 | 0 |  |
 | `DecorationOptions.range` | ok |  | 0 | 0 |  |
 | `DecorationOptions.renderOptions` | ok |  | 0 | 0 |  |
 | `DecorationRangeBehavior` | ok |  | 0 | 0 |  |

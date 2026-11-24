@@ -159,6 +159,11 @@ export interface IFileService {
     hasCapability(resource: Uri, capability: FileSystemProviderCapabilities): boolean;
     /** An extension provider appears asynchronously, usually after the first file is already open. */
     readonly onDidChangeFileSystemProviderRegistrations: Event<IFileSystemProviderRegistrationEvent>;
+    /**
+     * Upstream `onWillActivateFileSystemProvider`, which the extension service turns into `onFileSystem:<scheme>`:
+     * the scheme of the first operation on it, once per scheme.
+     */
+    readonly onWillActivateFileSystemProvider: Event<string>;
 
     stat(resource: Uri): Promise<IFileStat>;
     exists(resource: Uri): Promise<boolean>;

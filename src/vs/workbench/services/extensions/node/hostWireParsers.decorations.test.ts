@@ -44,6 +44,22 @@ describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
         it("non-array → []", () => {
             expect(parseDecorationOptions(undefined)).toEqual([]);
         });
+        it("[api:DecorationOptions.hoverMessage] hoverMessage keeps its strings; empty or not an array has no key", () => {
+            const renderOptions = { after: { contentText: "x" } };
+            expect(
+                parseDecorationOptions([
+                    { range: RANGE, hoverMessage: ["a", 1, null, "b"] },
+                    { range: RANGE, renderOptions, hoverMessage: ["m"] },
+                    { range: RANGE, hoverMessage: [7] },
+                    { range: RANGE, hoverMessage: "a" },
+                ]),
+            ).toStrictEqual([
+                { range: RANGE, hoverMessage: ["a", "b"] },
+                { range: RANGE, renderOptions, hoverMessage: ["m"] },
+                { range: RANGE },
+                { range: RANGE },
+            ]);
+        });
     });
 
     describe("parseWireFileDecorations", () => {

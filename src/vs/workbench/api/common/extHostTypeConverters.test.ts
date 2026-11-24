@@ -23,6 +23,7 @@ import {
 import {
     CompletionItem,
     EndOfLine,
+    MarkdownString,
     ParameterInformation,
     Position,
     Range,
@@ -329,6 +330,38 @@ describe("normalizeDecorationRanges", () => {
                 { range: new Range(0, 1, 0, 2), renderOptions: { after: { contentText: "x", color: "#f00" } } },
             ]),
         ).toStrictEqual([{ range: RANGE, renderOptions: { after: { contentText: "x", color: "#f00" } } }]);
+    });
+
+    it("hoverMessage: a string, a MarkdownString and an array go as raw markdown, blank and broken entries drop", () => {
+        const md = new MarkdownString("**commit** `abc`");
+        expect(
+            normalizeDecorationRanges([
+                { range: new Range(0, 1, 0, 2), hoverMessage: "plain" },
+                { range: new Range(0, 1, 0, 2), hoverMessage: md },
+                {
+                    range: new Range(0, 1, 0, 2),
+                    hoverMessage: [md, "", "  ", undefined, 7, { language: "ts", value: "x" }],
+                },
+            ] as unknown as readonly vscode.DecorationOptions[]),
+        ).toStrictEqual([
+            { range: RANGE, hoverMessage: ["plain"] },
+            { range: RANGE, hoverMessage: ["**commit** `abc`"] },
+            { range: RANGE, hoverMessage: ["**commit** `abc`", "```ts\nx\n```"] },
+        ]);
+    });
+
+    it("an empty or missing hoverMessage has no key; renderOptions ride along", () => {
+        expect(
+            normalizeDecorationRanges([
+                { range: new Range(0, 1, 0, 2), hoverMessage: [] },
+                { range: new Range(0, 1, 0, 2), hoverMessage: null, renderOptions: { after: { contentText: "x" } } },
+                { range: new Range(0, 1, 0, 2), hoverMessage: "m", renderOptions: { after: { contentText: "x" } } },
+            ] as unknown as readonly vscode.DecorationOptions[]),
+        ).toStrictEqual([
+            { range: RANGE },
+            { range: RANGE, renderOptions: { after: { contentText: "x" } } },
+            { range: RANGE, renderOptions: { after: { contentText: "x" } }, hoverMessage: ["m"] },
+        ]);
     });
 });
 
