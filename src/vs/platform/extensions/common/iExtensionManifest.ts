@@ -77,6 +77,9 @@ export interface IExtensionContributions {
     /** All are read at startup, before the first frame. */
     readonly themes?: readonly IThemeContribution[];
 
+    /** Foreign data — `extensionColorContributor.ts` validates it. */
+    readonly colors?: unknown;
+
     /** An unknown menu id is a log line, not an extension failure. */
     readonly menus?: Readonly<Record<string, readonly IExtensionMenuItemContribution[]>>;
 

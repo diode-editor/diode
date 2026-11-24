@@ -53,6 +53,17 @@ themes/*.ts ──▶ ThemeRegistry (label → IThemeFile) ──▶ resolve(lab
 7. **`uiTheme` → `type`**: `vs` → `light`, `vs-dark` → `dark`, `hc-black` → `hc`, `hc-light` → `hcLight`; нет или неизвестен — `dark` с warning.
 8. **`tokenColors` строкой (`.tmTheme`, plist) не поддержан**: тема регистрируется с цветами workbench и дефолтной подсветкой, warning в лог. Современные темы держат правила inline; plist-парсер — если такая тема попросится в реестр.
 
+### Цвета расширений (`contributes.colors`)
+
+Аналог эталонного `ColorExtensionPoint`: `registerExtensionColors` (`services/extensions/common/extensionColorContributor.ts`) в `main.ts` сразу после `ExtensionThemeContributor.apply()` и **до** выбора активной темы складывает записи в `ThemeRegistry.registerColor`. `ThemeRegistry.resolve` передаёт их в `WorkbenchTheme.fromThemeFile(json, extensionColors)`, так что любая тема, в том числе выбранная на лету через `workbench.colorTheme`, получает слот своего типа: `dark`/`hc` → `dark`, `light`/`hcLight` → `light`. `ThemeColor` расширения дальше разрешается обычным `getColor` — декорации, `ThemeIcon.color` в деревьях, файловые декорации получают цвет без своих правок.
+
+1. **Валидация и тексты ошибок — эталонные**; на первой невалидной записи разбор этого расширения обрывается (эталон обрывает весь обработчик). Пустое значение или не-hex с `#` — ошибка, запись пропускается (эталон подставляет красный).
+2. **Слоёв три:** дефолты расширений **под** встроенными дефолтами, те — под цветами темы. Тема, задавшая id расширения, побеждает; совпадение id со встроенным — встроенный остаётся, warning; между расширениями побеждает первое по порядку загрузки, warning.
+3. **Битая ссылка у цвета расширения (цикл, неизвестный id) не валит тему**: цвет не задан (`getColor` → `undefined`), warning один раз при регистрации, а не на каждом `resolve`. Битая ссылка во встроенных дефолтах по-прежнему исключение — это ошибка нашего кода.
+4. **`highContrast`/`highContrastLight` принимаются и не применяются** — в реестре два слота. Отступление записано в API-COVERAGE.md.
+
+Не входит: появление цветов без перезагрузки окна (как у тем), `workbench.colorCustomizations`.
+
 ### Иконки: Nerd Font или Unicode (`diode.icons.nerdFont`)
 
 Иконки рисуются глифами Nerd Font из Private Use Area — в шрифте без них это «тофу». Узнать шрифт нельзя: терминал не сообщает, какие глифы у него есть, а ширину для CPR берёт из таблицы wcwidth, а не из шрифта. Поэтому — настройка `diode.icons.nerdFont` (`auto | on | off`, `scope: application`, регистрируется рядом с `keyboard.platform`). `auto` выключает глифы только на консоли Linux (`TERM=linux`), остальное — `on` (решение человека 2026-10-24: в неизвестном терминале без регрессии). Отступление от эталона: у vscode шрифт кодиконов свой, ближайшее — `workbench.productIconTheme` и `workbench.iconTheme: null`; `off` у нас — встроенная «Unicode»-тема продуктовых иконок плюс «No file icons».

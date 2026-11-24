@@ -1,4 +1,4 @@
-import { isColorReference, themeKindOf } from "./colorRegistry.ts";
+import { type ColorContribution, deriveDefaultColors, isColorReference, themeKindOf } from "./colorRegistry.ts";
 import { defaultWorkbenchColors, type IWorkbenchColors } from "./colors/colorContributions.ts";
 import { parseHexColor } from "./colorUtils.ts";
 import type { IEditorTokenTheme } from "./iEditorTokenTheme.ts";
@@ -27,12 +27,26 @@ export class WorkbenchTheme {
      * on any theme; a reference in a default (`quickInput.background` → `editorWidget.background`)
      * resolves against the merged table. Alpha is kept: the engine composites when painting
      * (tuidom STYLES.md, "Color model").
+     *
+     * `extensionColors` (`contributes.colors`) go under the registry defaults, so a built-in key always
+     * wins. A broken reference in an extension color leaves that color unset instead of failing the theme
+     * (the contributor has already logged it); the theme's own value for such a key wins as for any other.
      */
-    public static fromThemeFile(json: IThemeFile): WorkbenchTheme {
-        const merged: Record<string, string> = { ...defaultWorkbenchColors(themeKindOf(json.type)), ...json.colors };
-        const colors: IWorkbenchColors = {};
+    public static fromThemeFile(json: IThemeFile, extensionColors: ColorContribution = {}): WorkbenchTheme {
+        const kind = themeKindOf(json.type);
+        const merged: Record<string, string> = {
+            ...deriveDefaultColors(extensionColors, kind),
+            ...defaultWorkbenchColors(kind),
+            ...json.colors,
+        };
+        const colors: Record<string, number> = {};
         for (const key of Object.keys(merged)) {
-            (colors as Record<string, number>)[key] = parseHexColor(resolveReference(merged, key));
+            if (Object.hasOwn(extensionColors, key)) {
+                const value = tryResolveReference(merged, key);
+                if (value !== undefined) colors[key] = parseHexColor(value);
+            } else {
+                colors[key] = parseHexColor(resolveReference(merged, key));
+            }
         }
 
         const tokenTheme: IEditorTokenTheme = {
@@ -41,7 +55,7 @@ export class WorkbenchTheme {
             semanticTokenRules: json.semanticTokenRules ?? [],
         };
 
-        return new WorkbenchTheme(json.name ?? "Unnamed", json.type ?? "dark", colors, tokenTheme);
+        return new WorkbenchTheme(json.name ?? "Unnamed", json.type ?? "dark", colors as IWorkbenchColors, tokenTheme);
     }
 
     /** `undefined` only for colors without a registry default; for required chrome use {@link getRequiredColor}. */
@@ -63,7 +77,7 @@ export class WorkbenchTheme {
 }
 
 /** Follows references along the chain; a cycle or a reference to an unregistered key is a color definition error (guarded by colorContributions.test.ts). */
-function resolveReference(table: Readonly<Record<string, string>>, key: string): string {
+export function resolveReference(table: Readonly<Record<string, string>>, key: string): string {
     const trail = [key];
     let value = table[key];
     while (isColorReference(value)) {
@@ -78,4 +92,13 @@ function resolveReference(table: Readonly<Record<string, string>>, key: string):
         value = next;
     }
     return value;
+}
+
+/** {@link resolveReference} for colors from extensions: a broken chain is `undefined`, not an error. */
+function tryResolveReference(table: Readonly<Record<string, string>>, key: string): string | undefined {
+    try {
+        return resolveReference(table, key);
+    } catch {
+        return undefined;
+    }
 }
