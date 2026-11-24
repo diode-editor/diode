@@ -721,16 +721,27 @@ export function themeColorIdOf(value: SerializedColor | undefined): string | und
 
 /**
  * A broken element (no object, no valid range) is dropped, the rest live; `renderOptions` goes on only as an
- * object, its fields are checked where they are read.
+ * object, its fields are checked where they are read; `hoverMessage` keeps only its strings.
  */
 export function parseDecorationOptions(raw: unknown): IWireDecorationOptions[] {
     if (!Array.isArray(raw)) return [];
     const result: IWireDecorationOptions[] = [];
     for (const item of raw) {
-        const { range: rawRange, renderOptions } = (item ?? {}) as { range?: unknown; renderOptions?: unknown };
+        const {
+            range: rawRange,
+            renderOptions,
+            hoverMessage: rawHover,
+        } = (item ?? {}) as { range?: unknown; renderOptions?: unknown; hoverMessage?: unknown };
         const range = parseRange(rawRange);
         if (range === null) continue;
-        result.push(typeof renderOptions === "object" && renderOptions !== null ? { range, renderOptions } : { range });
+        const hoverMessage = Array.isArray(rawHover)
+            ? rawHover.filter((block): block is string => typeof block === "string")
+            : [];
+        result.push({
+            range,
+            ...(typeof renderOptions === "object" && renderOptions !== null ? { renderOptions } : {}),
+            ...(hoverMessage.length === 0 ? {} : { hoverMessage }),
+        });
     }
     return result;
 }

@@ -492,14 +492,14 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("[api:TextEditor.setDecorations] renderOptions of a range carry before/after and their branches; a bare Range goes without", () => {
+    it("[api:TextEditor.setDecorations] renderOptions of a range carry before/after and their branches, hoverMessage its markdown; a bare Range goes without", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
         const type = window.createTextEditorDecorationType({});
         window.activeTextEditor!.setDecorations(type, [
             {
                 range: new Range(0, 7, 0, 17),
-                hoverMessage: "ignored",
+                hoverMessage: "**commit**",
                 renderOptions: {
                     before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)", width: "1em" },
                     after: { contentText: "!", color: new ThemeColor("errorForeground") },
@@ -519,6 +519,7 @@ describe("WindowNamespace", () => {
                     dark: { after: { fontStyle: "normal" } },
                     light: { before: { borderColor: "#000000" } },
                 },
+                hoverMessage: ["**commit**"],
             },
             { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 1 } } },
             { range: { start: { line: 2, character: 0 }, end: { line: 2, character: 1 } } },

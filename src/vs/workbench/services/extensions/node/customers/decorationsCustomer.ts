@@ -159,6 +159,7 @@ interface IDecorationType extends IEdgeLayers {
 interface IDecorationRange {
     readonly range: IRange;
     readonly edges: IEdgeLayers;
+    readonly hoverMessage?: readonly string[];
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -352,8 +353,12 @@ function decorationTypeOf(options: Record<string, unknown>): IDecorationType {
     };
 }
 
-function decorationRangeOf({ range, renderOptions }: IWireDecorationOptions): IDecorationRange {
-    return { range, edges: edgeLayersOf(asRecord(renderOptions)) };
+function decorationRangeOf({ range, renderOptions, hoverMessage }: IWireDecorationOptions): IDecorationRange {
+    return {
+        range,
+        edges: edgeLayersOf(asRecord(renderOptions)),
+        ...(hoverMessage === undefined ? {} : { hoverMessage }),
+    };
 }
 
 /**
@@ -486,7 +491,7 @@ class SpawnDecorations {
             const fg = this.resolveThemed(type.foreground, dark);
             const style = textStyleOf(type, dark);
             const opacity = themedValue(type.opacity, dark);
-            for (const { range, edges } of ranges) {
+            for (const { range, edges, hoverMessage } of ranges) {
                 const before = this.resolveAttachment(type.before, edges.before, dark);
                 const after = this.resolveAttachment(type.after, edges.after, dark);
                 decorations.push({
@@ -500,6 +505,7 @@ class SpawnDecorations {
                     ...(type.stickiness === undefined ? {} : { stickiness: type.stickiness }),
                     ...(before === undefined ? {} : { before }),
                     ...(after === undefined ? {} : { after }),
+                    ...(hoverMessage === undefined ? {} : { hoverMessage }),
                 });
             }
         }

@@ -1,7 +1,8 @@
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
-import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
+import { comparePositions, type IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import { isEmptyRange, rangeContainsPosition } from "../../../../editor/common/core/iRange.ts";
 import type {
     IExtensionDecorationAttachment,
     IExtensionTextDecoration,
@@ -72,6 +73,31 @@ export class ExtensionTextDecorations extends Disposable {
     }
 
     /**
+     * Upstream `MarkdownHoverParticipant` over `ContentHoverComputer._getLineDecorations`: the `hoverMessage` of
+     * each range that holds the position, ends included, or of a whole-line one on its line — ordered by where
+     * the range starts, as the model gives a line's decorations. A range an edit collapsed has no hover.
+     */
+    public hoverMessagesAt(position: IPosition): (readonly string[])[] {
+        const found: { range: IRange; hoverMessage: readonly string[] }[] = [];
+        for (const { ids, decorations } of this.sortedTypes()) {
+            decorations.forEach(({ hoverMessage, isWholeLine, range: given }, i) => {
+                if (hoverMessage === undefined) return;
+                const range = assertReturnsDefined(this.document.getDecorationRange(ids[i]));
+                if (isEmptyRange(range) && !isEmptyRange(given)) return;
+                const holds = isWholeLine
+                    ? range.start.line <= position.line && position.line <= range.end.line
+                    : rangeContainsPosition(range, position);
+                if (holds) found.push({ range, hoverMessage });
+            });
+        }
+        return found.sort((a, b) => comparePositions(a.range.start, b.range.start)).map((d) => d.hoverMessage);
+    }
+
+    private sortedTypes(): ITypeSet[] {
+        return [...this.types].sort(([a], [b]) => a - b).map(([, set]) => set);
+    }
+
+    /**
      * Types in key (creation) order. At one offset the insertions keep that order, a `before` ahead of an
      * `after` of the same empty range.
      */
@@ -79,7 +105,7 @@ export class ExtensionTextDecorations extends Disposable {
         const paint: IExtensionTextDecoration[] = [];
         // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
         const insertions: IInlineInsertion[] = [];
-        for (const [, { ids, decorations }] of [...this.types].sort(([a], [b]) => a - b)) {
+        for (const { ids, decorations } of this.sortedTypes()) {
             decorations.forEach((decoration, i) => {
                 // Our ids live until we remove them.
                 const range = assertReturnsDefined(this.document.getDecorationRange(ids[i]));

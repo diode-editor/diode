@@ -108,7 +108,7 @@ export function toVscodeRange(range: IRange): Range {
 
 /**
  * A broken range is dropped, just as the host's decoration parsing would drop it; a bare `Range` goes without
- * `renderOptions`, `hoverMessage` stays behind.
+ * `renderOptions` and `hoverMessage`.
  */
 export function normalizeDecorationRanges(
     rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
@@ -121,10 +121,15 @@ export function normalizeDecorationRanges(
         const range = rangeFrom(item.range);
         if (range === null) return [];
         const renderOptions = asObject(item.renderOptions);
+        const hoverMessage = item.hoverMessage == null ? [] : serializeHoverContents(item.hoverMessage);
         return [
-            renderOptions === undefined
-                ? { range }
-                : { range, renderOptions: serializeInstanceRenderOptions(renderOptions) },
+            {
+                range,
+                ...(renderOptions === undefined
+                    ? {}
+                    : { renderOptions: serializeInstanceRenderOptions(renderOptions) }),
+                ...(hoverMessage.length === 0 ? {} : { hoverMessage }),
+            },
         ];
     });
 }
@@ -369,7 +374,7 @@ const ESCAPED_THEME_ICON = /\\\\(\$\\?\([A-Za-z0-9-]+(?:~[A-Za-z]+)?\\?\))/g;
 
 function readHoverBlock(block: unknown): string | null {
     if (typeof block === "string") return block;
-    if (block === null) return null;
+    if (typeof block !== "object" || block === null) return null;
     const b = block as { value?: unknown; language?: unknown; supportThemeIcons?: unknown };
     if (typeof b.value !== "string") return null;
     if (b.supportThemeIcons === true) return b.value.replace(ESCAPED_THEME_ICON, "$1");
