@@ -453,8 +453,9 @@ describe("DecorationsCustomer — text decorations", () => {
 });
 
 /** The type Tailwind CSS IntelliSense 0.16 creates for its color squares. */
+// Tailwind's own box: the width is a swatch's, the margin rounds to no cell.
 const TAILWIND_TYPE = {
-    before: { contentText: " " },
+    before: { contentText: " ", width: "0.8em", margin: "0.1em 0.2em 0" },
     dark: { before: { borderColor: "#eeeeee" } },
     light: { before: { borderColor: "#000000" } },
 };
@@ -629,13 +630,13 @@ describe("DecorationsCustomer — before/after attachments", () => {
             {
                 range: span(2, 0, 4),
                 isWholeLine: false,
-                before: { kind: "text", text: "⚠ ", italic: true },
+                before: { kind: "text", text: "⚠ ", style: StyleFlags.Italic },
                 after: {
                     kind: "text",
                     text: "  You, 2 days ago",
                     fg: packRgb(0x80, 0x80, 0x80),
                     bg: packRgb(0x10, 0x20, 0x30),
-                    italic: true,
+                    style: StyleFlags.Italic,
                 },
             },
         ]);
@@ -645,9 +646,9 @@ describe("DecorationsCustomer — before/after attachments", () => {
         const h = await withRanges({ after: { contentText: "a\tb\u0007c\u009b\u007f\nsecond" } }, [
             { range: span(0, 0, 1) },
         ]);
-        expect(h.textFor("/a.ts")[0].after).toStrictEqual({ kind: "text", text: "a bc", italic: false });
+        expect(h.textFor("/a.ts")[0].after).toStrictEqual({ kind: "text", text: "a bc", style: StyleFlags.None });
         const cr = await withRanges({ after: { contentText: "one\rtwo" } }, [{ range: span(0, 0, 1) }]);
-        expect(cr.textFor("/a.ts")[0].after).toStrictEqual({ kind: "text", text: "one", italic: false });
+        expect(cr.textFor("/a.ts")[0].after).toStrictEqual({ kind: "text", text: "one", style: StyleFlags.None });
     });
 
     it("[api:TextEditor.setDecorations] type ⊕ type branch ⊕ range ⊕ range branch, a later layer wins field by field", async () => {
@@ -669,14 +670,14 @@ describe("DecorationsCustomer — before/after attachments", () => {
             ],
         );
         expect(h.textFor("/a.ts").map((d) => d.after)).toStrictEqual([
-            { kind: "text", text: "range", fg: packRgb(0, 0, 2), bg: packRgb(0, 0, 4), italic: false },
-            { kind: "text", text: "type", fg: packRgb(0, 0, 2), bg: packRgb(0, 0, 3), italic: true },
+            { kind: "text", text: "range", fg: packRgb(0, 0, 2), bg: packRgb(0, 0, 4), style: StyleFlags.None },
+            { kind: "text", text: "type", fg: packRgb(0, 0, 2), bg: packRgb(0, 0, 3), style: StyleFlags.Italic },
         ]);
 
         h.changeTheme(ColorThemeKind.Light);
         expect(h.textFor("/a.ts").map((d) => d.after)).toStrictEqual([
-            { kind: "text", text: "range", fg: packRgb(0, 0, 5), bg: packRgb(0, 0, 4), italic: true },
-            { kind: "text", text: "type", fg: packRgb(0, 0, 1), italic: true },
+            { kind: "text", text: "range", fg: packRgb(0, 0, 5), bg: packRgb(0, 0, 4), style: StyleFlags.Italic },
+            { kind: "text", text: "type", fg: packRgb(0, 0, 1), style: StyleFlags.Italic },
         ]);
     });
 
@@ -685,7 +686,11 @@ describe("DecorationsCustomer — before/after attachments", () => {
             { range: span(0, 0, 1), renderOptions: { before: { backgroundColor: { $themeColor: "no.such" } } } },
         ]);
         expect(h.textFor("/a.ts")).toStrictEqual([
-            { range: span(0, 0, 1), isWholeLine: false, after: { kind: "text", text: "x", fg: FG, italic: false } },
+            {
+                range: span(0, 0, 1),
+                isWholeLine: false,
+                after: { kind: "text", text: "x", fg: FG, style: StyleFlags.None },
+            },
         ]);
     });
 
@@ -695,8 +700,8 @@ describe("DecorationsCustomer — before/after attachments", () => {
             { range: span(1, 0, 1), renderOptions: { before: null, dark: { before: null } } },
         ]);
         expect(h.textFor("/a.ts")).toStrictEqual([
-            { range: span(0, 0, 1), isWholeLine: false, before: { kind: "text", text: "t", italic: false } },
-            { range: span(1, 0, 1), isWholeLine: false, before: { kind: "text", text: "t", italic: false } },
+            { range: span(0, 0, 1), isWholeLine: false, before: { kind: "text", text: "t", style: StyleFlags.None } },
+            { range: span(1, 0, 1), isWholeLine: false, before: { kind: "text", text: "t", style: StyleFlags.None } },
         ]);
     });
 
@@ -708,6 +713,129 @@ describe("DecorationsCustomer — before/after attachments", () => {
             },
         ]);
         expect(h.textFor("/a.ts")[0].before).toStrictEqual({ kind: "swatch", color: packRgb(0xee, 0xee, 0xee) });
+    });
+
+    /** The `after` of a type with this `after` layer, on one range. */
+    async function afterOf(after: Record<string, unknown>, renderOptions?: unknown) {
+        const h = await withRanges({ after: { contentText: "msg", ...after } }, [
+            { range: span(0, 0, 1), ...(renderOptions === undefined ? {} : { renderOptions }) },
+        ]);
+        return h.textFor("/a.ts")[0].after;
+    }
+
+    async function marginOf(margin: string) {
+        const after = await afterOf({ margin });
+        return after === undefined ? undefined : { left: after.marginLeft, right: after.marginRight };
+    }
+
+    it("[api:window.createTextEditorDecorationType] Error Lens defaults: a 4ch left margin, a normal weight, CSS injected after `;` dropped", async () => {
+        const after = await afterOf({
+            contentText: "Missing ';'",
+            color: "#ff0000",
+            fontStyle: "normal",
+            fontWeight: "normal",
+            textDecoration: "none;font-family:monospace",
+            margin: "0 0 0 4ch",
+        });
+        expect(after).toStrictEqual({
+            kind: "text",
+            text: "Missing ';'",
+            fg: packRgb(0xff, 0, 0),
+            style: StyleFlags.None,
+            marginLeft: 4,
+        });
+    });
+
+    it("[api:window.createTextEditorDecorationType] the margin shorthand: 1 value — all sides, 2 — (vertical, horizontal), 3 — (top, horizontal, bottom), 4 — (top, right, bottom, left)", async () => {
+        expect(await marginOf("1ch")).toStrictEqual({ left: 1, right: 1 });
+        expect(await marginOf("9ch 2ch")).toStrictEqual({ left: 2, right: 2 });
+        expect(await marginOf("9ch 3ch 9ch")).toStrictEqual({ left: 3, right: 3 });
+        // GitLens's file blame.
+        expect(await marginOf("0 26px -1px 0")).toStrictEqual({ left: undefined, right: 3 });
+        expect(await marginOf("  0\t1ch  0 2ch ")).toStrictEqual({ left: 2, right: 1 });
+        // Whitespace inside calc() doesn't split, and the values after it are split again.
+        expect(await marginOf("0 calc(1ch + 2ch) 0 1ch")).toStrictEqual({ left: 1, right: 3 });
+    });
+
+    it("lengths become cells: ch as is, em and rem twice, 8 px a cell, calc() by its ch addends; the rest and negatives are none", async () => {
+        expect(await marginOf("0 0 0 3em")).toStrictEqual({ left: 6, right: undefined });
+        expect(await marginOf("0 0 0 2rem")).toStrictEqual({ left: 4, right: undefined });
+        expect(await marginOf("0 0 0 2REM")).toStrictEqual({ left: 4, right: undefined });
+        expect(await marginOf("0 0 0 1.4ch")).toStrictEqual({ left: 1, right: undefined });
+        expect(await marginOf("0 0 0 0.75em")).toStrictEqual({ left: 2, right: undefined });
+        expect(await marginOf("0 0 0 12px")).toStrictEqual({ left: 2, right: undefined });
+        expect(await marginOf("0 0 0 calc(5ch - 6px)")).toStrictEqual({ left: 5, right: undefined });
+        expect(await marginOf("0 0 0 calc(5ch - 2ch + 1ch)")).toStrictEqual({ left: 4, right: undefined });
+        expect(await marginOf("0 0 0 calc(2em + 6px)")).toStrictEqual({ left: undefined, right: undefined });
+        expect(await marginOf("0 0 0 -2ch")).toStrictEqual({ left: undefined, right: undefined });
+        for (const garbage of ["0 0 0 auto", "0 0 0 4", "0 0 0 4vw", "0 0 0 4chx", "0 0 0 x4ch"]) {
+            expect(await marginOf(garbage), garbage).toStrictEqual({ left: undefined, right: undefined });
+        }
+    });
+
+    it("a margin of no value or of more than 4 leaves the earlier layer's, a range's own margin replaces the type's whole", async () => {
+        const spaces = await afterOf({ margin: "0 2ch" }, { after: { margin: "  " } });
+        expect([spaces?.marginLeft, spaces?.marginRight]).toStrictEqual([2, 2]);
+        const five = await afterOf({ margin: "0 2ch" }, { after: { margin: "1ch 1ch 1ch 1ch 1ch" } });
+        expect([five?.marginLeft, five?.marginRight]).toStrictEqual([2, 2]);
+        const replaced = await afterOf({ margin: "0 2ch" }, { after: { margin: "0 0 0 1ch" } });
+        expect([replaced?.marginLeft, replaced?.marginRight]).toStrictEqual([1, undefined]);
+    });
+
+    it("[api:window.createTextEditorDecorationType] width fits the text: a short one is padded with spaces, a long one cut, wide glyphs whole", async () => {
+        const text = async (contentText: string, width: unknown) =>
+            (await afterOf({ contentText, width })) as { text: string } | undefined;
+        expect((await text("ab", "calc(6ch - 6px)"))?.text).toBe("ab    ");
+        expect((await text("abcdef", "3ch"))?.text).toBe("abc");
+        expect((await text("abc", "3ch"))?.text).toBe("abc");
+        expect((await text("日本", "3ch"))?.text).toBe("日 ");
+        for (const none of ["1px", "auto", 5]) expect((await text("abcdef", none))?.text, String(none)).toBe("abcdef");
+    });
+
+    it("a width of no cell leaves the earlier layer's", async () => {
+        const after = await afterOf({ contentText: "abcdef", width: "2ch" }, { after: { width: "0" } });
+        expect(after).toMatchObject({ text: "ab" });
+    });
+
+    it("[api:window.createTextEditorDecorationType] fontWeight and textDecoration of an attachment are cell attributes, a branch's normal clears the base's", async () => {
+        expect(await afterOf({ fontWeight: "bold", textDecoration: "underline", fontStyle: "italic" })).toMatchObject({
+            style: StyleFlags.Bold | StyleFlags.Underline | StyleFlags.Italic,
+        });
+        expect(await afterOf({ fontWeight: "600", textDecoration: "wavy underline line-through" })).toMatchObject({
+            style: StyleFlags.Bold | StyleFlags.Undercurl | StyleFlags.Strikethrough,
+        });
+        expect(await afterOf({ fontWeight: "500", textDecoration: "overline" })).toMatchObject({
+            style: StyleFlags.None,
+        });
+        const cleared = await afterOf(
+            { fontWeight: "bold", textDecoration: "underline" },
+            { dark: { after: { fontWeight: "normal", textDecoration: "none" } } },
+        );
+        expect(cleared).toMatchObject({ style: StyleFlags.None });
+        const kept = await afterOf(
+            { fontWeight: "bold", textDecoration: "underline" },
+            { after: { fontWeight: "heavy", textDecoration: 5 } },
+        );
+        expect(kept).toMatchObject({ style: StyleFlags.Bold | StyleFlags.Underline });
+    });
+
+    it("borders and outlines draw nothing and break nothing; a swatch takes the margin too", async () => {
+        expect(await afterOf({ border: "1px solid red", outline: "1px solid red", borderRadius: "2px" })).toStrictEqual(
+            {
+                kind: "text",
+                text: "msg",
+                style: StyleFlags.None,
+            },
+        );
+        const swatch = await withRanges({ before: { contentText: "", color: "#00ff00", margin: "0 1ch 0 2ch" } }, [
+            { range: span(0, 0, 1) },
+        ]);
+        expect(swatch.textFor("/a.ts")[0].before).toStrictEqual({
+            kind: "swatch",
+            color: packRgb(0, 0xff, 0),
+            marginLeft: 2,
+            marginRight: 1,
+        });
     });
 
     it("[api:window.createTextEditorDecorationType] rangeBehavior becomes the tracked stickiness; an unknown value is the default", async () => {
@@ -726,7 +854,11 @@ describe("DecorationsCustomer — before/after attachments", () => {
         expect(h.textCalls.at(-1)?.set).toStrictEqual({
             key: 1,
             decorations: [
-                { range: span(0, 0, 1), isWholeLine: false, before: { kind: "text", text: "t", italic: false } },
+                {
+                    range: span(0, 0, 1),
+                    isWholeLine: false,
+                    before: { kind: "text", text: "t", style: StyleFlags.None },
+                },
             ],
         });
         h.changeTheme(ColorThemeKind.Light);

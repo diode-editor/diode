@@ -9,6 +9,7 @@ import type { IRange } from "../common/core/iRange.ts";
 import type { ISelection } from "../common/core/iSelection.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import type { IExtensionTextDecoration } from "../common/model/iExtensionTextDecoration.ts";
+import type { IInlineInsertion } from "../common/model/iInlineInsertion.ts";
 import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import {
@@ -149,19 +150,29 @@ export function forEachRangeCell(
     }
 }
 
-/** Whether a display column of the composed line belongs to an insertion that keeps its own background. */
-function isOutsideRangeBackgrounds(geo: ITextViewportGeometry, row: TextViewportRow, column: number): boolean {
+/** The insertion a display column of the composed line belongs to. */
+function insertionAt(geo: ITextViewportGeometry, row: TextViewportRow, column: number): IInlineInsertion | undefined {
     let shift = 0;
     for (const insertion of geo.insertions.get(row.logLine) ?? []) {
         const start = insertion.offset + shift;
         shift += insertion.text.length;
-        if (insertion.outsideRangeBackgrounds !== true) continue;
         const end = start + insertion.text.length;
         if (column >= row.displayLine.offsetToColumn(start) && column < row.displayLine.offsetToColumn(end)) {
-            return true;
+            return insertion;
         }
     }
-    return false;
+    return undefined;
+}
+
+/** Whether a display column of the composed line belongs to an insertion that keeps its own background. */
+function isOutsideRangeBackgrounds(geo: ITextViewportGeometry, row: TextViewportRow, column: number): boolean {
+    return insertionAt(geo, row, column)?.outsideRangeBackgrounds === true;
+}
+
+/** Whether a display column belongs to an insertion with a background of its own (an Error Lens message). */
+function hasOwnBackground(geo: ITextViewportGeometry, row: TextViewportRow, column: number): boolean {
+    const insertion = insertionAt(geo, row, column);
+    return insertion?.bg !== undefined || insertion?.bgToken !== undefined;
 }
 
 /** Only the patched colors (an absent one is kept): the glyph and the rest of the cell are kept too. */
@@ -232,8 +243,12 @@ export function paintExtensionTextDecorations(
         } else {
             for (const row of geo.rows) {
                 if (row.logLine < range.start.line || row.logLine > range.end.line) continue;
+                // An insertion's own background lies over the line's, as upstream's `::after` box over the line layer.
                 // Stryker disable next-line EqualityOperator: equivalent — contentCols reaches the element's right edge, a cell past it is cut by the element's clip
-                for (let x = 0; x < geo.contentCols; x++) context.setCell(geo.gutterW + x, row.screenY, { bg });
+                for (let x = 0; x < geo.contentCols; x++) {
+                    if (hasOwnBackground(geo, row, x + geo.scrollLeft + row.fragmentStartColumn)) continue;
+                    context.setCell(geo.gutterW + x, row.screenY, { bg });
+                }
             }
             paintRangeColors(context, glyphRangeOf(decoration), { fg }, geo);
         }

@@ -187,6 +187,32 @@ describe("decorations", () => {
                 light: { textDecoration: "underline" },
             });
         });
+        it("[api:window.createTextEditorDecorationType] before/after carry weight, text decoration, margin and width as strings; borders, padding and height stay behind", () => {
+            expect(
+                serializeDecorationRenderOptions({
+                    after: {
+                        contentText: "Missing ';'",
+                        fontWeight: "bold",
+                        textDecoration: "underline",
+                        margin: "0 0 0 4ch",
+                        width: "calc(10ch - 6px)",
+                        border: "1px solid red",
+                        padding: "0 1ch",
+                        height: "1em",
+                    },
+                    dark: { before: { margin: "2rem", fontWeight: 600, width: 3 } },
+                }),
+            ).toStrictEqual({
+                after: {
+                    contentText: "Missing ';'",
+                    fontWeight: "bold",
+                    textDecoration: "underline",
+                    margin: "0 0 0 4ch",
+                    width: "calc(10ch - 6px)",
+                },
+                dark: { before: { margin: "2rem" } },
+            });
+        });
         it("empty/invalid options → an empty object", () => {
             expect(serializeDecorationRenderOptions(undefined)).toEqual({});
             expect(serializeDecorationRenderOptions(null)).toEqual({});
