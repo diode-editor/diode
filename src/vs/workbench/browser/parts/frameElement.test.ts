@@ -63,6 +63,17 @@ describe("FrameElement", () => {
         expect(part.layoutSize).toEqual(new Size(4, 2));
     });
 
+    it("does not re-lay out when openTop is set to the value it already has", () => {
+        const frame = new FrameElement(new TUIElement());
+        frame.openTop = true;
+        frame.layout(BoxConstraints.tight(new Size(6, 3)));
+        expect(frame.isLayoutDirty).toBe(false);
+
+        frame.openTop = true;
+
+        expect(frame.isLayoutDirty).toBe(false);
+    });
+
     it("lies on the part's background", () => {
         const part = new TUIElement();
         part.style = { bg: "sideBar.background" };

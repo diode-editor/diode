@@ -114,10 +114,11 @@ describe("View containers (functional e2e)", () => {
         expect(await paneIds(app, PROBLEMS_CONTAINER)).toEqual([PROBLEMS_CONTAINER]);
 
         // The empty state is drawn by the section itself, not the tab strip; the section has
-        // no header row, so the hint is the first content line of the tab.
+        // no header row, so the hint is the first content line of the tab: right under the tab row,
+        // which is the panel's first row (its frame is the layout's, outside #panel).
         const placeholder = await session.node("#viewPlaceholder-workbench-panel-markers-view");
         const tabs = await session.node("#panel");
         expect(placeholder).not.toBeNull();
-        expect(placeholder!.box.y).toBe(tabs!.box.y + 2);
+        expect(placeholder!.box.y).toBe(tabs!.box.y + 1);
     });
 });
