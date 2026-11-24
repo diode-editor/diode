@@ -51,6 +51,7 @@ export default defineScenario({
     userKeybindings: [
         { key: "alt+k", command: "workbench.action.focusActiveEditorGroup" },
         { key: "alt+l", command: "workbench.action.gotoSymbol" },
+        { key: "f7", command: "workbench.action.increaseSidebarWidth" },
     ],
     async run(editor) {
         await editor.waitForReady();
@@ -58,6 +59,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("def measure(figure: Shape) -> float:"), { timeoutMs: 180_000 });
 
         await goTo(editor, "5:9");
+        // The default framed sidebar clips the "Implementations" title.
+        await editor.sendKey("F7");
         await editor.sendKey("Ctrl+F12");
         await editor.waitForText((t) => t.includes("Implementations") && t.includes("3 results in 1 file"), {
             timeoutMs: 60_000,

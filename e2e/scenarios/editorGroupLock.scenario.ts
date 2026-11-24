@@ -10,7 +10,7 @@ import { defineScenario, repoRoot } from "./framework.ts";
 // Ctrl+P and F1 for the shell.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
-const TAB_ROW = 1;
+const TAB_ROW = 2;
 /** nf-cod-lock: the Unlock Group button. */
 const LOCK = "";
 

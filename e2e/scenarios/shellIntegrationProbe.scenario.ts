@@ -33,7 +33,11 @@ export default defineScenario({
     prepare() {
         const result = spawnSync(
             process.execPath,
-            [join(repoRoot, "scripts", "pack-vsix.mjs"), resolve(repoRoot, "e2e", "marketplace", "shell-integration-probe"), probeVsix],
+            [
+                join(repoRoot, "scripts", "pack-vsix.mjs"),
+                resolve(repoRoot, "e2e", "marketplace", "shell-integration-probe"),
+                probeVsix,
+            ],
             { encoding: "utf8" },
         );
         if (result.status !== 0) throw new Error(`pack-vsix: ${result.stderr}`);
@@ -48,8 +52,8 @@ export default defineScenario({
 
         // The terminal in the editor area, the logs in the panel below it.
         await editor.sendKey("F7");
-        // The system bashrc draws its own prompt.
-        await editor.waitForText((t) => /\$\s*$/mu.test(t), { timeoutMs: 30_000 });
+        // The system bashrc draws its own prompt: a line ending with `$` before the group frame's right line.
+        await editor.waitForText((t) => /\$\s*│?$/mu.test(t), { timeoutMs: 30_000 });
         await waitForActivationLine(editor, `activated extension "${PROBE_ID}" (onTerminalShellIntegration:*)`);
         await editor.capture("activated");
 

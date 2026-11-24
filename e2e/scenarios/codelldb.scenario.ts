@@ -24,7 +24,9 @@ export default defineScenario({
     installVsix: ["vadimcn.vscode-lldb"],
     network: true,
     cols: 140,
-    rows: 60,
+    // Tall enough for VARIABLES to show `sum` and `i` under the six locals before them: the framed sidebar spends
+    // a line under every expanded section's header and one above every next header.
+    rows: 76,
     // Extension host scenarios run a subprocess; CodeLLDB's platform package is fetched for the host: Linux only.
     skipOn: ["win32", "darwin"],
     requires: gccMissing,
@@ -70,7 +72,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Console is in 'commands' mode"));
         await editor.sendText("?sum * 3");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => /^\s*30\s*$/m.test(t), { timeoutMs: 30_000 });
+        // The result alone on its console row, between the panel's frame lines.
+        await editor.waitForText((t) => /│\s*30\s*│\s*$/m.test(t), { timeoutMs: 30_000 });
         await editor.capture("debug-console");
 
         await editor.sendKey("Shift+F5");

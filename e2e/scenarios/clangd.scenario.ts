@@ -54,7 +54,7 @@ export default defineScenario({
         for (let column = 0; column < 7; column++) await editor.sendKey("ArrowRight");
         await editor.sendKey("Shift+Alt+t");
         // The subtype row under the root, on the tree's indent guide in the sidebar's first column.
-        await editor.waitForText((t) => t.includes("TYPE HIERARCHY") && /^ │[^│\n]{0,6}Square/m.test(t), {
+        await editor.waitForText((t) => t.includes("TYPE HIERARCHY") && /^│ │[^│\n]{0,6}Square/m.test(t), {
             timeoutMs: 20_000,
         });
         await editor.capture("type-hierarchy");

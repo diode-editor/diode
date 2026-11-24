@@ -2,7 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 // A file of unknown language and no workspace folder: don't wake tsserver, whose spinner shifts the bar's segments
 // (same reason as in statusBarExtension).
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.hello");
@@ -27,11 +26,13 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Sel 2:2 Keyboard"), { timeoutMs: 5000 });
         await editor.capture("keyboard");
 
-        // The coordinate is from the left edge of the screen: the sidebar exists even without a folder and the text
-        // starts around column 36; a click past the end of line 4 clamps to `Sel 4:12`. 5 s limit, same as for the
+        // The column is from the left edge of the screen: the sidebar exists even without a folder and the text
+        // starts around column 36; the row is line 4 of the editor (its text starts under the tab strip), and a click
+        // past the end of the line clamps to `Sel 4:12`. 5 s limit, same as for the
         // keyboard: the missed click was an engine bug (tuidom#22, the frame was not drawn), not a slow runner; after
         // the fix it takes 51–75 ms.
-        await editor.click(50, 5);
+        const text = await editor.waitForNode("EditorElement");
+        await editor.click(50, text.box.y + 3);
         await editor.waitForText((t) => t.includes("Sel 4:12 Mouse"), { timeoutMs: 5000 });
         await editor.capture("mouse");
 
