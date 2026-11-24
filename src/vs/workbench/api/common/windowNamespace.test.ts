@@ -139,14 +139,15 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("indentSize is forwarded to editor.setOptions", () => {
+    it("indentSize goes to editor.setOptions as the tab size; an explicit tabSize wins", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         window.activeTextEditor!.options = { indentSize: 3 } as never;
-        expect(stub.requests).toContainEqual({
-            method: "editor.setOptions",
-            params: { indentSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
-        });
+        window.activeTextEditor!.options = { tabSize: 4, indentSize: 8 } as never;
+        expect(stub.requests.map((request) => request.params)).toEqual([
+            { tabSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+            { tabSize: 4, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+        ]);
     });
 
     it('indentSize="tabSize" is not forwarded (same as tabSize)', () => {
@@ -345,7 +346,7 @@ describe("WindowNamespace", () => {
         window.activeTextEditor!.options = { indentSize: "3" } as never;
         expect(stub.requests.at(-1)).toEqual({
             method: "editor.setOptions",
-            params: { indentSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+            params: { tabSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
         });
     });
 
@@ -476,12 +477,14 @@ describe("WindowNamespace", () => {
             key: 1,
             options: {
                 rangeBehavior: DecorationRangeBehavior.ClosedClosed,
-                before: { contentText: " " },
+                before: { contentText: " ", margin: "0.1em 0.2em 0", width: "0.8em" },
                 after: {
                     contentText: "  You, 2 days ago",
                     color: { $themeColor: "editorCodeLens.foreground" },
                     backgroundColor: "#102030",
                     fontStyle: "italic",
+                    fontWeight: "bold",
+                    textDecoration: "underline",
                 },
                 dark: { before: { borderColor: "#eeeeee" } },
                 light: { before: { borderColor: "#000000" } },
@@ -511,7 +514,7 @@ describe("WindowNamespace", () => {
             {
                 range: { start: { line: 0, character: 7 }, end: { line: 0, character: 17 } },
                 renderOptions: {
-                    before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)" },
+                    before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)", width: "1em" },
                     after: { contentText: "!", color: { $themeColor: "errorForeground" } },
                     dark: { after: { fontStyle: "normal" } },
                     light: { before: { borderColor: "#000000" } },

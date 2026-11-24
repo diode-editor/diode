@@ -162,6 +162,26 @@ export const terminalConfiguration = {
             description:
                 "Determines whether or not shell integration is auto-injected to support features like enhanced command tracking and current working directory detection. \n\nShell integration works by injecting the shell with a startup script. The script gives VS Code insight into what is happening within the terminal.\n\nSupported shells:\n\n- Linux/macOS: bash, fish, pwsh, zsh\n - Windows: pwsh, git bash\n\nThis setting applies only when terminals are created, so you will need to restart your terminals for it to take effect.\n\n Note that the script injection may not work if you have custom arguments defined in the terminal profile, have enabled `#editor.accessibilitySupport#`, have a [complex bash `PROMPT_COMMAND`](https://code.visualstudio.com/docs/editor/integrated-terminal#_complex-bash-promptcommand), or other unsupported setup. To disable decorations, see `#terminal.integrated.shellIntegration.decorationsEnabled#`",
         },
+        // Verbatim from upstream (`markdownDescription` → `description`, `{0}` substituted); the default is upstream's
+        // `product.quality !== 'stable'` — diode is a stable build.
+        "terminal.integrated.shellIntegration.environmentReporting": {
+            scope: "window",
+            type: "boolean",
+            default: false,
+            description:
+                "Controls whether to report the shell environment, enabling its use in features such as `#terminal.integrated.suggest.enabled#`. This may cause a slowdown when printing your shell's prompt.",
+        },
+        // Verbatim from upstream (`markdownDescription` → `description`, `{0}` substituted); our schema has no
+        // `restricted`. Read by every `executeCommand` of an extension (`TerminalService.runCommand`).
+        "terminal.integrated.shellIntegration.timeout": {
+            scope: "window",
+            type: "integer",
+            minimum: -1,
+            maximum: 60000,
+            default: -1,
+            description:
+                "Configures the duration in milliseconds to wait for shell integration after launch before declaring it's not there. The default value `-1` uses a variable wait time based on whether shell integration injection is enabled and whether it's a remote window. Values between 1 and 499 are clamped to 500ms. Consider setting this to a large value if your shell starts very slowly.",
+        },
         "terminal.integrated.allowChords": {
             scope: "window",
             type: "boolean",

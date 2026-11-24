@@ -24,8 +24,10 @@ const NAVY = packRgb(0x10, 0x20, 0x30);
 const GUTTER = 6;
 
 const swatch = (color: number): IExtensionDecorationAttachment => ({ kind: "swatch", color });
-const text = (value: string, patch: Partial<{ fg: number; bg: number; italic: boolean }> = {}) =>
-    ({ kind: "text", text: value, italic: false, ...patch }) as IExtensionDecorationAttachment;
+const text = (
+    value: string,
+    patch: Partial<{ fg: number; bg: number; style: StyleFlags; marginLeft: number; marginRight: number }> = {},
+) => ({ kind: "text", text: value, style: StyleFlags.None, ...patch }) as IExtensionDecorationAttachment;
 const deco = (range: IRange, patch: Partial<IExtensionTextDecoration> = {}): IExtensionTextDecoration => ({
     range,
     isWholeLine: false,
@@ -93,7 +95,9 @@ describe("EditorComponent — setExtensionTextDecorations", () => {
         pane.setExtensionTextDecorations({
             key: 1,
             decorations: [
-                deco(createRange(0, 0, 0, 10), { after: text("  You", { fg: GRAY, bg: NAVY, italic: true }) }),
+                deco(createRange(0, 0, 0, 10), {
+                    after: text("  You", { fg: GRAY, bg: NAVY, style: StyleFlags.Italic }),
+                }),
             ],
         });
         app.render();
@@ -104,6 +108,92 @@ describe("EditorComponent — setExtensionTextDecorations", () => {
         expect(app.backend.getBgAt(new Point(GUTTER + 12, 0))).toBe(NAVY);
         // The document text keeps its style.
         expect(app.app.screen.getCell(new Point(GUTTER, 0)).style & StyleFlags.Italic).toBe(0);
+    });
+
+    it("[api:window.createTextEditorDecorationType] Error Lens: the margin is blank cells in the line's background, the message bold and underlined in its own", () => {
+        const { pane, app, row } = open("foo()\nbar");
+        const style = StyleFlags.Bold | StyleFlags.Underline;
+        pane.setExtensionTextDecorations({
+            key: 1,
+            decorations: [
+                deco(createRange(0, 0, 0, 5), {
+                    isWholeLine: true,
+                    bg: PAINT,
+                    after: text("Missing", { fg: GRAY, bg: NAVY, style, marginLeft: 4 }),
+                }),
+            ],
+        });
+        app.render();
+        expect(row()).toBe("foo()    Missing");
+        for (let x = 5; x < 9; x++) {
+            expect(app.backend.getBgAt(new Point(GUTTER + x, 0)), `gap cell ${x}`).toBe(PAINT);
+            expect(app.app.screen.getCell(new Point(GUTTER + x, 0)).style & style, `gap cell ${x}`).toBe(0);
+        }
+        for (let x = 9; x < 16; x++) {
+            expect(app.backend.getBgAt(new Point(GUTTER + x, 0)), `message cell ${x}`).toBe(NAVY);
+            expect(app.app.screen.getCell(new Point(GUTTER + x, 0)).style & style, `message cell ${x}`).toBe(style);
+        }
+        expect(app.backend.getBgAt(new Point(GUTTER + 16, 0))).toBe(PAINT);
+    });
+
+    function expectErrorLensRow(app: TestApp, row: (y?: number) => string, y: number): void {
+        const line = row(y);
+        const message = line.indexOf("Msg");
+        expect(message, line).toBeGreaterThanOrEqual(4);
+        for (let x = message - 4; x < message; x++) {
+            expect(app.backend.getBgAt(new Point(GUTTER + x, y)), `gap cell ${x}`).toBe(PAINT);
+        }
+        for (let x = message; x < message + 3; x++) {
+            expect(app.backend.getBgAt(new Point(GUTTER + x, y)), `message cell ${x}`).toBe(NAVY);
+        }
+    }
+
+    const errorLens = (end: number) =>
+        deco(createRange(0, 0, 0, end), {
+            isWholeLine: true,
+            bg: PAINT,
+            after: text("Msg", { fg: GRAY, bg: NAVY, marginLeft: 4 }),
+        });
+
+    it("a whole-line background leaves the message its own background when scrolled sideways", () => {
+        const { pane, app, row, editor } = open("foo()\nbar");
+        pane.setExtensionTextDecorations({ key: 1, decorations: [errorLens(5)] });
+        editor().viewState.scrollLeft = 2;
+        app.render();
+        expect(row()).toBe("o()    Msg");
+        expectErrorLensRow(app, row, 0);
+    });
+
+    it("a whole-line background leaves the message its own background on a wrapped row", () => {
+        const { pane, app, row, editor } = open("abcdefghijklmnopqrst\nbar", new Size(20, 4));
+        editor().viewState.wordWrap = "on";
+        pane.setExtensionTextDecorations({ key: 1, decorations: [errorLens(20)] });
+        app.render();
+        expect(row(0)).not.toContain("Msg");
+        expectErrorLensRow(app, row, 1);
+    });
+
+    it("a before's right margin stands between it and the text; the caret before the text passes the margin too", () => {
+        const { pane, app, row, editor } = open("ab cd");
+        pane.setExtensionTextDecorations({
+            key: 1,
+            decorations: [
+                deco(createRange(0, 3, 0, 5), { before: text("A", { bg: NAVY, marginLeft: 1, marginRight: 2 }) }),
+                deco(createRange(0, 0, 0, 0), { before: swatch(RED_500) }),
+            ],
+        });
+        pane.setExtensionTextDecorations({
+            key: 2,
+            decorations: [deco(createRange(0, 0, 0, 2), { after: { kind: "swatch", color: RED_500, marginLeft: 1 } })],
+        });
+        const editorBg = app.backend.getBgAt(new Point(GUTTER + 30, 0));
+        editor().focus();
+        pane.viewState.selections = [createCursorSelection(0, 3)];
+        app.render();
+        expect(row()).toBe("■ ab ■   A  cd");
+        expect(app.backend.getBgAt(new Point(GUTTER + 9, 0))).toBe(NAVY);
+        for (const x of [8, 10, 11]) expect(app.backend.getBgAt(new Point(GUTTER + x, 0)), `${x}`).toBe(editorBg);
+        expect(editor().getCaretScreenCell()).toEqual(new Point(GUTTER + 12, 0));
     });
 
     it("text without colors takes the editor's text color and the line's background", () => {
@@ -329,6 +419,20 @@ describe("EditorComponent — setExtensionTextDecorations", () => {
         expect(selected).not.toBe(editorBg);
         expect(app.backend.getBgAt(new Point(GUTTER + 1, 0))).toBe(editorBg);
         expect(app.backend.getBgAt(new Point(GUTTER + 5, 0))).toBe(selected);
+    });
+
+    it("a selection over an attachment's margin leaves its cells alone, as the attachment's own", () => {
+        const { pane, app, row } = open("ab cd");
+        pane.setExtensionTextDecorations({
+            key: 1,
+            decorations: [deco(createRange(0, 0, 0, 1), { after: text("T", { marginLeft: 2 }) })],
+        });
+        const editorBg = app.backend.getBgAt(new Point(GUTTER + 30, 0));
+        pane.viewState.selections = [createSelection(0, 0, 0, 5)];
+        app.render();
+        expect(row()).toBe("a  Tb cd");
+        expect(app.backend.getBgAt(new Point(GUTTER, 0))).not.toBe(editorBg);
+        for (let x = 1; x < 4; x++) expect(app.backend.getBgAt(new Point(GUTTER + x, 0)), `cell ${x}`).toBe(editorBg);
     });
 
     it("[api:TextEditor.setDecorations] a type with only opacity or only attributes reaches the frame; its text cells stay as they are", () => {

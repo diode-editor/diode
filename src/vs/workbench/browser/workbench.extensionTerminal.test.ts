@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
+import { IGNORED_SHELL_INTEGRATION_EVENTS } from "../../../TestUtils/shellIntegrationEvents.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ExtensionTerminalAdapter } from "../contrib/terminal/browser/extensionTerminalAdapter.ts";
@@ -104,6 +105,7 @@ describe("Workbench — extension terminal", () => {
             ptyResize: () => undefined,
             interaction: (id) => inputs.push(id),
             titleChanged: () => undefined,
+            ...IGNORED_SHELL_INTEGRATION_EVENTS,
         });
         h.commands.execute("workbench.action.terminal.new");
         const [shell] = terminal.getInstances();
@@ -132,6 +134,7 @@ describe("Workbench — extension terminal", () => {
             ptyResize: () => undefined,
             interaction: () => undefined,
             titleChanged: () => undefined,
+            ...IGNORED_SHELL_INTEGRATION_EVENTS,
         });
         adapter.create({ extHostId: 1, name: "Claude Code", location: { viewColumn: -2 } });
         const claude = terminal.getEditorInstances()[0];

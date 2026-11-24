@@ -7,6 +7,12 @@ import {
     parseWireTerminalOpened,
     parseWireTerminalPtyDimensions,
     parseWireTerminalPtyInput,
+    parseWireTerminalShellExecutionData,
+    parseWireTerminalShellExecutionEnd,
+    parseWireTerminalShellExecutionStart,
+    parseWireTerminalShellIntegration,
+    parseWireTerminalShellIntegrationCwd,
+    parseWireTerminalShellIntegrationEnv,
     parseWireTerminalTitleChanged,
 } from "./terminalWireParsers.ts";
 
@@ -125,5 +131,107 @@ describe("pty: start/resize/input", () => {
         expect(parseWireTerminalPtyInput({ id: 1, data: 1 })).toBeNull();
         expect(parseWireTerminalPtyInput({ data: "x" })).toBeNull();
         expect(parseWireTerminalPtyInput(undefined)).toBeNull();
+    });
+});
+
+describe("shell integration messages", () => {
+    const line = { value: "ls", confidence: 2, isTrusted: true };
+
+    it("changed, cwd and data need a numeric id and their typed field", () => {
+        expect(parseWireTerminalShellIntegration({ id: 1, supportsExecuteCommand: false, x: 1 })).toStrictEqual({
+            id: 1,
+            supportsExecuteCommand: false,
+        });
+        expect(parseWireTerminalShellIntegration(null)).toBeNull();
+        expect(parseWireTerminalShellIntegration({ id: "1", supportsExecuteCommand: true })).toBeNull();
+        expect(parseWireTerminalShellIntegration({ id: 1, supportsExecuteCommand: "yes" })).toBeNull();
+        expect(parseWireTerminalShellIntegrationCwd({ id: 1, cwd: "" })).toStrictEqual({ id: 1, cwd: "" });
+        expect(parseWireTerminalShellIntegrationCwd(null)).toBeNull();
+        expect(parseWireTerminalShellIntegrationCwd({ id: "1", cwd: "/" })).toBeNull();
+        expect(parseWireTerminalShellIntegrationCwd({ id: 1, cwd: 1 })).toBeNull();
+        expect(parseWireTerminalShellExecutionData({ id: 1, data: "x" })).toStrictEqual({ id: 1, data: "x" });
+        expect(parseWireTerminalShellExecutionData(null)).toBeNull();
+        expect(parseWireTerminalShellExecutionData({ id: "1", data: "x" })).toBeNull();
+        expect(parseWireTerminalShellExecutionData({ id: 1, data: 1 })).toBeNull();
+    });
+
+    it("env keeps string values only; needs an object and a boolean trust", () => {
+        expect(
+            parseWireTerminalShellIntegrationEnv({ id: 1, env: { A: "1", B: 2, C: null }, isTrusted: false }),
+        ).toStrictEqual({
+            id: 1,
+            env: { A: "1" },
+            isTrusted: false,
+        });
+        expect(parseWireTerminalShellIntegrationEnv(null)).toBeNull();
+        expect(parseWireTerminalShellIntegrationEnv({ id: "1", env: {}, isTrusted: true })).toBeNull();
+        expect(parseWireTerminalShellIntegrationEnv({ id: 1, env: "A=1", isTrusted: true })).toBeNull();
+        expect(parseWireTerminalShellIntegrationEnv({ id: 1, env: null, isTrusted: true })).toBeNull();
+        expect(parseWireTerminalShellIntegrationEnv({ id: 1, env: {}, isTrusted: 1 })).toBeNull();
+    });
+
+    it("start: command line, confidence (unknown is Low), optional cwd", () => {
+        expect(
+            parseWireTerminalShellExecutionStart({ id: 1, supportsExecuteCommand: true, commandLine: line, cwd: "/w" }),
+        ).toStrictEqual({
+            id: 1,
+            supportsExecuteCommand: true,
+            commandLine: line,
+            cwd: "/w",
+        });
+        for (const confidence of [0, 1, 2]) {
+            expect(
+                parseWireTerminalShellExecutionStart({
+                    id: 1,
+                    supportsExecuteCommand: false,
+                    commandLine: { ...line, confidence },
+                    cwd: 3,
+                })?.commandLine.confidence,
+            ).toBe(confidence);
+        }
+        expect(
+            parseWireTerminalShellExecutionStart({
+                id: 1,
+                supportsExecuteCommand: true,
+                commandLine: { ...line, confidence: 7 },
+            }),
+        ).toStrictEqual({ id: 1, supportsExecuteCommand: true, commandLine: { ...line, confidence: 0 } });
+        expect(parseWireTerminalShellExecutionStart(null)).toBeNull();
+        expect(
+            parseWireTerminalShellExecutionStart({ id: "1", supportsExecuteCommand: true, commandLine: line }),
+        ).toBeNull();
+        expect(
+            parseWireTerminalShellExecutionStart({ id: 1, supportsExecuteCommand: 1, commandLine: line }),
+        ).toBeNull();
+        expect(parseWireTerminalShellExecutionStart({ id: 1, supportsExecuteCommand: true })).toBeNull();
+        expect(
+            parseWireTerminalShellExecutionStart({
+                id: 1,
+                supportsExecuteCommand: true,
+                commandLine: { ...line, value: 1 },
+            }),
+        ).toBeNull();
+        expect(
+            parseWireTerminalShellExecutionStart({
+                id: 1,
+                supportsExecuteCommand: true,
+                commandLine: { ...line, isTrusted: "y" },
+            }),
+        ).toBeNull();
+    });
+
+    it("end: command line and a numeric exit code only", () => {
+        expect(parseWireTerminalShellExecutionEnd({ id: 1, commandLine: line, exitCode: 0 })).toStrictEqual({
+            id: 1,
+            commandLine: line,
+            exitCode: 0,
+        });
+        expect(parseWireTerminalShellExecutionEnd({ id: 1, commandLine: line, exitCode: "0" })).toStrictEqual({
+            id: 1,
+            commandLine: line,
+        });
+        expect(parseWireTerminalShellExecutionEnd(null)).toBeNull();
+        expect(parseWireTerminalShellExecutionEnd({ id: "1", commandLine: line })).toBeNull();
+        expect(parseWireTerminalShellExecutionEnd({ id: 1 })).toBeNull();
     });
 });

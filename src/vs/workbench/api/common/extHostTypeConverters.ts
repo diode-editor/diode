@@ -12,6 +12,7 @@ import type { IColor, IColorInformation } from "../../../editor/common/languages
 import {
     CompletionItemInsertTextRule,
     CompletionItemTag,
+    type ICompletionItemRanges,
     type ICoreCompletionItem,
 } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
@@ -187,7 +188,10 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
     return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
 }
 
-/** Only what a cell can draw: the text, its colors and italic (`borderColor` colors a swatch). */
+/**
+ * Only what a cell can draw: the text, its colors, its attributes, the horizontal margin and the width
+ * (`borderColor` colors a swatch). Borders, padding, height and fonts have no cell counterpart.
+ */
 function serializeAttachment(o: Record<string, unknown>): SerializedDecorationAttachmentRenderOptions {
     const result: {
         contentText?: string;
@@ -195,6 +199,10 @@ function serializeAttachment(o: Record<string, unknown>): SerializedDecorationAt
         backgroundColor?: SerializedColor;
         borderColor?: SerializedColor;
         fontStyle?: string;
+        fontWeight?: string;
+        textDecoration?: string;
+        margin?: string;
+        width?: string;
     } = {};
     if (typeof o.contentText === "string") result.contentText = o.contentText;
     const color = serializeColor(o.color);
@@ -204,6 +212,10 @@ function serializeAttachment(o: Record<string, unknown>): SerializedDecorationAt
     const border = serializeColor(o.borderColor);
     if (border !== undefined) result.borderColor = border;
     if (typeof o.fontStyle === "string") result.fontStyle = o.fontStyle;
+    if (typeof o.fontWeight === "string") result.fontWeight = o.fontWeight;
+    if (typeof o.textDecoration === "string") result.textDecoration = o.textDecoration;
+    if (typeof o.margin === "string") result.margin = o.margin;
+    if (typeof o.width === "string") result.width = o.width;
     return result;
 }
 
@@ -553,11 +565,15 @@ function readDocumentationText(doc: unknown): string | undefined {
 }
 
 /** By shape, not `instanceof`: a `Range` from a foreign bundle is a range too. */
-function readRange(item: vscode.CompletionItem): IRange | undefined {
+function readRange(item: vscode.CompletionItem): IRange | ICompletionItemRanges | undefined {
     const raw = (item as { range?: unknown }).range;
     if (raw === undefined || raw === null) return undefined;
-    const replacing = (raw as { replacing?: unknown }).replacing;
-    return rangeFrom(replacing === undefined ? raw : replacing) ?? undefined;
+    const { inserting, replacing } = raw as { inserting?: unknown; replacing?: unknown };
+    if (replacing === undefined) return rangeFrom(raw) ?? undefined;
+    const replace = rangeFrom(replacing);
+    if (replace === null) return undefined;
+    const insert = rangeFrom(inserting);
+    return insert === null ? replace : { insert, replace };
 }
 
 /** `id` is the item key in the response cache; the host resolves the item by it later. */

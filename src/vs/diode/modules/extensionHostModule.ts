@@ -506,6 +506,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Views shown before registration (layout restore of an extension's container) are buffered the same way.
         // Stryker disable next-line ArrowFunction,CallExpression: production module wiring — the producer is covered by the bindViewActivation unit tests, end to end by the view-container-switcher e2e scenario
         bindViewActivation(container.get(ViewsServiceDIToken).onDidShowView, (event) => service.activateByEvent(event));
+        // Stryker disable next-line ArrowFunction,CallExpression: production module wiring — the producer is covered by the terminalCustomer.shellIntegration unit tests, end to end by the shell-integration-probe e2e scenario
+        terminals().onDidRequestActivation((event) => void service.activateByEvent(event));
 
         // Stryker disable next-line CallExpression: production module wiring; behavior is covered by bindExtensionTasks unit tests and the extension-tasks e2e scenario
         bindExtensionTasks(

@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { FakeEditorTerminals } from "../../../../../TestUtils/FakeEditorTerminals.ts";
 import { FakeExtensionPtySession } from "../../../../../TestUtils/FakeExtensionPtySession.ts";
+import { FakeShellIntegration, terminalCommand } from "../../../../../TestUtils/FakeShellIntegration.ts";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
+import { IGNORED_SHELL_INTEGRATION_EVENTS } from "../../../../../TestUtils/shellIntegrationEvents.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import type { IExtensionTerminalEvents } from "../../../api/common/iExtensionWindowSinks.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -45,6 +47,7 @@ function setup(settings: Record<string, unknown> = {}) {
         ptyResize: vi.fn<IExtensionTerminalEvents["ptyResize"]>(),
         interaction: vi.fn<IExtensionTerminalEvents["interaction"]>(),
         titleChanged: vi.fn<IExtensionTerminalEvents["titleChanged"]>(),
+        ...IGNORED_SHELL_INTEGRATION_EVENTS,
     };
     const subscription = adapter.subscribe(events);
     return { views, service, sessions, ptySessions, factoryCalls, adapter, events, subscription, editorTerminals };
@@ -197,7 +200,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.adapter.sendText({ extHostId: 1 }, "x", true);
         expect(h.sessions[1].writes).toStrictEqual([]);
         h.service.dispose();
-        expect(h.adapter.snapshot()).toStrictEqual({ terminals: [], activeId: null });
+        expect(h.adapter.snapshot()).toStrictEqual({ terminals: [], activeId: null, shellIntegrations: [] });
     });
 
     it("closed: exit code only for an exited shell; no events after unsubscribing", () => {
@@ -308,6 +311,8 @@ describe("ExtensionTerminalAdapter — task pty terminal (CustomExecution)", () 
         expect(h.ptySessions[0].printed).toStrictEqual(["Executing\r\n"]);
         expect(h.events.ptyStart).toHaveBeenCalledWith(id, 80, 24);
         expect(h.events.opened.mock.calls[0][0]).not.toHaveProperty("extHostId");
+        // Upstream `instanceSupportsExecuteCommandApi`: a task terminal has no executeCommand.
+        expect(instance?.isFeatureTerminal).toBe(true);
         // On pty exit the instance waits (waitOnExit) instead of closing.
         h.adapter.ptyExit({ id }, 1);
         expect(h.service.getInstance(id)).toBe(instance);
@@ -378,5 +383,65 @@ describe("ExtensionTerminalAdapter — terminal location", () => {
             h.adapter.show({ id: 999 }, false);
         }).not.toThrow();
         h.service.dispose();
+    });
+});
+
+describe("ExtensionTerminalAdapter — shell integration", () => {
+    it("instances from before the adapter and new ones are watched; the snapshot has those alive; a closed one is dropped", () => {
+        const views = makeViewsHarness();
+        const shells: FakeShellIntegration[] = [];
+        const service = new TerminalService(views.service, createTestConfigurationService({}), (o) => {
+            const surface = new FakeTerminalSurface(o.shell ?? "/bin/bash");
+            const shell = new FakeShellIntegration();
+            shells.push(shell);
+            surface.shellIntegration = shell.addon;
+            return surface;
+        });
+        views.service.attachRegisteredContainers();
+        const before = service.createInstance();
+        const adapter = new ExtensionTerminalAdapter(
+            service,
+            views.service,
+            (o) => new FakeExtensionPtySession(o),
+            new FakeEditorTerminals(service),
+            createTestConfigurationService({}),
+        );
+        const activations: string[] = [];
+        adapter.onDidRequestActivation((event) => activations.push(event));
+        const events = { ...IGNORED_SHELL_INTEGRATION_EVENTS };
+        const spies = Object.keys(events).map((name) => vi.spyOn(events, name as keyof typeof events));
+        adapter.subscribe({
+            opened: () => undefined,
+            closed: () => undefined,
+            activeChanged: () => undefined,
+            ptyStart: () => undefined,
+            ptyInput: () => undefined,
+            ptyResize: () => undefined,
+            interaction: () => undefined,
+            titleChanged: () => undefined,
+            ...events,
+        });
+        const after = service.createInstance();
+        service.createInstance();
+        shells[0].addCwd("/w");
+        shells[0].addEnv({ value: {}, isTrusted: true });
+        shells[0].comeAlive();
+        shells[1].comeAlive();
+        expect(activations.filter((event) => event.endsWith("*"))).toHaveLength(2);
+        expect(adapter.snapshot().shellIntegrations.map((state) => state.integration.id)).toStrictEqual([
+            before.id,
+            after.id,
+        ]);
+        shells[0].executed.fire(terminalCommand("ls"));
+        shells[0].write("out");
+        shells[0].finished.fire(terminalCommand("ls"));
+        // changed (both terminals), cwd, env, start, data (flushed by the end), end.
+        expect(spies.map((spy) => spy.mock.calls.length)).toStrictEqual([2, 1, 1, 1, 1, 1]);
+
+        service.closeInstance(before.id);
+        shells[0].executed.fire(terminalCommand("ls"));
+        expect(spies[3].mock.calls).toHaveLength(1);
+        expect(adapter.snapshot().shellIntegrations.map((state) => state.integration.id)).toStrictEqual([after.id]);
+        service.dispose();
     });
 });

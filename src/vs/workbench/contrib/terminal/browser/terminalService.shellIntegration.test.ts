@@ -35,6 +35,23 @@ describe("TerminalService — shell integration options of the session", () => {
         h.service.dispose();
     });
 
+    it("`terminal.integrated.shellIntegration.environmentReporting` (default off) goes to the session when on", async () => {
+        const h = buildHarness();
+        h.service.createInstance({ cwd: "/ws" });
+        await h.configuration.updateValue("terminal.integrated.shellIntegration.environmentReporting", true);
+        const instance = h.service.createInstance({ cwd: "/ws", waitOnExit: true });
+        h.sessions[1].emitExit(0);
+        h.service.relaunchInstance(instance.id, { cwd: "/ws" });
+        expect(h.factoryCalls.map((call) => call.shellIntegrationEnvironmentReporting)).toStrictEqual([
+            undefined,
+            true,
+        ]);
+        expect(h.sessions[1].relaunches).toStrictEqual([
+            { cwd: "/ws", shellIntegrationEnabled: true, shellIntegrationEnvironmentReporting: true },
+        ]);
+        h.service.dispose();
+    });
+
     it("read at every (re)launch: off in the settings — the relaunched process is not injected", async () => {
         const h = buildHarness({ "terminal.integrated.shellIntegration.enabled": false });
         const instance = h.service.createInstance({ cwd: "/ws", waitOnExit: true });

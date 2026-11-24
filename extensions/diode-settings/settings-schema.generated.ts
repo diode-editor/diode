@@ -655,6 +655,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Whether subwords (like 'foo' in 'fooBar' or 'foo_bar') should be selected.",
     },
     {
+        key: "editor.suggest.insertMode",
+        type: "string",
+        default: "insert",
+        description:
+            "Controls whether words are overwritten when accepting completions. Note that this depends on extensions opting into this feature.",
+        enum: ["insert", "replace"],
+    },
+    {
         key: "editor.suggestOnTriggerCharacters",
         type: "boolean",
         default: true,
@@ -1424,6 +1432,20 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         default: true,
         description:
             "Determines whether or not shell integration is auto-injected to support features like enhanced command tracking and current working directory detection. \n\nShell integration works by injecting the shell with a startup script. The script gives VS Code insight into what is happening within the terminal.\n\nSupported shells:\n\n- Linux/macOS: bash, fish, pwsh, zsh\n - Windows: pwsh, git bash\n\nThis setting applies only when terminals are created, so you will need to restart your terminals for it to take effect.\n\n Note that the script injection may not work if you have custom arguments defined in the terminal profile, have enabled `#editor.accessibilitySupport#`, have a [complex bash `PROMPT_COMMAND`](https://code.visualstudio.com/docs/editor/integrated-terminal#_complex-bash-promptcommand), or other unsupported setup. To disable decorations, see `#terminal.integrated.shellIntegration.decorationsEnabled#`",
+    },
+    {
+        key: "terminal.integrated.shellIntegration.environmentReporting",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether to report the shell environment, enabling its use in features such as `#terminal.integrated.suggest.enabled#`. This may cause a slowdown when printing your shell's prompt.",
+    },
+    {
+        key: "terminal.integrated.shellIntegration.timeout",
+        type: "integer",
+        default: -1,
+        description:
+            "Configures the duration in milliseconds to wait for shell integration after launch before declaring it's not there. The default value `-1` uses a variable wait time based on whether shell integration injection is enabled and whether it's a remote window. Values between 1 and 499 are clamped to 500ms. Consider setting this to a large value if your shell starts very slowly.",
     },
     {
         key: "terminal.integrated.tabs.enabled",

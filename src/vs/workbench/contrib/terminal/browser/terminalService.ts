@@ -2,8 +2,9 @@ import { basename } from "node:path";
 
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 
+import { raceTimeout, timeout } from "../../../../base/common/async.ts";
 import { Emitter } from "../../../../base/common/event.ts";
-import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { currentOperatingSystem } from "../../../../base/common/platform.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -17,6 +18,7 @@ import {
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { getShellIntegrationTimeout } from "../common/terminalEnvironment.ts";
 import {
     type ITerminalSession,
     type ITerminalSessionOptions,
@@ -25,6 +27,9 @@ import {
 } from "../common/terminalSessionFactory.ts";
 
 export const TERMINAL_VIEW_ID = "terminal";
+
+/** Upstream `runCommand`: the pause after the Ctrl+C that clears the prompt. */
+export const RUN_COMMAND_INTERRUPT_DELAY_MS = 100;
 
 export const TerminalServiceDIToken = token<TerminalService>("TerminalService");
 
@@ -62,6 +67,7 @@ export interface ITerminalInstance {
             | "onLineData"
             | "buffer"
             | "getCwd"
+            | "shellIntegration"
             | "printMessage"
             | "onWillData"
             | "onDidWriteData"
@@ -79,6 +85,8 @@ export interface ITerminalInstance {
     readonly shellType: TerminalShellType | undefined;
     /** Input — keys, mouse reports, `sendText` — has reached the process (`terminal.state.isInteractedWith`). */
     readonly isInteractedWith: boolean;
+    /** A task terminal (upstream `shellLaunchConfig.type === 'Task'`): no `executeCommand` for extensions. */
+    readonly isFeatureTerminal: boolean;
 }
 
 export interface IDisposedTerminalInstance extends ITerminalInstance {
@@ -98,6 +106,8 @@ export interface ITerminalCreateOptions {
     readonly message?: string;
     /** A task terminal (upstream `isFeatureTerminal`): the shell is not injected with shell integration. */
     readonly isFeatureTerminal?: boolean;
+    /** `TerminalOptions.shellIntegrationNonce`: the shell gets it as `VSCODE_NONCE`; absent — a fresh one. */
+    readonly shellIntegrationNonce?: string;
     /**
      * The process runs, but it has no tab and doesn't become active until shown
      * ({@link TerminalService.showInstance}).
@@ -139,6 +149,8 @@ interface TerminalInstanceRecord extends ITerminalInstance {
     waiting: boolean;
     /** An extension pty owns the process — there is no command line. */
     readonly external: boolean;
+    /** Upstream `processReadyTimestamp`: the shell integration timeout counts from it. */
+    processReadyTimestamp: number;
 }
 
 /**
@@ -302,7 +314,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
             this.factory({
                 cols: INITIAL_COLS,
                 rows: INITIAL_ROWS,
-                ...sessionOptions(options, cwd, this.shellIntegrationEnabled()),
+                ...sessionOptions(options, cwd, this.shellIntegration()),
             });
         this.applyKittyKeyboard(session);
         // For a ready session we print `message` ourselves — a shell session prints it on spawn.
@@ -321,9 +333,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
             exitReason: undefined,
             shellType: shellTypeOf(external, session),
             isInteractedWith: false,
+            isFeatureTerminal: options.isFeatureTerminal === true,
             waitOnExit: options.waitOnExit,
             waiting: false,
             external,
+            processReadyTimestamp: Date.now(),
             subscriptions: [
                 session.onExit((code) => {
                     this.handleProcessExit(instance, code);
@@ -363,10 +377,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         instance.exitCode = undefined;
         instance.waitOnExit = options.waitOnExit;
         instance.session.relaunch({
-            ...sessionOptions(options, cwd, this.shellIntegrationEnabled()),
+            ...sessionOptions(options, cwd, this.shellIntegration()),
             ...(options.clear === true ? { clear: true } : {}),
         });
         instance.processId = instance.session.pid;
+        instance.processReadyTimestamp = Date.now();
         instance.launch = launchInfo(options, instance.session, cwd, instance.launch.hideFromUser);
         instance.shellType = shellTypeOf(instance.external, instance.session);
         this.renameInstance(id, titleOf(options, instance.session));
@@ -418,6 +433,49 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         if (instance === undefined) return;
         const normalized = text.replace(/\r?\n/gu, "\r");
         instance.session.sendText(shouldExecute && !normalized.endsWith("\r") ? `${normalized}\r` : normalized);
+    }
+
+    /**
+     * Upstream `TerminalInstance.runCommand(commandLine, shouldExecute: true)` — `executeCommand` of an extension. Waits
+     * for the prompt to take input, at most the shell integration timeout; a terminal without shell integration by then
+     * gets the command anyway. Text on the prompt (or no shell integration to tell) — Ctrl+C first, then a pause for the
+     * shell to handle it.
+     */
+    public async runCommand(id: number, commandLine: string): Promise<void> {
+        const instance = this.find(id);
+        if (instance === undefined) return;
+        const capabilities = instance.session.shellIntegration?.capabilities;
+        let commandDetection = capabilities?.get("commandDetection");
+        const timeoutMs = getShellIntegrationTimeout(
+            this.configuration.get("terminal.integrated.shellIntegration.timeout"),
+            this.configuration.get("terminal.integrated.shellIntegration.enabled"),
+            Date.now() - instance.processReadyTimestamp,
+        );
+        if (commandDetection?.promptInputModel.state !== "input") {
+            const store = new DisposableStore();
+            const inputStarted = new Promise<void>((resolve) => {
+                // Deviation: upstream waits only for a capability added later; one that came alive on `A`, before
+                // its `B`, would cost the whole timeout.
+                if (commandDetection !== undefined)
+                    store.add(commandDetection.promptInputModel.onDidStartInput(resolve));
+                if (capabilities === undefined) return;
+                store.add(
+                    capabilities.onDidAddCommandDetectionCapability((capability) => {
+                        // Added on its first sequence, before any `B` is handled: never in input yet.
+                        commandDetection = capability;
+                        store.add(capability.promptInputModel.onDidStartInput(resolve));
+                    }),
+                );
+            });
+            await raceTimeout(inputStarted, timeoutMs);
+            store.dispose();
+        }
+        if (commandDetection === undefined || commandDetection.promptInputModel.value.length > 0) {
+            this.sendText(id, "\x03", false);
+            // Upstream: not to have the command echoed while the shell is still handling the ^C.
+            await timeout(RUN_COMMAND_INTERRUPT_DELAY_MS);
+        }
+        this.sendText(id, commandLine, true);
     }
 
     /** Upstream `TerminalInstance.rename`: the new title wins over the one given at creation. */
@@ -611,9 +669,12 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return [...this.instances, ...this.backgroundInstances, ...this.editorInstances];
     }
 
-    /** Upstream reads it when the process starts: a changed value applies to the next (re)launch. */
-    private shellIntegrationEnabled(): boolean {
-        return this.configuration.get("terminal.integrated.shellIntegration.enabled");
+    /** Upstream reads these when the process starts: a changed value applies to the next (re)launch. */
+    private shellIntegration(): IShellIntegrationSettings {
+        return {
+            enabled: this.configuration.get("terminal.integrated.shellIntegration.enabled"),
+            environmentReporting: this.configuration.get("terminal.integrated.shellIntegration.environmentReporting"),
+        };
     }
 
     private applyKittyKeyboard(session: ITerminalSession): void {
@@ -633,15 +694,24 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 }
 
+interface IShellIntegrationSettings {
+    readonly enabled: boolean;
+    readonly environmentReporting: boolean;
+}
+
 function sessionOptions(
     options: ITerminalRelaunchInstanceOptions,
     cwd: string,
-    shellIntegrationEnabled: boolean,
+    shellIntegration: IShellIntegrationSettings,
 ): Omit<ITerminalSessionOptions, "cols" | "rows"> {
     return {
         cwd,
-        shellIntegrationEnabled,
+        shellIntegrationEnabled: shellIntegration.enabled,
+        ...(shellIntegration.environmentReporting ? { shellIntegrationEnvironmentReporting: true } : {}),
         ...(options.isFeatureTerminal === true ? { isFeatureTerminal: true } : {}),
+        ...(options.shellIntegrationNonce !== undefined
+            ? { shellIntegrationNonce: options.shellIntegrationNonce }
+            : {}),
         ...(options.shellPath !== undefined ? { shell: options.shellPath } : {}),
         ...(options.shellArgs !== undefined ? { args: [...options.shellArgs] } : {}),
         ...(options.env !== undefined ? { env: { ...options.env } } : {}),

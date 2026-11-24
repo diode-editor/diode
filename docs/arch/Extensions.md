@@ -1146,13 +1146,13 @@
   отбрасывает чужие события Claude Code.
 - **Свойства редактора (`TextEditor.visibleRanges` + `onDidChangeTextEditorVisibleRanges`, #1226):**
   эхо upstream `$acceptEditorPropertiesChanged` — notify `editor.propertiesChanged`
-  (`IWireEditorPropertiesChanged`: адрес редактора `uri` + `groupId` и только изменившиеся свойства).
-  Сейчас там `visibleRanges`; следующие (`options` для `onDidChangeTextEditorOptions`) добавляются
-  полем в то же сообщение. Продюсер — `EditorLayoutServiceAdapter`: он и так знает видимые редакторы
+  (`IWireEditorPropertiesChanged`: адрес редактора `uri` + `groupId` и только изменившиеся свойства:
+  `options` и `visibleRanges`). Продюсер — `EditorLayoutServiceAdapter`: он и так знает видимые редакторы
   (активная текстовая вкладка каждой группы и модельные стороны diff'а — `visibleEditors()`),
-  подписан на `TextEditorPane.onDidChangeVisibleRange` каждого и раз в микрозадачу шлёт значение,
-  отличное от последнего отправленного этим редактором (скрытый редактор хранит своё, как в эталоне).
-  Значение — `EditorViewState.getVisibleRanges()`: целиком видимые строки, разрезанные вокруг
+  подписан на `TextEditorPane.onDidChangeVisibleRange`, `onDidChangeIndentOptions` и
+  `onDidChangeCursorStyleSetting` каждого и раз в микрозадачу шлёт значение, отличное от последнего
+  отправленного этим редактором (скрытый редактор хранит своё, как в эталоне).
+  Значение `visibleRanges` — `EditorViewState.getVisibleRanges()`: целиком видимые строки, разрезанные вокруг
   свёрнутых; строка с переносом, обрезанная краем вьюпорта, выпадает, как частично видимая строка
   в эталоне. Стартовое значение едет в снимке раскладки (`visibleRanges` активной вкладки,
   `sideVisibleRanges` сторон diff'а): errorlens читает его в `onDidChangeActiveTextEditor`, раньше
@@ -1161,6 +1161,18 @@
   неизвестный ключ; известное
   значение меняет лишь сообщение — сначала кэш, потом событие, и только при изменении. Customer
   сначала флашит раскладку: свойства адресуют вкладку, которой субпроцесс уже должен знать.
+  **Опции (`onDidChangeTextEditorOptions`, #1231)** — все разом, если изменилась любая, как
+  `MainThreadTextEditorProperties`: `tabSize`, `insertSpaces` из вью-стейта и `cursorStyle` — то, во что
+  разрешились переопределение расширения и `editor.cursorStyle` (`TextEditorPane.cursorStyleSetting`, до того
+  как терминал свернёт его в три формы; не задан — `Line`). `indentSize` у нас — `tabSize`, его дописывает
+  субпроцесс. `lineNumbers` на проводе нет: ключа `editor.lineNumbers` у ядра нет, субпроцесс читает его из
+  своих настроек, и смена настройки события не даёт. Впервые видимый редактор опций не шлёт — эталонный
+  новый редактор приходит со своими без события; субпроцесс до первого отчёта берёт отступы вкладки из
+  снимка и форму курсора из настроек (переопределения у новой панели ещё нет, так что это то же значение).
+  Субпроцесс держит присланные опции по редактору, поверх — присвоенное самим расширением до ответа хоста
+  (эталонный `ExtHostTextEditorOptions`). Событие стреляет на каждое сообщение с `options` (хост уже
+  отфильтровал неизменённое) и раньше `visibleRanges` того же сообщения. `editor.setOptions` адресует
+  редактор по `uri` + `groupId` (`IEditorOptionsService.setEditorOptions`), а не активный.
 - **Активная тема (`window.activeColorTheme` + `onDidChangeActiveColorTheme`):** notify
   `window.themeChanged {kind}` (host → subprocess) через тот же порт `IThemeColorResolver`, что
   резолвит `ThemeColor` — второго порта к теме не заводим, событие смены у обоих потребителей одно.
@@ -1950,8 +1962,9 @@ workspace-состоянии `terminal.integrated.environmentVariableCollections
 key) и шлёт хосту RPC-нотификации, сериализуя `ThemeColor` как `{ $themeColor: id }` (см.
 `api/common/wireTypes.ts`; на провод идут `backgroundColor`, `color`, `overviewRulerColor`, `fontStyle`, `fontWeight`,
 `textDecoration`, `opacity` (CSS-строки как есть), `isWholeLine`, `rangeBehavior`, `overviewRulerLane`, `before`/`after`
-(`contentText`, `color`, `backgroundColor`, `borderColor`, `fontStyle`) и ветки `light`/`dark` с теми же полями — рамки,
-размеры, отступы, семейство шрифта, иконки клетке нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions? }` (`IWireDecorationOptions`,
+(`contentText`, `color`, `backgroundColor`, `borderColor`, `fontStyle`, `fontWeight`, `textDecoration`, `margin`, `width`)
+и ветки `light`/`dark` с теми же полями — рамки, `padding`, `height`, семейство и размер шрифта, иконки клетке
+нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions? }` (`IWireDecorationOptions`,
 `vscode.DecorationOptions` без `hoverMessage`; голый `Range` — без `renderOptions`), `renderOptions` — `before`/`after`
 и их ветки; хост разбирает их `parseDecorationOptions` (битый элемент выбрасывается, мусор в полях = поля нет).
 `DecorationsCustomer` держит на тип разобранные опции (`overviewRulerColorId`, `isWholeLine`, stickiness из
@@ -1964,7 +1977,16 @@ key) и шлёт хосту RPC-нотификации, сериализуя `Th
 `renderOptions` диапазона ⊕ его ветка», позднее побеждает (как подтип `.sub.parent::before` эталона,
 `setDecorationsByType`). Пустой или пробельный `contentText` с цветом (`backgroundColor`, иначе `borderColor`, иначе
 `color`) — свотч `■ ` (как у `ColorDetector`; бокс 0.8em с рамкой клетке не нарисовать); непустой — первая строка без
-управляющих символов (`\t` → пробел) со своими `color`/`backgroundColor`/курсивом; ни текста, ни цвета — ничего.
+управляющих символов (`\t` → пробел) со своими `color`/`backgroundColor` и атрибутами (`fontStyle`, `fontWeight`,
+`textDecoration` — тот же разбор, что у текста диапазона ниже, итог — `style` вставки); ни текста, ни цвета — ничего.
+Длины `margin` и `width` вставки — в ячейки (`cellsOf`): `Nch` → N, `Nem`/`Nrem` → 2·N, `Npx` → N/8, с округлением;
+у `calc()` — только слагаемые в `ch` (`calc(12ch - 6px)` файлового blame GitLens → 12); прочее и отрицательное — 0.
+`margin` — шорткат CSS (1–4 значения, `calc(…)` не режется по пробелам), берутся левая и правая стороны →
+`marginLeft`/`marginRight` вставки; редактор кладёт их отдельными вставками из пробелов без фона вставки (margin вне
+бокса), в фоне строки. `width` — текст ровно этой ширины (`fitToWidth`: короче — пробелы в фоне вставки, длиннее —
+обрезка по графемам; у эталона текст вылезает за бокс — отступление), ширина в 0 ячеек — поля нет. У свотча `width`
+игнорируется (он всегда `■ `), `margin` действует. Фон `isWholeLine` не закрашивает ячейки вставки со своим фоном —
+бокс `::after` эталона лежит над слоем строки.
 Атрибуты текста — CSS-разбор на хосте: `fontStyle` `italic`/`oblique` → курсив, `fontWeight` `bold`/`bolder`/≥600 →
 жирный (`normal` — «не добавляет», а не «снимает» атрибут токена: клетке нечем различить спан и токен), `textDecoration` —
 слова до первого `;` (расширения дописывают туда CSS): `underline` (с `wavy` — undercurl), `line-through`; `overline`,

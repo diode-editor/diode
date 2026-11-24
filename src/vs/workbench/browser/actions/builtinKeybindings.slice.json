@@ -97,10 +97,14 @@
         "meta+p: workbench.action.quickOpenNavigateNextInFilePicker [(inFilesPicker && inputWidgetFocus) && (macKeys >= 3)] > workbench.action.quickOpen [macKeys >= 3]",
         "pagedown: selectNextPageSuggestion [suggestWidgetVisible] > cursorPageDown [textViewFocus]",
         "pageup: selectPrevPageSuggestion [suggestWidgetVisible] > cursorPageUp [textViewFocus]",
+        "shift+enter: acceptAlternativeSelectedSuggestion [suggestWidgetVisible] > editor.action.previousMatchFindAction [findWidgetVisible]",
         "shift+escape: cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)] > leaveSnippet [(textInputFocus) && (inSnippetMode)]",
         "shift+escape: workbench.action.closeQuickOpen [inQuickOpen && inputWidgetFocus] > cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)]",
         "shift+f4: references-view.prev [hasReferenceResult] > search.action.focusPreviousSearchResult [hasSearchResult]",
         "shift+meta+p: workbench.action.quickOpenNavigatePreviousInFilePicker [((inFilesPicker && inputWidgetFocus) && (tier != 'legacy')) && (macKeys >= 3)] > workbench.action.showCommands [macKeys >= 3]",
+        "shift+tab: acceptAlternativeSelectedSuggestion [suggestWidgetVisible] > editor.action.outdentLines [textInputFocus && !editorReadonly]",
+        "shift+tab: acceptAlternativeSelectedSuggestion [suggestWidgetVisible] > jumpToPrevSnippetPlaceholder [(textInputFocus) && (inSnippetMode && hasPrevTabstop)]",
+        "shift+tab: jumpToPrevSnippetPlaceholder [((textInputFocus) && (inSnippetMode && hasPrevTabstop)) && (inSnippetChoice)] > acceptAlternativeSelectedSuggestion [suggestWidgetVisible]",
         "shift+tab: jumpToPrevSnippetPlaceholder [((textInputFocus) && (inSnippetMode && hasPrevTabstop)) && (inSnippetChoice)] > editor.action.outdentLines [textInputFocus && !editorReadonly]",
         "shift+tab: jumpToPrevSnippetPlaceholder [(textInputFocus) && (inSnippetMode && hasPrevTabstop)] > editor.action.outdentLines [textInputFocus && !editorReadonly]",
         "tab: acceptSelectedSuggestion [suggestWidgetVisible] > jumpToNextSnippetPlaceholder [(textInputFocus) && (inSnippetMode && hasNextTabstop)]",
@@ -112,6 +116,21 @@
         "up: showPrevParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > cursorUp [textViewFocus]"
     ],
     "signatures": {
+        "acceptAlternativeSelectedSuggestion": {
+            "*": "shift+enter",
+            "pc legacy #0": "shift+tab",
+            "pc legacy #1": "shift+tab",
+            "pc legacy #2": "shift+tab",
+            "pc legacy #3": "shift+tab",
+            "mac-legacy (Terminal.app) #0": "shift+tab",
+            "mac-legacy (Terminal.app) #1": "shift+tab",
+            "mac-legacy (Terminal.app) #2": "shift+tab",
+            "mac-legacy (Terminal.app) #3": "shift+tab",
+            "mac-legacy (tmux) #0": "shift+tab",
+            "mac-legacy (tmux) #1": "shift+tab",
+            "mac-legacy (tmux) #2": "shift+tab",
+            "mac-legacy (tmux) #3": "shift+tab"
+        },
         "acceptSelectedSuggestion": "enter",
         "actions.find": {
             "*": "ctrl+f",

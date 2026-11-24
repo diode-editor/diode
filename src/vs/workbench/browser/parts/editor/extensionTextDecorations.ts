@@ -111,20 +111,28 @@ export class ExtensionTextDecorations extends Disposable {
         { line, character: offset }: IPosition,
         before: boolean,
     ): void {
+        const leads =
+            attachment.kind === "swatch" || (before && hintLeadsText(this.document.getLineContent(line), offset));
+        const caretSide = leads ? { caretSide: "right" as const } : {};
+        const margin = (cells: number | undefined) => {
+            if (cells === undefined) return;
+            insertions.push({ line, offset, text: " ".repeat(cells), outsideRangeBackgrounds: true, ...caretSide });
+        };
+        margin(attachment.marginLeft);
         if (attachment.kind === "swatch") {
-            insertions.push({ line, offset, text: COLOR_DECORATOR_TEXT, fg: attachment.color, caretSide: "right" });
-            return;
+            insertions.push({ line, offset, text: COLOR_DECORATOR_TEXT, fg: attachment.color, ...caretSide });
+        } else {
+            insertions.push({
+                line,
+                offset,
+                text: attachment.text,
+                fg: attachment.fg,
+                bg: attachment.bg,
+                style: attachment.style,
+                outsideRangeBackgrounds: true,
+                ...caretSide,
+            });
         }
-        const leads = before && hintLeadsText(this.document.getLineContent(line), offset);
-        insertions.push({
-            line,
-            offset,
-            text: attachment.text,
-            fg: attachment.fg,
-            bg: attachment.bg,
-            italic: attachment.italic,
-            outsideRangeBackgrounds: true,
-            ...(leads ? { caretSide: "right" } : {}),
-        });
+        margin(attachment.marginRight);
     }
 }

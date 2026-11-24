@@ -3,6 +3,7 @@ import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 import type { Event } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { ShellIntegrationAddon } from "../../../../platform/terminal/common/xterm/shellIntegrationAddon.ts";
 
 import type { ITerminalBuffer } from "./terminalBuffer.ts";
 
@@ -20,8 +21,12 @@ export interface ITerminalSessionOptions {
     message?: string;
     /** `terminal.integrated.shellIntegration.enabled` at (re)launch; absent — the shell is not injected. */
     shellIntegrationEnabled?: boolean;
+    /** `terminal.integrated.shellIntegration.environmentReporting`: the injected shell reports its environment. */
+    shellIntegrationEnvironmentReporting?: boolean;
     /** A task terminal (upstream `isFeatureTerminal`): never injected with shell integration. */
     isFeatureTerminal?: boolean;
+    /** `TerminalOptions.shellIntegrationNonce`; absent — a fresh one. Kept across relaunches. */
+    shellIntegrationNonce?: string;
 }
 
 export type ITerminalRelaunchOptions = Omit<ITerminalSessionOptions, "cols" | "rows"> & {
@@ -73,6 +78,8 @@ export type ITerminalSession = ITerminalSurface &
          * on our side. Relative paths in the output resolve against it (upstream reads it from shell integration).
          */
         getCwd?(): Promise<string | undefined>;
+        /** What shell integration sequences in the output tell (commands, cwd, environment); absent in fakes. */
+        readonly shellIntegration?: ShellIntegrationAddon;
     };
 
 export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerminalSession;
@@ -92,6 +99,8 @@ export interface IExtensionPtySessionOptions {
     name: string;
     onInput(data: string): void;
     onResize(cols: number, rows: number): void;
+    /** `ExtensionTerminalOptions.shellIntegrationNonce`: the pty's sequences carrying it are trusted. */
+    shellIntegrationNonce?: string;
 }
 
 export type ExtensionPtySessionFactory = (options: IExtensionPtySessionOptions) => IExtensionPtySession;

@@ -238,6 +238,7 @@ describe("default keybinding collisions", () => {
         "down: cursorDown / selectNextSuggestion",
         "pagedown: cursorPageDown / selectNextPageSuggestion",
         "pageup: cursorPageUp / selectPrevPageSuggestion",
+        "shift+tab: acceptAlternativeSelectedSuggestion / editor.action.outdentLines",
         "tab: acceptSelectedSuggestion / tab",
         "up: cursorUp / selectPrevSuggestion",
         // Long-standing pc layout debt, tracked in docs/TODO/MacKeybindings.md.

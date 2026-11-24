@@ -1,7 +1,6 @@
 // Upstream `src/vs/platform/terminal/node/terminalEnvironment.ts`, `getShellIntegrationInjection`: Linux/macOS
 // bash, zsh, fish and pwsh. Not ported: the Windows branches (pwsh.exe, powershell.exe, git bash),
-// `ignoreShellIntegration`/`forceShellIntegration` (no launch sets them), `VSCODE_SHELL_ENV_REPORTING` (it comes with
-// the OSC 633 parsing), and upstream's zsh/fish check
+// `ignoreShellIntegration`/`forceShellIntegration` (no launch sets them), and upstream's zsh/fish check
 // that passes its own injected args through by array identity (no caller hands them back here).
 
 import { chmodSync, mkdirSync, realpathSync } from "node:fs";
@@ -47,6 +46,8 @@ export interface IShellIntegrationLaunchConfig {
 export interface IShellIntegrationOptions {
     /** `terminal.integrated.shellIntegration.enabled`. */
     readonly enabled: boolean;
+    /** `terminal.integrated.shellIntegration.environmentReporting`. */
+    readonly environmentReporting?: boolean;
     /**
      * The directory holding `shellIntegration-*` (upstream `<appRoot>/out/vs/workbench/contrib/terminal/common/scripts`);
      * asked only for a shell that gets the scripts — the packaged build unpacks them on the first call.
@@ -66,6 +67,8 @@ export interface IShellIntegrationHost {
     userInfo(): { readonly username: string };
     homedir(): string;
 }
+
+const SHELL_ENV_REPORTING_KEYS = "PATH,VIRTUAL_ENV,HOME,SHELL,PWD";
 
 const shLoginArgs = ["--login", "-l"];
 const shInteractiveArgs = ["-i", "--interactive"];
@@ -115,6 +118,8 @@ export function getShellIntegrationInjection(
     const isDefaultArgs = originalArgs.length === 0;
     const isLoginArgs = areZshBashFishLoginArgs(originalArgs);
     const envMixin: Record<string, string> = { VSCODE_INJECTION: "1" };
+    // Upstream: "Temporarily pass list of hardcoded env vars for shell env api".
+    if (options.environmentReporting === true) envMixin.VSCODE_SHELL_ENV_REPORTING = SHELL_ENV_REPORTING_KEYS;
     const shell = path.basename(launch.executable);
     const addPathPrefix = (): void => {
         if ((host.platform() === "darwin" || shell === "fish") && options.pathPrefix !== undefined)

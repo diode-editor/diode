@@ -134,7 +134,7 @@ describe("LanguagesNamespace — completion: source field serialization", () => 
         }
     });
 
-    it("a Range from another bundle (duck-typed, not instanceof Range) arrives as the replace range", async () => {
+    it("a Range from another bundle (duck-typed, not instanceof Range) arrives as the range", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const foreign = { start: { line: 0, character: 0 }, end: { line: 0, character: 2 }, isEmpty: false };
@@ -148,7 +148,7 @@ describe("LanguagesNamespace — completion: source field serialization", () => 
 
         const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
         const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } };
-        expect(result.items.map((item) => item.range)).toEqual([range, range]);
+        expect(result.items.map((item) => item.range)).toEqual([range, { insert: range, replace: range }]);
     });
 
     it("isIncomplete from CompletionList reaches the core", async () => {

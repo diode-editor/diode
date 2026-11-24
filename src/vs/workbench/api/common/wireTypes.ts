@@ -858,6 +858,8 @@ export interface IWireTerminalCreate {
     readonly message?: string;
     /** Absent means `terminal.integrated.defaultLocation`. */
     readonly location?: IWireTerminalLocation;
+    /** `TerminalOptions.shellIntegrationNonce`: shell integration sequences carrying it are trusted. */
+    readonly shellIntegrationNonce?: string;
 }
 
 /**
@@ -920,6 +922,62 @@ export interface IWireTerminalInteraction {
 export interface IWireTerminalTitleChanged {
     readonly id: number;
     readonly name: string;
+}
+
+/**
+ * Upstream `$shellIntegrationChange`: shell integration came alive in the instance (its first command sequence).
+ * `supportsExecuteCommand` — not a task terminal.
+ */
+export interface IWireTerminalShellIntegration {
+    readonly id: number;
+    readonly supportsExecuteCommand: boolean;
+}
+
+/** Upstream `$cwdChange`: the cwd the shell reported; an empty one is "unknown". */
+export interface IWireTerminalShellIntegrationCwd {
+    readonly id: number;
+    readonly cwd: string;
+}
+
+/** Upstream `$shellEnvChange`: the environment the shell reported, whole. */
+export interface IWireTerminalShellIntegrationEnv {
+    readonly id: number;
+    readonly env: Readonly<Record<string, string>>;
+    readonly isTrusted: boolean;
+}
+
+/** `vscode.TerminalShellExecutionCommandLine`; `confidence` is the `TerminalShellExecutionCommandLineConfidence` number. */
+export interface IWireTerminalCommandLine {
+    readonly value: string;
+    readonly confidence: 0 | 1 | 2;
+    readonly isTrusted: boolean;
+}
+
+/** Upstream `$shellExecutionStart`: the shell started a command (`C`). */
+export interface IWireTerminalShellExecutionStart {
+    readonly id: number;
+    readonly supportsExecuteCommand: boolean;
+    readonly commandLine: IWireTerminalCommandLine;
+    readonly cwd?: string;
+}
+
+/** Upstream `$shellExecutionData`: raw output of the running command, batched. */
+export interface IWireTerminalShellExecutionData {
+    readonly id: number;
+    readonly data: string;
+}
+
+/** Upstream `$shellExecutionEnd`: the command finished (`D`); no code — the shell reported none. */
+export interface IWireTerminalShellExecutionEnd {
+    readonly id: number;
+    readonly commandLine: IWireTerminalCommandLine;
+    readonly exitCode?: number;
+}
+
+/** Upstream `$executeCommand`: `TerminalShellIntegration.executeCommand` runs the line in the instance. */
+export interface IWireTerminalExecuteCommand {
+    readonly id: number;
+    readonly commandLine: string;
 }
 
 /** Upstream `$sendProcessProperty(Title)`: the pty's `onDidChangeName` renames its terminal. */
@@ -1061,10 +1119,10 @@ export interface IWireSetSelectionParams {
 
 /** A normalized `TextEditor.options` patch; `indentSize` is an alias of `tabSize`. */
 export interface IWireSetEditorOptionsParams {
+    /** An assigned `indentSize` arrives here: Diode's indent size is its tab size. */
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
-    readonly indentSize?: number;
-    /** `vscode.TextEditorCursorStyle`, 1..6: applies to the editor at `uri` + `groupId`, not the active one. */
+    /** `vscode.TextEditorCursorStyle`, 1..6. */
     readonly cursorStyle?: number;
     readonly uri: string;
     readonly groupId: number;
@@ -1201,7 +1259,12 @@ export interface SerializedDecorationAttachmentRenderOptions {
     readonly color?: SerializedColor;
     readonly backgroundColor?: SerializedColor;
     readonly borderColor?: SerializedColor;
+    /** CSS strings, as the extension gave them: the host turns them into cell attributes and cell counts. */
     readonly fontStyle?: string;
+    readonly fontWeight?: string;
+    readonly textDecoration?: string;
+    readonly margin?: string;
+    readonly width?: string;
 }
 
 /** Upstream `ThemableDecorationInstanceRenderOptions`. */
@@ -1307,23 +1370,50 @@ export function parseRange(raw: unknown): IRange | null {
 }
 
 /**
- * Upstream `IEditorPropertiesChangeData` of one visible editor: a property is present only when it changed. Editor
- * options are the next to join (`onDidChangeTextEditorOptions`).
+ * Upstream `IResolvedTextEditorConfiguration` without `indentSize` (Diode's is `tabSize`) and `lineNumbers` (Diode
+ * draws plain numbers and has no `editor.lineNumbers`).
  */
+export interface IWireEditorOptions {
+    readonly tabSize: number;
+    readonly insertSpaces: boolean;
+    /** `vscode.TextEditorCursorStyle`: an unset `editor.cursorStyle` is `Line`, upstream's default. */
+    readonly cursorStyle: number;
+}
+
+/** Upstream `IEditorPropertiesChangeData` of one visible editor: a property is present only when it changed. */
 export interface IWireEditorPropertiesChanged {
     readonly uri: string;
     readonly groupId: number;
+    /** All of them when any changed, as upstream. */
+    readonly options?: IWireEditorOptions;
     /** Upstream `codeEditor.getVisibleRanges()`: never empty. */
     readonly visibleRanges?: readonly IRange[];
 }
 
-/** `null` for a message without an editor address; a malformed range drops the property, not the message. */
+/** `null` for a message without an editor address; a malformed property is dropped, not the message. */
 export function parseWireEditorPropertiesChanged(raw: unknown): IWireEditorPropertiesChanged | null {
     // A primitive reads as an object without an address.
-    const p = raw as { uri?: unknown; groupId?: unknown; visibleRanges?: unknown } | null | undefined;
+    const p = raw as
+        | { uri?: unknown; groupId?: unknown; options?: unknown; visibleRanges?: unknown }
+        | null
+        | undefined;
     if (typeof p?.uri !== "string" || !isFiniteNumber(p.groupId)) return null;
+    const options = parseWireEditorOptions(p.options);
     const visibleRanges = parseWireVisibleRanges(p.visibleRanges);
-    return { uri: p.uri, groupId: p.groupId, ...(visibleRanges !== undefined ? { visibleRanges } : {}) };
+    return {
+        uri: p.uri,
+        groupId: p.groupId,
+        ...(options !== undefined ? { options } : {}),
+        ...(visibleRanges !== undefined ? { visibleRanges } : {}),
+    };
+}
+
+function parseWireEditorOptions(raw: unknown): IWireEditorOptions | undefined {
+    const o = raw as { tabSize?: unknown; insertSpaces?: unknown; cursorStyle?: unknown } | null | undefined;
+    if (!isFiniteNumber(o?.tabSize) || typeof o.insertSpaces !== "boolean" || !isFiniteNumber(o.cursorStyle)) {
+        return undefined;
+    }
+    return { tabSize: o.tabSize, insertSpaces: o.insertSpaces, cursorStyle: o.cursorStyle };
 }
 
 function parseWireSideVisibleRanges(raw: unknown): IRange[][] | undefined {

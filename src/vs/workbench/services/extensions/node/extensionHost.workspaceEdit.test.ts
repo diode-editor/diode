@@ -27,8 +27,7 @@ const NOOP_LOGGER = {
 function makeHost(applyResult: boolean) {
     const applied: (readonly IWireWorkspaceEditOp[])[] = [];
     const editorOptions = {
-        getActiveEditorOptions: () => null,
-        setActiveEditorOptions: () => undefined,
+        setEditorOptions: () => undefined,
         getActiveEditorFilePath: () => null,
         getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
         onActiveEditorChanged: () => ({ dispose: () => undefined }),

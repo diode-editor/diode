@@ -58,7 +58,7 @@ import type {
     IWireDebugUnregisterBreakpoints,
     WireDebugConfiguration,
 } from "./debugWireTypes.ts";
-import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
+import type { IActiveEditorMeta, IActiveEditorSelections } from "./iEditorOptionsService.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type {
     IWireTask,
@@ -245,6 +245,7 @@ import type {
     IWireTerminalActive,
     IWireTerminalClosed,
     IWireTerminalCreate,
+    IWireTerminalExecuteCommand,
     IWireTerminalInteraction,
     IWireTerminalOpened,
     IWireTerminalProfileProvider,
@@ -254,6 +255,12 @@ import type {
     IWireTerminalPtyInput,
     IWireTerminalPtyName,
     IWireTerminalSendText,
+    IWireTerminalShellExecutionData,
+    IWireTerminalShellExecutionEnd,
+    IWireTerminalShellExecutionStart,
+    IWireTerminalShellIntegration,
+    IWireTerminalShellIntegrationCwd,
+    IWireTerminalShellIntegrationEnv,
     IWireTerminalShow,
     IWireTerminalTarget,
     IWireTerminalTitleChanged,
@@ -478,6 +485,12 @@ export interface IHostToSubprocess {
         readonly "terminal.pty.input": IWireTerminalPtyInput;
         readonly "terminal.interaction": IWireTerminalInteraction;
         readonly "terminal.titleChanged": IWireTerminalTitleChanged;
+        readonly "terminal.shellIntegration.changed": IWireTerminalShellIntegration;
+        readonly "terminal.shellIntegration.cwd": IWireTerminalShellIntegrationCwd;
+        readonly "terminal.shellIntegration.env": IWireTerminalShellIntegrationEnv;
+        readonly "terminal.shellExecution.start": IWireTerminalShellExecutionStart;
+        readonly "terminal.shellExecution.data": IWireTerminalShellExecutionData;
+        readonly "terminal.shellExecution.end": IWireTerminalShellExecutionEnd;
 
         readonly "tasks.didStart": IWireTaskStarted;
         readonly "tasks.didStartProcess": IWireTaskProcessStarted;
@@ -526,8 +539,6 @@ export interface ISubprocessToHost {
         readonly "workspace.save": readonly [IWireUriParams, IWireSaveResult];
 
         readonly "editor.setOptions": readonly [IWireSetEditorOptionsParams, null];
-        /** The handler exists but no sender yet: the subprocess reads options from its own proxy. */
-        readonly "editor.getOptions": readonly [undefined, IEditorOptionsState | null];
         readonly "editor.applyEdit": readonly [IWireApplyEditParams, boolean];
         /** `false`: another version, a read-only or closed editor, overlapping ranges; nothing changed then. */
         readonly "editor.insertSnippet": readonly [IWireInsertSnippetParams, boolean];
@@ -648,6 +659,7 @@ export interface ISubprocessToHost {
         readonly "terminal.pty.data": IWireTerminalPtyData;
         readonly "terminal.pty.exit": IWireTerminalPtyExit;
         readonly "terminal.pty.name": IWireTerminalPtyName;
+        readonly "terminal.shellIntegration.executeCommand": IWireTerminalExecuteCommand;
         readonly "terminal.registerProfileProvider": IWireTerminalProfileProvider;
         readonly "terminal.unregisterProfileProvider": IWireTerminalProfileProvider;
 

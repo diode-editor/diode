@@ -1,11 +1,18 @@
 import {
     type IWireTerminalActive,
     type IWireTerminalClosed,
+    type IWireTerminalCommandLine,
     type IWireTerminalInteraction,
     type IWireTerminalLaunch,
     type IWireTerminalOpened,
     type IWireTerminalPtyDimensions,
     type IWireTerminalPtyInput,
+    type IWireTerminalShellExecutionData,
+    type IWireTerminalShellExecutionEnd,
+    type IWireTerminalShellExecutionStart,
+    type IWireTerminalShellIntegration,
+    type IWireTerminalShellIntegrationCwd,
+    type IWireTerminalShellIntegrationEnv,
     type IWireTerminalTitleChanged,
     parseWireStringArray,
     parseWireStringRecord,
@@ -93,4 +100,60 @@ export function parseWireTerminalTitleChanged(raw: unknown): IWireTerminalTitleC
 export function parseWireTerminalInteraction(raw: unknown): IWireTerminalInteraction | null {
     const id = (raw as WireEnvelope)?.id;
     return typeof id === "number" ? { id } : null;
+}
+
+export function parseWireTerminalShellIntegration(raw: unknown): IWireTerminalShellIntegration | null {
+    const p = raw as WireEnvelope;
+    if (typeof p?.id !== "number" || typeof p.supportsExecuteCommand !== "boolean") return null;
+    return { id: p.id, supportsExecuteCommand: p.supportsExecuteCommand };
+}
+
+export function parseWireTerminalShellIntegrationCwd(raw: unknown): IWireTerminalShellIntegrationCwd | null {
+    const p = raw as WireEnvelope;
+    if (typeof p?.id !== "number" || typeof p.cwd !== "string") return null;
+    return { id: p.id, cwd: p.cwd };
+}
+
+/** Values that are not strings are dropped. */
+export function parseWireTerminalShellIntegrationEnv(raw: unknown): IWireTerminalShellIntegrationEnv | null {
+    const p = raw as WireEnvelope;
+    if (typeof p?.id !== "number" || typeof p.env !== "object" || p.env === null || typeof p.isTrusted !== "boolean")
+        return null;
+    const env = Object.fromEntries(
+        Object.entries(p.env).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+    );
+    return { id: p.id, env, isTrusted: p.isTrusted };
+}
+
+/** An unknown confidence is `Low`. */
+function parseWireTerminalCommandLine(raw: unknown): IWireTerminalCommandLine | null {
+    const p = raw as WireEnvelope;
+    if (typeof p?.value !== "string" || typeof p.isTrusted !== "boolean") return null;
+    const confidence = p.confidence === 1 || p.confidence === 2 ? p.confidence : 0;
+    return { value: p.value, confidence, isTrusted: p.isTrusted };
+}
+
+export function parseWireTerminalShellExecutionStart(raw: unknown): IWireTerminalShellExecutionStart | null {
+    const p = raw as WireEnvelope;
+    const commandLine = parseWireTerminalCommandLine(p?.commandLine);
+    if (typeof p?.id !== "number" || typeof p.supportsExecuteCommand !== "boolean" || commandLine === null) return null;
+    return {
+        id: p.id,
+        supportsExecuteCommand: p.supportsExecuteCommand,
+        commandLine,
+        ...(typeof p.cwd === "string" ? { cwd: p.cwd } : {}),
+    };
+}
+
+export function parseWireTerminalShellExecutionData(raw: unknown): IWireTerminalShellExecutionData | null {
+    const p = raw as WireEnvelope;
+    if (typeof p?.id !== "number" || typeof p.data !== "string") return null;
+    return { id: p.id, data: p.data };
+}
+
+export function parseWireTerminalShellExecutionEnd(raw: unknown): IWireTerminalShellExecutionEnd | null {
+    const p = raw as WireEnvelope;
+    const commandLine = parseWireTerminalCommandLine(p?.commandLine);
+    if (typeof p?.id !== "number" || commandLine === null) return null;
+    return { id: p.id, commandLine, ...(typeof p.exitCode === "number" ? { exitCode: p.exitCode } : {}) };
 }

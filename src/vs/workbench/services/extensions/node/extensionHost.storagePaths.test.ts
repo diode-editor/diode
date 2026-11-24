@@ -17,8 +17,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 import type { IExtensionStorageHomes } from "./extensionStoragePaths.ts";
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),

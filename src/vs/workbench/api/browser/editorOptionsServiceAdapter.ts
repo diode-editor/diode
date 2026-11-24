@@ -1,7 +1,6 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
-import type { EditorCursorStyleSetting } from "../../../editor/common/config/editorCursorStyle.ts";
 import {
     currentCursorChangeSource,
     type CursorChangeSource,
@@ -32,7 +31,6 @@ import type {
     IActiveEditorSelections,
     IEditorOptionsPatch,
     IEditorOptionsService,
-    IEditorOptionsState,
 } from "../common/iEditorOptionsService.ts";
 import {
     type IWireEditorEdit,
@@ -81,25 +79,12 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         this.workspaceEdits = workspaceEdits;
     }
 
-    public getActiveEditorOptions(): IEditorOptionsState | null {
-        const editor = this.group.getActiveTabEditor();
-        if (editor === null) return null;
-        return {
-            tabSize: editor.viewState.tabSize,
-            insertSpaces: editor.viewState.insertSpaces,
-        };
-    }
-
-    public setActiveEditorOptions(patch: IEditorOptionsPatch): void {
-        const editor = this.group.getActiveTabEditor();
-        if (editor === null) return;
-        editor.setIndentOptions(patch);
-    }
-
-    public setEditorCursorStyle(uri: string, groupId: number, style: EditorCursorStyleSetting): void {
+    public setEditorOptions(uri: string, groupId: number, patch: IEditorOptionsPatch): void {
         const editor = this.editorFor(uri, groupId);
         if (editor === null) return;
-        editor.cursorStyleOverride = style;
+        editor.setIndentOptions(patch);
+        if (patch.cursorStyle === undefined) return;
+        editor.cursorStyleOverride = patch.cursorStyle;
         this.group.editorConfiguration.applyCursorStyle(editor);
     }
 

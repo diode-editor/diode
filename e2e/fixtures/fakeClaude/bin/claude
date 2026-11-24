@@ -4,6 +4,8 @@
 # `claude` from PATH, so the test puts this directory first in PATH.
 # Prints what the real CLI uses to find the IDE: the port from the terminal
 # environment and the `<CLAUDE_CONFIG_DIR|~/.claude>/ide/<port>.lock` lock with ideName.
+# Then, like the real CLI, it runs until the user leaves (here: Enter) and exits 0 —
+# the extension closes its terminal on that exit (shell integration).
 lock="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/ide/${CLAUDE_CODE_SSE_PORT}.lock"
 echo "fake-claude port=${CLAUDE_CODE_SSE_PORT:-none}"
 if [ -f "$lock" ]; then
@@ -11,3 +13,6 @@ if [ -f "$lock" ]; then
 else
     echo "fake-claude no lock at $lock"
 fi
+echo "fake-claude: press Enter to exit"
+read -r _
+exit 0

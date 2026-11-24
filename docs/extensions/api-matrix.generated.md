@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1431 |
+| ok | 1466 |
 | A | 11 |
-| B | 222 |
-| C | 317 |
+| B | 172 |
+| C | 332 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 243 |
+| test | 244 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 584 |
 
@@ -36,14 +36,11 @@ Members with a gap, by the downloads of the extensions using them (top 100). The
 | `window.createWebviewPanel` | X | 69 | 491,966,358 | webview |
 | `SnippetTextEdit` | B | 32 | 323,063,523 | in a WorkspaceEdit the snippet goes in as plain text, without a snippet session |
 | `LanguageModelTextPart` | C | 23 | 224,344,652 | needs a chat surface and a model backend |
-| `window.onDidChangeTerminalShellIntegration` | B | 9 | 219,521,896 | never fires |
-| `window.onDidEndTerminalShellExecution` | B | 12 | 218,481,283 | never fires |
 | `window.registerWebviewPanelSerializer` | X | 21 | 192,869,105 | webview |
 | `LanguageModelToolResult` | C | 17 | 192,817,227 | needs a chat surface and a model backend |
 | `workspace.updateWorkspaceFolders` | B | 16 | 192,384,332 | no multi-root: only an outcome of one folder is carried out |
 | `TestRunProfileKind.Coverage` | C | 9 | 191,365,180 | coverage is not shown: no coverage view or gutter |
 | `lm.registerTool` | C | 16 | 189,583,362 | needs a chat surface and a model backend |
-| `window.onDidStartTerminalShellExecution` | B | 7 | 189,007,052 | never fires |
 | `window.registerWebviewViewProvider` | X | 41 | 182,197,706 | webview |
 | `window.onDidChangeWindowState` | B | 19 | 178,749,188 | never fires: the window always reads as focused and active |
 | `window.registerCustomEditorProvider` | X | 19 | 175,879,257 | webview |
@@ -68,7 +65,6 @@ Members with a gap, by the downloads of the extensions using them (top 100). The
 | `lm.selectChatModels` | C | 10 | 88,924,941 | needs a chat surface and a model backend |
 | `NotebookCellOutputItem.error` | X | 5 | 86,578,132 | notebook |
 | `window.showNotebookDocument` | X | 7 | 84,722,812 | notebook |
-| `window.onDidChangeTextEditorOptions` | B | 4 | 84,381,939 | not declared in vscode.d.ts |
 | `NotebookCellOutput` | X | 6 | 82,452,748 | notebook |
 | `NotebookCellOutputItem.text` | X | 6 | 82,452,748 | notebook |
 | `notebooks.createNotebookController` | X | 6 | 82,452,748 | notebook |
@@ -132,6 +128,10 @@ Members with a gap, by the downloads of the extensions using them (top 100). The
 | `NotebookCellKind.Markup` | X | 4 | 8,585,517 | notebook |
 | `workspace.onDidCloseNotebookDocument` | X | 3 | 7,597,639 | notebook |
 | `DocumentPasteEdit` | B | 2 | 6,805,438 | not declared in vscode.d.ts |
+| `LanguageModelChatToolMode.Required` | C | 2 | 5,379,497 | needs a chat surface and a model backend |
+| `lm.tools` | C | 2 | 5,379,497 | needs a chat surface and a model backend |
+| `NotebookCellStatusBarItem` | X | 2 | 4,673,359 | notebook |
+| `NotebookEdit` | X | 1 | 3,996,764 | notebook |
 
 ## Proposed extensions
 
@@ -307,7 +307,9 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `astro-build.astro-vscode` | 2.17.4 | 1,140,963 |  | 186 | 4 | 0 | 2 | 2 | 0 | 9 |
 | `salesforce.salesforcedx-einstein-gpt` | 4.44.1 | 726,379 |  | 80 | 4 | 0 | 1 | 0 | 3 | 0 |
 | `redhat.java` | 1.59.2026111808 | 48,456,343 | yes | 226 | 5 | 0 | 3 | 0 | 2 | 9 |
+| `ms-python.vscode-python-envs` | 1.44.0 | 47,304,307 |  | 109 | 5 | 1 | 3 | 0 | 1 | 0 |
 | `vscjava.vscode-java-test` | 0.47.0 | 28,740,156 |  | 101 | 5 | 0 | 0 | 5 | 0 | 0 |
+| `openai.chatgpt` | 26.51111.21308 | 13,732,117 |  | 97 | 5 | 0 | 1 | 0 | 4 | 0 |
 | `ms-toolsai.vscode-jupyter-slideshow` | 0.1.6 | 9,310,259 |  | 15 | 5 | 0 | 0 | 0 | 5 | 0 |
 | `hashicorp.terraform` | 2.40.1 | 2,604,571 | yes | 202 | 5 | 0 | 4 | 1 | 0 | 8 |
 | `Prisma.prisma-insider` | 31.12.17 | 2,139,643 |  | 161 | 5 | 0 | 1 | 3 | 1 | 0 |
@@ -319,52 +321,50 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `mongodb.mongodb-vscode` | 1.18.3 | 514,183 |  | 215 | 5 | 0 | 2 | 2 | 1 | 9 |
 | `golang.Go` | 0.58.0 | 43,657,071 | yes | 251 | 6 | 0 | 4 | 0 | 2 | 9 |
 | `vscjava.vscode-java-dependency` | 0.27.7 | 42,375,946 |  | 101 | 6 | 0 | 3 | 3 | 0 | 0 |
-| `openai.chatgpt` | 26.51111.21308 | 13,732,117 |  | 97 | 6 | 0 | 2 | 0 | 4 | 0 |
+| `ms-vscode.js-debug` | 1.140.1 | 3,262,448 | yes | 101 | 6 | 0 | 5 | 0 | 1 | 0 |
 | `cweijan.vscode-office` | 4.2.3 | 2,415,441 |  | 107 | 6 | 0 | 1 | 2 | 3 | 0 |
+| `muhammad-sammy.csharp` | 2.160.9-g01198ecc1f | 1,343,776 |  | 246 | 6 | 0 | 4 | 0 | 2 | 9 |
 | `mtxr.sqltools` | 0.28.6 | 1,154,202 |  | 160 | 6 | 0 | 3 | 2 | 1 | 0 |
 | `firsttris.vscode-jest-runner` | 0.4.151 | 927,481 |  | 40 | 6 | 0 | 0 | 6 | 0 | 0 |
 | `pokey.cursorless` | 1.1.1878 | 591,656 |  | 83 | 6 | 0 | 0 | 0 | 6 | 0 |
-| `ms-vscode.js-debug` | 1.140.1 | 3,262,448 | yes | 101 | 7 | 0 | 6 | 0 | 1 | 0 |
+| `amazonwebservices.amazon-q-vscode` | 2.10.0 | 2,310,695 |  | 252 | 7 | 0 | 5 | 0 | 2 | 8 |
 | `Continue.continue` | 2.1.0 | 1,798,670 |  | 102 | 7 | 0 | 2 | 0 | 5 | 0 |
 | `vitest.explorer` | 1.52.2 | 888,838 | yes | 79 | 7 | 0 | 0 | 6 | 1 | 0 |
-| `ms-python.vscode-python-envs` | 1.44.0 | 47,304,307 |  | 109 | 8 | 1 | 6 | 0 | 1 | 0 |
+| `dotnetdev-kr-custom.csharp` | 11.9.41 | 637,387 |  | 248 | 7 | 0 | 4 | 1 | 2 | 9 |
 | `ms-toolsai.vscode-jupyter-cell-tags` | 0.1.9 | 9,360,257 |  | 22 | 8 | 0 | 0 | 0 | 8 | 0 |
-| `amazonwebservices.amazon-q-vscode` | 2.10.0 | 2,310,695 |  | 252 | 8 | 0 | 6 | 0 | 2 | 8 |
 | `streetsidesoftware.code-spell-checker` | 4.10.0 | 2,270,064 |  | 235 | 8 | 0 | 2 | 0 | 6 | 9 |
-| `muhammad-sammy.csharp` | 2.160.9-g01198ecc1f | 1,343,776 |  | 246 | 8 | 0 | 6 | 0 | 2 | 9 |
 | `nrwl.angular-console` | 18.104.0 | 727,862 |  | 208 | 8 | 1 | 3 | 2 | 2 | 7 |
 | `devsense.phptools-vscode` | 1.76.19524 | 43,758,154 |  | 235 | 9 | 0 | 2 | 6 | 1 | 9 |
+| `ms-azuretools.vscode-containers` | 2.4.5 | 15,165,562 |  | 238 | 9 | 0 | 6 | 3 | 0 | 9 |
 | `ms-vscode.cmake-tools` | 1.25.10 | 2,453,343 |  | 123 | 9 | 0 | 2 | 6 | 1 | 0 |
 | `SonarSource.sonarlint-vscode` | 6.3.0 | 2,285,845 |  | 225 | 9 | 0 | 2 | 4 | 3 | 9 |
+| `RooVeterinaryInc.roo-cline` | 3.54.0 | 2,059,733 |  | 81 | 9 | 0 | 0 | 7 | 2 | 0 |
 | `Alibaba-Cloud.tongyi-lingma` | 2.6.11 | 925,710 |  | 135 | 9 | 0 | 2 | 4 | 3 | 0 |
-| `dotnetdev-kr-custom.csharp` | 11.9.41 | 637,387 |  | 248 | 9 | 0 | 6 | 1 | 2 | 9 |
-| `ms-azuretools.vscode-containers` | 2.4.5 | 15,165,562 |  | 238 | 10 | 0 | 7 | 3 | 0 | 9 |
 | `redhat.ansible` | 26.11.0 | 734,108 |  | 229 | 10 | 0 | 6 | 2 | 2 | 9 |
 | `Shopify.ruby-lsp` | 0.10.8 | 44,908,181 |  | 234 | 11 | 0 | 1 | 9 | 1 | 9 |
-| `RooVeterinaryInc.roo-cline` | 3.54.0 | 2,059,733 |  | 81 | 11 | 0 | 2 | 7 | 2 | 0 |
 | `qwenlm.qwen-code-vscode-ide-companion` | 0.28.0 | 977,742 |  | 76 | 11 | 0 | 2 | 0 | 9 | 0 |
+| `kade.kade` | 4.0.4 | 927,948 |  | 113 | 11 | 0 | 0 | 7 | 4 | 0 |
+| `TabNine.tabnine-vscode` | 3.346.8 | 632,189 |  | 130 | 11 | 0 | 5 | 3 | 3 | 0 |
+| `saoudrizwan.claude-dev` | 4.1.26 | 7,463,060 |  | 86 | 12 | 0 | 0 | 10 | 2 | 0 |
 | `Oracle.oracle-java` | 27.0.1 | 898,572 |  | 231 | 12 | 0 | 1 | 0 | 11 | 8 |
 | `atlassian.atlascode` | 4.1.205 | 835,989 |  | 221 | 12 | 1 | 4 | 5 | 2 | 8 |
-| `kade.kade` | 4.0.4 | 927,948 |  | 113 | 13 | 0 | 2 | 7 | 4 | 0 |
-| `TabNine.tabnine-vscode` | 3.346.8 | 632,189 |  | 130 | 13 | 0 | 7 | 3 | 3 | 0 |
-| `saoudrizwan.claude-dev` | 4.1.26 | 7,463,060 |  | 86 | 14 | 0 | 2 | 10 | 2 | 0 |
 | `posit.shiny` | 1.5.1 | 3,233,865 |  | 62 | 14 | 0 | 0 | 14 | 0 | 0 |
 | `posit.publisher` | 2.13.33 | 1,796,333 |  | 85 | 14 | 0 | 4 | 3 | 7 | 0 |
 | `Dart-Code.dart-code` | 3.147.20261109 | 6,283,229 |  | 266 | 15 | 0 | 4 | 9 | 2 | 9 |
-| `quarto.quarto` | 1.139.0 | 4,871,022 |  | 256 | 16 | 0 | 5 | 2 | 9 | 9 |
+| `quarto.quarto` | 1.139.0 | 4,871,022 |  | 256 | 15 | 0 | 4 | 2 | 9 | 9 |
+| `Anthropic.claude-code` | 2.1.327 | 67,710,897 | yes | 110 | 16 | 0 | 1 | 4 | 11 | 0 |
 | `malloydata.malloy-vscode` | 0.3.1794611227 | 676,595 |  | 206 | 17 | 0 | 0 | 0 | 17 | 9 |
 | `kilocode.kilo-code` | 7.8.30 | 4,823,564 |  | 124 | 18 | 0 | 1 | 0 | 17 | 0 |
-| `Anthropic.claude-code` | 2.1.327 | 67,710,897 | yes | 110 | 19 | 0 | 4 | 4 | 11 | 0 |
+| `ms-python.python` | 2026.4.0 | 62,908,918 |  | 282 | 19 | 0 | 4 | 8 | 7 | 9 |
+| `GitLab.gitlab-workflow` | 7.7.1 | 3,091,208 |  | 253 | 19 | 1 | 7 | 7 | 4 | 9 |
 | `cweijan.vscode-mysql-client2` | 9.0.2 | 1,396,472 |  | 140 | 19 | 0 | 3 | 6 | 10 | 0 |
 | `cweijan.vscode-database-client2` | 9.0.2 | 566,811 |  | 140 | 19 | 0 | 3 | 6 | 10 | 0 |
-| `GitLab.gitlab-workflow` | 7.7.1 | 3,091,208 |  | 253 | 21 | 1 | 9 | 7 | 4 | 9 |
-| `ms-python.python` | 2026.4.0 | 62,908,918 |  | 282 | 23 | 0 | 8 | 8 | 7 | 9 |
 | `MermaidChart.vscode-mermaid-chart` | 2.8.3 | 2,145,632 |  | 111 | 23 | 1 | 3 | 17 | 2 | 0 |
+| `amazonwebservices.aws-toolkit-vscode` | 4.19.0 | 3,996,764 |  | 286 | 29 | 1 | 6 | 0 | 22 | 8 |
 | `REditorSupport.r` | 3.5.20261116 | 2,352,863 |  | 265 | 29 | 0 | 3 | 0 | 26 | 9 |
-| `amazonwebservices.aws-toolkit-vscode` | 4.19.0 | 3,996,764 |  | 286 | 30 | 1 | 7 | 0 | 22 | 8 |
 | `ms-toolsai.jupyter` | 2025.9.1 | 11,619,036 |  | 268 | 31 | 0 | 1 | 4 | 26 | 8 |
 | `GitHub.vscode-pull-request-github` | 0.174.0 | 6,761,099 |  | 147 | 32 | 1 | 12 | 12 | 7 | 0 |
-| `eamodio.gitlens` | 2026.11.180409 | 19,530,838 |  | 217 | 37 | 1 | 11 | 17 | 8 | 0 |
+| `eamodio.gitlens` | 2026.11.180409 | 19,530,838 |  | 217 | 35 | 1 | 9 | 17 | 8 | 0 |
 
 ## Bundles without a visible API
 
@@ -681,7 +681,7 @@ Proposed API or a false hit: class X when real.
 | `CompletionItem.documentation` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss |
 | `CompletionItem.filterText` | ok |  | 0 | 0 |  |
 | `CompletionItem.insertText` | B |  | 0 | 0 | bradlc.vscode-tailwindcss, redhat.vscode-yaml |
-| `CompletionItem.keepWhitespace` | B | yes | 0 | 0 |  |
+| `CompletionItem.keepWhitespace` | ok | yes | 0 | 0 |  |
 | `CompletionItem.kind` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, redhat.vscode-yaml |
 | `CompletionItem.label` | ok |  | 0 | 0 | bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, redhat.vscode-yaml |
 | `CompletionItem.preselect` | ok | yes | 0 | 0 |  |
@@ -1070,7 +1070,7 @@ Proposed API or a false hit: class X when real.
 | `ExtensionTerminalOptions.location` | ok |  | 0 | 0 |  |
 | `ExtensionTerminalOptions.name` | ok |  | 0 | 0 |  |
 | `ExtensionTerminalOptions.pty` | ok |  | 0 | 0 |  |
-| `ExtensionTerminalOptions.shellIntegrationNonce` | B |  | 0 | 0 |  |
+| `ExtensionTerminalOptions.shellIntegrationNonce` | ok |  | 0 | 0 |  |
 | `FileChangeEvent.type` | ok |  | 0 | 0 |  |
 | `FileChangeEvent.uri` | ok |  | 0 | 0 |  |
 | `FileChangeType` | ok |  | 0 | 0 |  |
@@ -2059,7 +2059,7 @@ Proposed API or a false hit: class X when real.
 | `Terminal.name` | ok | yes | 0 | 0 |  |
 | `Terminal.processId` | ok |  | 0 | 0 |  |
 | `Terminal.sendText` | ok | yes | 0 | 0 |  |
-| `Terminal.shellIntegration` | B |  | 0 | 0 |  |
+| `Terminal.shellIntegration` | ok |  | 0 | 0 |  |
 | `Terminal.show` | ok |  | 0 | 0 |  |
 | `Terminal.state` | ok | yes | 0 | 0 |  |
 | `TerminalDimensions.columns` | ok |  | 0 | 0 |  |
@@ -2095,33 +2095,33 @@ Proposed API or a false hit: class X when real.
 | `TerminalOptions.message` | ok |  | 0 | 0 |  |
 | `TerminalOptions.name` | ok |  | 0 | 0 |  |
 | `TerminalOptions.shellArgs` | ok |  | 0 | 0 |  |
-| `TerminalOptions.shellIntegrationNonce` | B |  | 0 | 0 |  |
+| `TerminalOptions.shellIntegrationNonce` | ok |  | 0 | 0 |  |
 | `TerminalOptions.shellPath` | ok |  | 0 | 0 |  |
 | `TerminalOptions.strictEnv` | ok |  | 0 | 0 |  |
 | `TerminalProfile` | ok |  | 2 | 5,532,512 |  |
 | `TerminalProfile.options` | ok |  | 0 | 0 |  |
 | `TerminalProfileProvider.provideTerminalProfile` | ok |  | 0 | 0 |  |
-| `TerminalShellExecution.commandLine` | B |  | 0 | 0 |  |
-| `TerminalShellExecution.cwd` | B |  | 0 | 0 |  |
-| `TerminalShellExecution.read` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionCommandLine.confidence` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionCommandLine.isTrusted` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionCommandLine.value` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionCommandLineConfidence` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionCommandLineConfidence.High` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionCommandLineConfidence.Low` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionCommandLineConfidence.Medium` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionEndEvent.execution` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionEndEvent.exitCode` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionEndEvent.shellIntegration` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionEndEvent.terminal` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionStartEvent.execution` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionStartEvent.shellIntegration` | B |  | 0 | 0 |  |
-| `TerminalShellExecutionStartEvent.terminal` | B |  | 0 | 0 |  |
-| `TerminalShellIntegration.cwd` | B |  | 0 | 0 |  |
-| `TerminalShellIntegration.executeCommand` | B |  | 0 | 0 |  |
-| `TerminalShellIntegrationChangeEvent.shellIntegration` | B |  | 0 | 0 |  |
-| `TerminalShellIntegrationChangeEvent.terminal` | B |  | 0 | 0 |  |
+| `TerminalShellExecution.commandLine` | ok |  | 0 | 0 |  |
+| `TerminalShellExecution.cwd` | ok |  | 0 | 0 |  |
+| `TerminalShellExecution.read` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionCommandLine.confidence` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionCommandLine.isTrusted` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionCommandLine.value` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionCommandLineConfidence` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionCommandLineConfidence.High` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionCommandLineConfidence.Low` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionCommandLineConfidence.Medium` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionEndEvent.execution` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionEndEvent.exitCode` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionEndEvent.shellIntegration` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionEndEvent.terminal` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionStartEvent.execution` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionStartEvent.shellIntegration` | ok |  | 0 | 0 |  |
+| `TerminalShellExecutionStartEvent.terminal` | ok |  | 0 | 0 |  |
+| `TerminalShellIntegration.cwd` | ok |  | 0 | 0 |  |
+| `TerminalShellIntegration.executeCommand` | ok |  | 0 | 0 |  |
+| `TerminalShellIntegrationChangeEvent.shellIntegration` | ok |  | 0 | 0 |  |
+| `TerminalShellIntegrationChangeEvent.terminal` | ok |  | 0 | 0 |  |
 | `TerminalSplitLocationOptions.parentTerminal` | ok |  | 0 | 0 |  |
 | `TerminalState.isInteractedWith` | ok | yes | 0 | 0 |  |
 | `TerminalState.shell` | ok | yes | 0 | 0 |  |
@@ -2289,8 +2289,8 @@ Proposed API or a false hit: class X when real.
 | `TextEditorOptions.insertSpaces` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.lineNumbers` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.tabSize` | ok |  | 0 | 0 |  |
-| `TextEditorOptionsChangeEvent.options` | B |  | 0 | 0 |  |
-| `TextEditorOptionsChangeEvent.textEditor` | B |  | 0 | 0 |  |
+| `TextEditorOptionsChangeEvent.options` | ok |  | 0 | 0 |  |
+| `TextEditorOptionsChangeEvent.textEditor` | ok |  | 0 | 0 |  |
 | `TextEditorRevealType` | ok | yes | 0 | 0 |  |
 | `TextEditorRevealType.AtTop` | ok |  | 5 | 59,861,632 |  |
 | `TextEditorRevealType.Default` | ok |  | 8 | 25,563,243 |  |
@@ -2314,40 +2314,40 @@ Proposed API or a false hit: class X when real.
 | `TextLine.rangeIncludingLineBreak` | ok |  | 0 | 0 |  |
 | `TextLine.text` | ok |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.backgroundColor` | ok |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.border` | B |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.border` | C |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.borderColor` | ok |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.color` | ok |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.contentIconPath` | B |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.contentIconPath` | C |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.contentText` | ok |  | 0 | 0 |  |
 | `ThemableDecorationAttachmentRenderOptions.fontStyle` | ok |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.fontWeight` | B |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.height` | B |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.margin` | B |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.textDecoration` | B |  | 0 | 0 |  |
-| `ThemableDecorationAttachmentRenderOptions.width` | B |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.fontWeight` | ok |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.height` | C |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.margin` | ok |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.textDecoration` | ok |  | 0 | 0 |  |
+| `ThemableDecorationAttachmentRenderOptions.width` | ok |  | 0 | 0 |  |
 | `ThemableDecorationInstanceRenderOptions.after` | ok |  | 0 | 0 |  |
 | `ThemableDecorationInstanceRenderOptions.before` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.after` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.backgroundColor` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.before` | ok |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.border` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderColor` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderRadius` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderSpacing` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderStyle` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.borderWidth` | B |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.border` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderColor` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderRadius` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderSpacing` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderStyle` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.borderWidth` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.color` | ok |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.cursor` | B |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.cursor` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.fontStyle` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.fontWeight` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.gutterIconPath` | B |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.gutterIconSize` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.letterSpacing` | B |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.letterSpacing` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.opacity` | ok |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.outline` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.outlineColor` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.outlineStyle` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.outlineWidth` | B |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.outline` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.outlineColor` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.outlineStyle` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.outlineWidth` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.overviewRulerColor` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.textDecoration` | ok |  | 0 | 0 |  |
 | `ThemeColor` | ok |  | 63 | 532,370,794 |  |
@@ -2511,9 +2511,9 @@ Proposed API or a false hit: class X when real.
 | `window.onDidChangeActiveTextEditor` | ok |  | 126 | 855,162,972 | biomejs.biome, bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, shardulm94.trailing-spaces, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck, yzhang.markdown-all-in-one |
 | `window.onDidChangeNotebookEditorSelection` | X |  | 3 | 11,263,709 |  |
 | `window.onDidChangeNotebookEditorVisibleRanges` | X |  | 0 | 0 |  |
-| `window.onDidChangeTerminalShellIntegration` | B |  | 9 | 219,521,896 |  |
+| `window.onDidChangeTerminalShellIntegration` | ok |  | 9 | 219,521,896 |  |
 | `window.onDidChangeTerminalState` | ok | yes | 5 | 123,983,744 |  |
-| `window.onDidChangeTextEditorOptions` | B |  | 4 | 84,381,939 |  |
+| `window.onDidChangeTextEditorOptions` | ok | yes | 4 | 84,381,939 |  |
 | `window.onDidChangeTextEditorSelection` | ok | yes | 50 | 373,986,761 | yzhang.markdown-all-in-one |
 | `window.onDidChangeTextEditorViewColumn` | ok | yes | 4 | 88,747,215 |  |
 | `window.onDidChangeTextEditorVisibleRanges` | ok |  | 11 | 61,855,869 |  |
@@ -2521,9 +2521,9 @@ Proposed API or a false hit: class X when real.
 | `window.onDidChangeVisibleTextEditors` | ok | yes | 46 | 514,630,886 | biomejs.biome, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, vscode.merge-conflict |
 | `window.onDidChangeWindowState` | B |  | 19 | 178,749,188 |  |
 | `window.onDidCloseTerminal` | ok | yes | 33 | 291,216,567 | vscjava.vscode-maven |
-| `window.onDidEndTerminalShellExecution` | B |  | 12 | 218,481,283 |  |
+| `window.onDidEndTerminalShellExecution` | ok |  | 12 | 218,481,283 |  |
 | `window.onDidOpenTerminal` | ok | yes | 9 | 194,818,794 |  |
-| `window.onDidStartTerminalShellExecution` | B |  | 7 | 189,007,052 |  |
+| `window.onDidStartTerminalShellExecution` | ok |  | 7 | 189,007,052 |  |
 | `window.registerCustomEditorProvider` | X |  | 19 | 175,879,257 |  |
 | `window.registerFileDecorationProvider` | A |  | 11 | 116,361,382 |  |
 | `window.registerTerminalLinkProvider` | B |  | 9 | 131,566,423 |  |

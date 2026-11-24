@@ -1,5 +1,7 @@
 import { packRgba } from "@tuidom/core/common/colorUtils";
+import { measureTextWidth } from "@tuidom/core/common/measureTextWidth";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import { truncateEnd } from "@tuidom/core/common/textTruncation";
 
 import { parseCssColor } from "../../../../../base/common/color.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
@@ -114,6 +116,12 @@ interface IThemed<T> {
     readonly dark: T | undefined;
 }
 
+/** The horizontal sides of a CSS `margin`, in cells; the vertical ones have no cell counterpart. */
+interface IHorizontalMargin {
+    readonly left: number;
+    readonly right: number;
+}
+
 /** One layer of `before`/`after`; an absent field leaves the earlier layer's, as a CSS property does. */
 interface IAttachmentLayer {
     readonly contentText?: string;
@@ -121,6 +129,11 @@ interface IAttachmentLayer {
     readonly backgroundColor?: DecorationColor;
     readonly borderColor?: DecorationColor;
     readonly italic?: boolean;
+    readonly bold?: boolean;
+    readonly textDecoration?: StyleFlags;
+    readonly margin?: IHorizontalMargin;
+    /** Cells, at least one. */
+    readonly width?: number;
 }
 
 interface IEdgeLayers {
@@ -208,6 +221,72 @@ function opacityOf(value: unknown): number | undefined {
     return Math.min(1, Math.max(0, match[2] === "%" ? numeric / 100 : numeric));
 }
 
+/** A CSS `<number>` and a unit a cell count can be taken from. */
+const CSS_LENGTH = /^([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)(ch|r?em|px)$/;
+
+/** The `ch` addends of a `calc()`, with the sign of the operator before each. */
+const CALC_CH_TERM = /([+-]?)\s*((?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)ch\b/g;
+
+/**
+ * A CSS length in cells, approximately: a cell is `1ch` wide, about half an `em` and 8 pixels. `calc()` counts its
+ * `ch` addends only (GitLens's `calc(12ch - 6px)` is 12 cells); anything else, and a negative length, is 0.
+ */
+function cellsOf(length: string): number {
+    const value = length.toLowerCase();
+    let cells = 0;
+    if (value.startsWith("calc(")) {
+        for (const [, sign, numeric] of value.matchAll(CALC_CH_TERM)) {
+            cells += sign === "-" ? -Number(numeric) : Number(numeric);
+        }
+    } else {
+        const match = CSS_LENGTH.exec(value);
+        if (match !== null) {
+            const numeric = Number(match[1]);
+            cells = match[2] === "ch" ? numeric : match[2] === "px" ? numeric / 8 : numeric * 2;
+        }
+    }
+    return Math.max(0, Math.round(cells));
+}
+
+/** The values of a CSS shorthand: whitespace inside `calc(…)` doesn't split. */
+function shorthandValuesOf(value: string): string[] {
+    const values: string[] = [];
+    let depth = 0;
+    let current = "";
+    for (const char of value) {
+        if (char === "(") depth++;
+        if (char === ")") depth--;
+        if (depth === 0 && /\s/.test(char)) {
+            if (current !== "") values.push(current);
+            current = "";
+        } else {
+            current += char;
+        }
+    }
+    if (current !== "") values.push(current);
+    return values;
+}
+
+/**
+ * The horizontal sides of the CSS `margin` shorthand: one value is every side, two are (vertical, horizontal),
+ * three (top, horizontal, bottom), four (top, right, bottom, left). Garbage is no value.
+ */
+function marginOf(value: unknown): IHorizontalMargin | undefined {
+    if (typeof value !== "string") return undefined;
+    const values = shorthandValuesOf(value);
+    if (values.length === 0 || values.length > 4) return undefined;
+    const right = values[Math.min(1, values.length - 1)];
+    const left = values.length === 4 ? values[3] : right;
+    return { left: cellsOf(left), right: cellsOf(right) };
+}
+
+/** Exactly `width` cells: a short text is padded with spaces in its own background, a long one is cut. */
+function fitToWidth(text: string, width: number | undefined): string {
+    if (width === undefined) return text;
+    const fitted = truncateEnd(text, width, "");
+    return fitted + " ".repeat(width - measureTextWidth(fitted));
+}
+
 /** Only the fields a cell can draw; a non-object is no layer. */
 function attachmentLayerOf(raw: unknown): IAttachmentLayer | undefined {
     if (typeof raw !== "object" || raw === null) return undefined;
@@ -218,6 +297,10 @@ function attachmentLayerOf(raw: unknown): IAttachmentLayer | undefined {
         backgroundColor?: DecorationColor;
         borderColor?: DecorationColor;
         italic?: boolean;
+        bold?: boolean;
+        textDecoration?: StyleFlags;
+        margin?: IHorizontalMargin;
+        width?: number;
     } = {};
     if (typeof o.contentText === "string") layer.contentText = o.contentText;
     const color = decorationColorOf(o.color);
@@ -227,6 +310,15 @@ function attachmentLayerOf(raw: unknown): IAttachmentLayer | undefined {
     const borderColor = decorationColorOf(o.borderColor);
     if (borderColor !== undefined) layer.borderColor = borderColor;
     if (typeof o.fontStyle === "string") layer.italic = o.fontStyle === "italic" || o.fontStyle === "oblique";
+    const bold = boldOf(o.fontWeight);
+    if (bold !== undefined) layer.bold = bold;
+    const textDecoration = textDecorationOf(o.textDecoration);
+    if (textDecoration !== undefined) layer.textDecoration = textDecoration;
+    const margin = marginOf(o.margin);
+    if (margin !== undefined) layer.margin = margin;
+    // A width that rounds to no cell is no width: upstream text spills out of a too narrow box.
+    const width = typeof o.width === "string" ? cellsOf(o.width) : 0;
+    if (width > 0) layer.width = width;
     return layer;
 }
 
@@ -273,6 +365,14 @@ function contentTextOf(raw: string): string {
         .split(/[\r\n]/, 1)[0]
         .replaceAll("\t", " ")
         .replace(/\p{Cc}/gu, "");
+}
+
+/** No key for a side without cells. */
+function marginCellsOf(margin: IHorizontalMargin | undefined): { marginLeft?: number; marginRight?: number } {
+    return {
+        ...(margin === undefined || margin.left === 0 ? {} : { marginLeft: margin.left }),
+        ...(margin === undefined || margin.right === 0 ? {} : { marginRight: margin.right }),
+    };
 }
 
 /** Like upstream's theme class selectors: `.vs-dark, .hc-black` take `dark`, `.vs, .hc-light` take `light`. */
@@ -441,16 +541,20 @@ class SpawnDecorations {
                 this.resolveColor(merged.backgroundColor) ??
                 this.resolveColor(merged.borderColor) ??
                 this.resolveColor(merged.color);
-            return color === undefined ? undefined : { kind: "swatch", color };
+            return color === undefined ? undefined : { kind: "swatch", color, ...marginCellsOf(merged.margin) };
         }
         const fg = this.resolveColor(merged.color);
         const bg = this.resolveColor(merged.backgroundColor);
+        let style: number = merged.textDecoration ?? StyleFlags.None;
+        if (merged.italic === true) style |= StyleFlags.Italic;
+        if (merged.bold === true) style |= StyleFlags.Bold;
         return {
             kind: "text",
-            text,
+            text: fitToWidth(text, merged.width),
             ...(fg === undefined ? {} : { fg }),
             ...(bg === undefined ? {} : { bg }),
-            italic: merged.italic === true,
+            style,
+            ...marginCellsOf(merged.margin),
         };
     }
 

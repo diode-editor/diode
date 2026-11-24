@@ -11,7 +11,7 @@ export class ExtensionPtySession extends XtermSurface implements IExtensionPtySe
     public readonly pid = undefined;
 
     public constructor(private readonly options: IExtensionPtySessionOptions) {
-        super({ cols: options.cols, rows: options.rows });
+        super({ cols: options.cols, rows: options.rows, shellIntegrationNonce: options.shellIntegrationNonce });
         this.shell = options.name;
     }
 
