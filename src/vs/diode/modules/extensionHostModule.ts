@@ -306,6 +306,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const editorDecorations = new EditorDecorationsServiceAdapter(group);
         const fileDecorations = new FileDecorationsServiceAdapter(explorer);
         const themeColorResolver = new ThemeColorResolverAdapter(container.get(ThemeServiceDIToken));
+        const fileService = container.get(IFileServiceDIToken);
         const icons = container.get(ProductIconServiceDIToken);
 
         const editorLayout = new EditorLayoutServiceAdapter(
@@ -349,6 +350,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             editorDecorations,
             fileDecorations,
             themeColorResolver,
+            // Stryker disable next-line ArrowFunction: production module wiring — the icon decisions live in DecorationsCustomer and gutterIconGlyph, covered by unit tests; end-to-end — the gutter-icons scenario
+            gutterIconReader: async (resource) => (await fileService.readFile(resource)).value,
             icons,
             // Stryker disable next-line ArrowFunction: production module wiring — the seed is covered by DocumentsCustomer unit tests and the handshake seed test; end-to-end — the stock LanguageServers suites (vscode-languageclient reads `workspace.textDocuments` on start)
             openDocumentsProvider: () => openDocumentSyncSources(group),

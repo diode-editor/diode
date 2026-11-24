@@ -1283,10 +1283,13 @@ export interface SerializedThemableDecorationRenderOptions extends SerializedThe
     readonly fontWeight?: string;
     readonly textDecoration?: string;
     readonly opacity?: string;
+    /** `uri.toString()`, a file or a `data:` URI; a path string arrives as a `file:` URI. */
+    readonly gutterIconPath?: string;
 }
 
 /**
- * Only the fields the host projects: `overviewRulerColor` makes the type a "gutter change-bar",
+ * Only the fields the host projects: `overviewRulerColor` marks the scrollbar, `gutterIconPath` puts a glyph in the
+ * gutter's glyph lane,
  * `backgroundColor`/`color` paint the text, `fontStyle`/`fontWeight`/`textDecoration` add cell attributes,
  * `opacity` fades the text, `before`/`after` draw cells at its edges; borders, outlines and sizes have nothing to
  * draw with in a cell.

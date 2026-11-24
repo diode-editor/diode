@@ -1961,13 +1961,14 @@ workspace-состоянии `terminal.integrated.environmentVariableCollections
 `api/common/vscodeTypes.ts`; `WindowNamespace` держит тип декорации локально (монотонный числовой
 key) и шлёт хосту RPC-нотификации, сериализуя `ThemeColor` как `{ $themeColor: id }` (см.
 `api/common/wireTypes.ts`; на провод идут `backgroundColor`, `color`, `overviewRulerColor`, `fontStyle`, `fontWeight`,
-`textDecoration`, `opacity` (CSS-строки как есть), `isWholeLine`, `rangeBehavior`, `overviewRulerLane`, `before`/`after`
+`textDecoration`, `opacity` (CSS-строки как есть), `gutterIconPath` (`uri.toString()`; строка — путь файла, как
+`pathOrURIToURI` эталона), `isWholeLine`, `rangeBehavior`, `overviewRulerLane`, `before`/`after`
 (`contentText`, `color`, `backgroundColor`, `borderColor`, `fontStyle`, `fontWeight`, `textDecoration`, `margin`, `width`)
-и ветки `light`/`dark` с теми же полями — рамки, `padding`, `height`, семейство и размер шрифта, иконки клетке
-нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions? }` (`IWireDecorationOptions`,
+и ветки `light`/`dark` с теми же полями — рамки, `padding`, `height`, семейство и размер шрифта, `gutterIconSize`,
+`contentIconPath` клетке нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions? }` (`IWireDecorationOptions`,
 `vscode.DecorationOptions` без `hoverMessage`; голый `Range` — без `renderOptions`), `renderOptions` — `before`/`after`
 и их ветки; хост разбирает их `parseDecorationOptions` (битый элемент выбрасывается, мусор в полях = поля нет).
-`DecorationsCustomer` держит на тип разобранные опции (`overviewRulerColorId`, `isWholeLine`, stickiness из
+`DecorationsCustomer` держит на тип разобранные опции (`overviewRuler`, `gutterIcon`, `isWholeLine`, stickiness из
 `rangeBehavior` — значения совпадают с `TrackedRangeStickiness`, цвета `background`/`foreground` и слои `before`/`after`,
 у каждого — `base`/`light`/`dark`; так же по одному свойству — `italic`, `bold`, `textDecoration`, `opacity`); цвет — id `ThemeColor` (строка) или packed RGBA (число): CSS-строку один раз
 разбирает `parseCssColor` (`base/common/color.ts`, порт `Color.Format.CSS.parse`, отдаёт `RGBA`; дробные каналы и
@@ -1993,15 +1994,25 @@ key) и шлёт хосту RPC-нотификации, сериализуя `Th
 цвет и толщина линии — нет. Итог — флаги `StyleFlags` в `IExtensionTextDecoration.style`. `opacity` — CSS `<alpha-value>`
 (число или процент, зажат в [0, 1]; `1` не шлётся) → `IExtensionTextDecoration.opacity`. Все четыре — свойства
 `inlineClassName` эталона: ложатся на глифы диапазона (с `isWholeLine` — всех строк), как и `color`.
-Хост проталкивает в `IEditorDecorationsService` (адаптер — во все редакторы ресурса во всех группах): gutter
-change-bar'ы ресурса (gutter-тип = есть `overviewRulerColor`) — в `setGutterChangeDecorations`, полный набор ОДНОГО
+Хост проталкивает в `IEditorDecorationsService` (адаптер — во все редакторы ресурса во всех группах): отметки
+скроллбара ресурса (типы с `overviewRulerColor`, CSS-строка или `ThemeColor`, ветки темы) — в
+`setOverviewRulerDecorations`. **В гуттере `overviewRulerColor` не рисует ничего**, как у эталона (решение 2026-11-18,
+#1235): раньше тип с ним давал полосу изменений, и todo-tree с GitLens показывали ложные изменения git. Иконка
+`gutterIconPath` — один глиф в колонке глифов (`setGlyphMarginDecorations(uri, "ext:<key>", …)`, владелец на тип, без
+`zIndex` — брейкпоинт строки побеждает) на каждой строке каждого диапазона, как `glyphMarginClassName` эталона. Глиф
+выбирает `gutterIconGlyphOf` (`customers/gutterIconGlyph.ts`) по SVG: один высокий узкий `<rect>` — `▎` (полосы
+GitLens), один треугольник (`<polygon>` или прямой `<path>` из трёх вершин) — `▸`, остальное — `●`; цвет — самая
+насыщенная краска `fill`/`stroke` (у стоковых иконок Error Lens первым идёт серый фон-кружок `#1e1e1e`), PNG, битый
+файл и SVG без цвета — `●` цвета `editorLineNumber.foreground`. Файл читает `ExtensionHostOptions.gutterIconReader`
+(файловый сервис) один раз на спавн, `data:` разбирается на месте; пока чтение идёт, глифа нет, по готовности набор
+пере-push'ится, после смерти спавна — нет. Полный набор ОДНОГО
 типа — в `setExtensionTextDecorations(uri, { key, decorations })` (проекция `IExtensionTextDecoration`: фон, цвет,
 `before`/`after`, stickiness; все диапазоны типа, даже ничего не рисующие в этой теме). Редактор держит диапазоны
 трекнутыми декорациями документа (`ExtensionTextDecorations` в `workbench/browser/parts/editor/`, [Editor.md](Editor.md)):
 между двумя `setDecorations` фон и вставки едут за текстом; схлопнутый правкой диапазон остаётся до следующего набора
 (как у эталона). Смена темы шлёт тот же набор с `restyle: true` — координаты хоста устарели, редактор берёт новые
 цвета и оставляет трекнутые позиции (сопоставление по индексу). Смерть спавна снимает его декорации из редакторов.
-Gutter-бары остаются статическими (координаты последнего `setDecorations`, [TODO/TrackedDecorations.md](../TODO/TrackedDecorations.md)).
+Отметки скроллбара остаются статическими (координаты последнего `setDecorations`, [TODO/TrackedDecorations.md](../TODO/TrackedDecorations.md)); глифы иконок едут со строкой (`TrackedLineDecorations`).
 Файловые декорации — в `ExplorerService.setFileDecorations`.
 На `theme.onDidChange` все держимые декорации пере-резолвятся и пере-push'атся. **Ядро про источник
 декораций (git/SCM) не знает** — адаптеры отдают уже резолвнутые packed-RGB цвета.

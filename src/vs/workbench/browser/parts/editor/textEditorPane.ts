@@ -28,6 +28,7 @@ import type {
     ILineMessageClick,
     ILineMessageDecoration,
 } from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../../editor/common/model/iOverviewRulerDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ICursorStateComputer } from "../../../../editor/common/viewModel/trackedSelections.ts";
@@ -495,8 +496,8 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setGutterChangeDecorations(decorations);
     }
 
-    public setExtensionGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
-        this.component.setExtensionGutterChangeDecorations(decorations);
+    public setOverviewRulerDecorations(decorations: readonly IOverviewRulerDecoration[]): void {
+        this.component.setOverviewRulerDecorations(decorations);
     }
 
     public setGlyphMarginDecorations(owner: string, decorations: readonly IGlyphMarginDecoration[]): void {

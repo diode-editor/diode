@@ -8,12 +8,13 @@ import type {
     IExtensionTextDecoration,
     IExtensionTextDecorationSet,
 } from "../../../../../editor/common/model/iExtensionTextDecoration.ts";
-import type { IGutterChangeDecoration } from "../../../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { IGlyphMarginDecoration } from "../../../../../editor/common/model/iGlyphMarginDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../../../editor/common/model/iOverviewRulerDecoration.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import { ColorThemeKind } from "../../../../api/common/vscodeTypes.ts";
 
-import { DecorationsCustomer } from "./decorationsCustomer.ts";
+import { DecorationsCustomer, type GutterIconReader } from "./decorationsCustomer.ts";
 
 const MOD = 0x1b81a8;
 const ADD = 0x487e02;
@@ -29,16 +30,18 @@ const COLORS: Record<string, number> = {
 };
 
 /** `rpcLogger.warn` catches notification handler exceptions — RpcEndpoint swallows them. */
-function setup(colors: Record<string, number> = COLORS) {
-    const editorCalls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
+function setup(colors: Record<string, number> = COLORS, readGutterIcon?: GutterIconReader) {
+    const editorCalls: { uri: string; decorations: readonly IOverviewRulerDecoration[] }[] = [];
+    const glyphCalls: { uri: string; owner: string; decorations: readonly IGlyphMarginDecoration[] }[] = [];
     const textCalls: { uri: string; set: IExtensionTextDecorationSet }[] = [];
     const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
     const themeListeners: (() => void)[] = [];
     let kind = ColorThemeKind.Dark;
     const customer = new DecorationsCustomer(
         {
-            setGutterChangeDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
+            setOverviewRulerDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
             setExtensionTextDecorations: (uri, set) => textCalls.push({ uri, set }),
+            setGlyphMarginDecorations: (uri, owner, decorations) => glyphCalls.push({ uri, owner, decorations }),
         },
         { setFileDecorations: (entries) => fileCalls.push([...entries]) },
         {
@@ -49,6 +52,7 @@ function setup(colors: Record<string, number> = COLORS) {
                 return { dispose: () => undefined };
             },
         },
+        readGutterIcon,
     );
     const [a, b] = createInProcessChannelPair();
     const rpcLogger = {
@@ -68,6 +72,10 @@ function setup(colors: Record<string, number> = COLORS) {
         attached,
         customer,
         editorCalls,
+        glyphCalls,
+        /** The glyphs the editor holds for the owner: its last set. */
+        glyphsFor: (file: string, owner: string) =>
+            glyphCalls.filter((c) => c.uri === Uri.file(file).toString() && c.owner === owner).at(-1)?.decorations,
         fileCalls,
         themes,
         rpcLogger,
@@ -104,7 +112,7 @@ function setup(colors: Record<string, number> = COLORS) {
 const range = (line: number) => ({ start: { line, character: 0 }, end: { line, character: 0 } });
 const gutter = (themeColor: string) => ({ overviewRulerColor: { $themeColor: themeColor }, isWholeLine: true });
 
-describe("DecorationsCustomer — editor gutter decorations", () => {
+describe("DecorationsCustomer — overview ruler marks", () => {
     it("broken params are dropped without a crash and without calling the surface", async () => {
         const h = setup();
 
@@ -118,7 +126,7 @@ describe("DecorationsCustomer — editor gutter decorations", () => {
         expect(h.rpcLogger.warn).not.toHaveBeenCalled();
     });
 
-    it("a gutter type is colored with the theme color, non-gutter and unknown types are ignored", async () => {
+    it("[api:DecorationRenderOptions.overviewRulerColor] a ThemeColor resolves through the theme, types without it or with an unknown one mark nothing", async () => {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 1,
@@ -139,29 +147,34 @@ describe("DecorationsCustomer — editor gutter decorations", () => {
         expect(h.rpcLogger.warn).not.toHaveBeenCalled();
     });
 
-    it("modified gutter is hatched, added is solid", async () => {
+    it("[api:DecorationRenderOptions.overviewRulerColor] a CSS string is parsed like the other colors, the theme branch wins", async () => {
         const h = setup();
-        h.peer.notify("window.createTextEditorDecorationType", {
-            key: 1,
-            options: gutter("editorGutter.modifiedBackground"),
-        });
+        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options: { overviewRulerColor: "#ff0000" } });
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 2,
-            options: gutter("editorGutter.addedBackground"),
+            options: { overviewRulerColor: "rgba(0,0,255,0.5)", light: { overviewRulerColor: "lime" } },
         });
+        h.peer.notify("window.createTextEditorDecorationType", { key: 3, options: { overviewRulerColor: "nonsense" } });
         await flushMicrotasks(10);
         const uri = Uri.file("/f.ts").toString();
-        h.peer.notify("editor.setDecorations", { key: 1, uri, ranges: [{ range: range(2) }] });
-        h.peer.notify("editor.setDecorations", { key: 2, uri, ranges: [{ range: range(5) }] });
+        for (const key of [1, 2, 3])
+            h.peer.notify("editor.setDecorations", { key, uri, ranges: [{ range: range(key) }] });
         await flushMicrotasks(10);
 
         expect(h.editorCallsFor("/f.ts").at(-1)?.decorations).toStrictEqual([
-            { range: range(2), color: MOD, dashed: true },
-            { range: range(5), color: ADD },
+            { range: range(1), color: packRgba(255, 0, 0, 255) },
+            { range: range(2), color: packRgba(0, 0, 255, 128) },
+        ]);
+
+        h.changeTheme(ColorThemeKind.Light);
+        await flushMicrotasks(10);
+        expect(h.editorCallsFor("/f.ts").at(-1)?.decorations).toStrictEqual([
+            { range: range(1), color: packRgba(255, 0, 0, 255) },
+            { range: range(2), color: packRgba(0, 255, 0, 255) },
         ]);
     });
 
-    it("an empty set removes the bars; removing a type redraws only files where it was", async () => {
+    it("an empty set removes the marks; removing a type redraws only files where it was", async () => {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 1,
@@ -327,7 +340,7 @@ describe("DecorationsCustomer — text decorations", () => {
         expect(h.textFor("/a.ts")).toStrictEqual([
             { range: span(0, 5, 8), bg: packRgba(255, 0, 0, 77), isWholeLine: false },
         ]);
-        // No overviewRulerColor — no gutter bars.
+        // No overviewRulerColor — no scrollbar marks.
         expect(h.editorCallsFor("/a.ts").at(-1)?.decorations).toStrictEqual([]);
     });
 
@@ -340,7 +353,7 @@ describe("DecorationsCustomer — text decorations", () => {
         expect(h.textFor("/a.ts")).toStrictEqual([{ range: span(0, 5, 8), bg: MERGE, fg: FG, isWholeLine: true }]);
     });
 
-    it("a type that is both a gutter bar and a background feeds both channels", async () => {
+    it("a type that is both a scrollbar mark and a background feeds both channels", async () => {
         const h = await typed({
             overviewRulerColor: { $themeColor: "editorGutter.addedBackground" },
             backgroundColor: "#102030",
@@ -422,7 +435,7 @@ describe("DecorationsCustomer — text decorations", () => {
         ]);
     });
 
-    it("the spawn going away clears its text and gutter decorations in the editors", async () => {
+    it("the spawn going away clears its text decorations and scrollbar marks in the editors", async () => {
         const h = await typed({
             backgroundColor: "red",
             overviewRulerColor: { $themeColor: "editorGutter.addedBackground" },
@@ -884,5 +897,159 @@ describe("DecorationsCustomer — before/after attachments", () => {
 
         expect(h.textCalls.slice(before)).toStrictEqual([{ uri: A_TS, set: { key: 1, decorations: [] } }]);
         expect(h.textFor("/a.ts").map((d) => d.range.start.line)).toStrictEqual([1]);
+    });
+});
+
+describe("DecorationsCustomer — gutter icons", () => {
+    const RED_DOT = `<svg xmlns="http://www.w3.org/2000/svg"><circle cx="5" cy="5" r="4" fill="#e51400"/></svg>`;
+    const BLUE_BAR = `<svg xmlns='http://www.w3.org/2000/svg'><rect fill='rgb(0,0,255)' x='13' y='0' width='3' height='18'/></svg>`;
+    const RED = packRgba(0xe5, 0x14, 0x00, 255);
+    const dataUri = (svg: string) => Uri.parse(`data:image/svg+xml,${encodeURIComponent(svg)}`).toString();
+    const files = new Map([["/icons/dark.svg", RED_DOT]]);
+
+    function iconSetup() {
+        const reads: string[] = [];
+        const h = setup(COLORS, (resource) => {
+            reads.push(resource.path);
+            const content = files.get(resource.path);
+            return content === undefined
+                ? Promise.reject(new Error("ENOENT"))
+                : Promise.resolve(new TextEncoder().encode(content));
+        });
+        return { ...h, reads };
+    }
+
+    it("[api:DecorationRenderOptions.gutterIconPath] a file icon puts one glyph of its color on every line of each range, after one read", async () => {
+        const h = iconSetup();
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 7,
+            options: { gutterIconPath: Uri.file("/icons/dark.svg").toString() },
+        });
+        const twoLines = { start: { line: 4, character: 2 }, end: { line: 5, character: 0 } };
+        h.peer.notify("editor.setDecorations", {
+            key: 7,
+            uri: A_TS,
+            ranges: [{ range: span(1, 0, 3) }, { range: twoLines }, { range: span(1, 4, 5) }],
+        });
+        const B_TS = Uri.file("/b.ts").toString();
+        h.peer.notify("editor.setDecorations", { key: 7, uri: B_TS, ranges: [{ range: range(0) }] });
+        await flushMicrotasks(10);
+
+        const glyph = (line: number) => ({
+            key: String(line),
+            line,
+            glyph: "●",
+            colorToken: "editorLineNumber.foreground",
+            color: RED,
+        });
+        expect(h.glyphsFor("/a.ts", "ext:7")).toStrictEqual([glyph(1), glyph(4), glyph(5)]);
+        expect(h.glyphsFor("/b.ts", "ext:7")).toStrictEqual([glyph(0)]);
+        expect(h.reads).toEqual(["/icons/dark.svg"]);
+    });
+
+    it("[api:DecorationRenderOptions.gutterIconPath] a data: URI needs no read; the theme branch picks the icon", async () => {
+        const h = iconSetup();
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 1,
+            options: { gutterIconPath: dataUri(BLUE_BAR), dark: { gutterIconPath: dataUri(RED_DOT) } },
+        });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: range(2) }] });
+        await flushMicrotasks(10);
+        expect(h.glyphsFor("/a.ts", "ext:1")?.map((g) => [g.glyph, g.color])).toEqual([["●", RED]]);
+
+        h.changeTheme(ColorThemeKind.Light);
+        await flushMicrotasks(10);
+        expect(h.glyphsFor("/a.ts", "ext:1")?.map((g) => [g.glyph, g.color])).toEqual([
+            ["▎", packRgba(0, 0, 255, 255)],
+        ]);
+        expect(h.reads).toEqual([]);
+    });
+
+    it("an unreadable icon is a dot in the gutter's color, not an error", async () => {
+        const h = iconSetup();
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 1,
+            options: { gutterIconPath: Uri.file("/icons/missing.svg").toString() },
+        });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: range(0) }] });
+        await flushMicrotasks(10);
+
+        expect(h.glyphsFor("/a.ts", "ext:1")).toStrictEqual([
+            { key: "0", line: 0, glyph: "●", colorToken: "editorLineNumber.foreground" },
+        ]);
+        expect(h.rpcLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it("without a file reader a file icon is a dot in the gutter's color", async () => {
+        const h = setup();
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 1,
+            options: { gutterIconPath: Uri.file("/icons/dark.svg").toString() },
+        });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: range(0) }] });
+        await flushMicrotasks(10);
+
+        expect(h.glyphsFor("/a.ts", "ext:1")?.map((g) => [g.glyph, g.color])).toEqual([["●", undefined]]);
+    });
+
+    it("a type without an icon never touches the glyph lane; disposing an icon type clears its glyphs", async () => {
+        const h = iconSetup();
+        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options: { backgroundColor: "red" } });
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 2,
+            options: { light: { gutterIconPath: dataUri(RED_DOT) } },
+        });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: range(0) }] });
+        h.peer.notify("editor.setDecorations", { key: 2, uri: A_TS, ranges: [{ range: range(1) }] });
+        await flushMicrotasks(10);
+        // The dark theme has no icon for the type: nothing to draw, but the layer is the type's.
+        expect(h.glyphCalls.map((c) => c.owner)).toEqual(["ext:2"]);
+        expect(h.glyphsFor("/a.ts", "ext:2")).toStrictEqual([]);
+
+        h.changeTheme(ColorThemeKind.Light);
+        await flushMicrotasks(10);
+        expect(h.glyphsFor("/a.ts", "ext:2")).toHaveLength(1);
+
+        h.peer.notify("window.disposeTextEditorDecorationType", { key: 1 });
+        h.peer.notify("window.disposeTextEditorDecorationType", { key: 2 });
+        await flushMicrotasks(10);
+        expect(h.glyphCalls.every((c) => c.owner === "ext:2")).toBe(true);
+        expect(h.glyphsFor("/a.ts", "ext:2")).toStrictEqual([]);
+    });
+
+    it("the spawn going away clears its glyphs, and an icon read finishing after that draws none back", async () => {
+        let finishRead: (content: Uint8Array) => void = () => undefined;
+        const h = setup(
+            COLORS,
+            () =>
+                new Promise((resolve) => {
+                    finishRead = resolve;
+                }),
+        );
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 1,
+            options: { gutterIconPath: dataUri(RED_DOT) },
+        });
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 2,
+            options: { gutterIconPath: Uri.file("/slow.svg").toString() },
+        });
+        h.peer.notify("window.createTextEditorDecorationType", { key: 3, options: { backgroundColor: "red" } });
+        for (const key of [1, 2, 3])
+            h.peer.notify("editor.setDecorations", { key, uri: A_TS, ranges: [{ range: range(key) }] });
+        await flushMicrotasks(10);
+        expect(h.glyphsFor("/a.ts", "ext:1")).toHaveLength(1);
+        expect(h.glyphsFor("/a.ts", "ext:2")).toStrictEqual([]);
+        const before = h.glyphCalls.length;
+
+        h.attached.dispose();
+        expect(h.glyphCalls.slice(before).map((c) => [c.owner, c.decorations])).toEqual([
+            ["ext:1", []],
+            ["ext:2", []],
+        ]);
+
+        finishRead(new TextEncoder().encode(RED_DOT));
+        await flushMicrotasks(10);
+        expect(h.glyphCalls).toHaveLength(before + 2);
     });
 });

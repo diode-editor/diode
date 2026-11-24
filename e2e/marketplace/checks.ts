@@ -216,15 +216,25 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 root: ctx.root,
                 keepRoot: true,
                 open: [ctx.root, file],
-                // Nodes start collapsed; the setting expands them as the user would.
-                settings: { "todo-tree.tree.expanded": true },
+                // Nodes start collapsed; the setting expands them as the user would. Colored highlights give the
+                // types an `overviewRulerColor`, which once drew false git change bars in the gutter (#1235).
+                settings: {
+                    "todo-tree.tree.expanded": true,
+                    "todo-tree.highlights.defaultHighlight": { foreground: "#ffffff", background: "#ff0000" },
+                },
             });
             try {
                 await app.session.waitForText((t) => t.includes("// FIXME: broken"), { timeoutMs: 40_000 });
                 await app.session.executeCommand("workbench.view.extension.todo-tree-container");
-                await app.session.waitForText((t) => t.includes("TODO : first") && t.includes("FIXME : broken"), {
-                    timeoutMs: 60_000,
-                });
+                const frame = await app.session.waitForText(
+                    (t) => t.includes("TODO : first") && t.includes("FIXME : broken"),
+                    { timeoutMs: 60_000 },
+                );
+                // The file is not in git: any change bar in the gutter would be a decoration type's.
+                const bars = frameToText(frame)
+                    .split("\n")
+                    .filter((row) => /[┃┋]\s*\d/.test(row));
+                if (bars.length > 0) throw new Error(`change bars in the gutter:\n${bars.join("\n")}`);
             } finally {
                 await app.dispose();
             }

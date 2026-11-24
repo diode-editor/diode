@@ -1,0 +1,21 @@
+{
+    "name": "gutter-icons",
+    "displayName": "Gutter Icons",
+    "description": "E2E demo extension: decoration types with gutterIconPath (GitLens's bar as a data: URI, an Error Lens-like SVG file, a PNG, a missing file) and one with a CSS overviewRulerColor only.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "contributes": {
+        "breakpoints": [
+            {
+                "language": "plaintext"
+            }
+        ]
+    }
+}

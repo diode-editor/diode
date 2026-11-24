@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../../editor/common/model/iOverviewRulerDecoration.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import {
@@ -54,11 +54,11 @@ function makeLogger(): { logger: ILogger; lines: string[] } {
 }
 
 function makeHost(colors: Record<string, number>) {
-    const editorCalls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
+    const editorCalls: { uri: string; decorations: readonly IOverviewRulerDecoration[] }[] = [];
     const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
     const editorDecorations: IEditorDecorationsService = {
         ...NULL_EDITOR_DECORATIONS_SERVICE,
-        setGutterChangeDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
+        setOverviewRulerDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
     };
     const fileDecorations: IFileDecorationsService = {
         setFileDecorations: (entries) => fileCalls.push([...entries]),

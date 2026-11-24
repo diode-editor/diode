@@ -37,6 +37,7 @@ import type {
     ILineMessageClick,
     ILineMessageDecoration,
 } from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../../editor/common/model/iOverviewRulerDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { FeatureDebounce } from "../../../../editor/common/services/languageFeatureDebounce.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
@@ -150,8 +151,6 @@ export class EditorComponent extends Component {
      * its own set — otherwise an extension clearing its bars on every keystroke wipes the git bars until the
      * next quick diff recompute (flicker while typing).
      */
-    private quickDiffGutterChanges: readonly IGutterChangeDecoration[] = [];
-    private extensionGutterChanges: readonly IGutterChangeDecoration[] = [];
     private readonly editTargetValue: ITextEditTarget;
     /**
      * What the configuration asked for; the large-file mode overrides both with "off" until
@@ -751,14 +750,14 @@ export class EditorComponent extends Component {
 
     /** Colors arrive already resolved — the theme is not consulted. */
     public setGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
-        this.quickDiffGutterChanges = decorations;
-        this.applyGutterChanges();
+        this.editor.gutterChangeDecorations = decorations;
+        this.editor.markDirty();
     }
 
-    /** Bars of extension decoration types (`overviewRulerColor`); they don't touch the quick diff set. */
-    public setExtensionGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
-        this.extensionGutterChanges = decorations;
-        this.applyGutterChanges();
+    /** Scrollbar marks of extension decoration types (`overviewRulerColor`); the gutter's quick diff bars stay. */
+    public setOverviewRulerDecorations(decorations: readonly IOverviewRulerDecoration[]): void {
+        this.editor.overviewRulerDecorations = decorations;
+        this.editor.markDirty();
     }
 
     /** Backgrounds, text colors and `before`/`after` cells of an extension decoration type (`createTextEditorDecorationType`). */
@@ -777,11 +776,6 @@ export class EditorComponent extends Component {
             }),
         );
         this.extensionTextDecorations.set(set);
-    }
-
-    private applyGutterChanges(): void {
-        this.editor.gutterChangeDecorations = [...this.quickDiffGutterChanges, ...this.extensionGutterChanges];
-        this.editor.markDirty();
     }
 
     /** An owner's glyphs left of the line numbers (tests, breakpoints): they ride their lines through edits. */
