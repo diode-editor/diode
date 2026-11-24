@@ -16,7 +16,6 @@ import { ColorThemeKind } from "../../../../api/common/vscodeTypes.ts";
 
 import { DecorationsCustomer, type GutterIconReader } from "./decorationsCustomer.ts";
 
-const MOD = 0x1b81a8;
 const ADD = 0x487e02;
 const FILE = 0x112233;
 const MERGE = packRgba(0x40, 0xc8, 0xae, 0x33);
@@ -24,7 +23,6 @@ const FG = packRgb(0xcc, 0xcc, 0xcc);
 const COLORS: Record<string, number> = {
     "merge.currentContentBackground": MERGE,
     "editor.foreground": FG,
-    "editorGutter.modifiedBackground": MOD,
     "editorGutter.addedBackground": ADD,
     "gitDecoration.modifiedResourceForeground": FILE,
 };

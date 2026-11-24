@@ -506,12 +506,10 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         // The SCM bar colors arrive resolved, so the ruler reuses them instead of the
         // `editorOverviewRuler.{added,modified,deleted}Foreground` tokens.
-        const changeMarkers = this.gutterChangeDecorations.map((change) =>
-            this.scrollBarMarker(change.range, change.color, ScrollBarMarkerPriority.GutterChange),
+        // Extension types' `overviewRulerColor` marks share the SCM bars' rank: upstream's default lane is the center.
+        const changeMarkers = [...this.gutterChangeDecorations, ...this.overviewRulerDecorations].map(
+            ({ range, color }) => this.scrollBarMarker(range, color, ScrollBarMarkerPriority.GutterChange),
         );
-        for (const { range, color } of this.overviewRulerDecorations) {
-            changeMarkers.push(this.scrollBarMarker(range, color, ScrollBarMarkerPriority.GutterChange));
-        }
         const diagnosticMarkers: IScrollBarMarker[] = [];
         for (const { range, severity } of this.markerDecorations) {
             // Hints have no ruler mark in VS Code either.

@@ -28,10 +28,14 @@ import type {
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { parseDecorationOptions, parseWireFileDecorations, themeColorIdOf } from "../hostWireParsers.ts";
 
-import { gutterIconContentOf, gutterIconGlyphOf, type IGutterIconGlyph } from "./gutterIconGlyph.ts";
+import {
+    gutterIconContentOf,
+    gutterIconGlyphOf,
+    type GutterIconReader,
+    type IGutterIconGlyph,
+} from "./gutterIconGlyph.ts";
 
-/** Reads a `file:` (or another provider's) gutter icon; a rejection is a missing icon. */
-export type GutterIconReader = (resource: Uri) => Promise<Uint8Array>;
+export type { GutterIconReader } from "./gutterIconGlyph.ts";
 
 const NO_GUTTER_ICONS: GutterIconReader = () => Promise.reject(new Error("no file service"));
 
@@ -455,9 +459,7 @@ class SpawnDecorations {
             if (!byKey.delete(key)) continue;
             this.pushOverviewRuler(uri, byKey);
             this.editorDecorations.setExtensionTextDecorations(uri, { key, decorations: [] });
-            if (type !== undefined && hasGutterIcon(type)) {
-                this.editorDecorations.setGlyphMarginDecorations(uri, glyphOwnerOf(key), []);
-            }
+            this.clearGlyphs(uri, key, type);
         }
     }
 
@@ -495,11 +497,15 @@ class SpawnDecorations {
             this.editorDecorations.setOverviewRulerDecorations(uri, []);
             for (const key of byKey.keys()) {
                 this.editorDecorations.setExtensionTextDecorations(uri, { key, decorations: [] });
-                const type = this.types.get(key);
-                if (type !== undefined && hasGutterIcon(type)) {
-                    this.editorDecorations.setGlyphMarginDecorations(uri, glyphOwnerOf(key), []);
-                }
+                this.clearGlyphs(uri, key, this.types.get(key));
             }
+        }
+    }
+
+    /** A type without an icon never touched the glyph lane: nothing to clear. */
+    private clearGlyphs(uri: string, key: number, type: IDecorationType | undefined): void {
+        if (type !== undefined && hasGutterIcon(type)) {
+            this.editorDecorations.setGlyphMarginDecorations(uri, glyphOwnerOf(key), []);
         }
     }
 
@@ -561,14 +567,20 @@ class SpawnDecorations {
         this.gutterIcons.set(icon, undefined);
         void gutterIconContentOf(icon, this.readGutterIcon).then((content) => {
             this.gutterIcons.set(icon, gutterIconGlyphOf(content));
-            if (!this.cleared) this.repushGlyphs();
+            if (!this.cleared) this.repushGlyphsOf(icon);
         });
         return undefined;
     }
 
-    private repushGlyphs(): void {
+    /** The types showing `icon` in the current theme, the others have nothing new to draw. */
+    private repushGlyphsOf(icon: string): void {
+        const dark = isDarkKind(this.themeColorResolver.kind());
         for (const [uri, byKey] of this.editorDecorationsByFile) {
-            for (const [key, ranges] of byKey) this.pushGlyphs(uri, key, ranges);
+            for (const [key, ranges] of byKey) {
+                const type = this.types.get(key);
+                if (type !== undefined && themedValue(type.gutterIcon, dark) === icon)
+                    this.pushGlyphs(uri, key, ranges);
+            }
         }
     }
 

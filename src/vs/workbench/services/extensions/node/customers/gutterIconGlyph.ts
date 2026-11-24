@@ -3,6 +3,9 @@ import { packRgba } from "@tuidom/core/common/colorUtils";
 import { parseCssColor } from "../../../../../base/common/color.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
 
+/** Reads a `file:` (or another provider's) gutter icon; a rejection is a missing icon. */
+export type GutterIconReader = (resource: Uri) => Promise<Uint8Array>;
+
 /**
  * What a gutter icon (`gutterIconPath`) shrinks to in one cell: a glyph and the icon's color, packed RGBA; no color
  * means the gutter's own.
@@ -78,10 +81,7 @@ export function gutterIconGlyphOf(content: string | null): IGutterIconGlyph {
 }
 
 /** The icon's text: a `data:` URI's payload as is, a file through `readFile`; a failed read is `null`. */
-export async function gutterIconContentOf(
-    uri: string,
-    readFile: (resource: Uri) => Promise<Uint8Array>,
-): Promise<string | null> {
+export async function gutterIconContentOf(uri: string, readFile: GutterIconReader): Promise<string | null> {
     try {
         const parsed = Uri.parse(uri);
         if (parsed.scheme !== "data") return new TextDecoder().decode(await readFile(parsed));

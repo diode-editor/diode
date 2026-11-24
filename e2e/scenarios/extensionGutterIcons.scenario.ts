@@ -59,12 +59,12 @@ async function waitForGlyph(
     editor: { captureFrame(): Promise<GridSnapshot> },
     line: string,
     glyph: string,
-    fg?: number,
+    accept: (fg: number) => boolean = () => true,
 ): Promise<GridSnapshot> {
     let frame = await editor.captureFrame();
     for (let i = 0; i < 100; i++) {
         const found = gutterGlyph(frame, line, glyph);
-        if (found !== null && (fg === undefined || found.fg === fg)) return frame;
+        if (found !== null && accept(found.fg)) return frame;
         await new Promise((r) => setTimeout(r, 100));
         frame = await editor.captureFrame();
     }
@@ -87,9 +87,9 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("broken line"), { timeoutMs: 20_000 });
         await editor.waitForReady();
 
-        let frame = await waitForGlyph(editor, "bar line", "▎", BLUE);
-        frame = await waitForGlyph(editor, "dot line", "●", GREEN);
-        frame = await waitForGlyph(editor, "broken line", "●");
+        await waitForGlyph(editor, "bar line", "▎", (fg) => fg === BLUE);
+        await waitForGlyph(editor, "dot line", "●", (fg) => fg === GREEN);
+        const frame = await waitForGlyph(editor, "broken line", "●");
         for (const line of ["png line", "broken line"]) {
             const glyph = gutterGlyph(frame, line, "●");
             if (glyph === null) throw new Error(`"${line}" lost its icon`);
@@ -116,14 +116,7 @@ export default defineScenario({
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("F9");
-        for (let i = 0; i < 100; i++) {
-            const glyph = gutterGlyph(frame, "dot line", "●");
-            if (glyph !== null && glyph.fg !== GREEN) break;
-            await new Promise((r) => setTimeout(r, 100));
-            frame = await editor.captureFrame();
-        }
-        const covered = gutterGlyph(frame, "dot line", "●");
-        if (covered === null || covered.fg === GREEN) throw new Error("the breakpoint does not cover the icon");
+        await waitForGlyph(editor, "dot line", "●", (fg) => fg !== GREEN);
         await editor.capture("breakpoint-over-icon");
     },
 });

@@ -146,11 +146,6 @@ export class EditorComponent extends Component {
     public foldingOwnedExternally = false;
     /** Guards the sync-indentation ↔ async-provider race: a late reply to a superseded request is dropped. */
     private readonly foldingRequest = new LatestRequest();
-    /**
-     * Two independent producers: quick diff (git) and extension decoration types. Each one replaces only
-     * its own set — otherwise an extension clearing its bars on every keystroke wipes the git bars until the
-     * next quick diff recompute (flicker while typing).
-     */
     private readonly editTargetValue: ITextEditTarget;
     /**
      * What the configuration asked for; the large-file mode overrides both with "off" until
