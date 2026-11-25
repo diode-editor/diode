@@ -126,17 +126,17 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(service.getPasteTargetDir()).toBe(last);
     });
 
-    it("an expanded compact row watches each of its folders, a collapsed one — none", async () => {
+    it("an expanded compact row watches each of its folders, a collapsed one — none (the root stays watched)", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");
         });
-        expect([...watched].sort()).toEqual([ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
+        expect([...watched].sort()).toEqual([ws.dir, ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
 
         // Left first walks segments b → a → pkg, and collapses on the first one.
         for (let i = 0; i < 3; i++) app.sendKey("ArrowLeft");
         await vi.waitFor(() => {
-            expect(watched.size).toBe(0);
+            expect([...watched]).toEqual([ws.dir]);
         });
     });
 
