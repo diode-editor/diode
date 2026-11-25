@@ -442,7 +442,8 @@
   сырого markdown; `MarkedString {language, value}` сериализуется fenced-блоком). Реестр —
   `ILanguageFeaturesService.hoverProvider` (тип `editor/common/languages/iHoverSource.ts`); над ответами
   провайдеров — диагностики под кареткой из `MarkerService` (`message source(code)`, эталонный
-  `MarkerHoverParticipant`); UI —
+  `MarkerHoverParticipant`), между ними — `hoverMessage` декораций расширений под кареткой (часть
+  `MarkdownHoverParticipant` эталона, см. «Декорации»); UI —
   contrib `hover` (пара `HoverService`/`HoverComponent` по образцу suggest: overlay-сессия у каретки
   без захвата фокуса, `stripMarkdown` в плоский текст, закрытие по Escape/правке/каретке/фокусу;
   ключ `editorHoverVisible`).
@@ -1428,7 +1429,10 @@
   провайдеров, — см. «Задачи расширений»), `*` и `onStartupFinished` (фаерит
   `ExtensionService.start()` после регистрации, когда файлы открыты), `onLanguage:<id>`,
   `onCommand:<id>`, `workspaceContains:<паттерн>`, `onUri:<id>` (фаерит обработчик URL — см.
-  «Обработчики URI расширений»). `onLanguage:<id>` — владелец сигнала сервис языков (как
+  «Обработчики URI расширений»), `onFileSystem:<scheme>` (`FileService.onWillActivateFileSystemProvider` — первая
+  операция над схемой, один раз на схему; `extensionHostModule.ts` переводит в `activateByEvent`, как
+  `AbstractExtensionService` эталона; `file` фаерит первое открытие файла или папки — так встаёт gitblame, чей
+  `workspaceContains:**/.git/HEAD` прячет `files.exclude`, как и в эталоне). `onLanguage:<id>` — владелец сигнала сервис языков (как
   `requestRichLanguageFeatures` эталона): `TextFileModel` зовёт
   `ILanguageService.requestLanguageFeatures(id)`, когда у документа появляется язык (новая модель,
   открытый файл, синтетический документ) или меняется (Change Language Mode, Save As);
@@ -1964,9 +1968,15 @@ key) и шлёт хосту RPC-нотификации, сериализуя `Th
 `textDecoration`, `opacity` (CSS-строки как есть), `isWholeLine`, `rangeBehavior`, `overviewRulerLane`, `before`/`after`
 (`contentText`, `color`, `backgroundColor`, `borderColor`, `fontStyle`, `fontWeight`, `textDecoration`, `margin`, `width`)
 и ветки `light`/`dark` с теми же полями — рамки, `padding`, `height`, семейство и размер шрифта, иконки клетке
-нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions? }` (`IWireDecorationOptions`,
-`vscode.DecorationOptions` без `hoverMessage`; голый `Range` — без `renderOptions`), `renderOptions` — `before`/`after`
-и их ветки; хост разбирает их `parseDecorationOptions` (битый элемент выбрасывается, мусор в полях = поля нет).
+нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions?, hoverMessage? }`
+(`IWireDecorationOptions`; голый `Range` — без обоих), `renderOptions` — `before`/`after` и их ветки, `hoverMessage` —
+сырой markdown каждой непустой записи, как `contents` hover-провайдера (`serializeHoverContents`); хост разбирает их
+`parseDecorationOptions` (битый элемент выбрасывается, мусор в полях = поля нет, у `hoverMessage` остаются строки).
+`hoverMessage` едет по диапазону до `IExtensionTextDecoration` (в том числе у диапазона, который ничего не рисует, и через
+`restyle`); `ExtensionTextDecorations.hoverMessagesAt` отдаёт сообщения трекнутых диапазонов, держащих позицию (концы
+включены, `isWholeLine` — вся строка; схлопнутый правкой непустой диапазон — нет), по началу диапазона, как
+`_getLineDecorations` + `MarkdownHoverParticipant` эталона; `HoverService` ставит их блоками между диагностиками и
+ответами провайдеров.
 `DecorationsCustomer` держит на тип разобранные опции (`overviewRulerColorId`, `isWholeLine`, stickiness из
 `rangeBehavior` — значения совпадают с `TrackedRangeStickiness`, цвета `background`/`foreground` и слои `before`/`after`,
 у каждого — `base`/`light`/`dark`; так же по одному свойству — `italic`, `bold`, `textDecoration`, `opacity`); цвет — id `ThemeColor` (строка) или packed RGBA (число): CSS-строку один раз

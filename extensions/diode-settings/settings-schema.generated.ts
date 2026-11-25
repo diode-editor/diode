@@ -980,9 +980,10 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     },
     {
         key: "git.path",
-        type: "string",
-        default: "",
-        description: "Path to a git binary to prefer (its directory is prepended to PATH). Empty uses git from PATH.",
+        type: "string | null | array",
+        default: null,
+        description:
+            "Path and filename of the git executable, e.g. `C:\\Program Files\\Git\\bin\\git.exe` (Windows). This can also be an array of string values containing multiple paths to look up.",
     },
     {
         key: "git.refreshDebounce",

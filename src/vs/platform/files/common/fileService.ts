@@ -41,6 +41,10 @@ export class FileService extends Disposable implements IFileService {
     public readonly onDidChangeFileSystemProviderRegistrations =
         this.onDidChangeFileSystemProviderRegistrationsEmitter.event;
 
+    private readonly activatedSchemes = new Set<string>();
+    private readonly onWillActivateFileSystemProviderEmitter = this.register(new Emitter<string>());
+    public readonly onWillActivateFileSystemProvider = this.onWillActivateFileSystemProviderEmitter.event;
+
     private readonly onDidRunOperationEmitter = this.register(new Emitter<IFileOperationEvent>());
     public readonly onDidRunOperation = this.onDidRunOperationEmitter.event;
 
@@ -184,6 +188,10 @@ export class FileService extends Disposable implements IFileService {
     }
 
     private provider(resource: Uri): IFileSystemProvider {
+        if (!this.activatedSchemes.has(resource.scheme)) {
+            this.activatedSchemes.add(resource.scheme);
+            this.onWillActivateFileSystemProviderEmitter.fire(resource.scheme);
+        }
         const provider = this.providers.get(resource.scheme);
         if (provider === undefined) {
             throw new FileOperationError(
