@@ -116,11 +116,11 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#333333" },
         description: "Title Bar foreground when the window is active.",
     },
-    // VS Code has no terminal.background default (null): the terminal in the panel uses the panel
-    // background, so a theme without terminal colors (Catppuccin) doesn't get a black rectangle in
-    // the middle of its panel.
+    // No default, as upstream: a terminal falls back to the background of where it stands, the panel's
+    // in the panel and the editor's in an editor tab (resolveTerminalColors). A theme without terminal
+    // colors (Catppuccin) gets no black rectangle, an editor-area terminal no panel-colored one.
     "terminal.background": {
-        defaults: { dark: "panel.background", light: "panel.background" },
+        defaults: null,
         description: "The background of the Integrated Terminal's viewport.",
     },
     "terminal.foreground": {

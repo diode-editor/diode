@@ -24,19 +24,33 @@ export const TerminalColorsServiceDIToken = token<TerminalColorsService>("Termin
 
 const COLOR_SOURCE_SETTING = "terminal.integrated.colorSource";
 
+/** Where the terminal widget stands: its background falls back to that part's background. */
+export type TerminalLocation = "panel" | "editor";
+
+/** Upstream terminal.css: `var(--vscode-terminal-background, <the part's background>)`. */
+const LOCATION_BACKGROUND = {
+    panel: "panel.background",
+    editor: "editor.background",
+} as const satisfies Record<TerminalLocation, string>;
+
 export interface ITerminalColors {
     /** Always 16: palette indices 0..15. */
     readonly ansi: readonly number[];
-    /** Overrides the `terminal.background`/`terminal.foreground` tokens; `undefined` — the theme token as is. */
-    readonly background: number | undefined;
+    /** The `terminal.background` var per location: the host's, the theme's, or the part's background. */
+    readonly background: Readonly<Record<TerminalLocation, number>>;
+    /** Overrides the `terminal.foreground` token; `undefined` — the theme token as is. */
     readonly foreground: number | undefined;
 }
 
 /** Whatever the host didn't report comes from the theme, per color; `host: undefined` — all from the theme. */
 export function resolveTerminalColors(theme: WorkbenchTheme, host: HostTerminalColors | undefined): ITerminalColors {
+    const own = host?.background ?? theme.getColor("terminal.background");
     return {
         ansi: TERMINAL_ANSI_COLOR_KEYS.map((key, index) => host?.ansi[index] ?? theme.getRequiredColor(key)),
-        background: host?.background,
+        background: {
+            panel: own ?? theme.getRequiredColor(LOCATION_BACKGROUND.panel),
+            editor: own ?? theme.getRequiredColor(LOCATION_BACKGROUND.editor),
+        },
         foreground: host?.foreground,
     };
 }
@@ -120,17 +134,17 @@ export class TerminalColorsService extends Disposable {
 }
 
 /**
- * Host background/foreground override `terminal.background`/`terminal.foreground` in the widget's
- * var scope; without them, theme tokens apply.
+ * `terminal.background` is always set in the widget's var scope, by its location; a host foreground
+ * overrides `terminal.foreground`, without it the theme token applies.
  */
 export function applyTerminalColors(
     session: Pick<ITerminalSession, "setAnsiColors">,
     widget: TerminalViewElement,
     colors: ITerminalColors,
+    location: TerminalLocation,
 ): void {
     session.setAnsiColors(colors.ansi);
-    const vars: Record<string, number> = {};
-    if (colors.background !== undefined) vars["terminal.background"] = colors.background;
+    const vars: Record<string, number> = { "terminal.background": colors.background[location] };
     if (colors.foreground !== undefined) vars["terminal.foreground"] = colors.foreground;
     widget.setStyleVars(vars);
 }
