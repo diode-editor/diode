@@ -109,6 +109,7 @@ import { LanguageRegistry } from "../workbench/services/language/common/language
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { OutputServiceDIToken } from "../workbench/services/output/common/outputService.ts";
 import { extendedKeysAtStartup } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
+import { COLOR_CUSTOMIZATIONS_SETTING } from "../workbench/services/themes/common/colorCustomizations.ts";
 import { SemanticTokenStyleResolver } from "../workbench/services/themes/common/semanticTokenStyleResolver.ts";
 import { createTextMateTheme } from "../workbench/services/themes/common/textMateTheme.ts";
 import {
@@ -382,6 +383,8 @@ async function runEditor(): Promise<void> {
     const themeContributor = new ExtensionThemeContributor(assets, allExtensions, themeRegistry, extensionsLogger);
     await themeContributor.apply();
     registerExtensionColors(allExtensions, themeRegistry, extensionsLogger);
+    // Before the first frame; ThemeConfigContribution reports invalid entries and follows later edits.
+    themeRegistry.setColorCustomizations(configurationService.get(COLOR_CUSTOMIZATIONS_SETTING));
     // The setting is left alone: if the extension comes back, so does its theme. With scheme detection the
     // terminal hasn't answered yet — the scheme it reported last time picks the key (HostColorSchemeService).
     const lastHostColorScheme = stateService.get(LAST_HOST_COLOR_SCHEME) ?? undefined;

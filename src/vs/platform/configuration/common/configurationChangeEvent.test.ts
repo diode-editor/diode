@@ -25,6 +25,25 @@ describe("diffConfigurationKeys", () => {
         );
     });
 
+    it("an edit inside an object value with dotted keys reports the setting itself", () => {
+        const prev = ConfigurationModel.fromRaw({
+            "workbench.colorCustomizations": { "editor.background": "#202020" },
+            "files.exclude": { "**/.git": true },
+            "editor.tabSize": 2,
+        });
+        const next = ConfigurationModel.fromRaw({
+            "workbench.colorCustomizations": {
+                "editor.background": "#303030",
+                "[Light Modern]": { "editor.background": "#fff8e0" },
+            },
+            "files.exclude": { "**/.git": false },
+            "editor.tabSize": 2,
+        });
+        expect(new Set(diffConfigurationKeys(prev, next))).toEqual(
+            new Set(["workbench.colorCustomizations", "files.exclude"]),
+        );
+    });
+
     it("returns an empty list for structurally equal models", () => {
         const a = ConfigurationModel.fromRaw({ "x.y": [1, 2], "x.z": "s" });
         const b = ConfigurationModel.fromRaw({ "x.y": [1, 2], "x.z": "s" });

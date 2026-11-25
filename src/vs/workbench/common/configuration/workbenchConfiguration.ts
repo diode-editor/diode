@@ -30,6 +30,13 @@ export const workbenchConfiguration = {
             description:
                 "Specifies the color theme when system color mode is light and `#window.autoDetectColorScheme#` is enabled.",
         },
+        // Upstream's `allOf: [{ $ref: workbenchColorsSchemaId }]` (completion of color ids) is not ported.
+        "workbench.colorCustomizations": {
+            scope: "window",
+            type: "object",
+            default: {},
+            description: "Overrides colors from the currently selected color theme.",
+        },
         // Only the Explorer opens previews: upstream's `enablePreviewFromQuickOpen` and
         // `enablePreviewFromCodeNavigation` are off by default.
         "workbench.editor.enablePreview": {

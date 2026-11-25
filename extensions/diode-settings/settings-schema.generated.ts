@@ -1649,6 +1649,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "If enabled, will automatically select a color theme based on the system color mode. If the system color mode is dark, `#workbench.preferredDarkColorTheme#` is used, else `#workbench.preferredLightColorTheme#`.",
     },
     {
+        key: "workbench.colorCustomizations",
+        type: "object",
+        default: {},
+        description: "Overrides colors from the currently selected color theme.",
+    },
+    {
         key: "workbench.colorTheme",
         type: "string",
         default: "Dark Modern",
