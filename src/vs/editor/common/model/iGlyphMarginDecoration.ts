@@ -11,6 +11,8 @@ export interface IGlyphMarginDecoration {
     readonly glyph: string;
     /** A theme token. */
     readonly colorToken: string;
+    /** A color its owner resolved itself, packed RGBA (an extension's icon color): drawn instead of `colorToken`. */
+    readonly color?: number;
     /** A theme token: a mark in the scrollbar at the line (upstream `overviewRuler`). */
     readonly overviewRulerColorToken?: string;
     /**

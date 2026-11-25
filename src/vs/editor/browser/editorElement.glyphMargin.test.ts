@@ -412,6 +412,16 @@ describe("EditorElement — glyph margin", () => {
             ]);
         });
 
+        it("a glyph's own color is drawn instead of its token's", () => {
+            const { app, editor } = setup("a\nb");
+            const ICON = packRgb(0xe5, 0x14, 0x00);
+            editor.setGlyphMarginDecorations("ext:1", [glyph("1", 1, { glyph: "●", color: ICON })]);
+            app.render();
+
+            expect(app.backend.getTextAt(new Point(1, 1), 1)).toBe("●");
+            expect(app.backend.getFgAt(new Point(1, 1))).toBe(ICON);
+        });
+
         it("an owner clearing its glyphs leaves the other owner's; the lane goes with the last glyph", () => {
             const { app, editor } = setup(LINES);
             editor.setGlyphMarginDecorations("testing", [glyph("test", 1)]);

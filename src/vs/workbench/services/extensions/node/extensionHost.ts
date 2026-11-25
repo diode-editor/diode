@@ -167,7 +167,7 @@ import type { IExtensionUriHandlers } from "../common/extensionUrlHandler.ts";
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
 import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
 import { DebugCustomer } from "./customers/debugCustomer.ts";
-import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
+import { DecorationsCustomer, type GutterIconReader } from "./customers/decorationsCustomer.ts";
 import { DiagnosticsCustomer, type IMarkerReader } from "./customers/diagnosticsCustomer.ts";
 import { DocumentsCustomer, MAX_SYNCED_DOCUMENT_CHARS } from "./customers/documentsCustomer.ts";
 import { EditorCustomer } from "./customers/editorCustomer.ts";
@@ -252,6 +252,8 @@ export interface IExtensionHostOptions {
     readonly editorDecorations?: IEditorDecorationsService;
     readonly fileDecorations?: IFileDecorationsService;
     readonly themeColorResolver?: IThemeColorResolver;
+    /** Reads `gutterIconPath` files of decoration types; without it every icon is a plain dot. */
+    readonly gutterIconReader?: GutterIconReader;
     /** Expands `$(name)` in command titles from the manifest; Nerd Font glyphs when absent. */
     readonly icons?: IProductIconService;
     readonly diagnosticsSink?: DiagnosticsSink;
@@ -386,6 +388,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE,
                 options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE,
                 options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER,
+                options.gutterIconReader,
             ),
         );
         const requestTimeouts: RequestTimeouts = { ...DEFAULT_REQUEST_TIMEOUTS, ...options.requestTimeouts };

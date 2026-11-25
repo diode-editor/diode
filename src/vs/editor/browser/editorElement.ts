@@ -57,6 +57,7 @@ import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecor
 import type { IInlineInsertion } from "../common/model/iInlineInsertion.ts";
 import { NO_INLINE_INSERTIONS } from "../common/model/iInlineInsertion.ts";
 import type { ILineMessageClick, ILineMessageDecoration } from "../common/model/iLineMessageDecoration.ts";
+import type { IOverviewRulerDecoration } from "../common/model/iOverviewRulerDecoration.ts";
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
@@ -116,6 +117,7 @@ const enum ScrollBarMarkerPriority {
     GlyphMargin = 7,
 }
 const NO_GUTTER_CHANGE_DECORATIONS: readonly IGutterChangeDecoration[] = [];
+const NO_OVERVIEW_RULER_DECORATIONS: readonly IOverviewRulerDecoration[] = [];
 const NO_EXTENSION_TEXT_DECORATIONS: readonly IExtensionTextDecoration[] = [];
 
 /** The glyph a line's lane cell draws and whose owner a press on it goes to. */
@@ -275,6 +277,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public gutterChangeDecorations: readonly IGutterChangeDecoration[] = NO_GUTTER_CHANGE_DECORATIONS;
+    /** Scrollbar marks of extension decoration types (`overviewRulerColor`): the gutter has no part in them. */
+    public overviewRulerDecorations: readonly IOverviewRulerDecoration[] = NO_OVERVIEW_RULER_DECORATIONS;
     /** Painted over the selection, under the current find match: upstream's decorations layer lies above selections. */
     public extensionTextDecorations: readonly IExtensionTextDecoration[] = NO_EXTENSION_TEXT_DECORATIONS;
     public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
@@ -502,8 +506,9 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         // The SCM bar colors arrive resolved, so the ruler reuses them instead of the
         // `editorOverviewRuler.{added,modified,deleted}Foreground` tokens.
-        const changeMarkers = this.gutterChangeDecorations.map((change) =>
-            this.scrollBarMarker(change.range, change.color, ScrollBarMarkerPriority.GutterChange),
+        // Extension types' `overviewRulerColor` marks share the SCM bars' rank: upstream's default lane is the center.
+        const changeMarkers = [...this.gutterChangeDecorations, ...this.overviewRulerDecorations].map(
+            ({ range, color }) => this.scrollBarMarker(range, color, ScrollBarMarkerPriority.GutterChange),
         );
         const diagnosticMarkers: IScrollBarMarker[] = [];
         for (const { range, severity } of this.markerDecorations) {
@@ -1178,7 +1183,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                 if (glyph !== undefined) {
                     context.setCell(GLYPH_MARGIN_COLUMN, screenY, {
                         char: glyph.glyph,
-                        fg: this.styleVar(glyph.colorToken),
+                        fg: glyph.color ?? this.styleVar(glyph.colorToken),
                         bg: rowGutBg,
                     });
                 }
