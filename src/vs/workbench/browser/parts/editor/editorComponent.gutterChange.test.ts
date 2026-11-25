@@ -51,6 +51,8 @@ describe("EditorComponent — setGutterChangeDecorations", () => {
         const x = 3;
 
         ctrl.setGutterChangeDecorations([{ range: createRange(0, 0, 0, 0), color: CHANGE_COLOR }]);
+        app.render();
+        expect(ctrl.view.isLayoutDirty).toBe(false);
         ctrl.setOverviewRulerDecorations([{ range: createRange(2, 0, 2, 0), color: OTHER_COLOR }]);
         expect(ctrl.view.isLayoutDirty).toBe(true);
         app.render();

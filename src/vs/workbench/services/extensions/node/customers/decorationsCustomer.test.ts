@@ -1037,10 +1037,17 @@ describe("DecorationsCustomer — gutter icons", () => {
 
     it("a type without an icon never touches the glyph lane; disposing an icon type clears its glyphs", async () => {
         const h = iconSetup();
-        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options: { backgroundColor: "red" } });
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 1,
+            options: { backgroundColor: "red", gutterIconPath: 42 },
+        });
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 2,
             options: { light: { gutterIconPath: dataUri(RED_DOT) } },
+        });
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 3,
+            options: { dark: { gutterIconPath: dataUri(RED_DOT) } },
         });
         h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: range(0) }] });
         h.peer.notify("editor.setDecorations", { key: 2, uri: A_TS, ranges: [{ range: range(1) }] });
@@ -1049,6 +1056,14 @@ describe("DecorationsCustomer — gutter icons", () => {
         expect(h.glyphCalls.map((c) => c.owner)).toEqual(["ext:2"]);
         expect(h.glyphsFor("/a.ts", "ext:2")).toStrictEqual([]);
 
+        // An icon of the dark branch only is an icon all the same.
+        h.peer.notify("editor.setDecorations", { key: 3, uri: A_TS, ranges: [{ range: range(2) }] });
+        await flushMicrotasks(10);
+        expect(h.glyphsFor("/a.ts", "ext:3")?.map((g) => g.line)).toEqual([2]);
+        h.peer.notify("window.disposeTextEditorDecorationType", { key: 3 });
+        await flushMicrotasks(10);
+        expect(h.glyphsFor("/a.ts", "ext:3")).toStrictEqual([]);
+
         h.changeTheme(ColorThemeKind.Light);
         await flushMicrotasks(10);
         expect(h.glyphsFor("/a.ts", "ext:2")).toHaveLength(1);
@@ -1056,8 +1071,37 @@ describe("DecorationsCustomer — gutter icons", () => {
         h.peer.notify("window.disposeTextEditorDecorationType", { key: 1 });
         h.peer.notify("window.disposeTextEditorDecorationType", { key: 2 });
         await flushMicrotasks(10);
-        expect(h.glyphCalls.every((c) => c.owner === "ext:2")).toBe(true);
+        expect(h.glyphCalls.every((c) => c.owner !== "ext:1")).toBe(true);
         expect(h.glyphsFor("/a.ts", "ext:2")).toStrictEqual([]);
+    });
+
+    it("an icon read finishing redraws only the types showing that icon", async () => {
+        let finishRead: (content: Uint8Array) => void = () => undefined;
+        const h = setup(
+            COLORS,
+            () =>
+                new Promise((resolve) => {
+                    finishRead = resolve;
+                }),
+        );
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 1,
+            options: { gutterIconPath: dataUri(RED_DOT) },
+        });
+        h.peer.notify("window.createTextEditorDecorationType", {
+            key: 2,
+            options: { gutterIconPath: Uri.file("/slow.svg").toString() },
+        });
+        // Ranges of a key the spawn never created sit among them and draw nothing.
+        for (const key of [9, 1, 2])
+            h.peer.notify("editor.setDecorations", { key, uri: A_TS, ranges: [{ range: range(key % 9) }] });
+        await flushMicrotasks(10);
+        const before = h.glyphCalls.length;
+
+        finishRead(new TextEncoder().encode(RED_DOT));
+        await flushMicrotasks(10);
+        expect(h.glyphCalls.slice(before).map((c) => c.owner)).toEqual(["ext:2"]);
+        expect(h.glyphsFor("/a.ts", "ext:2")?.map((g) => [g.line, g.glyph])).toEqual([[2, "●"]]);
     });
 
     it("the spawn going away clears its glyphs, and an icon read finishing after that draws none back", async () => {
@@ -1078,6 +1122,8 @@ describe("DecorationsCustomer — gutter icons", () => {
             options: { gutterIconPath: Uri.file("/slow.svg").toString() },
         });
         h.peer.notify("window.createTextEditorDecorationType", { key: 3, options: { backgroundColor: "red" } });
+        // Ranges for a key the spawn never created come first: clearing them must not stop the others.
+        h.peer.notify("editor.setDecorations", { key: 9, uri: A_TS, ranges: [{ range: range(0) }] });
         for (const key of [1, 2, 3])
             h.peer.notify("editor.setDecorations", { key, uri: A_TS, ranges: [{ range: range(key) }] });
         await flushMicrotasks(10);

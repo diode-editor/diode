@@ -41,6 +41,7 @@ describe("gutterIconGlyphOf", () => {
         expect(gutterIconGlyphOf(rect("3", "100%")).glyph).toBe("●");
         expect(gutterIconGlyphOf(rect("5", "10")).glyph).toBe("▎");
         expect(gutterIconGlyphOf(rect("5", "9.9")).glyph).toBe("●");
+        expect(gutterIconGlyphOf(rect("0", "10")).glyph).toBe("●");
         expect(gutterIconGlyphOf('<svg><rect width="3" height="18"/><circle r="1"/></svg>').glyph).toBe("●");
     });
 
@@ -57,13 +58,21 @@ describe("gutterIconGlyphOf", () => {
         expect(gutterIconGlyphOf('<svg><path d="M0 0 Q4 2 0 4 Z"/></svg>').glyph).toBe("●");
         expect(gutterIconGlyphOf("<svg><polygon points='0,0 4,2 0,4 1,1'/></svg>").glyph).toBe("●");
         expect(gutterIconGlyphOf("<svg><polygon points='0,0 4,2 0,4 0,1'/></svg>").glyph).toBe("●");
+        expect(gutterIconGlyphOf("<svg><polygon points='0,0 4,2 0,4 1,0'/></svg>").glyph).toBe("●");
+        expect(gutterIconGlyphOf("<svg><polygon points='10,20 40,25 10,30'/></svg>").glyph).toBe("▸");
+        expect(gutterIconGlyphOf("<svg><polygon points='10,20 40,25 10,30 10,20'/></svg>").glyph).toBe("▸");
         expect(gutterIconGlyphOf("<svg><polygon/></svg>").glyph).toBe("●");
         expect(gutterIconGlyphOf("<svg><polyline points='0,0 4,2 0,4'/></svg>").glyph).toBe("●");
+        // Only a polygon's points and a path's d are its outline; another attribute named alike is not.
+        expect(gutterIconGlyphOf('<svg><polyline d="M0 0 L4 2 L0 4 Z"/></svg>').glyph).toBe("●");
+        expect(gutterIconGlyphOf('<svg><path id="M0 0 L4 2 L0 4 Z"/></svg>').glyph).toBe("●");
+        expect(gutterIconGlyphOf("<svg><polygon data-points='0,0 4,2 0,4'/></svg>").glyph).toBe("●");
     });
 
     it("the color is the first most saturated paint: stroke and CSS fill count, none and garbage do not", () => {
         expect(gutterIconGlyphOf('<svg><circle stroke="#00f" fill="none"/></svg>').color).toBe(rgb(0, 0, 255));
         expect(gutterIconGlyphOf('<svg><circle style="fill: lime; stroke: red"/></svg>').color).toBe(rgb(0, 255, 0));
+        expect(gutterIconGlyphOf("<svg><circle style='fill: #f00 ; stroke: none'/></svg>").color).toBe(rgb(255, 0, 0));
         expect(gutterIconGlyphOf('<svg><circle fill="currentColor"/><path fill="transparent"/></svg>')).toStrictEqual({
             glyph: "●",
         });
@@ -73,7 +82,7 @@ describe("gutterIconGlyphOf", () => {
     });
 
     it("not an SVG, or nothing read, is a dot without a color", () => {
-        expect(gutterIconGlyphOf(null)).toStrictEqual({ glyph: "●" });
+        expect(gutterIconGlyphOf("")).toStrictEqual({ glyph: "●" });
         expect(gutterIconGlyphOf("\u0089PNG\r\n\u001a\n fill='#f00'")).toStrictEqual({ glyph: "●" });
     });
 });
@@ -89,10 +98,11 @@ describe("gutterIconContentOf", () => {
         const base64 = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
         expect(await gutterIconContentOf(base64, noRead)).toBe(svg);
         expect(await gutterIconContentOf("data:image/svg+xml?x=1,<svg/>", noRead)).toBe("<svg/>");
+        expect(await gutterIconContentOf("data:,<svg/>", noRead)).toBe("<svg/>");
     });
 
     it("a data: URI without a payload is nothing", async () => {
-        expect(await gutterIconContentOf("data:image/svg+xml", noRead)).toBeNull();
+        expect(await gutterIconContentOf("data:image/svg+xml", noRead)).toBe("");
     });
 
     it("a file is read through the reader; a failed read is nothing", async () => {
@@ -101,6 +111,6 @@ describe("gutterIconContentOf", () => {
                 ? Promise.resolve(new TextEncoder().encode("<svg/>"))
                 : Promise.reject(new Error("ENOENT"));
         expect(await gutterIconContentOf(Uri.file("/i.svg").toString(), read)).toBe("<svg/>");
-        expect(await gutterIconContentOf(Uri.file("/gone.svg").toString(), read)).toBeNull();
+        expect(await gutterIconContentOf(Uri.file("/gone.svg").toString(), read)).toBe("");
     });
 });

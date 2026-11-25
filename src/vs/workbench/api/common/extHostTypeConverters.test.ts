@@ -180,6 +180,7 @@ describe("decorations", () => {
                 dark: { gutterIconPath: data.toString() },
                 light: {},
             });
+            expect(serializeDecorationRenderOptions({ gutterIconPath: null })).toStrictEqual({});
         });
         it("[api:window.createTextEditorDecorationType] font style, weight, text decoration and opacity go as strings, also in theme branches", () => {
             expect(

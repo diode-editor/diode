@@ -37,6 +37,7 @@ import {
 
 export type { GutterIconReader } from "./gutterIconGlyph.ts";
 
+// Stryker disable next-line StringLiteral: the message is never read, a rejected read is a missing icon
 const NO_GUTTER_ICONS: GutterIconReader = () => Promise.reject(new Error("no file service"));
 
 /** A gutter icon without a color of its own takes the line numbers' color. */
