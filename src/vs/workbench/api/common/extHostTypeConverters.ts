@@ -175,6 +175,7 @@ function serializeThemableDecorationRenderOptions(
         fontWeight?: string;
         textDecoration?: string;
         opacity?: string;
+        gutterIconPath?: string;
     } & SerializedThemableDecorationInstanceRenderOptions = serializeThemableInstanceRenderOptions(o);
     const bg = serializeColor(o.backgroundColor);
     if (bg !== undefined) result.backgroundColor = bg;
@@ -186,7 +187,15 @@ function serializeThemableDecorationRenderOptions(
     if (typeof o.fontWeight === "string") result.fontWeight = o.fontWeight;
     if (typeof o.textDecoration === "string") result.textDecoration = o.textDecoration;
     if (typeof o.opacity === "string") result.opacity = o.opacity;
+    const gutterIcon = gutterIconText(o.gutterIconPath);
+    if (gutterIcon !== undefined) result.gutterIconPath = gutterIcon;
     return result;
+}
+
+/** Upstream `pathOrURIToURI`: a string is a file path. */
+function gutterIconText(value: unknown): string | undefined {
+    if (typeof value === "string") return Uri.file(value).toString();
+    return typeof value === "object" && value !== null ? uriText(value) : undefined;
 }
 
 function asObject(value: unknown): Record<string, unknown> | undefined {

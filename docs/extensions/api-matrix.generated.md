@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1467 |
+| ok | 1468 |
 | A | 11 |
-| B | 171 |
-| C | 332 |
+| B | 169 |
+| C | 333 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 245 |
+| test | 247 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 584 |
 
@@ -2340,15 +2340,15 @@ Proposed API or a false hit: class X when real.
 | `ThemableDecorationRenderOptions.cursor` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.fontStyle` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.fontWeight` | ok |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.gutterIconPath` | B |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.gutterIconSize` | B |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.gutterIconPath` | ok | yes | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.gutterIconSize` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.letterSpacing` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.opacity` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.outline` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.outlineColor` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.outlineStyle` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.outlineWidth` | C |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.overviewRulerColor` | ok |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.overviewRulerColor` | ok | yes | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.textDecoration` | ok |  | 0 | 0 |  |
 | `ThemeColor` | ok |  | 63 | 532,370,794 |  |
 | `ThemeColor.id` | ok |  | 0 | 0 |  |

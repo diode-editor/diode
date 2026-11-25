@@ -11,7 +11,8 @@ import type {
     IExtensionDecorationAttachment,
     IExtensionTextDecoration,
 } from "../../../../../editor/common/model/iExtensionTextDecoration.ts";
-import type { IGutterChangeDecoration } from "../../../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { IGlyphMarginDecoration } from "../../../../../editor/common/model/iGlyphMarginDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../../../editor/common/model/iOverviewRulerDecoration.ts";
 import { TrackedRangeStickiness } from "../../../../../editor/common/model/trackedDecorations.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorDecorationsService } from "../../../../api/common/iEditorDecorationsService.ts";
@@ -27,6 +28,21 @@ import type {
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { parseDecorationOptions, parseWireFileDecorations, themeColorIdOf } from "../hostWireParsers.ts";
 
+import {
+    gutterIconContentOf,
+    gutterIconGlyphOf,
+    type GutterIconReader,
+    type IGutterIconGlyph,
+} from "./gutterIconGlyph.ts";
+
+export type { GutterIconReader } from "./gutterIconGlyph.ts";
+
+// Stryker disable next-line StringLiteral: the message is never read, a rejected read is a missing icon
+const NO_GUTTER_ICONS: GutterIconReader = () => Promise.reject(new Error("no file service"));
+
+/** A gutter icon without a color of its own takes the line numbers' color. */
+const GUTTER_ICON_COLOR_TOKEN = "editorLineNumber.foreground";
+
 /**
  * Decoration types and sets live for one spawn (on respawn the extension redraws them); the theme subscription
  * lives with the host.
@@ -38,6 +54,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         private readonly editorDecorations: IEditorDecorationsService,
         private readonly fileDecorations: IFileDecorationsService,
         private readonly themeColorResolver: IThemeColorResolver,
+        private readonly readGutterIcon: GutterIconReader = NO_GUTTER_ICONS,
     ) {
         super();
         this.register(
@@ -55,11 +72,16 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
     }
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
-        const decorations = new SpawnDecorations(this.editorDecorations, this.fileDecorations, this.themeColorResolver);
+        const decorations = new SpawnDecorations(
+            this.editorDecorations,
+            this.fileDecorations,
+            this.themeColorResolver,
+            this.readGutterIcon,
+        );
         this.live = { rpc, decorations };
         const store = new DisposableStore();
-        // overviewRulerColor makes the type a gutter change bar, backgroundColor/color paint the text, before/after
-        // draw cells at its edges.
+        // overviewRulerColor marks the scrollbar, gutterIconPath puts a glyph in the gutter, backgroundColor/color
+        // paint the text, before/after draw cells at its edges.
         store.add(
             rpc.handleNotification("window.createTextEditorDecorationType", (params) => {
                 const p: { key?: unknown; options?: unknown } = params;
@@ -142,8 +164,10 @@ interface IEdgeLayers {
 }
 
 interface IDecorationType extends IEdgeLayers {
-    /** `undefined` means the type doesn't paint the gutter. */
-    readonly overviewRulerColorId: string | undefined;
+    /** Upstream draws it in the overview ruler only, never in the gutter. */
+    readonly overviewRuler: IThemed<DecorationColor>;
+    /** `uri.toString()` of the icon. */
+    readonly gutterIcon: IThemed<string>;
     readonly isWholeLine: boolean;
     readonly stickiness: TrackedRangeStickiness | undefined;
     readonly background: IThemed<DecorationColor>;
@@ -340,7 +364,10 @@ function stickinessOf(rangeBehavior: unknown): TrackedRangeStickiness | undefine
 function decorationTypeOf(options: Record<string, unknown>): IDecorationType {
     const o = options as SerializedDecorationRenderOptions & Record<string, unknown>;
     return {
-        overviewRulerColorId: themeColorIdOf(o.overviewRulerColor),
+        overviewRuler: themed(options, (layer) => decorationColorOf(layer.overviewRulerColor)),
+        gutterIcon: themed(options, (layer) =>
+            typeof layer.gutterIconPath === "string" ? layer.gutterIconPath : undefined,
+        ),
         isWholeLine: o.isWholeLine === true,
         stickiness: stickinessOf(o.rangeBehavior),
         background: themed(options, (layer) => decorationColorOf(layer.backgroundColor)),
@@ -394,8 +421,22 @@ function textStyleOf(type: IDecorationType, dark: boolean): StyleFlags {
     return style;
 }
 
+function hasGutterIcon(type: IDecorationType): boolean {
+    return (
+        type.gutterIcon.base !== undefined || type.gutterIcon.light !== undefined || type.gutterIcon.dark !== undefined
+    );
+}
+
+/** One glyph lane layer per decoration type. */
+function glyphOwnerOf(key: number): string {
+    return `ext:${String(key)}`;
+}
+
 class SpawnDecorations {
     private readonly types = new Map<number, IDecorationType>();
+    /** Each icon is read once per spawn; `undefined` while the read is in flight. */
+    private readonly gutterIcons = new Map<string, IGutterIconGlyph | undefined>();
+    private cleared = false;
     private readonly editorDecorationsByFile = new Map<string, Map<number, readonly IDecorationRange[]>>();
     private readonly fileDecorationState = new Map<
         string,
@@ -406,6 +447,7 @@ class SpawnDecorations {
         private readonly editorDecorations: IEditorDecorationsService,
         private readonly fileDecorations: IFileDecorationsService,
         private readonly themeColorResolver: IThemeColorResolver,
+        private readonly readGutterIcon: GutterIconReader,
     ) {}
 
     public createType(key: number, options: Record<string, unknown>): void {
@@ -413,11 +455,13 @@ class SpawnDecorations {
     }
 
     public disposeType(key: number): void {
+        const type = this.types.get(key);
         this.types.delete(key);
         for (const [uri, byKey] of this.editorDecorationsByFile) {
             if (!byKey.delete(key)) continue;
-            this.pushGutter(uri, byKey);
+            this.pushOverviewRuler(uri, byKey);
             this.editorDecorations.setExtensionTextDecorations(uri, { key, decorations: [] });
+            this.clearGlyphs(uri, key, type);
         }
     }
 
@@ -430,8 +474,9 @@ class SpawnDecorations {
         // An empty set draws nothing — that is how it removes the type's bars and paint.
         const parsed = ranges.map(decorationRangeOf);
         byKey.set(key, parsed);
-        this.pushGutter(uri, byKey);
+        this.pushOverviewRuler(uri, byKey);
         this.pushText(uri, key, parsed, false);
+        this.pushGlyphs(uri, key, parsed);
     }
 
     public mergeFileDecorations(changed: ReturnType<typeof parseWireFileDecorations>): void {
@@ -448,30 +493,97 @@ class SpawnDecorations {
     }
 
     public clearEditorDecorations(): void {
+        // An icon read still in flight must not draw the dead spawn's glyphs back.
+        this.cleared = true;
         for (const [uri, byKey] of this.editorDecorationsByFile) {
-            this.editorDecorations.setGutterChangeDecorations(uri, []);
-            for (const key of byKey.keys())
+            this.editorDecorations.setOverviewRulerDecorations(uri, []);
+            for (const key of byKey.keys()) {
                 this.editorDecorations.setExtensionTextDecorations(uri, { key, decorations: [] });
+                this.clearGlyphs(uri, key, this.types.get(key));
+            }
+        }
+    }
+
+    /** A type without an icon never touched the glyph lane: nothing to clear. */
+    private clearGlyphs(uri: string, key: number, type: IDecorationType | undefined): void {
+        if (type !== undefined && hasGutterIcon(type)) {
+            this.editorDecorations.setGlyphMarginDecorations(uri, glyphOwnerOf(key), []);
         }
     }
 
     /** A theme change: the editors keep the tracked positions and take the colors of the new branch. */
     public repushAll(): void {
         for (const [uri, byKey] of this.editorDecorationsByFile) {
-            this.pushGutter(uri, byKey);
-            for (const [key, ranges] of byKey) this.pushText(uri, key, ranges, true);
+            this.pushOverviewRuler(uri, byKey);
+            for (const [key, ranges] of byKey) {
+                this.pushText(uri, key, ranges, true);
+                this.pushGlyphs(uri, key, ranges);
+            }
         }
         this.pushFileDecorations();
     }
 
-    /** Gutter bars of types with overviewRulerColor, the full set for the resource in key (creation) order. */
-    private pushGutter(uri: string, byKey: ReadonlyMap<number, readonly IDecorationRange[]>): void {
-        const gutter: IGutterChangeDecoration[] = [];
+    /** Scrollbar marks of types with overviewRulerColor, the full set for the resource in key (creation) order. */
+    private pushOverviewRuler(uri: string, byKey: ReadonlyMap<number, readonly IDecorationRange[]>): void {
+        const dark = isDarkKind(this.themeColorResolver.kind());
+        const marks: IOverviewRulerDecoration[] = [];
         for (const [key, ranges] of [...byKey].sort(([a], [b]) => a - b)) {
             const type = this.types.get(key);
-            if (type !== undefined) this.collectGutter(type, ranges, gutter);
+            const color = type === undefined ? undefined : this.resolveThemed(type.overviewRuler, dark);
+            if (color !== undefined) for (const { range } of ranges) marks.push({ range, color });
         }
-        this.editorDecorations.setGutterChangeDecorations(uri, gutter);
+        this.editorDecorations.setOverviewRulerDecorations(uri, marks);
+    }
+
+    /**
+     * The type's icon on every line of each range (upstream's glyph margin covers the range's lines), under the
+     * breakpoints' higher `zIndex`. An icon still being read draws nothing yet: its read pushes again.
+     */
+    private pushGlyphs(uri: string, key: number, ranges: readonly IDecorationRange[]): void {
+        const type = this.types.get(key);
+        if (type === undefined || !hasGutterIcon(type)) return;
+        const icon = themedValue(type.gutterIcon, isDarkKind(this.themeColorResolver.kind()));
+        const shown = icon === undefined ? undefined : this.gutterIconGlyph(icon);
+        const glyphs: IGlyphMarginDecoration[] = [];
+        if (shown !== undefined) {
+            const lines = new Set<number>();
+            for (const { range } of ranges) {
+                for (let line = range.start.line; line <= range.end.line; line++) lines.add(line);
+            }
+            const { glyph, color } = shown;
+            for (const line of lines) {
+                glyphs.push({
+                    key: String(line),
+                    line,
+                    glyph,
+                    colorToken: GUTTER_ICON_COLOR_TOKEN,
+                    ...(color === undefined ? {} : { color }),
+                });
+            }
+        }
+        this.editorDecorations.setGlyphMarginDecorations(uri, glyphOwnerOf(key), glyphs);
+    }
+
+    private gutterIconGlyph(icon: string): IGutterIconGlyph | undefined {
+        if (this.gutterIcons.has(icon)) return this.gutterIcons.get(icon);
+        this.gutterIcons.set(icon, undefined);
+        void gutterIconContentOf(icon, this.readGutterIcon).then((content) => {
+            this.gutterIcons.set(icon, gutterIconGlyphOf(content));
+            if (!this.cleared) this.repushGlyphsOf(icon);
+        });
+        return undefined;
+    }
+
+    /** The types showing `icon` in the current theme, the others have nothing new to draw. */
+    private repushGlyphsOf(icon: string): void {
+        const dark = isDarkKind(this.themeColorResolver.kind());
+        for (const [uri, byKey] of this.editorDecorationsByFile) {
+            for (const [key, ranges] of byKey) {
+                const type = this.types.get(key);
+                if (type !== undefined && themedValue(type.gutterIcon, dark) === icon)
+                    this.pushGlyphs(uri, key, ranges);
+            }
+        }
     }
 
     /**
@@ -506,21 +618,6 @@ class SpawnDecorations {
             }
         }
         this.editorDecorations.setExtensionTextDecorations(uri, { key, decorations, ...(restyle ? { restyle } : {}) });
-    }
-
-    private collectGutter(
-        type: IDecorationType,
-        ranges: readonly IDecorationRange[],
-        into: IGutterChangeDecoration[],
-    ): void {
-        const colorId = type.overviewRulerColorId;
-        // Stryker disable next-line ConditionalExpression: the resolver returns undefined for an unknown id — the color check below skips the type the same way
-        if (colorId === undefined) return;
-        const color = this.themeColorResolver.resolve(colorId);
-        if (color === undefined) return;
-        // VS Code's dirty-diff draws modified lines dashed, added/deleted solid.
-        const dashed = colorId === "editorGutter.modifiedBackground";
-        for (const { range } of ranges) into.push({ range, color, ...(dashed ? { dashed: true } : {}) });
     }
 
     /**

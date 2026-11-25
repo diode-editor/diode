@@ -6090,12 +6090,12 @@
       "note": "bold, bolder and 600+ are drawn bold; normal does not clear a token's bold"
     },
     "ThemableDecorationRenderOptions.gutterIconPath": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: the gutter draws no extension icons"
+      "class": "ok",
+      "note": "one glyph in the glyph lane: a tall rect is a bar, a triangle a ▸, else a dot in the icon's most saturated color"
     },
     "ThemableDecorationRenderOptions.gutterIconSize": {
-      "class": "B",
-      "note": "accepted, not carried over the wire: the gutter draws no extension icons"
+      "class": "C",
+      "note": "the icon is one cell: ignored"
     },
     "ThemableDecorationRenderOptions.letterSpacing": {
       "class": "C",
@@ -6122,7 +6122,8 @@
       "note": "a cell has no border: not drawn"
     },
     "ThemableDecorationRenderOptions.overviewRulerColor": {
-      "class": "ok"
+      "class": "ok",
+      "note": "a CSS string or a ThemeColor; a scrollbar mark only, nothing in the gutter, as upstream"
     },
     "ThemableDecorationRenderOptions.textDecoration": {
       "class": "ok",

@@ -156,7 +156,7 @@ describe("decorations", () => {
                     overviewRulerColor: { id: "editorGutter.addedBackground" },
                     backgroundColor: "#111",
                     color: { id: "foreground" },
-                    gutterIconPath: "/ignored.png",
+                    gutterIconSize: "contain",
                     borderWidth: "2px",
                 }),
             ).toEqual({
@@ -166,6 +166,21 @@ describe("decorations", () => {
                 backgroundColor: "#111",
                 color: { $themeColor: "foreground" },
             });
+        });
+        it("[api:ThemableDecorationRenderOptions.gutterIconPath] a path string goes as a file URI, a Uri as its string, also in theme branches", () => {
+            const data = Uri.parse("data:image/svg+xml,%3Csvg%2F%3E");
+            expect(
+                serializeDecorationRenderOptions({
+                    gutterIconPath: "/icons/error.svg",
+                    dark: { gutterIconPath: data },
+                    light: { gutterIconPath: 42 },
+                }),
+            ).toStrictEqual({
+                gutterIconPath: Uri.file("/icons/error.svg").toString(),
+                dark: { gutterIconPath: data.toString() },
+                light: {},
+            });
+            expect(serializeDecorationRenderOptions({ gutterIconPath: null })).toStrictEqual({});
         });
         it("[api:window.createTextEditorDecorationType] font style, weight, text decoration and opacity go as strings, also in theme branches", () => {
             expect(

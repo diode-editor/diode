@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import type { IExtensionTextDecorationSet } from "../../../editor/common/model/iExtensionTextDecoration.ts";
-import type { IGutterChangeDecoration } from "../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { IGlyphMarginDecoration } from "../../../editor/common/model/iGlyphMarginDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../editor/common/model/iOverviewRulerDecoration.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
@@ -17,14 +18,18 @@ import { FileDecorationsServiceAdapter } from "./fileDecorationsServiceAdapter.t
 import { ThemeColorResolverAdapter } from "./themeColorResolverAdapter.ts";
 
 function fakeEditor(uri: Uri) {
-    const received: (readonly IGutterChangeDecoration[])[] = [];
+    const received: (readonly IOverviewRulerDecoration[])[] = [];
     const receivedText: IExtensionTextDecorationSet[] = [];
+    const receivedGlyphs: [string, readonly IGlyphMarginDecoration[]][] = [];
     return {
         uri,
-        setExtensionGutterChangeDecorations: (d: readonly IGutterChangeDecoration[]) => received.push(d),
+        setOverviewRulerDecorations: (d: readonly IOverviewRulerDecoration[]) => received.push(d),
         setExtensionTextDecorations: (set: IExtensionTextDecorationSet) => receivedText.push(set),
+        setGlyphMarginDecorations: (owner: string, d: readonly IGlyphMarginDecoration[]) =>
+            receivedGlyphs.push([owner, d]),
         received,
         receivedText,
+        receivedGlyphs,
     };
 }
 
@@ -41,13 +46,13 @@ describe("EditorDecorationsServiceAdapter", () => {
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match, other]));
         const decos = [{ range: createRange(1, 0, 1, 0), color: 0x123456 }];
 
-        adapter.setGutterChangeDecorations(Uri.file("/proj/a.ts").toString(), decos);
+        adapter.setOverviewRulerDecorations(Uri.file("/proj/a.ts").toString(), decos);
 
         expect(match.received).toEqual([decos]);
         expect(other.received).toEqual([]);
     });
 
-    it("pushes text decorations to editors of the matching resource, apart from the gutter bars", () => {
+    it("pushes text decorations to editors of the matching resource, apart from the scrollbar marks", () => {
         const match = fakeEditor(Uri.file("/proj/a.ts"));
         const other = fakeEditor(Uri.file("/proj/b.ts"));
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match, other]));
@@ -60,18 +65,30 @@ describe("EditorDecorationsServiceAdapter", () => {
         expect(other.receivedText).toEqual([]);
     });
 
+    it("pushes an owner's glyphs to editors of the matching resource", () => {
+        const match = fakeEditor(Uri.file("/proj/a.ts"));
+        const other = fakeEditor(Uri.file("/proj/b.ts"));
+        const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match, other]));
+        const glyphs = [{ key: "1", line: 1, glyph: "●", colorToken: "editorLineNumber.foreground" }];
+
+        adapter.setGlyphMarginDecorations(Uri.file("/proj/a.ts").toString(), "ext:1", glyphs);
+
+        expect(match.receivedGlyphs).toEqual([["ext:1", glyphs]]);
+        expect(other.receivedGlyphs).toEqual([]);
+    });
+
     it("compares resources, not raw strings: Uri provides canonicalization", () => {
         // Only `IEditorService.openFile` normalizes the path: the resource arrives here already canonical.
         const match = fakeEditor(Uri.file(path.resolve("/proj/./sub/../a.ts")));
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match]));
-        adapter.setGutterChangeDecorations(Uri.file("/proj/a.ts").toString(), []);
+        adapter.setOverviewRulerDecorations(Uri.file("/proj/a.ts").toString(), []);
         expect(match.received).toEqual([[]]);
     });
 
     it("skips untitled buffers (untitled:)", () => {
         const untitled = fakeEditor(Uri.parse("untitled:Untitled-1"));
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([untitled]));
-        adapter.setGutterChangeDecorations(Uri.file("/proj/a.ts").toString(), [
+        adapter.setOverviewRulerDecorations(Uri.file("/proj/a.ts").toString(), [
             { range: createRange(0, 0, 0, 0), color: 1 },
         ]);
         expect(untitled.received).toEqual([]);

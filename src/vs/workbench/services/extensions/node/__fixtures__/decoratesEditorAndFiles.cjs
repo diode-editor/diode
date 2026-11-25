@@ -4,9 +4,9 @@
  * Fixture for ExtensionHost.Decorations.test.ts (Chunk 4, host-bridge).
  *
  * In activate():
- *  - creates a gutter change-bar type (`overviewRulerColor` = ThemeColor) and
- *    a "plain" type without overviewRulerColor (the host ignores it: not gutter);
- *  - applies both to the active editor (the gutter type has two ranges);
+ *  - creates a scrollbar mark type (`overviewRulerColor` = ThemeColor), a "plain" type without
+ *    overviewRulerColor (no marks) and a gutter icon type (`gutterIconPath`, GitLens's bar as a `data:` URI);
+ *  - applies them to the active editor (the mark type has two ranges);
  *  - registers a FileDecorationProvider (color + badge for `notes.md`, otherwise cleared).
  *
  * Commands `test.fireFileDecoration(fsPath)` / `test.disposeGutterType()` let
@@ -22,16 +22,25 @@ exports.activate = function activate(context) {
     });
     context.subscriptions.push(gutterType);
 
-    // A type without overviewRulerColor is not gutter; the host does not project its decorations.
+    // A type without overviewRulerColor marks nothing on the scrollbar.
     const plainType = vscode.window.createTextEditorDecorationType({
         backgroundColor: new vscode.ThemeColor("editor.background"),
     });
     context.subscriptions.push(plainType);
 
+    const bar =
+        "<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18'><rect fill='#00bcf2' x='7' y='0' width='3' height='18'/></svg>";
+    const iconType = vscode.window.createTextEditorDecorationType({
+        gutterIconPath: vscode.Uri.parse("data:image/svg+xml," + encodeURIComponent(bar)),
+        gutterIconSize: "contain",
+    });
+    context.subscriptions.push(iconType);
+
     const editor = vscode.window.activeTextEditor;
     if (editor != null) {
         editor.setDecorations(gutterType, [new vscode.Range(1, 0, 1, 0), new vscode.Range(3, 0, 3, 0)]);
         editor.setDecorations(plainType, [new vscode.Range(0, 0, 0, 5)]);
+        editor.setDecorations(iconType, [new vscode.Range(2, 0, 2, 0)]);
     }
 
     let cleared = false;

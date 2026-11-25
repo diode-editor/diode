@@ -14,7 +14,7 @@ import {
 } from "../../src/TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../src/TestUtils/timing.ts";
 import { Uri } from "../../src/vs/base/common/uri.ts";
-import type { IGutterChangeDecoration } from "../../src/vs/editor/common/model/iGutterChangeDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../src/vs/editor/common/model/iOverviewRulerDecoration.ts";
 import {
     type IEditorDecorationsService,
     NULL_EDITOR_DECORATIONS_SERVICE,
@@ -52,13 +52,13 @@ function makeThemeResolver(): IThemeColorResolver {
 
 function makeEditorSpy(): {
     service: IEditorDecorationsService;
-    latestFor(suffix: string): readonly IGutterChangeDecoration[] | undefined;
+    latestFor(suffix: string): readonly IOverviewRulerDecoration[] | undefined;
 } {
-    const calls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
+    const calls: { uri: string; decorations: readonly IOverviewRulerDecoration[] }[] = [];
     return {
         service: {
             ...NULL_EDITOR_DECORATIONS_SERVICE,
-            setGutterChangeDecorations: (uri, decorations) => calls.push({ uri, decorations }),
+            setOverviewRulerDecorations: (uri, decorations) => calls.push({ uri, decorations }),
         },
         latestFor: (suffix) => calls.filter((c) => c.uri.endsWith(suffix)).at(-1)?.decorations,
     };

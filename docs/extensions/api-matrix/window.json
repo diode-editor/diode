@@ -30,7 +30,7 @@
     },
     "window.createTextEditorDecorationType": {
       "class": "ok",
-      "note": "border, outline, letterSpacing, cursor and gutterIconPath are not drawn; before/after draw text with its colors and italic, or a color swatch"
+      "note": "border, outline, letterSpacing, cursor and contentIconPath are not drawn; a gutter icon is one colored glyph; before/after draw text with its colors and italic, or a color swatch"
     },
     "window.createTreeView": {
       "class": "ok"

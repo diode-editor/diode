@@ -31,7 +31,6 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
  */
 
 const BAR_DASHED = "┋"; // modification (VS Code dirty-diff draws it dashed)
-const BAR_SOLID = "┃"; // an extension type that is not editorGutter.modifiedBackground
 const ORIGINAL_TEXT = "line one\nline two\nline three\n";
 const DOCUMENT_LINES = 4;
 
@@ -135,11 +134,12 @@ describe("Workbench: live quick diff gutter", () => {
     });
 
     /**
-     * Regression: both producers once wrote one gutter slot, so an extension clearing its own type on every
-     * keystroke (Claude Code's hunk bars) erased the git bars until the next quick diff recompute — the bars
-     * flickered while typing. The real extension path (customer → adapter) runs next to the real quick diff.
+     * An extension type's `overviewRulerColor` marks the scrollbar only, as upstream: it once drew a change bar in
+     * the gutter, so todo-tree and GitLens showed false git changes, and an extension clearing its type on every
+     * keystroke (Claude Code's hunk bars) erased the git bars. The real extension path (customer → adapter) runs
+     * next to the real quick diff.
      */
-    it("extension decoration bars and git bars coexist: clearing the extension type keeps the git bar", async () => {
+    it("[api:ThemableDecorationRenderOptions.overviewRulerColor] an extension type marks the scrollbar, not the gutter, and leaves the git bar alone", async () => {
         const decorations = new DecorationsCustomer(
             new EditorDecorationsServiceAdapter(editors),
             { setFileDecorations: () => undefined },
@@ -166,9 +166,11 @@ describe("Workbench: live quick diff gutter", () => {
         extensionBars(3);
         await flushMicrotasks();
         testApp.render();
-        expect(barsOnScreen()).toEqual([
-            { line: 1, char: BAR_DASHED },
-            { line: 3, char: BAR_SOLID },
+        expect(barsOnScreen()).toEqual([{ line: 1, char: BAR_DASHED }]);
+        const element = testApp.querySelector("EditorElement") as EditorElement;
+        const addedColor = themeService.theme.getRequiredColor("editorGutter.addedBackground");
+        expect(element.getScrollBarMarkers().filter((m) => m.color === addedColor)).toEqual([
+            expect.objectContaining({ start: 3, end: 4 }),
         ]);
 
         // As the extension does on every document change; no quick diff recompute in between.
