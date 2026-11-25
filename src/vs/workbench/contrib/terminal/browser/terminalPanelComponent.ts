@@ -204,7 +204,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
                     // Stryker disable next-line ConditionalExpression: unreachable (see above) — equivalent mutant
                     if (instance === null) continue;
                     /* v8 ignore stop */
-                    applyTerminalColors(instance.session, widget, next);
+                    applyTerminalColors(instance.session, widget, next, "panel");
                 }
             }),
         );
@@ -284,7 +284,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         widget.addEventListener("focus", () => {
             this.terminalService.setFocusedPanelInstance(instance.id);
         });
-        applyTerminalColors(instance.session, widget, this.colors.colors);
+        applyTerminalColors(instance.session, widget, this.colors.colors, "panel");
         this.widgets.set(instance.id, widget);
     }
 
