@@ -1178,8 +1178,8 @@ export class EditorElement extends TUIElement implements IScrollable {
                     if (hovered?.zone === lens) {
                         const { start, end } = this.codeLensActionColumns(lens, hovered.action);
                         const fg = this.styleVar("editorLink.activeForeground");
-                        const last = Math.min(end, scrollLeft + contentCols);
-                        for (let col = Math.max(start, scrollLeft); col < last; col++) {
+                        // Past the right edge the element rectangle clips; on the left the gutter would take it.
+                        for (let col = Math.max(start, scrollLeft); col < end; col++) {
                             context.setCell(gutterW + col - scrollLeft, screenY, { fg });
                         }
                     }

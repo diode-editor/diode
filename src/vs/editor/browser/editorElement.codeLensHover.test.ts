@@ -123,6 +123,8 @@ describe("EditorElement — code lens hover", () => {
         // Rows: l0 <lens> l1 l2 l3 <lens>.
         mouse("move", gw + 1, 1);
         expect(activeCells(1)).toEqual([gw, gw + 1, gw + 2, gw + 3]);
+        // The other lens row has the same command at the same columns and stays unlit.
+        expect(activeCells(5)).toEqual([]);
 
         // Down by 3: l2 l3 <lens> l4 ...: row 1 is l3.
         mouse("scroll-down", gw + 1, 1);
@@ -168,12 +170,22 @@ describe("EditorElement — code lens hover", () => {
         app.render();
         // "  refs | run" from column 3: "efs | run" — refs at gw..gw+2, run at gw+6..gw+8.
         mouse("move", gw, 1);
-        expect(activeCells(1)).toEqual([gw, gw + 1, gw + 2]);
+        expect(activeCells(1, 0)).toEqual([gw, gw + 1, gw + 2]);
         mouse("move", gw + 8, 1);
         expect(activeCells(1)).toEqual([gw + 6, gw + 7, gw + 8]);
         mouse("press", gw + 8, 1, "left");
         mouse("release", gw + 8, 1, "left");
         expect(clicks).toHaveBeenCalledWith({ id: "run", title: "run" });
+    });
+
+    it("a command cut by the right edge lights only its visible cells", () => {
+        // Gutter 6 + 10 text columns: "  refs | r" is visible, "un" is cut.
+        const { app, editor, gw, mouse, activeCells } = setup(`alpha\n  ${"x".repeat(100)}`, new Size(16, 6));
+        expect(gw).toBe(6);
+        expect(editor.viewState.viewportWidth).toBe(10);
+        mouse("move", gw + 9, 1);
+        expect(activeCells(1, 0, 16)).toEqual([gw + 9]);
+        expect(app.backend.pointerShape).toBe("pointer");
     });
 
     it("wide characters in the title: the color covers both cells of each", () => {
