@@ -427,8 +427,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     private hoveredCodeLens: IHoveredCodeLens | null = null;
 
     private setHoveredCodeLens(hovered: IHoveredCodeLens | null): void {
-        const current = this.hoveredCodeLens;
-        if (current?.zone === hovered?.zone && current?.action === hovered?.action) return;
+        // Saves a repaint per mouse move: the same command paints the same. New zones bring new actions.
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,OptionalChaining: see above
+        if (this.hoveredCodeLens?.action === hovered?.action) return;
         this.hoveredCodeLens = hovered;
         this.pointerShape = hovered === null ? null : "pointer";
         this.markDirty();

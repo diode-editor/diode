@@ -94,11 +94,13 @@ describe("EditorElement — code lens hover", () => {
         expect(app.backend.pointerShape).toBe("default");
     });
 
-    it("the gutter of the lens row is not a command", () => {
-        const { app, gw, mouse, activeCells } = setup();
-        mouse("move", gw + 3, 1);
+    it("the gutter of the lens row is not a command, nor is the text scrolled under it", () => {
+        const { app, viewState, gw, mouse, activeCells } = setup(`alpha\n  ${"x".repeat(100)}`);
+        // Scrolled by 3, column 2 ("r" of refs) would sit under the last gutter cell.
+        viewState.scrollLeft = 3;
+        mouse("move", gw, 1);
         mouse("move", gw - 1, 1);
-        expect(activeCells(1)).toEqual([]);
+        expect(activeCells(1, 0)).toEqual([]);
         expect(app.backend.pointerShape).toBe("default");
     });
 
