@@ -9,7 +9,10 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import { monokaiTheme } from "../../../services/themes/common/themes/monokai.ts";
+import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 import { FrameElement } from "../frameElement.ts";
 
 import { EditorTitleActionsBox } from "./editorTitleActionsBox.ts";
@@ -128,5 +131,68 @@ describe("EditorGroupComponent — the group's frame", () => {
         expect(strip().endCorner).toBe(true);
         expect(strip().layoutSize.width).toBe(group().layoutSize.width);
         expect(text(rightX(), baseline, 1)).toBe("╮");
+    });
+    /** fg of every frame line of the group: tab box corner, the tab's foot, baseline, ╮, sides and bottom. */
+    function frameLineColors(): Map<string, number> {
+        const { x, y } = group().globalPosition;
+        const { width, height } = group().layoutSize;
+        const baseline = y + TAB_HEIGHT - 1;
+        const fg = (cx: number, cy: number): number => h.testApp.backend.getFgAt(new Point(cx, cy));
+        expect(text(x, y, 1)).toBe("╭");
+        expect(text(rightX(), baseline, 1)).toBe("╮");
+        const free = rightX() - 1;
+        expect(text(free, baseline, 1)).toBe("─");
+        return new Map([
+            ["tab ╭", fg(x, y)],
+            ["tab side │", fg(x, y + 1)],
+            ["tab foot", fg(x, baseline)],
+            ["baseline ─", fg(free, baseline)],
+            ["corner ╮", fg(rightX(), baseline)],
+            ["left side │", fg(x, baseline + 1)],
+            ["right side │", fg(rightX(), baseline + 1)],
+            ["bottom ╰", fg(x, y + height - 1)],
+            ["bottom ─", fg(x + width - 2, y + height - 1)],
+        ]);
+    }
+
+    function setTheme(theme: WorkbenchTheme): void {
+        h.container.get(ThemeServiceDIToken).setTheme(theme);
+        h.testApp.render();
+    }
+
+    it("the whole frame is panel.border even when the theme's tab.border differs (Monokai), and follows a theme switch", async () => {
+        const monokai = WorkbenchTheme.fromThemeFile(monokaiTheme);
+        expect(monokai.getRequiredColor("tab.border")).not.toBe(monokai.getRequiredColor("panel.border"));
+
+        setTheme(monokai);
+        for (const [line, color] of frameLineColors()) {
+            expect(color, line).toBe(monokai.getRequiredColor("panel.border"));
+        }
+
+        // With title buttons the corner ╮ is the actions box's.
+        await showButtons(true);
+        for (const [line, color] of frameLineColors()) {
+            expect(color, `${line}, with buttons`).toBe(monokai.getRequiredColor("panel.border"));
+        }
+
+        const other = WorkbenchTheme.fromThemeFile({
+            name: "other",
+            type: "dark",
+            colors: { "panel.border": "#123456", "tab.border": "#000001" },
+        });
+        setTheme(other);
+        for (const [line, color] of frameLineColors()) {
+            expect(color, `${line}, after the switch`).toBe(0x123456);
+        }
+    });
+
+    it("a theme without panel.border frames the group in the registry default, tab lines included", () => {
+        const theme = WorkbenchTheme.fromThemeFile({ name: "bare", type: "dark", colors: { "tab.border": "#000001" } });
+
+        setTheme(theme);
+
+        for (const [line, color] of frameLineColors()) {
+            expect(color, line).toBe(theme.getRequiredColor("panel.border"));
+        }
     });
 });

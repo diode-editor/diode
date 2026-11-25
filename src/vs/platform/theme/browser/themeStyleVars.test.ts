@@ -49,6 +49,20 @@ describe("applyThemeVars: theme → root var-scope", () => {
         expect(root.styleVar("terminal.background")).toBe(0xffffff);
     });
 
+    it("tab lines take the frame color: tab.border = panel.border in the var scope, the theme's color stays", () => {
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "monokai-like",
+            type: "dark",
+            colors: { "panel.border": "#414339", "tab.border": "#1e1f1c" },
+        });
+
+        const vars = computeThemeVars(theme);
+
+        expect(vars["panel.border"]).toBe(0x414339);
+        expect(vars["tab.border"]).toBe(0x414339);
+        expect(theme.getRequiredColor("tab.border")).toBe(0x1e1f1c);
+    });
+
     it("the menu bar uses the theme's titleBar colors (menuBar.* are tuidom tokens with no key in VS Code themes)", () => {
         const root = new BodyElement();
         root.setAsRoot();
