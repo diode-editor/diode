@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { defineScenario, type ScenarioDriver } from "./framework.ts";
+import { defineScenario } from "./framework.ts";
+import { changeUntilSeen } from "./untilSeen.ts";
 
 // The workspace changes via `mkdirSync`/`writeFileSync`, not the editor: like cmake configuring a
 // project in a neighbouring terminal, the new `build/` must show up in the Explorer on its own,
@@ -17,28 +18,6 @@ function makeWorkspace(): string {
 }
 
 const workspaceDir = makeWorkspace();
-
-/**
- * Repeats the change until the tree reacts: the watcher process arms asynchronously, and chokidar's
- * `ignoreInitial` swallows anything written before the initial scan ends (docs/TODO/FileTreePerformance.md,
- * the section on events lost in the arming window); same model as scmLiveWatch.scenario.ts.
- */
-async function changeUntilSeen(
-    editor: ScenarioDriver,
-    change: () => void,
-    predicate: (text: string) => boolean,
-): Promise<void> {
-    const attempts = 5;
-    for (let attempt = 1; ; attempt++) {
-        change();
-        try {
-            await editor.waitForText(predicate, { timeoutMs: 3000 });
-            return;
-        } catch (err) {
-            if (attempt === attempts) throw err;
-        }
-    }
-}
 
 export default defineScenario({
     name: "explorer-root-watch",

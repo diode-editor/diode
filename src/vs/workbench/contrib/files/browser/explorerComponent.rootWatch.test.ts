@@ -83,7 +83,7 @@ describe("ExplorerComponent — changes in the workspace root", () => {
     function fireRoot(...names: string[]): void {
         const onChanges = listeners.get(ws.dir);
         if (!onChanges) throw new Error("the root is not watched");
-        onChanges(names.map((name): ITreeFileChange => ({ type: "added", path: ws.path(name) })));
+        onChanges(names.map((name): ITreeFileChange => ({ type: "created", path: ws.path(name) })));
     }
 
     afterEach(() => {

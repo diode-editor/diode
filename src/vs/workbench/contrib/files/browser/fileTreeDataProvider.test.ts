@@ -345,12 +345,12 @@ describe("FileTreeDataProvider", () => {
             expect(watcher.watches[0].options).toEqual({ recursive: false, excludes: [] });
         });
 
-        it("watches an expanded directory non-recursively and without its own excludes", () => {
+        it("watches an expanded directory once and without its own excludes", () => {
             const sub = ws.path("sub");
             provider.watchDirectory(sub);
             provider.watchDirectory(sub); // again — the same subscription
             expect(watcher.watches.map((watch) => watch.path)).toEqual([ws.dir, sub]);
-            expect(watchOf(sub).options).toEqual({ recursive: false, excludes: [] });
+            expect(watchOf(sub).options).toEqual(watchOf(ws.dir).options);
         });
 
         it("an event in a directory — onChange with the directory node after debounce; a batch is one notification", () => {
