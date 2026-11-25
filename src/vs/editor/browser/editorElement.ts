@@ -365,8 +365,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     private syncCodeLensZones(): void {
         const viewState = this.viewState;
         this.codeLensFoldVersion = viewState.foldStateVersion;
-        // The hovered command may be gone with the old zones; the next move finds it again.
-        this.setHoveredCodeLens(null);
         const visible = this.codeLensZones.filter((zone) => viewState.isLineVisible(zone.line));
         this.codeLensByAnchor = new Map(visible.map((zone) => [zone.line - 1, zone]));
 
@@ -383,6 +381,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (scrollTop > 0) {
             viewState.scrollTop = viewState.viewLineForPosition(topLine, 0) + rowsIntoTopLine;
         }
+        // The hovered command may be gone with the old zones, or another one came under the pointer.
+        this.updateHoveredCodeLens();
     }
 
     /** The lens zone under a row of the element; `undefined` for the rows of a document line or of another owner. */
@@ -435,9 +435,14 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.markDirty();
     }
 
-    private updateHoveredCodeLens(localX: number, localY: number): void {
-        const zone = localX < this.gutterWidth ? undefined : this.codeLensZoneAtRow(localY);
-        const action = zone === undefined ? undefined : this.codeLensActionAt(zone, localX);
+    /** The last cell of the pointer over the element, `null` once it left. */
+    private pointerCell: { readonly x: number; readonly y: number } | null = null;
+
+    /** By the position, not by the zone: scroll, edits and new zones move the text under a still pointer. */
+    private updateHoveredCodeLens(): void {
+        const pointer = this.pointerCell;
+        const zone = pointer === null || pointer.x < this.gutterWidth ? undefined : this.codeLensZoneAtRow(pointer.y);
+        const action = zone === undefined ? undefined : this.codeLensActionAt(zone, pointer.x);
         this.setHoveredCodeLens(zone === undefined || action === undefined ? null : { zone, action });
     }
 
@@ -953,6 +958,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             if (this.codeLensZones.length > 0 && this.codeLensFoldVersion !== this.viewState.foldStateVersion) {
                 this.syncCodeLensZones();
             }
+            this.updateHoveredCodeLens();
             this.markDirty();
         });
         this.viewState.document.onDidChangeContent((change) => {
@@ -998,6 +1004,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         });
         this.addEventListener("mouseleave", () => {
             this.setFoldGutterHovered(false);
+            this.pointerCell = null;
             this.setHoveredCodeLens(null);
             this.pressedDocumentLink = null;
             this.setActiveDocumentLink(null);
@@ -1693,8 +1700,6 @@ export class EditorElement extends TUIElement implements IScrollable {
                 break;
         }
 
-        // The text moved under a still pointer.
-        this.updateHoveredCodeLens(event.localX, event.localY);
         this.markDirty();
     }
 
@@ -1884,7 +1889,8 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private handleMouseMove(event: TUIMouseEvent): void {
         this.setFoldGutterHovered(event.localX >= 0 && event.localX < this.gutterWidth);
-        this.updateHoveredCodeLens(event.localX, event.localY);
+        this.pointerCell = { x: event.localX, y: event.localY };
+        this.updateHoveredCodeLens();
         this.setActiveDocumentLink(event.ctrlKey ? this.documentLinkAtCell(event.localX, event.localY) : null);
 
         if (this.dragAnchor === null) return;

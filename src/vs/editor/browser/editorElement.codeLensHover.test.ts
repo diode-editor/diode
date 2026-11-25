@@ -113,6 +113,10 @@ describe("EditorElement — code lens hover", () => {
         expect(activeCells(1)).toEqual([]);
         expect(editor.pointerShape).toBeNull();
         expect(app.backend.pointerShape).toBe("pointer");
+        // New zones after the pointer left do not light the cell it was over.
+        editor.setCodeLensZones([zone(1, "other | run")]);
+        expect(activeCells(1)).toEqual([]);
+        expect(editor.pointerShape).toBeNull();
     });
 
     it("a wheel scroll under a still pointer finds what is under it now", () => {
@@ -137,14 +141,25 @@ describe("EditorElement — code lens hover", () => {
         expect(app.backend.pointerShape).toBe("pointer");
     });
 
-    it("new zones drop the hover of the old ones until the next move", () => {
-        const { app, editor, gw, mouse, activeCells } = setup();
+    it("new zones under a still pointer: the hover follows what is under it now", () => {
+        const { editor, gw, mouse, activeCells } = setup();
         mouse("move", gw + 3, 1);
-        editor.setCodeLensZones([zone(1, "other | run")]);
+        // "  a | refs": column 3 is the separator now.
+        const separatorUnder: ICodeLensZone = {
+            line: 1,
+            text: "a | refs",
+            actions: [
+                { start: 0, end: 1, command: { id: "a", title: "a" } },
+                { start: 4, end: 8, command: { id: "refs", title: "refs" } },
+            ],
+        };
+        editor.setCodeLensZones([separatorUnder]);
         expect(activeCells(1)).toEqual([]);
-        mouse("move", gw + 3, 1);
+        expect(editor.pointerShape).toBeNull();
+
+        editor.setCodeLensZones([zone(1, "other | run")]);
         expect(activeCells(1)).toEqual([gw + 2, gw + 3, gw + 4, gw + 5]);
-        expect(app.backend.pointerShape).toBe("pointer");
+        expect(editor.pointerShape).toBe("pointer");
     });
 
     it("folding the lens away drops the hover", () => {
