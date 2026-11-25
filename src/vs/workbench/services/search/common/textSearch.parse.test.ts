@@ -97,6 +97,26 @@ describe("parseRgMatchLine", () => {
         expect(matches[0].startColumn).toBe(4);
     });
 
+    it.each([
+        ["null", null],
+        ["a number", 5],
+        ["no start", { match: { text: "foo" }, end: 3 }],
+        ["no end", { match: { text: "foo" }, start: 0 }],
+        ["a string start", { match: { text: "foo" }, start: "0", end: 3 }],
+    ])("skips a submatch that is %s", (_label, bad) => {
+        const line = JSON.stringify({
+            type: "match",
+            data: {
+                path: { text: "/a.ts" },
+                lines: { text: "foo foo\n" },
+                line_number: 1,
+                submatches: [bad, { match: { text: "foo" }, start: 4, end: 7 }],
+            },
+        });
+        const matches = parseRgMatchLine(line)!.matches;
+        expect(matches.map((m) => [m.startColumn, m.endColumn])).toEqual([[4, 7]]);
+    });
+
     it("returns null for a path reported only as bytes (non-UTF-8 filename)", () => {
         const line = JSON.stringify({
             type: "match",
@@ -175,6 +195,7 @@ describe("parseRgMatchLine", () => {
         const m = parseRgMatchLine(line)!.matches[0];
         expect(m.preview.after.length).toBe(256);
         expect(m.preview.after.startsWith(" y")).toBe(true);
+        expect(m.preview.before).toBe("x ");
         // Columns do not depend on the tail — they come from before/inside.
         expect(m.startColumn).toBe(2);
         expect(m.endColumn).toBe(8);
@@ -246,6 +267,16 @@ describe("parseRgMatchLine", () => {
         const m = parseRgMatchLine(line)!.matches[0];
         expect(m.startColumn).toBe(1 + 2 + 255);
         expect(m.preview.before).toBe("y".repeat(255));
+    });
+
+    it("keeps the whole tail of the last line of a file, which has no newline", () => {
+        const line = matchLine({
+            path: "/a.ts",
+            text: "foo bar",
+            lineNumber: 1,
+            submatches: [{ text: "foo", start: 0, end: 3 }],
+        });
+        expect(parseRgMatchLine(line)!.matches[0].preview.after).toBe(" bar");
     });
 
     it("drops a CRLF line ending from preview.after", () => {

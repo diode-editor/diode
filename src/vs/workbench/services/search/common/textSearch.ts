@@ -1,4 +1,5 @@
 import { splitGlobAware } from "../../../../base/common/glob.ts";
+import { isHighSurrogate, isLowSurrogate } from "../../../../base/common/strings.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IUseIgnoreFiles } from "../../../common/configuration/excludeSettings.ts";
 
@@ -151,7 +152,7 @@ const MAX_PREVIEW_CHARS = 256;
  */
 function toTextMatches(lineText: string, lineNumber: number, submatches: readonly unknown[]): ITextMatch[] {
     const bytes = encoder.encode(lineText);
-    const contentEnd = lineText.length - (/\r?\n$/u.exec(lineText)?.[0].length ?? 0);
+    const contentEnd = contentLength(lineText);
     const matches: ITextMatch[] = [];
     let prevByte = 0;
     let prevColumn = 0;
@@ -175,26 +176,23 @@ function toTextMatches(lineText: string, lineNumber: number, submatches: readonl
     return matches;
 }
 
-/** Never starts on the low half of a surrogate pair. */
+/** The line's own newline (`\n` or `\r\n`) is not part of the preview. */
+function contentLength(lineText: string): number {
+    if (lineText.endsWith("\r\n")) return lineText.length - 2;
+    if (lineText.endsWith("\n")) return lineText.length - 1;
+    return lineText.length;
+}
+
+/** Never starts on the low half of a surrogate pair (well-formed text never has one at 0). */
 function previewStart(lineText: string, startColumn: number): number {
-    if (startColumn <= MAX_PREVIEW_CHARS) return 0;
-    const start = startColumn - MAX_PREVIEW_CHARS;
+    const start = Math.max(0, startColumn - MAX_PREVIEW_CHARS);
     return isLowSurrogate(lineText.charCodeAt(start)) ? start + 1 : start;
 }
 
-/** Stops before the line's own newline; never ends on the high half of a surrogate pair. */
+/** Never ends on the high half of a surrogate pair (well-formed text never has one last). */
 function previewEnd(lineText: string, endColumn: number, contentEnd: number): number {
-    if (contentEnd - endColumn <= MAX_PREVIEW_CHARS) return contentEnd;
-    const end = endColumn + MAX_PREVIEW_CHARS;
+    const end = Math.min(contentEnd, endColumn + MAX_PREVIEW_CHARS);
     return isHighSurrogate(lineText.charCodeAt(end - 1)) ? end - 1 : end;
-}
-
-function isHighSurrogate(code: number): boolean {
-    return code >= 0xd800 && code <= 0xdbff;
-}
-
-function isLowSurrogate(code: number): boolean {
-    return code >= 0xdc00 && code <= 0xdfff;
 }
 
 /**
