@@ -18,21 +18,7 @@ describe("applyThemeVars: theme → root var-scope", () => {
         root.performStyleResolution(ROOT_STYLE_CONTEXT);
 
         expect(root.styleVar("panel.background")).toBe(theme.getRequiredColor("panel.background"));
-        expect(root.styleVar("terminal.background")).toBe(theme.getRequiredColor("terminal.background"));
-    });
-
-    it("a terminal without its own theme colors uses the panel background, as in VS Code, not the default dark one", () => {
-        const root = new BodyElement();
-        root.setAsRoot();
-        const theme = WorkbenchTheme.fromThemeFile({
-            name: "panel-only",
-            type: "dark",
-            colors: { "panel.background": "#1E1E2E" },
-        });
-        applyThemeVars(root, theme);
-        root.performStyleResolution(ROOT_STYLE_CONTEXT);
-
-        expect(root.styleVar("terminal.background")).toBe(0x1e1e2e);
+        expect(root.styleVar("editor.background")).toBe(theme.getRequiredColor("editor.background"));
     });
 
     it("the theme's own terminal.background wins over the panel background", () => {

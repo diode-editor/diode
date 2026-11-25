@@ -1,3 +1,4 @@
+import { Point } from "@tuidom/core/common/geometryPromitives";
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -195,6 +196,22 @@ describe("TerminalEditorService", () => {
         const instance = service().createTerminal();
         h.container.get(ThemeServiceDIToken).setTheme(LIGHT);
         expect(sessionOf(instance.id).ansiColors?.[2]).toBe(LIGHT.getRequiredColor("terminal.ansiGreen"));
+    });
+
+    it("a terminal tab paints the editor background, not the panel one, and follows a theme change", () => {
+        boot();
+        const instance = service().createTerminal();
+        const emptyCellBg = (): number => {
+            h.testApp.render();
+            const pos = service().paneOf(instance.id)!.view.globalPosition;
+            return h.testApp.backend.getBgAt(new Point(pos.x + 1, pos.y + 1));
+        };
+        const themes = h.container.get(ThemeServiceDIToken);
+        expect(emptyCellBg()).toBe(themes.theme.getRequiredColor("editor.background"));
+        expect(emptyCellBg()).not.toBe(themes.theme.getRequiredColor("panel.background"));
+
+        themes.setTheme(LIGHT);
+        expect(emptyCellBg()).toBe(LIGHT.getRequiredColor("editor.background"));
     });
 
     it("the focus context key is false with no focused element", () => {
