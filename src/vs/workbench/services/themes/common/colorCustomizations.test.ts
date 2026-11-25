@@ -95,6 +95,8 @@ describe("colorCustomizationsForTheme", () => {
     it("a setting that is not an object gives nothing", () => {
         expect(colorCustomizationsForTheme(undefined, "Dark Modern")).toEqual({});
         expect(colorCustomizationsForTheme("#202020", "Dark Modern")).toEqual({});
+        expect(colorCustomizationsForTheme(null, "Dark Modern")).toEqual({});
+        expect(colorCustomizationsForTheme({ "[Dark Modern]": null }, "Dark Modern")).toEqual({});
     });
 });
 
