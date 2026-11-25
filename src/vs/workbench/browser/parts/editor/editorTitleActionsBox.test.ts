@@ -4,6 +4,7 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
@@ -39,18 +40,18 @@ describe("EditorTitleActionsBox", () => {
         expect(actions.layoutSize.width).toBe(6);
     });
 
-    it("paints the workbench surface above the buttons and the tabs' baseline colors under them", () => {
+    it("paints the workbench surface above the buttons and the frame line on the baseline surface under them", () => {
         const box = new EditorTitleActionsBox(new TextLabelElement("[a]"));
+        // A theme whose own tab.border differs from the frame color: the box is part of the frame.
+        const vars = { ...computeThemeVars(theme), "panel.border": 0x414339, "tab.border": 0x1e1f1c };
 
-        const backend = renderElement(box, 3, 3, { themeVars: true });
+        const backend = renderElement(box, 3, 3, { styleVars: vars });
 
         for (let x = 0; x < 3; x++) {
             expect(backend.getBgAt(new Point(x, 0)), `surface, column ${x}`).toBe(
                 theme.getRequiredColor("editorGroupHeader.tabsBackground"),
             );
-            expect(backend.getFgAt(new Point(x, 2)), `baseline, column ${x}`).toBe(
-                theme.getRequiredColor("tab.border"),
-            );
+            expect(backend.getFgAt(new Point(x, 2)), `baseline, column ${x}`).toBe(0x414339);
             expect(backend.getBgAt(new Point(x, 2)), `baseline, column ${x}`).toBe(
                 theme.getRequiredColor("tab.activeBackground"),
             );

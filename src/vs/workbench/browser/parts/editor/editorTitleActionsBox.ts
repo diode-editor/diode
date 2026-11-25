@@ -46,8 +46,8 @@ export class EditorTitleActionsBox extends TUIElement {
         this.renderChildren(context);
         const { width, height } = this.layoutSize;
         if (height <= BASELINE_ROW) return;
-        // The same line and surface as the tab strip's baseline.
-        const fg = this.styleVar("tab.border");
+        // The editor group's frame line, on the tab strip's baseline surface.
+        const fg = this.styleVar("panel.border");
         const bg = this.styleVar("tab.activeBackground");
         for (let x = 0; x < width; x++) {
             context.setCell(x, BASELINE_ROW, { char: x === width - 1 ? "╮" : "─", fg, bg });

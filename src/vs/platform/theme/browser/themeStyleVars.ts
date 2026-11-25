@@ -25,6 +25,13 @@ export function computeThemeVars(theme: WorkbenchTheme): Record<string, number> 
     if ("titleBar.activeForeground" in vars) {
         vars["menuBar.foreground"] = vars["titleBar.activeForeground"];
     }
+    // Frame lines are one color (docs/arch/workbench/Frames.md): the tabs' boxes and baseline are the
+    // top of the editor group's frame, whose sides and bottom are `panel.border`. tuidom's tab strip
+    // paints `tab.border`, so the var takes the frame color; the theme's own `tab.border` (Monokai,
+    // Catppuccin: almost the background) would leave the frame's top darker than its sides. Only
+    // the var scope: the registered color, which themes and the API read, keeps the theme's value.
+    // `panel.border` has a registry default, so every theme has it.
+    vars["tab.border"] = vars["panel.border"];
     // Menu border that blends into its background: themes like Catppuccin set `menu.border` to the
     // background color (`#1e1e2e80` over `#1e1e2e`) and separate the menu from the window with a
     // `box-shadow`. A TUI has no shadow, and a borderless menu the same color as the editor
