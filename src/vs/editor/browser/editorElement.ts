@@ -33,7 +33,7 @@ import {
 } from "../common/core/iSelection.ts";
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
 import { findSurroundingPair, planAutoClose } from "../common/languages/autoClosing.ts";
-import type { CodeLensCommand, ICodeLensZone } from "../common/languages/iCodeLensSource.ts";
+import type { CodeLensCommand, ICodeLensAction, ICodeLensZone } from "../common/languages/iCodeLensSource.ts";
 import type { ISemanticTokensLegend } from "../common/languages/iSemanticTokensSource.ts";
 import {
     type ISemanticTokenStyleResolver,
@@ -185,6 +185,11 @@ function sameMarkers(a: readonly IScrollBarMarker[], b: readonly IScrollBarMarke
                 m.start === b[i].start && m.end === b[i].end && m.color === b[i].color && m.priority === b[i].priority,
         )
     );
+}
+
+interface IHoveredCodeLens {
+    readonly zone: ICodeLensZone;
+    readonly action: ICodeLensAction;
 }
 
 export class EditorElement extends TUIElement implements IScrollable {
@@ -360,6 +365,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     private syncCodeLensZones(): void {
         const viewState = this.viewState;
         this.codeLensFoldVersion = viewState.foldStateVersion;
+        // The hovered command may be gone with the old zones; the next move finds it again.
+        this.setHoveredCodeLens(null);
         const visible = this.codeLensZones.filter((zone) => viewState.isLineVisible(zone.line));
         this.codeLensByAnchor = new Map(visible.map((zone) => [zone.line - 1, zone]));
 
@@ -395,15 +402,47 @@ export class EditorElement extends TUIElement implements IScrollable {
         return { displayLine: viewState.displayLineFor(" ".repeat(indent) + zone.text), indent };
     }
 
+    /** The columns of the row an action takes, as painted: `[start, end)` before `scrollLeft`. */
+    private codeLensActionColumns(
+        zone: ICodeLensZone,
+        action: ICodeLensAction,
+    ): { readonly start: number; readonly end: number } {
+        const { displayLine, indent } = this.codeLensLayout(zone);
+        return {
+            start: displayLine.offsetToColumn(indent + action.start),
+            end: displayLine.offsetToColumn(indent + action.end),
+        };
+    }
+
+    /** The command under a cell of the zone row; not the separator or the empty part of the row. */
+    private codeLensActionAt(zone: ICodeLensZone, localX: number): ICodeLensAction | undefined {
+        const column = localX - this.gutterWidth + this.viewState.scrollLeft;
+        return zone.actions.find((action) => {
+            const { start, end } = this.codeLensActionColumns(zone, action);
+            return column >= start && column < end;
+        });
+    }
+
+    /** Upstream `.codelens-decoration > a:hover`: the link color and the hand, only for a lens with a command. */
+    private hoveredCodeLens: IHoveredCodeLens | null = null;
+
+    private setHoveredCodeLens(hovered: IHoveredCodeLens | null): void {
+        const current = this.hoveredCodeLens;
+        if (current?.zone === hovered?.zone && current?.action === hovered?.action) return;
+        this.hoveredCodeLens = hovered;
+        this.pointerShape = hovered === null ? null : "pointer";
+        this.markDirty();
+    }
+
+    private updateHoveredCodeLens(localX: number, localY: number): void {
+        const zone = localX < this.gutterWidth ? undefined : this.codeLensZoneAtRow(localY);
+        const action = zone === undefined ? undefined : this.codeLensActionAt(zone, localX);
+        this.setHoveredCodeLens(zone === undefined || action === undefined ? null : { zone, action });
+    }
+
     private clickCodeLens(zone: ICodeLensZone, localX: number): void {
         this.dragAnchor = null;
-        const { displayLine, indent } = this.codeLensLayout(zone);
-        const column = localX - this.gutterWidth + this.viewState.scrollLeft;
-        const action = zone.actions.find(
-            ({ start, end }) =>
-                column >= displayLine.offsetToColumn(indent + start) &&
-                column < displayLine.offsetToColumn(indent + end),
-        );
+        const action = this.codeLensActionAt(zone, localX);
         if (action !== undefined) {
             this.onDidClickCodeLensEmitter.fire(action.command);
             return;
@@ -958,6 +997,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         });
         this.addEventListener("mouseleave", () => {
             this.setFoldGutterHovered(false);
+            this.setHoveredCodeLens(null);
             this.pressedDocumentLink = null;
             this.setActiveDocumentLink(null);
         });
@@ -1133,6 +1173,15 @@ export class EditorElement extends TUIElement implements IScrollable {
                         style: StyleFlags.None,
                         scrollLeft,
                     });
+                    const hovered = this.hoveredCodeLens;
+                    if (hovered?.zone === lens) {
+                        const { start, end } = this.codeLensActionColumns(lens, hovered.action);
+                        const fg = this.styleVar("editorLink.activeForeground");
+                        const last = Math.min(end, scrollLeft + contentCols);
+                        for (let col = Math.max(start, scrollLeft); col < last; col++) {
+                            context.setCell(gutterW + col - scrollLeft, screenY, { fg });
+                        }
+                    }
                     continue;
                 }
                 const zoneDecoration = zoneDecorationByAnchor.get(zoneRow.anchor);
@@ -1643,6 +1692,8 @@ export class EditorElement extends TUIElement implements IScrollable {
                 break;
         }
 
+        // The text moved under a still pointer.
+        this.updateHoveredCodeLens(event.localX, event.localY);
         this.markDirty();
     }
 
@@ -1832,6 +1883,7 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private handleMouseMove(event: TUIMouseEvent): void {
         this.setFoldGutterHovered(event.localX >= 0 && event.localX < this.gutterWidth);
+        this.updateHoveredCodeLens(event.localX, event.localY);
         this.setActiveDocumentLink(event.ctrlKey ? this.documentLinkAtCell(event.localX, event.localY) : null);
 
         if (this.dragAnchor === null) return;
