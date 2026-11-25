@@ -105,7 +105,9 @@ describe("EditorElement — code lens hover", () => {
     it("leaving the element drops the color and the hand", () => {
         const { app, editor, gw, mouse, activeCells } = setup();
         mouse("move", gw + 3, 1);
-        editor.dispatchEvent(new TUIMouseEvent("mouseleave", { button: "none", screenX: 0, screenY: 0 }));
+        editor.dispatchEvent(
+            new TUIMouseEvent("mouseleave", { button: "none", screenX: 0, screenY: 0, localX: 0, localY: 0 }),
+        );
         expect(activeCells(1)).toEqual([]);
         expect(editor.pointerShape).toBeNull();
         expect(app.backend.pointerShape).toBe("pointer");
