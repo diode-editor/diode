@@ -385,6 +385,12 @@ describe("FileTreeDataProvider", () => {
             expect(callback).toHaveBeenCalledExactlyOnceWith(undefined);
         });
 
+        it("an event in the root before anyone subscribed to changes does not throw", () => {
+            vi.useFakeTimers();
+            watchOf(ws.dir).fire([ws.path("build")]);
+            expect(() => vi.advanceTimersByTime(300)).not.toThrow();
+        });
+
         it("changes to files hidden by the setting only do not touch the tree", () => {
             vi.useFakeTimers();
             const callback = vi.fn();
