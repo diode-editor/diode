@@ -42,6 +42,8 @@ describe("colorCustomizationsForTheme", () => {
         ["*ght Mo*", "Dark Modern", false],
         ["*", "Anything", true],
         ["Light", "Light Modern", false],
+        ["Modern", "Dark Modern", false],
+        ["Light*", "Lemon", false],
     ])("[%s] matches %s: %s", (scope, themeId, matches) => {
         const result = colorCustomizationsForTheme({ [`[${scope}]`]: { "editor.background": "#010203" } }, themeId);
         expect(result).toEqual(matches ? { "editor.background": "#010203" } : {});
@@ -78,6 +80,11 @@ describe("colorCustomizationsForTheme", () => {
             "a.default": "default",
             "c.ok": "#010203",
         });
+    });
+
+    it("a key with a bracket on one side only is a color id, not a theme block", () => {
+        const setting = { "[Dark Modern": "#010203", "Dark Modern]": "#040506" };
+        expect(colorCustomizationsForTheme(setting, "Dark Modern")).toEqual(setting);
     });
 
     it("a theme block that is not an object is ignored", () => {

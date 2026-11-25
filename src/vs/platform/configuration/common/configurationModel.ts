@@ -191,7 +191,8 @@ function deepMerge(a: ReadonlyTree, b: ReadonlyTree): Record<string, unknown> {
  * a branch: its dotted path would not `get` back, and an edit inside it would go unreported.
  */
 function collectKeys(node: unknown, prefix: string, out: string[]): void {
-    if (!isPlainObject(node) || (prefix.length > 0 && Object.keys(node).some((key) => key.includes(".")))) {
+    // The top level never holds a dotted key: `normalizeNode` has split those into branches.
+    if (!isPlainObject(node) || Object.keys(node).some((key) => key.includes("."))) {
         /* v8 ignore start -- defensive: the top-level call always passes the (object) tree, so a non-object node is only ever reached during recursion with a non-empty prefix; the empty-prefix branch is unreachable */
         if (prefix.length > 0) out.push(prefix);
         /* v8 ignore stop */

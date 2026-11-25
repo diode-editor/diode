@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import { createConfigurationChangeEvent } from "../../../../platform/configuration/common/configurationChangeEvent.ts";
+import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import type {
     IConfigurationChangeEvent,
     IConfigurationService,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
@@ -70,10 +70,22 @@ function setup(settings: Record<string, unknown> = {}): {
     applied.length = 0;
     const warnings: string[] = [];
     const logService = {
-        createLogger: () => ({ ...NULL_LOGGER, warn: (message: string) => warnings.push(message) }),
+        // Only the Configuration output channel counts.
+        createLogger: (name: string) => ({
+            ...NULL_LOGGER,
+            warn: (message: string) => {
+                if (name === "configuration") warnings.push(message);
+            },
+        }),
     } as unknown as ILogService;
     const host = { colorScheme: undefined, onDidChangeColorScheme: new Emitter<ColorScheme>().event };
-    new ThemeConfigContribution(config as unknown as IConfigurationService, themeService, registry, host as unknown as HostColorSchemeService, logService);
+    new ThemeConfigContribution(
+        config as unknown as IConfigurationService,
+        themeService,
+        registry,
+        host as unknown as HostColorSchemeService,
+        logService,
+    );
     return { config, themeService, applied, warnings };
 }
 
@@ -109,7 +121,10 @@ describe("ThemeConfigContribution: workbench.colorCustomizations", () => {
             [SETTING]: { "[Light Modern]": { "editor.background": "#fff8e0" } },
         });
         // A settings.json reload fires one event for both keys.
-        await config.updateMany({ "workbench.colorTheme": "Light Modern", [SETTING]: { "editor.background": "#010203" } });
+        await config.updateMany({
+            "workbench.colorTheme": "Light Modern",
+            [SETTING]: { "editor.background": "#010203" },
+        });
         expect(themeService.theme.name).toBe("Light Modern");
         expect(editorBackground(themeService.theme)).toBe(packRgb(0x01, 0x02, 0x03));
     });
