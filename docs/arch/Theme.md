@@ -62,7 +62,16 @@ themes/*.ts ──▶ ThemeRegistry (label → IThemeFile) ──▶ resolve(lab
 3. **Битая ссылка (цикл, неизвестный id) не валит тему**: `followReference` возвращает причину, и цвет остаётся незаданным (`getColor` → `undefined`). Для цвета расширения контрибутор пишет warning один раз при регистрации, а не на каждом `resolve`; встроенную таблицу стережёт `colorContributions.test.ts`.
 4. **`highContrast`/`highContrastLight` принимаются и не применяются** — в реестре два слота. Отступление записано в API-COVERAGE.md.
 
-Не входит: появление цветов без перезагрузки окна (как у тем), `workbench.colorCustomizations`.
+Не входит: появление цветов без перезагрузки окна (как у тем).
+
+### Пользовательские цвета (`workbench.colorCustomizations`)
+
+Аналог эталонного `ColorThemeData.setCustomColors`/`getColor`. Значение настройки лежит в `ThemeRegistry.setColorCustomizations`: `main.ts` кладёт его до выбора активной темы (первый кадр уже перекрашен), дальше за настройкой следит `ThemeConfigContribution`. `ThemeRegistry.resolve(label)` выбирает из значения цвета этой темы (`colorCustomizationsForTheme`, `services/themes/common/colorCustomizations.ts`) и передаёт их в `fromThemeFile` четвёртым слоем: дефолты расширений → встроенные дефолты → цвета темы → пользовательские. Ссылки разрешаются по итоговой таблице, так что производный цвет (`editorSuggestWidget.foreground` → `editor.foreground`) идёт за перекрашенным.
+
+1. **Блоки `[Тема]`** — как эталонные `isThemeScopeMatch` и `themeScopeRegex`: сравнение с меткой темы (то же значение, что в `workbench.colorTheme`, у встроенных — `Light Modern`, а не эталонный `Default Light Modern`), `*` в начале, в конце или с обеих сторон, несколько тем — `[A][B]`. Блоки накладываются поверх глобальных записей, позднее совпавший побеждает.
+2. **Значение — hex** (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) **или `"default"`**: тогда цвет темы пропускается и берётся дефолт реестра (встроенный или расширения), а без дефолта цвет остаётся незаданным. Ссылку на другой id эталон не разрешает (`Color.fromHex`) — и мы тоже. Отступление: невалидное значение эталон превращает в красный, у нас запись пропускается, а `colorCustomizationProblems` пишет warning в канал Configuration при старте и на каждой правке, включая блоки неактивных тем.
+3. **Правка на лету**: событие настройки → `setColorCustomizations` → повторный `resolve` активной темы → `ThemeService.setTheme`, тот же путь, что смена темы (палитра, TextMate-тема, семантика). Пикер тем при превью тоже резолвит через реестр и показывает темы уже с пользовательскими цветами, как эталон.
+4. Ключ, которого нет ни в реестре, ни у расширений, ложится в таблицу и никем не читается — без ошибки, как у эталона. Подсказка id цветов в `settings.json` (эталонный `allOf: [{ $ref: workbenchColorsSchemaId }]`) не перенесена.
 
 ### Иконки: Nerd Font или Unicode (`diode.icons.nerdFont`)
 
@@ -73,6 +82,6 @@ themes/*.ts ──▶ ThemeRegistry (label → IThemeFile) ──▶ resolve(lab
 - **Смена на лету**: `onDidChange` — каждый, кто запёк глиф в отрисовку, перерисовывается сам: дерево Explorer и Problems (`refresh`), деревья расширений (`ExtensionTreeView` перестраивает строки из последних ответов, не спрашивая подпроцесс), вкладки, заголовки вью (`ViewsService` → `setNerdFont` шапок, кнопки — повторный резолв меню: `MenuRegistry` резолвит `icon` пункта на каждый вызов), шевроны фолдинга (`TextEditorConfiguration` → `EditorElement.nerdFont`), ветка и счётчик задач в статус-баре, элементы статус-бара расширений (перерисовываются из сырого текста), прогресс (на каждом кадре спиннера), SCM, терминал. Строки, которые расширение регистрирует один раз — заголовки команд палитры из манифеста, имя канала OUTPUT, — и одноразовые quick pick / тосты берут режим на момент создания.
 - **Глифы внутри виджетов tuidom** (шевроны `TreeViewElement`/`ListViewElement`, замок read-only вкладки, иконки видов автодополнения) — глиф-токены движка (`GLYPH_TOKEN_DEFAULTS` в `@tuidom/core/dom/glyphTokens`, дефолт — Nerd Font). `platform/theme/browser/widgetGlyphs.ts` кладёт таблицу в корень workbench через `setGlyphs`, как палитру через `setStyleVars`: в `on` — `null` (дефолты движка), в `off` — те же кодиконы через `ProductIconService` (`chevron-down`/`chevron-right`, `lock` — как у закреплённой группы, виды автодополнения — `symbol-*`, как `CompletionItemKinds.toIcon` эталона). Таблица каскадирует на всё дерево, включая оверлеи; смена настройки — повторный `setGlyphs`, дерево перерисовывается.
 
-Не входит: `iconThemes`/`productIconThemes` (иконок файлов нет), горячее появление темы без перезагрузки окна, `workbench.colorCustomizations`. Тень оверлеев (`widget.shadow`, tuidom 0.5.0) объявлена цветом, но у оверлеев не включена — включать точечно (`shadow: true` в опциях сессии).
+Не входит: `iconThemes`/`productIconThemes` (иконок файлов нет), горячее появление темы без перезагрузки окна. Тень оверлеев (`widget.shadow`, tuidom 0.5.0) объявлена цветом, но у оверлеев не включена — включать точечно (`shadow: true` в опциях сессии).
 
 **Зависимости:** Theme → Rendering (ColorUtils/packRgb), Common. Находится на одном уровне с Workbench.

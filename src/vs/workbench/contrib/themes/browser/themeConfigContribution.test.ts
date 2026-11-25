@@ -6,6 +6,7 @@ import type {
     IConfigurationChangeEvent,
     IConfigurationService,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { HostColorSchemeService } from "../../../services/themes/browser/hostColorSchemeService.ts";
 import type { ColorScheme } from "../../../services/themes/common/themeConfiguration.ts";
@@ -97,6 +98,7 @@ function setup(options: {
         themeService as unknown as ThemeService,
         registry as unknown as ThemeRegistry,
         host as unknown as HostColorSchemeService,
+        NULL_LOG_SERVICE,
     );
     return { config, themeService, host };
 }

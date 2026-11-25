@@ -13,6 +13,9 @@ export interface IColorDefaults {
     readonly light: string;
 }
 
+/** Upstream `DEFAULT_COLOR_CONFIG_VALUE`: a `workbench.colorCustomizations` value that skips the theme's color. */
+export const DEFAULT_COLOR_CONFIG_VALUE = "default";
+
 export function isColorReference(value: string): boolean {
     return !value.startsWith("#");
 }

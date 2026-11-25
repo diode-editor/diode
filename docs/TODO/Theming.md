@@ -16,7 +16,8 @@
   подпись справа. Понадобится с ростом списка за счёт расширений.
 - [ ] **Раскомментировать недостающие ключи `IWorkbenchColors`** по мере того, как виджеты начинают их
   использовать: незаявленные ключи парсятся в модель, но типобезопасного `getColor` для них нет.
-- [ ] `workbench.colorCustomizations` и `editor.semanticTokenColorCustomizations` — не поддержаны.
+- [x] `workbench.colorCustomizations` — #1256.
+- [ ] `editor.tokenColorCustomizations` и `editor.semanticTokenColorCustomizations` — не поддержаны.
 - [ ] `.tmTheme` (`tokenColors` строкой) — plist-парсер, только если такая тема попросится в реестр.
 - [ ] Иконки (`iconThemes`, `productIconThemes`) — когда появится носитель иконок в Explorer.
 - [ ] **Смена схемы на лету в терминалах без режима 2031** (iTerm2, WezTerm, Alacritty, …): периодический
