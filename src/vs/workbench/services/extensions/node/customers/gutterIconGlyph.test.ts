@@ -59,6 +59,7 @@ describe("gutterIconGlyphOf", () => {
         expect(gutterIconGlyphOf("<svg><polygon points='0,0 4,2 0,4 1,1'/></svg>").glyph).toBe("●");
         expect(gutterIconGlyphOf("<svg><polygon points='0,0 4,2 0,4 0,1'/></svg>").glyph).toBe("●");
         expect(gutterIconGlyphOf("<svg><polygon points='0,0 4,2 0,4 1,0'/></svg>").glyph).toBe("●");
+        expect(gutterIconGlyphOf("<svg><polygon points='0,0 4,2 0,4 0,0 2,2'/></svg>").glyph).toBe("●");
         expect(gutterIconGlyphOf("<svg><polygon points='10,20 40,25 10,30'/></svg>").glyph).toBe("▸");
         expect(gutterIconGlyphOf("<svg><polygon points='10,20 40,25 10,30 10,20'/></svg>").glyph).toBe("▸");
         expect(gutterIconGlyphOf("<svg><polygon/></svg>").glyph).toBe("●");
