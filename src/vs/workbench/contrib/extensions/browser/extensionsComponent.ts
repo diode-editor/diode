@@ -109,6 +109,15 @@ export class ExtensionsComponent extends Component {
         this.control.onActivateRow = (rowId) => {
             this.activateRow(rowId);
         };
+        this.control.input.addEventListener("keydown", (event) => {
+            if (event.altKey || event.metaKey || event.shiftKey) return;
+            // Upstream: Ctrl+Down (`onShouldFocusResults`). Deviation: Enter as well — upstream's Enter does nothing.
+            const enter = event.key === "Enter" && !event.ctrlKey;
+            const ctrlDown = event.key === "ArrowDown" && event.ctrlKey;
+            if (!enter && !ctrlDown) return;
+            event.preventDefault();
+            this.focusResults();
+        });
 
         this.installedList = new ListViewElement({
             typeahead: false,
@@ -178,6 +187,16 @@ export class ExtensionsComponent extends Component {
     public focus(): void {
         this.control.focusInput();
         void this.withLoadingRow(() => this.service.ensureLoaded());
+    }
+
+    /**
+     * Upstream `focusListView`: only into MARKETPLACE, and only when it has a row to stand on — a state
+     * row (`Loading…`, `No extensions found`) has no cursor, so the focus stays in the search box.
+     */
+    private focusResults(): void {
+        if (this.list.getCursorElement() === null) return;
+        this.list.focusFirst();
+        this.control.focusList();
     }
 
     public refresh(): Promise<void> {
