@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `fileSink.test.ts`, «serializes Error with stack»: файл лога ещё пуст в момент чтения (`expected '' to contain
+  '[ERROR]'`) под покрытием в CI (run 45790209222, PR #1273, дифф — заголовок Search, логирования не касается);
+  `main` на той же базе зелёный. Видимо, запись не успела дойти до диска на нагруженном раннере.
 - [ ] `quickOpenHistory.scenario.ts`, «quick-open-history» (только Windows): за 10 с после Ctrl+P и ввода
   `e2e/fixtures/sample.ts` вкладка `sample.ts` не появилась, обе попытки e2e (run 44478670132, PR #1239, дифф —
   `TextEditor.visibleRanges`, сценарий расширений не открывает); перезапуск job'а и `main` зелёные.

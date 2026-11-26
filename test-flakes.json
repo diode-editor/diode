@@ -261,6 +261,12 @@
             "test": "TestResultsOutput > a new subject starts from a clean surface: no old line on the screen or in the scrollback",
             "action": "retry",
             "note": "expected '\\n\\n\\n\\n\\n\\n\\n\\n\\n' to contain 'new' in the mutation gate's Stryker initial test run (run 42538740300, PR #1094, whose diff is the Extensions view); green in the same run's unit job"
+        },
+        {
+            "file": "src/vs/platform/log/node/fileSink.test.ts",
+            "test": "FileSink > serializes Error with stack",
+            "action": "retry",
+            "note": "the log file was still empty when read (expected '' to contain '[ERROR]') under coverage on CI (run 45790209222, PR #1273, whose diff is the Search header; logging is untouched); main green on the same base"
         }
     ]
 }
