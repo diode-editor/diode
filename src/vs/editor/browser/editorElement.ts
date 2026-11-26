@@ -1632,8 +1632,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         const maxScrollTop = Math.max(0, viewState.getViewLineCount() - viewState.viewportHeight);
         const maxScrollLeft = Math.max(0, this.contentWidth - viewState.viewportWidth);
         viewState.scrollTop = Math.min(maxScrollTop, Math.max(0, top));
+        // The setters fire onDidChangeView, which marks the frame dirty.
         viewState.scrollLeft = Math.min(maxScrollLeft, Math.max(0, left));
-        this.markDirty();
     }
 
     private handleWheel(event: TUIMouseEvent): void {
