@@ -1,4 +1,4 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
@@ -10,15 +10,25 @@ import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_SETTING,
+    ProductIconService,
+    StaticProductIconService,
+} from "../../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
 import { SEARCH_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import type {
@@ -34,6 +44,8 @@ import { type ISearchRevealTarget, SearchComponent } from "./searchComponent.ts"
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const ROOT = "/work/project";
+// What the host puts on the root without Nerd Font (widgetGlyphs.ts): the tree chevrons as plain Unicode.
+const TREE_GLYPHS = { "tree.collapsed": "\u203a", "tree.expanded": "\u2304" };
 
 function fakeSearch(
     results: IFileMatch[],
@@ -119,6 +131,7 @@ function make(
         state?: IStateService;
         contextKeys?: ContextKeyService;
         configuration?: IConfigurationService;
+        icons?: IProductIconService;
     } = {},
 ): SearchComponent {
     return new SearchComponent(
@@ -130,6 +143,7 @@ function make(
         NULL_VIEWS_SERVICE,
         NULL_JUMP_RECORDER,
         opts.configuration ?? NULL_CONFIGURATION_SERVICE,
+        opts.icons ?? new StaticProductIconService(false),
     );
 }
 
@@ -152,18 +166,91 @@ describe("SearchComponent", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it("by default: the query line and '···', include/exclude hidden (the SEARCH title is drawn by pane-header)", () => {
+    it("by default: the query line and its underline with a chevron, include/exclude hidden (the SEARCH title is drawn by pane-header)", () => {
         const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
-        const screen = render(component).screenToString();
-        expect(screen).toContain("Search");
-        expect(screen).toContain("···");
-        expect(screen).not.toContain("files to include");
-        expect(screen).not.toContain("files to exclude");
+        component.view.setGlyphs(TREE_GLYPHS);
+        const rows = render(component).screenToString().split("\n");
+        expect(rows[0]).toBe(" \u26b2 Search                   Aa  ab  .*  ");
+        expect(rows[1]).toBe(` ${"\u2500".repeat(35)} \u203a  `);
+        expect(rows.join("\n")).not.toContain("files to include");
+        expect(rows.join("\n")).not.toContain("files to exclude");
+    });
+
+    it("the chevron turns down while include/exclude are shown, each field with its own underline", () => {
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
+        component.view.setGlyphs(TREE_GLYPHS);
+        component.toggleQueryDetails();
+        const rows = render(component).screenToString().split("\n");
+        expect(rows[1]).toBe(` ${"\u2500".repeat(35)} \u2304  `);
+        expect(rows[2]).toBe("   files to include                     ");
+        expect(rows[3]).toBe(` ${"\u2500".repeat(38)} `);
+        expect(rows[4]).toBe("   files to exclude                     ");
+        expect(rows[5]).toBe(` ${"\u2500".repeat(38)} `);
+    });
+
+    it("an active toggle paints all four of its cells in the inputOption.active colors, an inactive one is dim", () => {
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
+        const regex = (component.view.querySelectorAll("ButtonElement") as ButtonElement[])[2];
+        regex.onActivate?.();
+        const backend = render(component);
+        const x = backend.screenToString().split("\n")[0].indexOf(".*") - 1;
+        for (let dx = 0; dx < 4; dx++) {
+            expect(backend.getBgAt(new Point(x + dx, 0))).toBe(theme.getRequiredColor("inputOption.activeBackground"));
+            expect(backend.getFgAt(new Point(x + dx, 0))).toBe(theme.getRequiredColor("inputOption.activeForeground"));
+        }
+        const aa = backend.screenToString().split("\n")[0].indexOf("Aa");
+        expect(backend.getFgAt(new Point(aa, 0))).toBe(theme.getRequiredColor("descriptionForeground"));
+        expect(backend.getBgAt(new Point(aa, 0))).toBe(theme.getRequiredColor("sideBar.background"));
+    });
+
+    it("the fields have no fill of their own: the query is on the sidebar background, the line under it is panel.border", () => {
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
+        const backend = render(component);
+        expect(backend.getBgAt(new Point(3, 0))).toBe(theme.getRequiredColor("sideBar.background"));
+        expect(backend.getFgAt(new Point(1, 1))).toBe(theme.getRequiredColor("panel.border"));
+    });
+
+    it("typed text keeps the input foreground, not the sidebar one", () => {
+        const custom = WorkbenchTheme.fromThemeFile({
+            ...darkPlusTheme,
+            colors: { ...darkPlusTheme.colors, "input.foreground": "#FF0000", "sideBar.foreground": "#00FF00" },
+        });
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
+        typeQuery(component, "foo");
+        const backend = renderElement(component.view, 40, 14, { styleVars: computeThemeVars(custom) });
+        expect(backend.getFgAt(new Point(3, 0))).toBe(custom.getRequiredColor("input.foreground"));
+        expect(backend.getBgAt(new Point(3, 0))).toBe(custom.getRequiredColor("sideBar.background"));
+    });
+
+    it("the chevron is down from the start when the store had include/exclude open, and turns down when restore opens them", () => {
+        const opened = fakeState();
+        opened.stored.set("workbench.search.queryDetailsExpanded", true);
+        const fromStore = make(fakeSearch([]).service, fakeWorkspace(ROOT), { state: opened.service });
+        fromStore.view.setGlyphs(TREE_GLYPHS);
+        expect(render(fromStore).screenToString().split("\n")[1]).toContain("\u2304");
+
+        const later = fakeState();
+        const restored = make(fakeSearch([]).service, fakeWorkspace(ROOT), { state: later.service });
+        restored.view.setGlyphs(TREE_GLYPHS);
+        expect(render(restored).screenToString().split("\n")[1]).toContain("\u203a");
+        later.stored.set("workbench.search.queryDetailsExpanded", true);
+        restored.restoreViewState();
+        expect(render(restored).screenToString().split("\n")[1]).toContain("\u2304");
+    });
+
+    it("the search icon follows the Nerd Font setting live", async () => {
+        const config = new InMemoryConfigurationService(new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS));
+        await config.updateValue(NERD_FONT_SETTING, "off");
+        const icons = new ProductIconService(config, "xterm-256color");
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT), { icons });
+        expect(render(component).screenToString().split("\n")[0]).toMatch(/^ \u26b2 /u);
+        await config.updateValue(NERD_FONT_SETTING, "on");
+        expect(render(component).screenToString().split("\n")[0]).toMatch(/^ \uea6d /u);
     });
 
     it("toggleQueryDetails reveals include/exclude with a blank line between them and hides them back", () => {
         const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
-        // The "···" button is the same toggle by mouse (the 4th button after Aa/\b/.*).
+        // The chevron on the underline is the same toggle by mouse (the 4th button after Aa/ab/.*).
         const detailsBtn = (component.view.querySelectorAll("ButtonElement") as ButtonElement[])[3];
         detailsBtn.onActivate?.();
         expect(component.isQueryDetailsShown()).toBe(true);
@@ -744,7 +831,7 @@ describe("SearchComponent", () => {
             return { component, app };
         }
 
-        it("details hidden: query → list; list → query (inputs behind '···' are skipped)", () => {
+        it("details hidden: query → list; list → query (inputs behind the chevron are skipped)", () => {
             const { component, app } = makeFocusable(false);
             component.focus();
             component.focusNextInputBox();
@@ -839,6 +926,7 @@ describe("SearchComponent", () => {
             viewsService,
             NULL_JUMP_RECORDER,
             NULL_CONFIGURATION_SERVICE,
+            new StaticProductIconService(false),
         );
         expect(registered).toHaveLength(1);
         expect(registered[0].id).toBe("workbench.search.results");

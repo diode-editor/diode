@@ -96,7 +96,7 @@ describe("Search panel (functional e2e)", () => {
         expect(after).toEqual({ matches: 1, files: 1 });
     }, 120_000);
 
-    it("the \\b toggle excludes substrings (foo does not match foobar)", async () => {
+    it("the whole word (ab) toggle excludes substrings (foo does not match foobar)", async () => {
         const app = await openSearch();
         const { session } = app;
 
@@ -104,7 +104,7 @@ describe("Search panel (functional e2e)", () => {
         await session.waitForText((t) => t.includes("results in"));
         expect(frameToText(await session.captureFrame())).toContain("foobar");
 
-        await clickText(session, "\\b", { maxX: 40 });
+        await clickText(session, " ab ", { maxX: 40 });
         await session.waitForText((t) => {
             const c = counts(t);
             return c !== null && c.matches === 5;
@@ -126,7 +126,7 @@ describe("Search panel (functional e2e)", () => {
         expect(counts(frameToText(await session.captureFrame()))?.matches).toBeGreaterThan(0);
     }, 120_000);
 
-    // The include/exclude fields are behind "···" (F8 here = Ctrl+Shift+J); expanding moves focus to include.
+    // The include/exclude fields are behind the chevron on the query underline (F8 here = Ctrl+Shift+J); expanding moves focus to include.
     it("include glob narrows to .txt, exclude glob drops .ts", async () => {
         const app = await openSearch();
         const { session } = app;

@@ -1,6 +1,6 @@
-import { INHERITED_BG, INHERITED_FG } from "@tuidom/core/dom/styles/tuiStyle";
+import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import { ButtonElement } from "@tuidom/elements/button/buttonElement";
+import { ButtonElement, type ButtonLabel } from "@tuidom/elements/button/buttonElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
@@ -23,6 +23,8 @@ import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
+import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
+import { ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { Component } from "../../../browser/component.ts";
@@ -52,6 +54,7 @@ import {
     type ISearchRowStyles,
 } from "./searchResultRows.ts";
 import { buildSearchTree, type SearchTreeNode } from "./searchResultTree.ts";
+import { UnderlineElement } from "./underlineElement.ts";
 
 export const SearchComponentDIToken = token<SearchComponent>("SearchComponent");
 
@@ -85,9 +88,18 @@ const SEARCH_DEBOUNCE_MS = 150;
 const TREE_REBUILD_THROTTLE_MS = 100;
 
 const CASE_GLYPH = "Aa";
-const WORD_GLYPH = "\\b";
+const WORD_GLYPH = "ab";
 const REGEX_GLYPH = ".*";
-const DETAILS_GLYPH = "···";
+
+// The toggles are bare glyphs, not `[ Aa ]` buttons: dim until hovered, the active ones take the
+// upstream `inputOption.active*` colors.
+const TOGGLE_STYLE = {
+    fg: "descriptionForeground",
+    when: [
+        { states: ["hover"], fg: "foreground" },
+        { states: ["checked"], fg: "inputOption.activeForeground", bg: "inputOption.activeBackground" },
+    ],
+} as const;
 
 interface IFileGroup {
     readonly absolutePath: string;
@@ -115,22 +127,26 @@ export class SearchComponent extends Component implements IContextKeyContributor
         ViewsServiceDIToken,
         JumpRecorderDIToken,
         IConfigurationServiceDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     private readonly root: HeaderBodyViewElement;
     private readonly queryInput = new InputElement();
     private readonly includeInput = new InputElement();
     private readonly excludeInput = new InputElement();
-    private readonly caseButton = new ButtonElement(CASE_GLYPH);
-    private readonly wordButton = new ButtonElement(WORD_GLYPH);
-    private readonly regexButton = new ButtonElement(REGEX_GLYPH);
-    private readonly detailsButton = new ButtonElement(DETAILS_GLYPH);
+    private readonly caseButton = new ButtonElement(CASE_GLYPH, { bare: true });
+    private readonly wordButton = new ButtonElement(WORD_GLYPH, { bare: true });
+    private readonly regexButton = new ButtonElement(REGEX_GLYPH, { bare: true });
+    // The same chevron as the tree twisties: the line it sits on folds the include/exclude fields.
+    private readonly detailsButton: ButtonElement;
     private readonly countLabel = new TextLabelElement("");
-    private readonly gaps: TextLabelElement[] = [];
     private readonly headerStack = new VStackElement();
     private readonly queryRow: HFlexElement;
     private readonly detailsRow: HFlexElement;
-    private readonly detailsGapRow = new FillerElement();
+    private readonly includeRow: HFlexElement;
+    private readonly excludeRow: HFlexElement;
+    private readonly includeUnderline = new UnderlineElement();
+    private readonly excludeUnderline = new UnderlineElement();
     // Typeahead is off: typing letters in the search panel refines the query instead of jumping through results.
     public readonly results = new ListViewElement({ typeahead: false });
     private readonly scrollBars: ScrollBarDecorator;
@@ -161,11 +177,13 @@ export class SearchComponent extends Component implements IContextKeyContributor
         viewsService: ViewsService,
         private readonly jumps: IJumpRecorder,
         private readonly configurationService: IConfigurationService,
+        private readonly icons: IProductIconService,
     ) {
         super();
 
         this.viewMode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
         this.detailsExpanded = this.stateService.get(SEARCH_QUERY_DETAILS_STATE);
+        this.detailsButton = new ButtonElement(this.detailsGlyph(), { bare: true });
         this.register(
             this.stateService.onDidOpenWorkspace(() => {
                 this.restoreViewState();
@@ -202,7 +220,9 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.configureToggle(this.detailsButton, () => {
             this.toggleQueryDetails();
         });
-        this.detailsButton.setChecked(this.detailsExpanded);
+        for (const input of [this.queryInput, this.includeInput, this.excludeInput]) {
+            input.style = { ...input.style, bg: INHERITED_BG };
+        }
 
         this.results.id = "searchResults";
         this.results.onActivate = (element) => {
@@ -216,6 +236,8 @@ export class SearchComponent extends Component implements IContextKeyContributor
 
         this.queryRow = this.buildQueryRow();
         this.detailsRow = this.buildDetailsRow();
+        this.includeRow = this.buildIndentedRow(this.includeInput);
+        this.excludeRow = this.buildIndentedRow(this.excludeInput);
         this.rebuildHeader();
         const paddedHeader = new PaddingContainerElement(this.headerStack, { left: 1, right: 1 });
 
@@ -223,7 +245,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.root.id = "searchView";
         this.root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.countLabel.setColors("descriptionForeground", INHERITED_BG);
-        for (const gap of this.gaps) gap.setColors(INHERITED_FG, INHERITED_BG);
 
         viewsService.registerContainer({
             id: SEARCH_VIEWLET_ID,
@@ -395,7 +416,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
             this.excludeInput.inputState.value !== "";
         if (expanded !== this.detailsExpanded) {
             this.detailsExpanded = expanded;
-            this.detailsButton.setChecked(expanded);
+            this.syncDetailsGlyph();
             this.rebuildHeader();
         }
     }
@@ -409,7 +430,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         if (next !== this.detailsExpanded) {
             this.detailsExpanded = next;
             this.stateService.store(SEARCH_QUERY_DETAILS_STATE, next);
-            this.detailsButton.setChecked(next);
+            this.syncDetailsGlyph();
             this.rebuildHeader();
         }
         if (!moveFocus) return;
@@ -420,11 +441,11 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    // The "···" row doubles as the vertical gap between the query row and the rest of the block.
+    // The query underline carries the include/exclude chevron and separates the query from the rest of the block.
     private rebuildHeader(): void {
         const rows: TUIElement[] = [this.queryRow, this.detailsRow];
         if (this.detailsExpanded) {
-            rows.push(this.includeInput, this.detailsGapRow, this.excludeInput);
+            rows.push(this.includeRow, this.includeUnderline, this.excludeRow, this.excludeUnderline);
         }
         rows.push(this.countLabel);
         for (const row of rows) {
@@ -436,30 +457,47 @@ export class SearchComponent extends Component implements IContextKeyContributor
 
     private buildDetailsRow(): HFlexElement {
         const row = new HFlexElement();
-        row.addChild(new FillerElement(), { width: hflexFill(), height: 1 });
+        row.addChild(new UnderlineElement(), { width: hflexFill(), height: 1 });
         row.addChild(this.detailsButton, { width: hflexFit(), height: 1 });
+        return row;
+    }
+
+    private syncDetailsGlyph(): void {
+        this.detailsButton.setLabel(this.detailsGlyph());
+    }
+
+    private detailsGlyph(): ButtonLabel {
+        return { glyph: this.detailsExpanded ? "tree.expanded" : "tree.collapsed" };
+    }
+
+    /** include/exclude start under the query text, past the column of the search icon. */
+    private buildIndentedRow(input: InputElement): HFlexElement {
+        const row = new HFlexElement();
+        row.addChild(new FillerElement(), { width: hflexFixed(2), height: 1 });
+        row.addChild(input, { width: hflexFill(), height: 1 });
         return row;
     }
 
     private buildQueryRow(): HFlexElement {
         const row = new HFlexElement();
-        const gap = () => {
-            const g = new TextLabelElement("");
-            this.gaps.push(g);
-            return g;
-        };
+        const prompt = new TextLabelElement(this.icons.codicon("search"));
+        prompt.setColors("descriptionForeground", INHERITED_BG);
+        this.register(
+            this.icons.onDidChange(() => {
+                prompt.setText(this.icons.codicon("search"));
+            }),
+        );
+        row.addChild(prompt, { width: hflexFixed(2), height: 1 });
         row.addChild(this.queryInput, { width: hflexFill(), height: 1 });
-        row.addChild(gap(), { width: hflexFixed(1), height: 1 });
         row.addChild(this.caseButton, { width: hflexFit(), height: 1 });
-        row.addChild(gap(), { width: hflexFixed(1), height: 1 });
         row.addChild(this.wordButton, { width: hflexFit(), height: 1 });
-        row.addChild(gap(), { width: hflexFixed(1), height: 1 });
         row.addChild(this.regexButton, { width: hflexFit(), height: 1 });
         return row;
     }
 
     private configureToggle(button: ButtonElement, onActivate: () => void): void {
         button.focusable = false; // keep focus in the query input on click
+        button.style = TOGGLE_STYLE;
         button.onActivate = onActivate;
     }
 
