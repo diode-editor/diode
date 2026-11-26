@@ -2,6 +2,7 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { FilteredListControl } from "./filteredListControl.ts";
 
@@ -118,5 +119,21 @@ describe("FilteredListControl — frame", () => {
         expect(backend.screenToString()).toContain("No things found");
         expect(control.view.querySelector("#emptyRow")).not.toBeNull();
         expect(control.list.rowCount).toBe(1);
+    });
+});
+
+describe("FilteredListControl — keys in the input", () => {
+    // Moving to the list is the consumer's choice (Extensions); Keyboard Shortcuts keeps the focus.
+    it.each(["Enter", "Ctrl+ArrowDown", "ArrowDown"])("%s keeps the focus in the input", (key) => {
+        const control = make();
+        appendRow(control, "row-1", "First");
+        const app = TestApp.createWithContent(control.view, { width: 30, height: 6 });
+        app.render();
+        control.focusInput();
+
+        app.sendKey(key);
+
+        expect(control.input.isFocused).toBe(true);
+        expect(control.list.isFocused).toBe(false);
     });
 });
