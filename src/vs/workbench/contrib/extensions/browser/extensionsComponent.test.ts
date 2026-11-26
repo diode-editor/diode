@@ -912,7 +912,10 @@ describe("ExtensionsComponent", () => {
         const LINT = entry({ id: "acme.lint", displayName: "Lint" });
 
         /** The viewlet shown and the catalog read: the focus is in the search box. */
-        async function shown(service: FakeService, target = fakeTarget().target): Promise<{
+        async function shown(
+            service: FakeService,
+            target = fakeTarget().target,
+        ): Promise<{
             app: TestApp;
             component: ExtensionsComponent;
             input: InputElement;
