@@ -6745,5 +6745,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-26-e64dcdfbf120.json",
+    "generatedAt": "2026-11-26T02:04:12.642Z",
+    "commit": "e64dcdfbf120",
+    "binaryVersion": "nightly-e64dcdf",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
