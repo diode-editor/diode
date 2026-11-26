@@ -73,10 +73,10 @@ export class TestResultsOutput extends Disposable {
                 session.dispose();
             }),
         );
-        applyTerminalColors(session, widget, colors.colors);
+        applyTerminalColors(session, widget, colors.colors, "panel");
         this.register(
             colors.onDidChange((next) => {
-                applyTerminalColors(session, widget, next);
+                applyTerminalColors(session, widget, next, "panel");
             }),
         );
         session.feed(HIDE_CURSOR);

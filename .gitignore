@@ -40,3 +40,5 @@ e2e/fixtures/javaSample/.project
 e2e/fixtures/javaSample/.settings/
 # Call journals of green marketplace checks (npm run api-matrix -- --update-confirmed)
 e2e/marketplace/api-trace/
+# TypeScript incremental build state — a local cache, never committed
+*.tsbuildinfo

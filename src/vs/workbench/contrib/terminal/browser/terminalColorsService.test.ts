@@ -70,12 +70,28 @@ function build(
 }
 
 describe("resolveTerminalColors", () => {
-    it("theme: 16 colors from terminal.ansi* (upstream defaults), background/foreground from theme tokens", () => {
-        expect(resolveTerminalColors(DARK, undefined)).toEqual({
-            ansi: VSCODE_DARK_ANSI,
-            background: undefined,
-            foreground: undefined,
+    it("theme: 16 colors from terminal.ansi* (upstream defaults), foreground from the theme token", () => {
+        const colors = resolveTerminalColors(DARK, undefined);
+        expect(colors.ansi).toEqual(VSCODE_DARK_ANSI);
+        expect(colors.foreground).toBeUndefined();
+    });
+
+    it("a theme without terminal.background: the panel background in the panel, the editor background in an editor tab", () => {
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "no-terminal-colors",
+            type: "dark",
+            colors: { "panel.background": "#1E1E2E", "editor.background": "#11111B" },
         });
+        expect(resolveTerminalColors(theme, undefined).background).toEqual({ panel: 0x1e1e2e, editor: 0x11111b });
+    });
+
+    it("the theme's own terminal.background wins in every location", () => {
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "own-terminal",
+            type: "dark",
+            colors: { "panel.background": "#1E1E2E", "editor.background": "#11111B", "terminal.background": "#000000" },
+        });
+        expect(resolveTerminalColors(theme, undefined).background).toEqual({ panel: 0, editor: 0 });
     });
 
     it("a light theme gives its own upstream defaults", () => {
@@ -97,7 +113,7 @@ describe("resolveTerminalColors", () => {
         expect(colors.ansi[1]).toBe(packRgb(200, 0, 0));
         expect(colors.ansi[15]).toBe(packRgb(250, 250, 250));
         expect(colors.ansi[2]).toBe(VSCODE_DARK_ANSI[2]);
-        expect(colors.background).toBe(packRgb(1, 2, 3));
+        expect(colors.background).toEqual({ panel: packRgb(1, 2, 3), editor: packRgb(1, 2, 3) });
         expect(colors.foreground).toBeUndefined();
     });
 });
@@ -113,7 +129,7 @@ describe("TerminalColorsService", () => {
         const { service, probe } = build({ "terminal.integrated.colorSource": "host" }, PARTIAL_HOST);
         expect(probe).toHaveBeenCalledOnce();
         expect(service.colors.ansi[1]).toBe(packRgb(200, 0, 0));
-        expect(service.colors.background).toBe(packRgb(1, 2, 3));
+        expect(service.colors.background.editor).toBe(packRgb(1, 2, 3));
     });
 
     it("the host isn't queried before the restored phase: in a cooked tty the reply would echo to the screen", () => {
@@ -193,7 +209,10 @@ describe("TerminalColorsService", () => {
 
         await configuration.updateValue("terminal.integrated.colorSource", "theme");
         expect(service.colors.ansi).toEqual(VSCODE_DARK_ANSI);
-        expect(service.colors.background).toBeUndefined();
+        expect(service.colors.background).toEqual({
+            panel: DARK.getRequiredColor("panel.background"),
+            editor: DARK.getRequiredColor("editor.background"),
+        });
 
         await configuration.updateValue("terminal.integrated.colorSource", "host");
         expect(probe).toHaveBeenCalledOnce();

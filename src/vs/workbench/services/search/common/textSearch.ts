@@ -1,4 +1,5 @@
 import { splitGlobAware } from "../../../../base/common/glob.ts";
+import { isHighSurrogate, isLowSurrogate } from "../../../../base/common/strings.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IUseIgnoreFiles } from "../../../common/configuration/excludeSettings.ts";
 
@@ -26,6 +27,7 @@ export interface ITextMatch {
     startColumn: number;
     /** 0-based character offset just past the match end. */
     endColumn: number;
+    /** `before` and `after` are capped at the match side — not the whole line. */
     preview: { before: string; inside: string; after: string };
 }
 
@@ -136,29 +138,61 @@ export function buildRgArgs(query: ITextSearchQuery, searchPath: string): string
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-// Only the tail is capped: it is needed just for rendering, and uncapped, a match in a
-// minified file drags hundreds of kilobytes into the line. `before` must not be capped —
-// startColumn is computed from it.
-const MAX_AFTER_CHARS = 256;
+// Both sides of the preview are capped: the row renders only a few characters around
+// the match, and uncapped, a line with thousands of matches (a minified bundle,
+// `tsconfig.tsbuildinfo`) keeps a copy of the line prefix per match — that ran the
+// heap out of memory on a 1 MB line with ~5000 hits. Columns are computed from the
+// byte offsets, not from the preview, so the caps never shift them.
+const MAX_PREVIEW_CHARS = 256;
 
 /**
- * ripgrep reports submatch offsets as UTF-8 **byte** offsets, so the split goes on
- * bytes and re-decodes — slicing the JS string breaks on non-ASCII lines.
+ * ripgrep reports submatch offsets as UTF-8 **byte** offsets. Like upstream
+ * `createTextSearchMatch`, the line is encoded once and each submatch decodes only
+ * the bytes since the previous one — linear in the line, not in line × matches.
  */
-function splitPreviewByBytes(lineText: string, startByte: number, endByte: number): ITextMatch["preview"] {
+function toTextMatches(lineText: string, lineNumber: number, submatches: readonly unknown[]): ITextMatch[] {
     const bytes = encoder.encode(lineText);
-    const before = decoder.decode(bytes.subarray(0, startByte));
-    const inside = decoder.decode(bytes.subarray(startByte, endByte));
-    let after = decoder.decode(bytes.subarray(endByte)).replace(/\r?\n$/, "");
-    if (after.length > MAX_AFTER_CHARS) {
-        // Cut after decoding (a byte cut would leave U+FFFD in the middle of a
-        // multibyte character) and never split a surrogate pair.
-        let cut = MAX_AFTER_CHARS;
-        const lead = after.charCodeAt(cut - 1);
-        if (lead >= 0xd800 && lead <= 0xdbff) cut--;
-        after = after.slice(0, cut);
+    const contentEnd = contentLength(lineText);
+    const matches: ITextMatch[] = [];
+    let prevByte = 0;
+    let prevColumn = 0;
+    for (const raw of submatches) {
+        if (!isRecord(raw) || typeof raw.start !== "number" || typeof raw.end !== "number") continue;
+        const startColumn = prevColumn + decoder.decode(bytes.subarray(prevByte, raw.start)).length;
+        const endColumn = startColumn + decoder.decode(bytes.subarray(raw.start, raw.end)).length;
+        prevByte = raw.end;
+        prevColumn = endColumn;
+        matches.push({
+            lineNumber,
+            startColumn,
+            endColumn,
+            preview: {
+                before: lineText.slice(previewStart(lineText, startColumn), startColumn),
+                inside: lineText.slice(startColumn, endColumn),
+                after: lineText.slice(endColumn, previewEnd(lineText, endColumn, contentEnd)),
+            },
+        });
     }
-    return { before, inside, after };
+    return matches;
+}
+
+/** The line's own newline (`\n` or `\r\n`) is not part of the preview. */
+function contentLength(lineText: string): number {
+    if (lineText.endsWith("\r\n")) return lineText.length - 2;
+    if (lineText.endsWith("\n")) return lineText.length - 1;
+    return lineText.length;
+}
+
+/** Never starts on the low half of a surrogate pair (well-formed text never has one at 0). */
+function previewStart(lineText: string, startColumn: number): number {
+    const start = Math.max(0, startColumn - MAX_PREVIEW_CHARS);
+    return isLowSurrogate(lineText.charCodeAt(start)) ? start + 1 : start;
+}
+
+/** Never ends on the high half of a surrogate pair (well-formed text never has one last). */
+function previewEnd(lineText: string, endColumn: number, contentEnd: number): number {
+    const end = Math.min(contentEnd, endColumn + MAX_PREVIEW_CHARS);
+    return isHighSurrogate(lineText.charCodeAt(end - 1)) ? end - 1 : end;
 }
 
 /**
@@ -184,17 +218,7 @@ export function parseRgMatchLine(line: string): IFileMatch | null {
     if (absolutePath === null || lineText === null || lineNumber === null) return null;
 
     if (!Array.isArray(data.submatches)) return null;
-    const matches: ITextMatch[] = [];
-    for (const raw of data.submatches) {
-        if (!isRecord(raw) || typeof raw.start !== "number" || typeof raw.end !== "number") continue;
-        const preview = splitPreviewByBytes(lineText, raw.start, raw.end);
-        matches.push({
-            lineNumber,
-            startColumn: preview.before.length,
-            endColumn: preview.before.length + preview.inside.length,
-            preview,
-        });
-    }
+    const matches = toTextMatches(lineText, lineNumber, data.submatches);
     if (matches.length === 0) return null;
 
     return { absolutePath, matches };
