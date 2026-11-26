@@ -68,9 +68,12 @@ export default defineScenario({
         if (bg(word, line.x + WORD.length) !== plainBg) throw new Error("the word selection runs past the space");
         await editor.capture("word");
 
-        // A third click in a row: the whole line.
-        await editor.sendMouse({ action: "press", button: "left", x: file, y: line.y });
-        await editor.sendMouse({ action: "release", button: "left", x: file, y: line.y });
+        // A triple click: the whole line. A fresh series, not a third click after the capture: the capture takes
+        // longer than the 300 ms click-series threshold, and a late third click starts the series over.
+        for (let i = 0; i < 3; i++) {
+            await editor.sendMouse({ action: "press", button: "left", x: file, y: line.y });
+            await editor.sendMouse({ action: "release", button: "left", x: file, y: line.y });
+        }
         await waitForFrame(editor, (frame) => bg(frame, line.x + LINE.length - 1) !== plainBg, "the line selected");
         await editor.capture("line");
 
