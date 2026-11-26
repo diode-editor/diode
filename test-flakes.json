@@ -261,6 +261,24 @@
             "test": "TestResultsOutput > a new subject starts from a clean surface: no old line on the screen or in the scrollback",
             "action": "retry",
             "note": "expected '\\n\\n\\n\\n\\n\\n\\n\\n\\n' to contain 'new' in the mutation gate's Stryker initial test run (run 42538740300, PR #1094, whose diff is the Extensions view); green in the same run's unit job"
+        },
+        {
+            "file": "e2e/scenarios/renameSymbol.scenario.ts",
+            "test": "rename-symbol",
+            "action": "retry",
+            "platforms": [
+                "linux"
+            ],
+            "note": "waitUntil(closed main.ts reference in the REFERENCES panel) timed out after 120000ms in both e2e passes on ubuntu: main run 45801161074, run 45789149960 (PR #1269, a @tuidom/* bump), run 45725801182 (PR #1270, scrollbar mouse); the scenario waits on tsserver, none of these diffs touch it; other PRs green"
+        },
+        {
+            "file": "e2e/scenarios/terminalWordSelection.scenario.ts",
+            "test": "terminal-word-selection",
+            "action": "retry",
+            "platforms": [
+                "linux"
+            ],
+            "note": "waitUntil(the line selected) timed out after 10000ms on the triple click, first e2e pass on ubuntu (run 45725801182, PR #1270, whose diff is the scrollbar container; the terminal is not in one); green in the second pass and on main"
         }
     ]
 }

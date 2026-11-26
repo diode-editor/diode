@@ -1688,27 +1688,35 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
     }
 
-    private handleWheel(event: TUIMouseEvent): void {
+    /**
+     * Scrolls to the offset (view rows and columns), clamped to the content. `ScrollBarDecorator`
+     * drives the editor through it: a press on its track, a drag of its thumb.
+     */
+    public scrollTo(left: number, top: number): void {
         const viewState = this.viewState;
         const maxScrollTop = Math.max(0, viewState.getViewLineCount() - viewState.viewportHeight);
         const maxScrollLeft = Math.max(0, this.contentWidth - viewState.viewportWidth);
+        viewState.scrollTop = Math.min(maxScrollTop, Math.max(0, top));
+        // The setters fire onDidChangeView, which marks the frame dirty.
+        viewState.scrollLeft = Math.min(maxScrollLeft, Math.max(0, left));
+    }
 
+    private handleWheel(event: TUIMouseEvent): void {
+        const { scrollLeft, scrollTop } = this.viewState;
         switch (event.wheelDirection) {
             case "up":
-                viewState.scrollTop = Math.max(0, viewState.scrollTop - 3);
+                this.scrollTo(scrollLeft, scrollTop - 3);
                 break;
             case "down":
-                viewState.scrollTop = Math.min(maxScrollTop, viewState.scrollTop + 3);
+                this.scrollTo(scrollLeft, scrollTop + 3);
                 break;
             case "left":
-                viewState.scrollLeft = Math.max(0, viewState.scrollLeft - 3);
+                this.scrollTo(scrollLeft - 3, scrollTop);
                 break;
             case "right":
-                viewState.scrollLeft = Math.min(maxScrollLeft, viewState.scrollLeft + 3);
+                this.scrollTo(scrollLeft + 3, scrollTop);
                 break;
         }
-
-        this.markDirty();
     }
 
     private dragAnchor: { line: number; character: number } | null = null;

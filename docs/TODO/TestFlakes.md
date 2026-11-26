@@ -33,6 +33,12 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `renameSymbol.scenario.ts`, «rename-symbol» (только Linux): за 120 с в панели REFERENCES не появилась ссылка
+  на закрытый `main.ts`, обе попытки e2e (main run 45801161074; run 45789149960, PR #1269, дифф — бамп `@tuidom/*`;
+  run 45725801182, PR #1270, дифф — мышь на скроллбарах); сценарий ждёт tsserver, диффы его не касаются.
+- [ ] `terminalWordSelection.scenario.ts`, «terminal-word-selection» (только Linux): за 10 с после тройного клика
+  строка не выделилась, первая попытка e2e (run 45725801182, PR #1270, дифф — контейнер скроллбаров, терминал в нём не
+  стоит); вторая попытка и `main` зелёные.
 - [ ] `quickOpenHistory.scenario.ts`, «quick-open-history» (только Windows): за 10 с после Ctrl+P и ввода
   `e2e/fixtures/sample.ts` вкладка `sample.ts` не появилась, обе попытки e2e (run 44478670132, PR #1239, дифф —
   `TextEditor.visibleRanges`, сценарий расширений не открывает); перезапуск job'а и `main` зелёные.
