@@ -1,16 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { createApiCommands, type IApiCommandsDeps } from "./apiCommands.ts";
-import { Position, Range, Selection, Uri } from "./vscodeTypes.ts";
+import { DocumentLink, Position, Range, Selection, SnippetString, Uri } from "./vscodeTypes.ts";
 
 function setup(): { open: (...args: unknown[]) => Promise<unknown>; deps: IApiCommandsDeps } {
     const deps: IApiCommandsDeps = {
         showTextDocument: vi.fn(() => Promise.resolve({})),
         openExternal: vi.fn(() => Promise.resolve(true)),
-        openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
+        referenceDocument: vi.fn(() =>
+            Promise.resolve({ document: {} as vscode.TextDocument, dispose: () => undefined }),
+        ),
         executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
         executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+        executeHoverProvider: vi.fn(() => Promise.resolve([])),
+        getActiveTextEditor: () => undefined,
+        executeHostCommand: vi.fn(() => Promise.resolve(undefined)),
     };
     const handler = createApiCommands(deps).get("vscode.open");
     if (handler === undefined) throw new Error("vscode.open is not registered");
@@ -103,17 +108,69 @@ describe("apiCommands — vscode.open", () => {
     });
 });
 
+describe("apiCommands — editor.action.insertSnippet", () => {
+    function run(editor: vscode.TextEditor | undefined): (...args: unknown[]) => Promise<unknown> {
+        const deps: IApiCommandsDeps = {
+            showTextDocument: vi.fn(() => Promise.resolve({})),
+            openExternal: vi.fn(() => Promise.resolve(true)),
+            referenceDocument: vi.fn(() =>
+                Promise.resolve({ document: {} as vscode.TextDocument, dispose: () => undefined }),
+            ),
+            executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
+            executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+            executeHoverProvider: vi.fn(() => Promise.resolve([])),
+            getActiveTextEditor: () => editor,
+            executeHostCommand: vi.fn(() => Promise.resolve(undefined)),
+        };
+        const handler = createApiCommands(deps).get("editor.action.insertSnippet");
+        if (handler === undefined) throw new Error("editor.action.insertSnippet is not registered");
+        return async (...args) => handler(...args);
+    }
+
+    it("[api:commands.executeCommand] hands an inline snippet to the active editor", async () => {
+        const insertSnippet = vi.fn(() => Promise.resolve(true));
+        const call = run({ insertSnippet } as unknown as vscode.TextEditor);
+
+        await expect(call({ snippet: "[$TM_SELECTED_TEXT$0](url)" })).resolves.toBeUndefined();
+
+        expect(insertSnippet).toHaveBeenCalledTimes(1);
+        expect(insertSnippet.mock.calls[0]).toStrictEqual([new SnippetString("[$TM_SELECTED_TEXT$0](url)")]);
+    });
+
+    it("does nothing without an inline snippet: a lookup by langId and name has no contributed snippets", async () => {
+        const insertSnippet = vi.fn(() => Promise.resolve(true));
+        const call = run({ insertSnippet } as unknown as vscode.TextEditor);
+
+        await call({ langId: "markdown", name: "x" });
+        await call();
+
+        expect(insertSnippet).not.toHaveBeenCalled();
+    });
+
+    it("does nothing without an active editor", async () => {
+        await expect(run(undefined)({ snippet: "x" })).resolves.toBeUndefined();
+    });
+});
+
 describe("apiCommands — vscode.execute*", () => {
     const uri = Uri.file("/ws/a.json");
     const doc = {} as vscode.TextDocument;
+    const released = vi.fn();
+
+    beforeEach(() => {
+        released.mockClear();
+    });
 
     function run(id: string): { call: (...args: unknown[]) => Promise<unknown>; deps: IApiCommandsDeps } {
         const deps: IApiCommandsDeps = {
             showTextDocument: vi.fn(() => Promise.resolve({})),
             openExternal: vi.fn(() => Promise.resolve(true)),
-            openTextDocument: vi.fn(() => Promise.resolve(doc)),
+            referenceDocument: vi.fn(() => Promise.resolve({ document: doc, dispose: released })),
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+            executeHoverProvider: vi.fn(() => Promise.resolve([])),
+            getActiveTextEditor: () => undefined,
+            executeHostCommand: vi.fn(() => Promise.resolve(undefined)),
         };
         const handler = createApiCommands(deps).get(id);
         if (handler === undefined) throw new Error(`${id} is not registered`);
@@ -127,9 +184,10 @@ describe("apiCommands — vscode.execute*", () => {
         await expect(call(uri, position, ".", 3)).resolves.toEqual({ items: [] });
         await call(uri, position, null, null);
 
-        expect(deps.openTextDocument).toHaveBeenCalledWith(uri);
+        expect(deps.referenceDocument).toHaveBeenCalledWith(uri);
         expect(deps.executeCompletionItemProvider).toHaveBeenNthCalledWith(1, doc, position, ".", 3);
         expect(deps.executeCompletionItemProvider).toHaveBeenNthCalledWith(2, doc, position, undefined, undefined);
+        expect(released).toHaveBeenCalledTimes(2);
     });
 
     it("vscode.executeCodeActionProvider opens the document and passes the arguments, a Selection is a Range", async () => {
@@ -140,14 +198,72 @@ describe("apiCommands — vscode.execute*", () => {
         await expect(call(uri, range, "quickfix", 2)).resolves.toEqual([]);
         await call(uri, selection);
 
-        expect(deps.openTextDocument).toHaveBeenCalledWith(uri);
+        expect(deps.referenceDocument).toHaveBeenCalledWith(uri);
         expect(deps.executeCodeActionProvider).toHaveBeenNthCalledWith(1, doc, range, "quickfix", 2);
         expect(deps.executeCodeActionProvider).toHaveBeenNthCalledWith(2, doc, selection, undefined, undefined);
+        expect(released).toHaveBeenCalledTimes(2);
     });
 
-    it("vscode.executeLinkProvider answers an empty list: link providers are a no-op", async () => {
-        await expect(run("vscode.executeLinkProvider").call(uri)).resolves.toEqual([]);
-        await expect(run("vscode.executeLinkProvider").call(uri, 5)).resolves.toEqual([]);
+    it.each(["vscode.executeHoverProvider", "vscode.experimental.executeHoverProvider_recursive"])(
+        "[api:commands.executeCommand] %s opens the document and passes the position",
+        async (id) => {
+            const { call, deps } = run(id);
+            const position = new Position(1, 2);
+
+            await expect(call(uri, position)).resolves.toEqual([]);
+
+            expect(deps.referenceDocument).toHaveBeenCalledWith(uri);
+            expect(deps.executeHoverProvider).toHaveBeenCalledWith(doc, position);
+            expect(released).toHaveBeenCalledTimes(1);
+        },
+    );
+
+    it("the document is released after the providers are done, a failing provider too", async () => {
+        const { call, deps } = run("vscode.executeHoverProvider");
+        let releasedWhileRunning = true;
+        vi.mocked(deps.executeHoverProvider).mockImplementation(() => {
+            releasedWhileRunning = released.mock.calls.length > 0;
+            return Promise.reject(new Error("provider failed"));
+        });
+
+        await expect(call(uri, new Position(0, 0))).rejects.toThrow("provider failed");
+
+        expect(releasedWhileRunning).toBe(false);
+        expect(released).toHaveBeenCalledTimes(1);
+    });
+
+    it("vscode.executeLinkProvider asks the core's _executeLinkProvider and answers DocumentLinks", async () => {
+        const { call, deps } = run("vscode.executeLinkProvider");
+        vi.mocked(deps.executeHostCommand).mockResolvedValue([
+            { range: { start: { line: 0, character: 4 }, end: { line: 0, character: 11 } }, tooltip: "one" },
+            {
+                range: { start: { line: 1, character: 0 }, end: { line: 1, character: 21 } },
+                target: "https://example.com/x",
+            },
+        ]);
+
+        const links = (await call(uri, 2)) as vscode.DocumentLink[];
+
+        expect(deps.executeHostCommand).toHaveBeenCalledWith("_executeLinkProvider", [uri, 2]);
+        expect(links.map((link) => link instanceof DocumentLink)).toEqual([true, true]);
+        expect(links[0].range).toEqual(new Range(0, 4, 0, 11));
+        expect(links[0].target).toBeUndefined();
+        expect(links[0].tooltip).toBe("one");
+        expect(links[1].range).toEqual(new Range(1, 0, 1, 21));
+        expect(links[1].target?.toString()).toBe("https://example.com/x");
+        expect(deps.referenceDocument).not.toHaveBeenCalled();
+    });
+
+    it("vscode.executeLinkProvider drops a target that does not parse, as upstream, and keeps the link", async () => {
+        const { call, deps } = run("vscode.executeLinkProvider");
+        const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } };
+        vi.mocked(deps.executeHostCommand).mockResolvedValue([{ range, target: "no scheme" }]);
+
+        const links = (await call(uri)) as vscode.DocumentLink[];
+
+        expect(deps.executeHostCommand).toHaveBeenCalledWith("_executeLinkProvider", [uri, undefined]);
+        expect(links).toHaveLength(1);
+        expect(links[0].target).toBeUndefined();
     });
 
     it.each([
@@ -161,12 +277,74 @@ describe("apiCommands — vscode.execute*", () => {
         ["vscode.executeCodeActionProvider", [uri, 1], "rangeOrSelection", "1"],
         ["vscode.executeCodeActionProvider", [uri, new Range(0, 0, 0, 1), 1], "kind", "1"],
         ["vscode.executeCodeActionProvider", [uri, new Range(0, 0, 0, 1), "k", "x"], "itemResolveCount", "x"],
+        ["vscode.executeHoverProvider", ["nope"], "uri", "nope"],
+        [
+            "vscode.executeHoverProvider",
+            [uri, { line: 0, character: 0 }],
+            "position",
+            '{\n\t"line": 0,\n\t"character": 0\n}',
+        ],
+        ["vscode.experimental.executeHoverProvider_recursive", [uri, 1], "position", "1"],
     ])("%s refuses a bad argument %#", async (id, args, name, received) => {
         const { call, deps } = run(id);
 
         await expect(call(...args)).rejects.toThrow(
             `Invalid argument '${name}' when running '${id}', received: ${received} `,
         );
-        expect(deps.openTextDocument).not.toHaveBeenCalled();
+        expect(deps.referenceDocument).not.toHaveBeenCalled();
+    });
+});
+
+describe("apiCommands — vscode.diff", () => {
+    function setupDiff(): { diff: (...args: unknown[]) => Promise<unknown>; deps: IApiCommandsDeps } {
+        const deps: IApiCommandsDeps = {
+            showTextDocument: vi.fn(() => Promise.resolve({})),
+            openExternal: vi.fn(() => Promise.resolve(true)),
+            referenceDocument: vi.fn(() =>
+                Promise.resolve({ document: {} as vscode.TextDocument, dispose: () => undefined }),
+            ),
+            executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
+            executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+            executeHoverProvider: vi.fn(() => Promise.resolve([])),
+            getActiveTextEditor: () => undefined,
+            executeHostCommand: vi.fn(() => Promise.resolve("host result")),
+        };
+        const handler = createApiCommands(deps).get("vscode.diff");
+        if (handler === undefined) throw new Error("vscode.diff is not registered");
+        return { diff: async (...args) => handler(...args), deps };
+    }
+
+    const left = Uri.parse("sc:a");
+    const right = Uri.parse("sc:b");
+
+    it("[api:commands.executeCommand] valid arguments go to the core's vscode.diff as is, the result is void", async () => {
+        const { diff, deps } = setupDiff();
+        const options = { selection: new Range(new Position(1, 1), new Position(1, 2)) };
+
+        await expect(diff(left, right)).resolves.toBeUndefined();
+        await expect(diff(left, right, "Title", options)).resolves.toBeUndefined();
+        await expect(diff(left, right, null, undefined)).resolves.toBeUndefined();
+
+        expect(vi.mocked(deps.executeHostCommand).mock.calls).toEqual([
+            ["vscode.diff", [left, right]],
+            ["vscode.diff", [left, right, "Title", options]],
+            ["vscode.diff", [left, right, null, undefined]],
+        ]);
+    });
+
+    it.each([
+        [[], "left", "undefined"],
+        [[1, 2, 3], "left", "1"],
+        [[left, "sc:b"], "right", "sc:b"],
+        [[left, right, 3], "title", "3"],
+        // Unlike vscode.open, a bare column is refused, as upstream.
+        [[left, right, "Title", 2], "columnOrOptions", "2"],
+    ])("[api:commands.executeCommand] refuses a bad argument %#, nothing is opened", async (args, name, received) => {
+        const { diff, deps } = setupDiff();
+
+        await expect(diff(...args)).rejects.toThrow(
+            `Invalid argument '${name}' when running 'vscode.diff', received: ${received} `,
+        );
+        expect(deps.executeHostCommand).not.toHaveBeenCalled();
     });
 });

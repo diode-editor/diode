@@ -1,25 +1,47 @@
-import { cpSync, mkdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { blendRgb, compositeOver, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
+
+import {
+    ANGULAR_ID,
+    ANGULAR_SAMPLE_DIR,
+    ensureAngularLibrary,
+    linkAngularLibrary,
+} from "../../src/TestUtils/angularFixture.ts";
 import {
     ensureEslintLibrary,
     ESLINT_FLAT_CONFIG,
     LINT_JS,
     linkEslintLibrary,
 } from "../../src/TestUtils/eslintFixture.ts";
-import {
-    ensureGopls,
-    GO_SAMPLE_DIR,
-    GO_SESSION_ENV,
-    goToolchainMissing,
-} from "../../src/TestUtils/goFixture.ts";
+import { CLANGD_ID, clangdMissing, CPP_SAMPLE_DIR } from "../../src/TestUtils/clangdFixture.ts";
+import { ensureGopls, GO_SAMPLE_DIR, GO_SESSION_ENV, goToolchainMissing } from "../../src/TestUtils/goFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
+import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixture.ts";
+import { SVELTE_ID, SVELTE_SAMPLE_DIR } from "../../src/TestUtils/svelteFixture.ts";
+import { YAML_ID, YAML_SETTINGS } from "../../src/TestUtils/yamlFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
+import { BIOME_SETTINGS, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
+import { findTextCell, frameLine, frameToText } from "../helpers/frame.ts";
+import { npmMissing } from "../helpers/npmProject.ts";
+import {
+    TAILWIND_CLASSES,
+    TAILWIND_CLASSES_COLUMN,
+    TAILWIND_EMPTY_CLASS_COLUMN,
+    TAILWIND_NAMED_COLOR_CLASS,
+    TAILWIND_P4_COLUMN,
+    writeTailwindProject,
+} from "../helpers/tailwindFixture.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
+import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../helpers/tomlProject.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
+
+import { expectNotRegistered } from "./apiJournal.ts";
 
 /**
  * A check exercises the extension's real functionality and inspects editor state, not the mere fact
@@ -194,15 +216,25 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 root: ctx.root,
                 keepRoot: true,
                 open: [ctx.root, file],
-                // Nodes start collapsed; the setting expands them as the user would.
-                settings: { "todo-tree.tree.expanded": true },
+                // Nodes start collapsed; the setting expands them as the user would. Colored highlights give the
+                // types an `overviewRulerColor`, which once drew false git change bars in the gutter (#1235).
+                settings: {
+                    "todo-tree.tree.expanded": true,
+                    "todo-tree.highlights.defaultHighlight": { foreground: "#ffffff", background: "#ff0000" },
+                },
             });
             try {
                 await app.session.waitForText((t) => t.includes("// FIXME: broken"), { timeoutMs: 40_000 });
                 await app.session.executeCommand("workbench.view.extension.todo-tree-container");
-                await app.session.waitForText((t) => t.includes("TODO : first") && t.includes("FIXME : broken"), {
-                    timeoutMs: 60_000,
-                });
+                const frame = await app.session.waitForText(
+                    (t) => t.includes("TODO : first") && t.includes("FIXME : broken"),
+                    { timeoutMs: 60_000 },
+                );
+                // The file is not in git: any change bar in the gutter would be a decoration type's.
+                const bars = frameToText(frame)
+                    .split("\n")
+                    .filter((row) => /[┃┋]\s*\d/.test(row));
+                if (bars.length > 0) throw new Error(`change bars in the gutter:\n${bars.join("\n")}`);
             } finally {
                 await app.dispose();
             }
@@ -443,6 +475,835 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await app.session.waitForText((text) => text.includes("# Title") && !text.includes("MD013"), {
                     timeoutMs: 20_000,
                 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Markdown All in One binds enter, tab and ctrl+b in Markdown and falls back
+        // to the core `type` and `tab`. The code lens is read from the frame, `a.txt` holds the keys outside Markdown.
+        id: "yzhang.markdown-all-in-one",
+        expectFiles: ["package.json", "dist/node/main.js"],
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            mkdirSync(projectRoot);
+            const file = join(projectRoot, "doc.md");
+            writeFileSync(file, "# Title\n\nplain\n\n- item\n\nword\n\n| a | bbbb |\n|---|---|\n| ccccc | d |\n");
+            const other = join(projectRoot, "a.txt");
+            writeFileSync(other, "hello\n");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [projectRoot, other, file] });
+            const { session } = app;
+            const frameHas = (needle: string) =>
+                session.waitForText((text) => text.includes(needle), { timeoutMs: 20_000 });
+            const goToLine = async (line: number): Promise<void> => {
+                await session.key("Ctrl+Home");
+                for (let i = 1; i < line; i++) await session.key("ArrowDown");
+                await session.key("End");
+            };
+            try {
+                await session.waitForText((text) => text.includes("# Title"), { timeoutMs: 40_000 });
+                // Waits for the activation; without a table of contents the command changes nothing.
+                await session.executeCommand("markdown.extension.toc.update");
+
+                await goToLine(3);
+                await session.key("Enter");
+                await frameHas("Ln 4, Col 1");
+                await session.executeCommand("undo");
+
+                await goToLine(5);
+                await session.key("Enter");
+                await frameHas("Ln 6, Col 3");
+                await session.key("Enter");
+                await frameHas("Ln 6, Col 1");
+                await session.executeCommand("undo");
+                await session.executeCommand("undo");
+
+                // The `when` of the Tab binding reads a context the extension sets after the caret moves.
+                await goToLine(5);
+                await waitUntil(
+                    () => session.getContextKey("markdown.extension.editor.cursor.inList"),
+                    (inList) => inList === true,
+                    { timeoutMs: 20_000 },
+                );
+                // Past the marker the extension falls back to the core `tab`.
+                await session.key("Tab");
+                await frameHas("Ln 5, Col 9");
+                await session.executeCommand("undo");
+                // On the marker it changes the level of the list item.
+                await session.key("Home");
+                await session.key("Tab");
+                await frameHas("    - item");
+                await session.key("Shift+Tab");
+                await session.waitForText((text) => !text.includes("    - item"), { timeoutMs: 20_000 });
+
+                await goToLine(7);
+                await session.key("Ctrl+b");
+                await frameHas("**word**");
+                await session.executeCommand("undo");
+
+                await session.key("Ctrl+Home");
+                await session.executeCommand("markdown.extension.toc.create");
+                await frameHas("[Title](#title)");
+                await frameHas("Table of Contents (up to date)");
+                await session.key("Ctrl+End");
+                await session.key("Enter");
+                await session.text("## Later");
+                await frameHas("Table of Contents (out of date)");
+                await session.executeCommand("markdown.extension.toc.update");
+                await frameHas("[Later](#later)");
+                await frameHas("Table of Contents (up to date)");
+
+                await session.executeCommand("editor.action.formatDocument");
+                await frameHas("| ccccc | d    |");
+
+                await session.executeCommand("workbench.action.files.save");
+                await session.executeCommand("markdown.extension.printToHtml");
+                await waitUntil(
+                    () => existsSync(join(projectRoot, "doc.html")),
+                    (written) => written,
+                    { timeoutMs: 20_000 },
+                );
+
+                await session.executeCommand("workbench.action.previousEditor");
+                await frameHas("Plain Text");
+                await session.key("End");
+                await session.key("Enter");
+                await frameHas("Ln 2, Col 1");
+                await frameHas("PROJECT");
+                await session.key("Ctrl+b");
+                await session.waitForText((text) => !text.includes("PROJECT"), { timeoutMs: 20_000 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock npm Intellisense reads the manifest next to the file. The builtin
+        // TS client offers package.json dependencies too, so `left-pad` alone stays green without the
+        // extension: TS strips the `@types/` prefix, and only this extension offers the full name.
+        id: "christian-kohler.npm-intellisense",
+        expectFiles: ["package.json", "out/src/extension.js"],
+        run: async (ctx) => {
+            // The extension registers nothing without `workspace.rootPath`, and the root holds user-data-dir.
+            const projectRoot = join(ctx.root, "project");
+            mkdirSync(projectRoot);
+            writeFileSync(
+                join(projectRoot, "package.json"),
+                JSON.stringify({
+                    name: "sample",
+                    dependencies: { "left-pad": "1.3.0", "@types/only-npm-intellisense": "1.0.0" },
+                    devDependencies: { "dev-only-mod": "1.0.0" },
+                }),
+            );
+            const file = join(projectRoot, "a.js");
+            writeFileSync(file, "");
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, file],
+                settings: { "npm-intellisense.scanDevDependencies": true },
+            });
+            try {
+                // `executeCommand` rejects an id that is not registered yet, and the typing below needs the provider.
+                await app.session.waitForReady();
+                await app.session.executeCommand("npm-intellisense.import");
+                await app.session.waitForText((text) => text.includes("npm module") && text.includes("dev-only-mod"), {
+                    timeoutMs: 40_000,
+                });
+                await app.session.key("Escape");
+                await app.session.waitForText((text) => !text.includes("npm module") && !text.includes("import {}"), {
+                    timeoutMs: 20_000,
+                });
+                // A paste opens no completion popup, the typed quote does.
+                await app.session.sendText("const x = require(");
+                await app.session.key('"');
+                await app.session.waitForText(
+                    (text) => text.includes("left-pad") && text.includes("@types/only-npm-intellisense"),
+                    { timeoutMs: 60_000 },
+                );
+                // Typed, not pasted: `@` is a tsserver trigger character, and its retrigger keeps npm-intellisense's items.
+                for (const char of "@types") await app.session.key(char);
+                await app.session.waitForText(
+                    (text) => !text.includes("left-pad") && text.includes("@types/only-npm-intellisense"),
+                    { timeoutMs: 20_000 },
+                );
+                await app.session.key("Enter");
+                // The pasted `(` has no auto-closed pair; the quote does.
+                await app.session.waitForText((text) => text.includes('require("@types/only-npm-intellisense"'), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Ctrl+Home");
+                await app.session.executeCommand("npm-intellisense.import");
+                await app.session.waitForText((text) => text.includes("npm module") && text.includes("dev-only-mod"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Enter");
+                await app.session.waitForText((text) => text.includes("import {} from 'left-pad';"), {
+                    timeoutMs: 20_000,
+                });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Trailing Spaces edits through `registerTextEditorCommand` and a
+        // will-save `waitUntil`. Blanks don't show in a frame, so the status bar column at the line end
+        // stands for them: 9 with the spaces, 6 without. The highlight is the cells' background: its default
+        // `rgba(255,0,0,0.3)` over the editor background, off the caret line (`highlightCurrentLine`).
+        id: "shardulm94.trailing-spaces",
+        expectFiles: ["package.json", "dist/extension.js"],
+        run: async (ctx) => {
+            const source = "alpha   \nbeta  \n";
+            const trimmed = "alpha\nbeta\n";
+            const waitForContent = (file: string, content: string) =>
+                waitUntil(
+                    () => readFileSync(file, "utf8"),
+                    (text) => text === content,
+                    { describe: `${file} holding ${JSON.stringify(content)}`, timeoutMs: 20_000, intervalMs: 100 },
+                );
+
+            const byCommand = join(ctx.root, "command.txt");
+            writeFileSync(byCommand, source);
+            const commandApp = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [byCommand] });
+            try {
+                await commandApp.session.executeCommand("trailing-spaces.highlightTrailingSpaces");
+                await commandApp.session.key("Ctrl+Home");
+                await commandApp.session.key("End");
+                await commandApp.session.waitForText((text) => text.includes("Ln 1, Col 9"), { timeoutMs: 20_000 });
+                const trailingBgs = async () => {
+                    const frame = await commandApp.session.captureFrame();
+                    const beta = findTextCell(frame, "beta");
+                    if (beta === null) throw new Error("beta is not on screen");
+                    const at = (dx: number) => frame.cells[beta.y * frame.cols + beta.x + dx].bg;
+                    return { spaces: [at(4), at(5)], editorBg: at(12) };
+                };
+                const highlighted = compositeOver(packRgba(255, 0, 0, 77), packRgb(0x1f, 0x1f, 0x1f));
+                await waitUntil(
+                    trailingBgs,
+                    ({ spaces, editorBg }) =>
+                        editorBg === packRgb(0x1f, 0x1f, 0x1f) && spaces.every((bg) => bg === highlighted),
+                    { describe: "the trailing spaces of beta highlighted", timeoutMs: 20_000, intervalMs: 100 },
+                );
+                await commandApp.session.executeCommand("trailing-spaces.deleteTrailingSpaces");
+                await commandApp.session.waitForText((text) => text.includes("Ln 1, Col 6"), { timeoutMs: 20_000 });
+                await waitUntil(trailingBgs, ({ spaces, editorBg }) => spaces.every((bg) => bg === editorBg), {
+                    describe: "no highlight after Delete",
+                    timeoutMs: 20_000,
+                    intervalMs: 100,
+                });
+                await commandApp.session.key("Ctrl+S");
+                await waitForContent(byCommand, trimmed);
+            } finally {
+                await commandApp.dispose();
+            }
+
+            const onSave = join(ctx.root, "save.txt");
+            writeFileSync(onSave, source);
+            const saveApp = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [onSave],
+                settings: { "trailing-spaces.trimOnSave": true },
+            });
+            try {
+                await saveApp.session.executeCommand("trailing-spaces.highlightTrailingSpaces");
+                await saveApp.session.key("Ctrl+Home");
+                await saveApp.session.key("End");
+                await saveApp.session.waitForText((text) => text.includes("Ln 1, Col 9"), { timeoutMs: 20_000 });
+                await saveApp.session.key("Ctrl+S");
+                await waitForContent(onSave, trimmed);
+                await saveApp.session.waitForText((text) => text.includes("Ln 1, Col 6"), { timeoutMs: 20_000 });
+                // Undo brings the spaces and the caret back, and the next save trims them again.
+                await saveApp.session.key("Ctrl+Z");
+                await saveApp.session.waitForText((text) => text.includes("Ln 1, Col 9"), { timeoutMs: 20_000 });
+                await saveApp.session.key("Ctrl+S");
+                await saveApp.session.waitForText((text) => text.includes("Ln 1, Col 6"), { timeoutMs: 20_000 });
+                await waitForContent(onSave, trimmed);
+            } finally {
+                await saveApp.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx", universal: Enter goes through `pythonIndent.newlineAndIndent`. The text is typed key
+        // by key, as bracket auto-close is what sends `foo(` down the `insertSnippet` path of the extension.
+        id: "KevinRose.vsc-python-indent",
+        expectFiles: ["package.json", "out/extension.js", "out/parse-wasm/pythonindent_bg.wasm"],
+        run: async (ctx) => {
+            const file = join(ctx.root, "indent.py");
+            writeFileSync(file, "\n");
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [file],
+                // The snippet of a hanging indent gets a tab stop after the bracket (#1032).
+                settings: { "pythonIndent.useTabOnHangingIndent": true },
+            });
+            const waitForFile = (expected: string): Promise<void> =>
+                waitUntil(
+                    () => readFileSync(file, "utf8"),
+                    (text) => text === expected,
+                    {
+                        describe: `indent.py holding ${JSON.stringify(expected)}`,
+                        timeoutMs: 20_000,
+                        intervalMs: 100,
+                        diagnose: () => `on disk: ${JSON.stringify(readFileSync(file, "utf8"))}`,
+                    },
+                ).then(() => undefined);
+            // Key by key: `sendText` is a paste, and a paste does not auto-close the bracket.
+            const typeKeys = async (text: string): Promise<void> => {
+                for (const char of text) await app.session.sendKey(char === " " ? "Space" : char);
+            };
+            // The command runs in the extension host: the next key must not overtake its edit.
+            const waitForCaret = (position: string): Promise<unknown> =>
+                app.session.waitForText((text) => text.includes(position), { timeoutMs: 20_000 });
+            try {
+                await app.session.waitForReady();
+                await typeKeys("def f(x):");
+                await app.session.key("Enter");
+                await typeKeys("y");
+                // The second row of the frame, with the indent guide in the first column of the indent; the group
+                // frame's right line closes the row.
+                await app.session.waitForText(
+                    (text) => /\b2\s+\S\s{3}y\s*│?$/m.test(text) && text.includes("Ln 2, Col 6"),
+                    {
+                        timeoutMs: 20_000,
+                    },
+                );
+                await app.session.key("Ctrl+S");
+                await waitForFile("def f(x):\n    y\n");
+
+                await app.session.key("Enter");
+                await waitForCaret("Ln 3, Col 5");
+                await typeKeys("foo(");
+                await waitForCaret("Ln 3, Col 9");
+                await app.session.key("Enter");
+                await waitForCaret("Ln 4, Col 9");
+                await typeKeys("z");
+                await waitForCaret("Ln 4, Col 10");
+                // The snippet session: Tab leaves the hanging indent for the closing bracket, the snippet's end.
+                await app.session.key("Tab");
+                await waitForCaret("Ln 5, Col 5");
+                await app.session.key("Ctrl+S");
+                await waitForFile("def f(x):\n    y\n    foo(\n        z\n    )\n");
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Maven for Java. The MAVEN section lists the module from pom.xml, a goal
+        // runs in the terminal, and the goals that throw without a tree node stay out of the palette (`when: never`).
+        id: "vscjava.vscode-maven",
+        expectFiles: ["package.json", "dist/extension.js"],
+        requires: mavenMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const project = join(ctx.root, "maven-project");
+            const pom = writeMavenProject(project);
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [project, pom] });
+            try {
+                await app.session.waitForText((t) => t.includes("MAVEN"), { timeoutMs: 60_000 });
+                // Not earlier: the section's collapsed state is restored during startup and would undo the expand.
+                await app.session.waitForReady();
+                await app.session.executeCommand("mavenProjects.focus");
+                await app.session.waitForText((t) => t.includes("a:b"), { timeoutMs: 60_000 });
+
+                await app.session.key("F1");
+                await app.session.waitForNode("#quickInput");
+                await app.session.sendText("Maven: ");
+                await app.session.waitForText(
+                    (t) => t.includes("Maven: New Project...") && !t.includes("Maven: clean"),
+                    {
+                        timeoutMs: 20_000,
+                    },
+                );
+                await app.session.key("Escape");
+
+                // `maven.goal.custom` with a pom path and a goal: what the Custom... input box ends up calling.
+                await app.session.executeCommand("maven.goal.custom", pom, "validate");
+                await app.session.waitForText((t) => t.includes("BUILD SUCCESS"), { timeoutMs: 180_000 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Biome. It has no binary of its own, the server comes from the project's
+        // `@biomejs/biome`. The indent of 8 in biome.json tells its formatting from anything else that formats.
+        id: "biomejs.biome",
+        expectFiles: ["package.json", "out/main.js"],
+        requires: npmMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            const file = writeBiomeProject(projectRoot);
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, file],
+                settings: BIOME_SETTINGS,
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle from the Biome server", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                await app.session.executeCommand("editor.action.formatDocument");
+                // The frame draws an indent guide in the first column of the indent.
+                await app.session.waitForText((text) => text.includes("▏       debugger;"), { timeoutMs: 20_000 });
+
+                await app.session.key("Ctrl+Home");
+                await app.session.key("ArrowDown");
+                await app.session.key("ArrowDown");
+                await app.session.key("ArrowDown");
+                await app.session.key("Ctrl+.");
+                await app.session.waitForText((text) => text.includes("Suppress rule lint/suspicious/noDebugger"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Escape");
+
+                // Organize imports on save: `b` goes above `z`.
+                await app.session.key("Ctrl+s");
+                await waitUntil(
+                    () => Promise.resolve(readFileSync(file, "utf8")),
+                    (text) => text.indexOf('"./b.js"') < text.indexOf('"./z.js"') && text.includes("        debugger;"),
+                    { describe: "the file saved with sorted imports and Biome's indent", timeoutMs: 20_000 },
+                );
+
+                await app.session.executeCommand("biome.restart");
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "the squiggle after biome.restart", timeoutMs: 30_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
+            }
+            // These features are not in the server, not missing here.
+            expectNotRegistered("biomejs.biome", [
+                "languages.registerInlayHintsProvider",
+                "languages.registerCodeLensProvider",
+                "languages.registerDefinitionProvider",
+                "languages.registerReferenceProvider",
+                "languages.registerDocumentSymbolProvider",
+            ]);
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Even Better TOML, its taplo server is WASM inside the extension. The
+        // schema is local: 0.21.2 rejects the `$schema` of today's schemastore catalog, so it is not in the check.
+        id: "tamasfe.even-better-toml",
+        expectFiles: ["package.json", "dist/extension.js", "dist/server.js"],
+        timeoutMs: 180_000,
+        run: async (ctx) => {
+            const project = join(ctx.root, "project");
+            const file = writeTomlProject(project);
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [project, file] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl on the unclosed table header", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                await app.session.key("Ctrl+End");
+                for (let i = 0; i < TOML_BROKEN_TAIL_LENGTH; i++) await app.session.key("Backspace");
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.every((cell) => (cell.style & 8) === 0),
+                    { describe: "the squiggle gone with the broken header", timeoutMs: 30_000, intervalMs: 500 },
+                );
+                await app.session.executeCommand("editor.action.formatDocument");
+                await app.session.waitForText((text) => text.includes('name = "demo"'), { timeoutMs: 20_000 });
+
+                await app.session.executeCommand("workbench.action.gotoSymbol");
+                await app.session.waitForText((text) => text.includes("symbols (2)"), { timeoutMs: 20_000 });
+                await app.session.key("Escape");
+
+                await app.session.key("Ctrl+a");
+                await app.session.executeCommand("evenBetterToml.copyAsJson");
+                await app.session.waitForText((text) => text.includes("JSON copied!"), { timeoutMs: 20_000 });
+            } finally {
+                await app.dispose();
+            }
+            expectNotRegistered("tamasfe.even-better-toml", [
+                "languages.registerInlayHintsProvider",
+                "languages.registerCodeLensProvider",
+                "languages.registerImplementationProvider",
+                "languages.registerCallHierarchyProvider",
+                "languages.registerTypeHierarchyProvider",
+                "languages.registerLinkedEditingRangeProvider",
+                "languages.registerOnTypeFormattingEditProvider",
+            ]);
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Tailwind CSS IntelliSense. Its server loads `tailwindcss` from the project
+        // and starts only when a CSS file imports it.
+        id: "bradlc.vscode-tailwindcss",
+        expectFiles: ["package.json", "dist/extension.js"],
+        requires: npmMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            const html = writeTailwindProject(projectRoot);
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [projectRoot, html] });
+            const caretAt = async (line: number, column: number): Promise<void> => {
+                await app.session.key("Ctrl+Home");
+                for (let i = 0; i < line; i++) await app.session.key("ArrowDown");
+                for (let i = 0; i < column; i++) await app.session.key("ArrowRight");
+            };
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl of the p-4/p-6 conflict", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                // The color provider's square before an arbitrary color.
+                await app.session.waitForText((text) => text.includes("■ bg-[#ff0000]"), { timeoutMs: 20_000 });
+                // A named color: the extension's `before` decoration with the color per range, in that color.
+                const named = await app.session.waitForText(
+                    (text) => text.includes(`■ ${TAILWIND_NAMED_COLOR_CLASS}`),
+                    { timeoutMs: 20_000 },
+                );
+                const square = findTextCell(named, `■ ${TAILWIND_NAMED_COLOR_CLASS}`);
+                // red-500 of the v4 palette, oklch(63.7% 0.237 25.331), as the server converts it.
+                if (square === null || named.cells[square.y * named.cols + square.x].fg !== 0xfb2c36) {
+                    throw new Error("the square before bg-red-500 is not red-500");
+                }
+                // The arbitrary color keeps the provider's square only: the extension decorates named colors.
+                if (frameToText(named).includes("■ ■")) throw new Error("a color got two squares");
+
+                await caretAt(0, TAILWIND_P4_COLUMN);
+                await app.session.executeCommand("editor.action.showHover");
+                await app.session.waitForText((text) => text.includes("calc(var(--spacing) * 4)"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Escape");
+                await app.session.key("Ctrl+.");
+                await app.session.waitForText((text) => text.includes("Delete 'p-6'"), { timeoutMs: 20_000 });
+                await app.session.key("Escape");
+
+                await caretAt(1, TAILWIND_EMPTY_CLASS_COLUMN);
+                // Typed, not pasted: a paste opens no suggestions.
+                for (const char of "text-amber-") await app.session.key(char);
+                const frame = await app.session.waitForText((text) => text.includes("text-amber-500"), {
+                    timeoutMs: 20_000,
+                });
+                // A color item draws a square of its color in place of the kind icon.
+                const item = findTextCell(frame, "text-amber-500");
+                if (item === null || !frameLine(frame, item.y).slice(0, item.x).includes("■")) {
+                    throw new Error("no color square in the completion row");
+                }
+                await app.session.key("Escape");
+
+                await caretAt(0, TAILWIND_CLASSES_COLUMN);
+                for (let i = 0; i < TAILWIND_CLASSES.length; i++) await app.session.key("Shift+ArrowRight");
+                await app.session.executeCommand("tailwindCSS.sortSelection");
+                await app.session.waitForText((text) => text.includes('"flex ■ bg-[#ff0000] p-4 p-6"'), {
+                    timeoutMs: 20_000,
+                });
+
+                await app.session.executeCommand("workbench.action.quickOpen", "app.css");
+                await app.session.key("Enter");
+                await app.session.waitForText((text) => text.includes("Generates 11 classes"), { timeoutMs: 30_000 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock YAML by Red Hat. A workflow file gets its schema from the schemastore.org
+        // catalog; `editor.quickSuggestions` with `strings: true` comes from the extension's `[yaml]` defaults, and a
+        // plain scalar is a string token, so without them `shell: b` would open nothing.
+        id: YAML_ID,
+        expectFiles: ["package.json", "dist/extension.js", "dist/languageserver.js"],
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            const file = join(projectRoot, ".github", "workflows", "ci.yml");
+            mkdirSync(dirname(file), { recursive: true });
+            writeFileSync(
+                file,
+                "name: CI\nname: again\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n",
+            );
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, file],
+                settings: YAML_SETTINGS,
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl under the duplicate key", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                await app.session.waitForText((text) => text.trimEnd().endsWith("GitHub Workflow"), {
+                    timeoutMs: 30_000,
+                });
+
+                await app.session.key("Ctrl+End");
+                await app.session.text("        shell: ");
+                await app.session.key("b");
+                await app.session.waitForText((text) => text.includes("bash"), { timeoutMs: 20_000 });
+                await app.session.key("Escape");
+
+                await app.session.key("Enter");
+                await app.session.text("        # ");
+                await app.session.key("b");
+                // The quick suggest delay is 10 ms; a popup in a comment would be up long before this.
+                await new Promise((resolve) => setTimeout(resolve, 1_000));
+                await app.session.waitForIdle();
+                if ((await app.session.node("#suggestWidget")) !== null) {
+                    throw new Error("suggestions opened in a YAML comment");
+                }
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Svelte for VS Code with the bundled server, compiler and TypeScript. An
+        // unknown name in the markup is a squiggle; the question about its TypeScript plugin answers Enable, which
+        // only saves the setting (Diode has no `vscode.typescript-language-features` to configure), and the built-in
+        // TypeScript keeps its squiggle in the `.ts` file. The project sits in its own folder: the tsconfig's
+        // `**/*.ts` must not reach the installed extensions.
+        id: SVELTE_ID,
+        expectFiles: ["package.json", "dist/src/extension.js", "node_modules/svelte-language-server/package.json"],
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const project = join(ctx.root, "svelte-app");
+            cpSync(SVELTE_SAMPLE_DIR, project, { recursive: true });
+            writeFileSync(join(project, "broken.ts"), 'export const answer: number = "42";\n');
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [project, join(project, "broken.ts"), join(project, "App.svelte")],
+            });
+            const undercurl = (describe: string): Promise<unknown> =>
+                waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe, timeoutMs: 120_000, intervalMs: 500 },
+                );
+            try {
+                await undercurl("undercurl under unknownVar from the Svelte server");
+                const frame = await app.session.waitForText((text) => text.includes("[ Enable ]"), {
+                    timeoutMs: 60_000,
+                });
+                const enable = findTextCell(frame, "[ Enable ]");
+                if (enable === null) throw new Error("the Enable button is not on screen");
+                await app.session.click(enable.x + 2, enable.y);
+                const settings = join(app.env.userDataDir, "user-data", "User", "settings.json");
+                await waitUntil(
+                    () => Promise.resolve(existsSync(settings) ? readFileSync(settings, "utf8") : ""),
+                    (text) => text.includes('"svelte.enable-ts-plugin": true'),
+                    { describe: "the answer saved in the user settings", timeoutMs: 20_000 },
+                );
+
+                await app.session.executeCommand("svelte.showCompiledCodeToSide");
+                await app.session.waitForText((text) => text.includes("generated by Svelte"), { timeoutMs: 30_000 });
+                await app.session.executeCommand("workbench.action.closeActiveEditor");
+
+                await app.session.executeCommand("svelte.restartLanguageServer");
+                await undercurl("the squiggle after svelte.restartLanguageServer");
+
+                await app.session.executeCommand("workbench.action.previousEditor");
+                await app.session.waitForText((text) => text.includes('answer: number = "42"'), { timeoutMs: 20_000 });
+                await undercurl("the built-in TypeScript squiggle in broken.ts after Enable");
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Angular Language Service. The server and TypeScript are bundled, Angular is
+        // not: the client asks the server whether a file is in an Angular project, and the answer is yes only with
+        // `@angular/core` in the project's node_modules, so it comes as a symlink from the fixture's npm cache. The
+        // extension forks its server by the DIRECTORY `server`, which our binary in node mode has to resolve as node
+        // does. The undercurl is under `missingProp` in the external template: nothing but ngtsc checks an `.html`.
+        id: ANGULAR_ID,
+        expectFiles: ["package.json", "index.js", "server/package.json"],
+        timeoutMs: 420_000,
+        requires: npmMissing,
+        run: async (ctx) => {
+            const project = join(ctx.root, "angular-app");
+            cpSync(ANGULAR_SAMPLE_DIR, project, { recursive: true });
+            linkAngularLibrary(project, ensureAngularLibrary());
+            const template = join(project, "src", "app", "hello.component.html");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [project, template] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => {
+                        const at = findTextCell(frame, "missingProp");
+                        return (
+                            at !== null && (frame.cells[at.y * frame.cols + at.x].style & StyleFlags.Undercurl) !== 0
+                        );
+                    },
+                    { describe: "the ngtsc undercurl under missingProp", timeoutMs: 180_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock ShellCheck on its bundled WebAssembly runtime, no external tool. `Apply fix`
+        // is offered only when the requested range lies inside the diagnostic, so it needs the exact selection.
+        id: "timonwong.shellcheck",
+        expectFiles: [
+            "package.json",
+            "dist/extension.js",
+            "node_modules/@vscode-shellcheck/shellcheck-wasm/dist/shellcheck.wasm",
+        ],
+        run: async (ctx) => {
+            const file = join(ctx.root, "script.sh");
+            writeFileSync(file, "#!/bin/bash\necho $1\n");
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [file],
+                // The provider's hover is HTML (supportHtml): it reaches the frame as text below the diagnostic.
+                settings: { "shellcheck.runtime": "wasm", "shellcheck.markdownDiagnostics": true },
+                // Keeps a browser from opening where the run happens to have a display.
+                env: { DISPLAY: "", WAYLAND_DISPLAY: "" },
+            });
+            const { session } = app;
+            try {
+                await waitUntil(
+                    () => session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle from ShellCheck", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                // Toasts come one at a time: the What's New one would hold back the toast of the link below.
+                await session.waitForText((t) => t.includes("has new features"), { timeoutMs: 20_000 });
+                await session.executeCommand("notifications.clearAll");
+                await session.executeCommand("workbench.actions.view.problems");
+                await session.waitForText((t) => t.includes("shellcheck(SC2086)"), { timeoutMs: 20_000 });
+                await session.executeCommand("workbench.action.focusActiveEditorGroup");
+
+                await session.key("Ctrl+Home");
+                await session.key("ArrowDown");
+                await session.key("End");
+                await session.key("ArrowLeft");
+                await session.executeCommand("editor.action.showHover");
+                await session.waitForNode("#hoverWidget");
+                // ShellCheck rates SC2086 as info: the header of its block is `Information (SC2086)`.
+                const tagless = (t: string): boolean => t.includes("Information (SC2086)") && !/<span|codicon/.test(t);
+                await session.waitForText(tagless, { timeoutMs: 20_000 });
+                await session.key("Escape");
+
+                await session.key("Ctrl+.");
+                await session.waitForText((t) => t.includes("Apply fix for SC2086"), { timeoutMs: 20_000 });
+                await session.key("Enter");
+                await session.waitForText((t) => t.includes('echo "$1"') && !t.includes("shellcheck(SC2086)"), {
+                    timeoutMs: 20_000,
+                });
+
+                // Linted while typing. The caret ends up past the diagnostic: the quick fix comes from along the line.
+                await session.key("Ctrl+End");
+                await session.text("rm $2");
+                await session.waitForText((t) => t.includes("shellcheck(SC2086)  [Ln 3, Col 4]"), {
+                    timeoutMs: 20_000,
+                });
+                await session.key("End");
+                await session.key("Ctrl+.");
+                await session.waitForText((t) => t.includes("Disable SC2086 for this line"), { timeoutMs: 20_000 });
+                await session.key("ArrowDown");
+                await session.key("ArrowDown");
+                await session.key("Enter");
+                await session.waitForText(
+                    (t) => t.includes("# shellcheck disable=SC2086") && !t.includes("shellcheck(SC2086)"),
+                    { timeoutMs: 20_000 },
+                );
+
+                // Links arrive after the text: Open Link before them finds nothing.
+                await waitUntil(
+                    () => session.captureFrame(),
+                    (frame) => {
+                        const at = findTextCell(frame, "SC2086");
+                        return (
+                            at !== null && (frame.cells[at.y * frame.cols + at.x].style & StyleFlags.Underline) !== 0
+                        );
+                    },
+                    { describe: "the underline of the wiki link", timeoutMs: 20_000, intervalMs: 100 },
+                );
+                await session.key("ArrowUp");
+                await session.key("End");
+                await session.key("ArrowLeft");
+                await session.executeCommand("editor.action.openLink");
+                await session.waitForText((t) => t.includes("https://www.shellcheck.net/wiki/SC2086"), {
+                    timeoutMs: 20_000,
+                });
+                await session.executeCommand("notifications.clearAll");
+
+                await session.key("F1");
+                await session.waitForNode("#quickInput");
+                await session.text("ShellCheck: Use the Experimental");
+                await session.waitForText((t) => t.includes("Use the Experimental WebAssembly Runtime"), {
+                    timeoutMs: 20_000,
+                });
+                await session.key("Enter");
+                await session.waitForText((t) => t.includes("Switch ShellCheck to the experimental"), {
+                    timeoutMs: 20_000,
+                });
+                await session.key("Enter");
+                await session.waitForText((t) => !t.includes("Switch ShellCheck to the experimental"), {
+                    timeoutMs: 20_000,
+                });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock clangd. The server is the machine's clangd (CI installs it with apt): the
+        // extension's own download is ~50 MB and has no linux/arm64 build. The undercurl is clangd's, diode has no C++
+        // diagnostics of its own.
+        id: CLANGD_ID,
+        expectFiles: ["package.json", "out/bundle.js"],
+        requires: clangdMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "cppproj");
+            cpSync(CPP_SAMPLE_DIR, projectRoot, { recursive: true });
+            // clangd marks the `#if 0` branch inactive; the extension fades it with a whole-line `opacity`. Two
+            // comments of the same token color tell the faded line from the plain one. The extension creates its
+            // decoration type on the first change of the visible editors after the server is up (as in VS Code):
+            // shape.h is opened too, to switch away and back.
+            writeFileSync(
+                join(projectRoot, "main.cpp"),
+                `${readFileSync(join(CPP_SAMPLE_DIR, "main.cpp"), "utf8")}\n#if 0\n// inactive line\n#endif\n// active line\n`,
+            );
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, join(projectRoot, "shape.h"), join(projectRoot, "main.cpp")],
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: 'undercurl under int x = "s" from clangd', timeoutMs: 120_000, intervalMs: 500 },
+                );
+                await app.session.executeCommand("workbench.action.previousEditor");
+                await app.session.executeCommand("workbench.action.nextEditor");
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => {
+                        const inactive = findTextCell(frame, "// inactive line");
+                        const active = findTextCell(frame, "// active line");
+                        if (inactive === null || active === null) return false;
+                        const cell = ({ x, y }: { x: number; y: number }) => frame.cells[y * frame.cols + x];
+                        // `clangd.inactiveRegions.opacity` defaults to 0.55.
+                        return cell(inactive).fg === blendRgb(cell(active).fg, cell(inactive).bg, 0.55);
+                    },
+                    { describe: "the #if 0 branch faded by clangd to 0.55", timeoutMs: 60_000, intervalMs: 500 },
+                );
             } finally {
                 await app.dispose();
             }

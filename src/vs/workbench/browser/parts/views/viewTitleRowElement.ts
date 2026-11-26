@@ -34,7 +34,17 @@ export interface IViewTitleAction {
     readonly icon: string;
     /** `false`: the button stays in place but is dimmed and does nothing (the item's `enablement`). */
     readonly enabled?: boolean;
+    /** A theme color id for the glyph of an enabled button (`IMenuContribution.iconColor`). */
+    readonly color?: string;
+    /**
+     * The arrow of a split button: glued to the button before it (no bar, no leading space), so
+     * ` ▷ ▾ ` reads as one control with two click zones.
+     */
+    readonly attached?: boolean;
 }
+
+/** Glyph-space: the leading space is the previous button's trailing one. */
+const ATTACHED_BUTTON_WIDTH = 2;
 
 export type ViewTitleZone =
     | { kind: "title" }
@@ -237,9 +247,10 @@ export class ViewTitleRowElement extends HFlexElement {
 
     private syncChildren(): void {
         this.actionLabels = this.actions.map((action) => {
-            const label = new TextLabelElement(buttonLabel(action.icon));
-            label.style = buttonStyle(action.enabled !== false);
-            label.layoutStyle = { width: hflexFixed(BUTTON_WIDTH), height: 1 };
+            const attached = action.attached === true;
+            const label = new TextLabelElement(attached ? `${action.icon} ` : buttonLabel(action.icon));
+            label.style = buttonStyle(action.enabled !== false, action.color);
+            label.layoutStyle = { width: hflexFixed(attached ? ATTACHED_BUTTON_WIDTH : BUTTON_WIDTH), height: 1 };
             return label;
         });
         this.titleLabel.layoutStyle = { width: hflexFit(), height: 1 };
@@ -259,7 +270,7 @@ export class ViewTitleRowElement extends HFlexElement {
         const controls: TUIElement[] = [...this.actionLabels];
         if (this.menuVisible) controls.push(this.menuLabel);
         controls.forEach((control, index) => {
-            if (index > 0) children.push(separatorLabel());
+            if (index > 0 && this.actions.at(index)?.attached !== true) children.push(separatorLabel());
             children.push(control);
         });
         this.replaceChildren(children);
@@ -267,15 +278,18 @@ export class ViewTitleRowElement extends HFlexElement {
 
     /**
      * HFlex clamps greedily in child order, so a long title (a folder name) would push the buttons and "⋯"
-     * out of a narrow header. The controls keep their columns; the title, then the description, get the rest.
+     * out of a narrow header. The controls keep their columns and the widget its minimum; the title, then the
+     * description, then the widget up to its natural width get the rest (Run and Debug's launcher shrinks, as
+     * upstream's `flex-shrink`).
      */
     protected override performLayout(constraints: BoxConstraints): Size {
+        const widget = this.titleWidget;
         const shrinkable = new Set<TUIElement>([this.titleLabel, this.descriptionLabel, this.filler]);
         let reserved = 0;
         for (const child of this.getChildren()) {
             if (shrinkable.has(child)) continue;
             const width = (child.layoutStyle as HFlexLayoutStyle).width;
-            reserved += width.type === "fixed" ? width.value : child.getMaxIntrinsicWidth(1);
+            reserved += width.type === "fixed" ? width.value : child.getMinIntrinsicWidth(1);
         }
         let free = Math.max(0, constraints.maxWidth - reserved);
         for (const label of [this.titleLabel, this.descriptionLabel]) {
@@ -283,21 +297,27 @@ export class ViewTitleRowElement extends HFlexElement {
             label.layoutStyle = { width: hflexFixed(width), height: 1 };
             free -= width;
         }
+        if (widget !== null) {
+            const min = widget.getMinIntrinsicWidth(1);
+            const width = min + Math.min(widget.getMaxIntrinsicWidth(1) - min, free);
+            widget.layoutStyle = { width: hflexFixed(width), height: 1 };
+        }
         const size = super.performLayout(constraints);
         // Back to `fit`: the row's intrinsic width must stay the full title, not the clamp of the last layout.
         this.titleLabel.layoutStyle = { width: hflexFit(), height: 1 };
         this.descriptionLabel.layoutStyle = { width: hflexFit(), height: 1 };
+        if (widget !== null) widget.layoutStyle = { width: hflexFit(), height: 1 };
         return size;
     }
 }
 
 /** Dimmed but always visible (there may be no mouse at all); the owner sets `hover`. */
-function buttonStyle(enabled: boolean): TUIElement["style"] {
+function buttonStyle(enabled: boolean, color = "descriptionForeground"): TUIElement["style"] {
     // A disabled button has no hover variant at all: a highlighted background would read
     // as clickable, and it isn't.
     if (!enabled) return { fg: "disabledForeground" };
     return {
-        fg: "descriptionForeground",
+        fg: color,
         when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }],
     };
 }
@@ -331,9 +351,10 @@ function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleActio
 
 /**
  * Enabled state is compared along with id and icon: otherwise the early return in `setActions` would
- * swallow its change, and the button would stay as it was first built.
+ * swallow its change, and the button would stay as it was first built. The color is not: an item's color is fixed.
  */
 function sameAction(a: IViewTitleAction, b: IViewTitleAction): boolean {
     // Stryker disable next-line ConditionalExpression: "buttons always differ" is an extra rebuild not observable in the frame; skipping a needed one is covered by the id, icon and enabled-change tests
+    // `attached` is not compared: a split button's arrow has an id of its own.
     return a.id === b.id && a.icon === b.icon && (a.enabled !== false) === (b.enabled !== false);
 }

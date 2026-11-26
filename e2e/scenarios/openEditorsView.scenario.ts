@@ -109,8 +109,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("OPEN EDITORS"));
         await editor.capture("after-reload");
 
-        // A modified editor keeps ● on its row while the cursor is elsewhere. Last: undo doesn't clear the
-        // modified mark, and a reload with an unsaved file would stop at the save prompt.
+        // A modified editor keeps ● on its row while the cursor is elsewhere. Last: a reload with an unsaved file
+        // would stop at the save prompt.
         await waitForRows(editor, [/^Group 1/u, /^alpha/u, /^gamma/u, /^Group 2/u, /^gamma/u]);
         await clickRow(editor, 4);
         await editor.sendKey("Ctrl+Alt+E");

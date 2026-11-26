@@ -468,7 +468,7 @@ describe("ExtensionTreeViewsAdapter — multiple selection", () => {
         const f = await setup({ canSelectMany: true, extensions: [SUBMENUS], rows: [ROWS[0], GCP] });
         await selectFirstTwo(f, ["1/prov", "1/gcp"]);
         f.rightClick("aws");
-        expect(f.menu()).toEqual(["More", "─", "Copy Name", "Open Documentation"]);
+        expect(f.menu()).toEqual(["Copy Name", "Open Documentation", "─", "More"]);
     });
 
     it("a right click outside the selection is that row alone", async () => {

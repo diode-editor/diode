@@ -1,11 +1,19 @@
-import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
-import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
-import type { IExtensionTerminalSink } from "../../../../api/common/iExtensionWindowSinks.ts";
+import { DisposableMap, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import type { HostRpc, IHostToSubprocess } from "../../../../api/common/extHostProtocol.ts";
+import {
+    type IExtensionTerminalProfileSink,
+    type IExtensionTerminalShellIntegrationEvents,
+    type IExtensionTerminalSink,
+    sendShellIntegrationState,
+} from "../../../../api/common/iExtensionWindowSinks.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
     parseWireTerminalCreate,
+    parseWireTerminalExecuteCommand,
+    parseWireTerminalProfileProvider,
     parseWireTerminalPtyData,
     parseWireTerminalPtyExit,
+    parseWireTerminalPtyName,
     parseWireTerminalSendText,
     parseWireTerminalShow,
     parseWireTerminalTarget,
@@ -29,10 +37,14 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         alive: boolean;
     } | null = null;
 
-    public constructor(private readonly sink: IExtensionTerminalSink | undefined) {}
+    public constructor(
+        private readonly sink: IExtensionTerminalSink | undefined,
+        private readonly profiles?: IExtensionTerminalProfileSink,
+    ) {}
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
         const store = new DisposableStore();
+        if (this.profiles !== undefined) store.add(attachProfileProviders(rpc, this.profiles));
         const sink = this.sink;
         if (sink === undefined) return store;
         const spawn = { rpc, sink, ready: false, alive: true };
@@ -61,6 +73,19 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                 ptyResize: (id, cols, rows) => {
                     rpc.notify("terminal.pty.resize", { id, cols, rows });
                 },
+                interaction: (id) => {
+                    if (seeded()) rpc.notify("terminal.interaction", { id });
+                },
+                titleChanged: (id, name) => {
+                    if (seeded()) rpc.notify("terminal.titleChanged", { id, name });
+                },
+                ...shellIntegrationNotifier(rpc, seeded),
+            }),
+        );
+        store.add(
+            rpc.handleNotification("terminal.shellIntegration.executeCommand", (params) => {
+                const request = parseWireTerminalExecuteCommand(params);
+                if (request !== null) sink.executeCommand(request.id, request.commandLine);
             }),
         );
         store.add(
@@ -105,6 +130,12 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                 if (request !== null) sink.ptyExit(request.terminal, request.code);
             }),
         );
+        store.add(
+            rpc.handleNotification("terminal.pty.name", (params) => {
+                const request = parseWireTerminalPtyName(params);
+                if (request !== null) sink.ptyName(request.terminal, request.name);
+            }),
+        );
         store.add({
             dispose: () => {
                 spawn.alive = false;
@@ -117,14 +148,64 @@ export class TerminalCustomer implements IExtensionHostCustomer {
 
     /**
      * Like the upstream `MainThreadTerminalService` constructor: `$acceptTerminalOpened` for all instances, plus
-     * the active one.
+     * the active one; then, as the `MainThreadTerminalShellIntegration` constructor, the shell integration already
+     * alive, with its cwd and environment.
      */
     public pushInitialState(): void {
         const spawn = this.spawn;
         if (spawn === null) return;
-        const { terminals, activeId } = spawn.sink.snapshot();
-        for (const terminal of terminals) spawn.rpc.notify("terminal.opened", terminal);
-        spawn.rpc.notify("terminal.activeChanged", { id: activeId });
+        const { rpc } = spawn;
+        const { terminals, activeId, shellIntegrations } = spawn.sink.snapshot();
+        for (const terminal of terminals) rpc.notify("terminal.opened", terminal);
+        rpc.notify("terminal.activeChanged", { id: activeId });
+        const notifier = shellIntegrationNotifier(rpc, () => true);
+        for (const state of shellIntegrations) sendShellIntegrationState(notifier, state);
         spawn.ready = true;
     }
+}
+
+/** The shell integration events as notifications, while `live` holds. */
+function shellIntegrationNotifier(rpc: HostRpc, live: () => boolean): IExtensionTerminalShellIntegrationEvents {
+    const forward =
+        <M extends keyof IHostToSubprocess["notifications"]>(method: M) =>
+        (event: IHostToSubprocess["notifications"][M]): void => {
+            if (live()) rpc.notify(method, event);
+        };
+    return {
+        shellIntegrationChanged: forward("terminal.shellIntegration.changed"),
+        shellIntegrationCwd: forward("terminal.shellIntegration.cwd"),
+        shellIntegrationEnv: forward("terminal.shellIntegration.env"),
+        shellExecutionStart: forward("terminal.shellExecution.start"),
+        shellExecutionData: forward("terminal.shellExecution.data"),
+        shellExecutionEnd: forward("terminal.shellExecution.end"),
+    };
+}
+
+/** Upstream `$registerProfileProvider`/`$unregisterProfileProvider`; the registrations die with the spawn. */
+function attachProfileProviders(rpc: HostRpc, profiles: IExtensionTerminalProfileSink): IDisposable {
+    const store = new DisposableStore();
+    const providers = store.add(new DisposableMap<string>());
+    store.add(
+        rpc.handleNotification("terminal.registerProfileProvider", (params) => {
+            const request = parseWireTerminalProfileProvider(params);
+            if (request === null) return;
+            const { id } = request;
+            providers.set(
+                id,
+                profiles.registerProvider(id, async (target) => {
+                    await rpc.request("terminal.createContributedProfile", {
+                        id,
+                        location: target === "editor" ? 2 : 1,
+                    });
+                }),
+            );
+        }),
+    );
+    store.add(
+        rpc.handleNotification("terminal.unregisterProfileProvider", (params) => {
+            const request = parseWireTerminalProfileProvider(params);
+            if (request !== null) providers.deleteAndDispose(request.id);
+        }),
+    );
+    return store;
 }

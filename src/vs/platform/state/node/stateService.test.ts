@@ -405,6 +405,31 @@ describe("StateService", () => {
         });
     });
 
+    it("storing the same value or removing a missing key writes nothing: a deleted profile directory stays deleted", () => {
+        const p = paths();
+        const v1: IStateDescriptor<string> = { key: "some.value", scope: "global", default: "def", version: 1 };
+        const svc = loadState(p);
+        svc.store(width, 40);
+        svc.store(v1, "a");
+        svc.flushSync();
+        fs.rmSync(path.dirname(p.globalStateFile), { recursive: true });
+
+        svc.store(width, 40);
+        svc.store(v1, "a");
+        svc.remove(openFiles);
+        svc.remove({ ...width, key: "never.stored" });
+        svc.flushSync();
+        expect(fs.existsSync(p.globalStateFile)).toBe(false);
+
+        svc.store({ ...v1, version: 2 }, "a");
+        svc.flushSync();
+        expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toMatchObject({ "some.value": "a" });
+        svc.store(width, 41);
+        svc.remove(v1);
+        svc.flushSync();
+        expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toEqual({ "workbench.sideBar.width": 41 });
+    });
+
     it("is a no-op flushSync when nothing is dirty", () => {
         const p = paths();
         const svc = loadState(p);

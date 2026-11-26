@@ -22,9 +22,6 @@ describe("Workbench — Quick Open accept callbacks", () => {
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
-        // The file index now builds in the background — wait for it so the picker
-        // has entries when the test opens Quick Open.
-        await h.workbench.fileIndexReady;
         h.testApp.render();
     });
 
@@ -41,8 +38,12 @@ describe("Workbench — Quick Open accept callbacks", () => {
         h.testApp.render();
 
         const picker = h.testApp.querySelector("QuickPickElement") as QuickPickElement;
-        const alpha = picker.items.find((i) => i.label === "alpha.txt")!;
-        expect(alpha).toBeDefined();
+        // The walk runs when Quick Open opens; the rows arrive with its answer.
+        const alpha = await vi.waitFor(() => {
+            const found = picker.items.find((i) => i.label === "alpha.txt");
+            expect(found).toBeDefined();
+            return found!;
+        });
 
         picker.onAccept?.(alpha, picker.items.indexOf(alpha));
         await flushMicrotasks(2);
@@ -91,8 +92,10 @@ describe("Workbench — Quick Open accept callbacks", () => {
         expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(true);
 
         const picker = h.testApp.querySelector("QuickPickElement") as QuickPickElement;
-        const first = picker.items[0];
-        expect(first).toBeDefined();
+        const first = await vi.waitFor(() => {
+            expect(picker.items[0]).toBeDefined();
+            return picker.items[0];
+        });
 
         picker.onAccept?.(first, 0);
         await flushMicrotasks(2);
@@ -119,7 +122,6 @@ describe("Workbench — Go to Line", () => {
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         h.commands.execute("workbench.openFile", ws.path("big.txt"));
         h.testApp.render();
     });
@@ -181,16 +183,18 @@ describe("Workbench — Go to Line", () => {
         h.testApp.render();
 
         const picker = h.testApp.querySelector("QuickPickElement") as QuickPickElement;
+        // As typing does: the input holds the text the late file answer is read for.
+        picker.setQuery("big:15");
         picker.onQueryChange?.("big:15");
         h.testApp.render();
 
         const target = picker.items.find((i) => i.label === "big.txt")!;
         expect(target).toBeDefined();
         picker.onAccept?.(target, picker.items.indexOf(target));
-        await flushMicrotasks(2);
-        h.testApp.render();
-
-        expect(activeEditor().getActiveEditor()?.primaryCursorLine).toBe(14);
+        // The file index answers asynchronously: Enter waits for it, then takes the same row.
+        await vi.waitFor(() => {
+            expect(activeEditor().getActiveEditor()?.primaryCursorLine).toBe(14);
+        });
     });
 });
 
@@ -220,7 +224,6 @@ describe("Workbench: open editors picker (Ctrl+K Ctrl+P)", () => {
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         h.commands.execute("workbench.openFile", ws.path("nested/beta.txt"));
         h.testApp.render();
@@ -280,5 +283,40 @@ describe("Workbench: open editors picker (Ctrl+K Ctrl+P)", () => {
         h.testApp.render();
 
         expect(picker().items[0].hint).toBe("●");
+    });
+});
+
+describe("Workbench — Enter before Quick Open's file answer (#1179)", () => {
+    let ws: ITempWorkspace;
+    let h: IAppHarness;
+
+    afterEach(() => {
+        h.dispose();
+        ws.dispose();
+    });
+
+    it("Enter on the still empty list opens the file once the index answers", async () => {
+        ws = createTempWorkspace({
+            prefix: "diode-quickopen-early-enter-",
+            files: { "e2e/fixtures/sample.ts": "sample", "other.ts": "other" },
+        });
+        h = createAppTestHarness({ workspaceFolder: ws.dir });
+        await h.workbench.activate();
+        h.workbench.focusEditor();
+        h.testApp.sendKey("Ctrl+P");
+        h.testApp.render();
+        const picker = h.testApp.querySelector("QuickPickElement") as QuickPickElement;
+        // As typing does, and Enter before any row is there.
+        picker.setQuery("e2e/fixtures/sample.ts");
+        picker.onQueryChange?.("e2e/fixtures/sample.ts");
+        expect(picker.items).toEqual([]);
+        h.testApp.sendKey("Enter");
+
+        await vi.waitFor(() => {
+            h.testApp.render();
+            const tabStrip = h.testApp.querySelector("EditorTabStripElement") as EditorTabStripElement;
+            expect(tabStrip.getItemElements().map((el) => el.getLabel())).toContain("sample.ts");
+        });
+        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
     });
 });

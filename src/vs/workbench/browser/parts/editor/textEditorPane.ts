@@ -9,16 +9,36 @@ import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EditorCursorStyleSetting } from "../../../../editor/common/config/editorCursorStyle.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
+import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import type { ILink } from "../../../../editor/common/languages/iLinkSource.ts";
 import { DEFAULT_ENCODING } from "../../../../editor/common/model/encoding.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
+import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
+import type { IExtensionTextDecorationSet } from "../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
+import type {
+    IGlyphMarginClick,
+    IGlyphMarginDecoration,
+    ILineHighlightDecoration,
+} from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
+import type {
+    ILineMessageClick,
+    ILineMessageDecoration,
+} from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../../editor/common/model/iOverviewRulerDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ICursorStateComputer } from "../../../../editor/common/viewModel/trackedSelections.ts";
+import type {
+    ICodeLensOptions,
+    ICodeLensPick,
+} from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
 import type { IColorDecoratorsOptions } from "../../../../editor/contrib/colorPicker/browser/colorDetector.ts";
+import type { IInlayHintsOptions } from "../../../../editor/contrib/inlayHints/browser/inlayHintsController.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
@@ -239,6 +259,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
      * Returns the undo step to the caller instead of pushing it to the document's bucket, so a bulk
      * edit can build ONE step for the whole `workspace.applyEdit`.
      */
+    public applyEditsIntoLastUndoStep(edits: readonly ITextEdit[], label: string): void {
+        this.model.applyEditsIntoLastUndoStep(edits, label, this.component.editTarget);
+    }
+
     public applyExternalEditsDetached(edits: readonly ITextEdit[], label: string): IUndoRedoElement | null {
         return this.model.applyExternalEditsDetached(edits, label, this.component.editTarget);
     }
@@ -286,6 +310,14 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.component.viewState;
     }
 
+    public get versionId(): number {
+        return this.model.document.versionId;
+    }
+
+    public setDecorations(decorations: IExternalDecorations): void {
+        this.component.setDecorations(decorations);
+    }
+
     public getSelectedTexts(): string[] {
         return this.component.viewState.getSelectedTexts();
     }
@@ -310,8 +342,16 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.component.onDidChangeCursorPosition(listener);
     }
 
+    public onWillType(listener: (text: string) => void): IDisposable {
+        return this.component.onWillType(listener);
+    }
+
     public onDidType(listener: (text: string) => void): IDisposable {
         return this.component.onDidType(listener);
+    }
+
+    public onDidTypeNewLine(listener: () => void): IDisposable {
+        return this.component.onDidTypeNewLine(listener);
     }
 
     public getCaretAnchor(): OverlayAnchorPosition | null {
@@ -324,6 +364,15 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public focusEditor(): void {
         this.component.focus();
+    }
+
+    /** As if typed on the keyboard: auto-close, indent, `onEnterRules`, suggest triggers. */
+    public insertLineBreak(): void {
+        this.component.insertLineBreak();
+    }
+
+    public typeText(text: string): void {
+        this.component.typeText(text);
     }
 
     public pushUndo(element: IUndoElement | undefined): void {
@@ -346,6 +395,16 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setOccurrenceHighlightEnabled(enabled);
     }
 
+    /** `editor.occurrencesHighlightDelay`. */
+    public setOccurrenceHighlightDelay(delay: number): void {
+        this.component.setOccurrenceHighlightDelay(delay);
+    }
+
+    /** `editor.action.wordHighlight.trigger`. */
+    public triggerWordHighlight(): void {
+        this.component.triggerWordHighlight();
+    }
+
     /** `diode.icons.nerdFont`: the glyph set of the folding chevrons. */
     public setNerdFont(nerdFont: boolean): void {
         this.component.setNerdFont(nerdFont);
@@ -357,8 +416,23 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
      */
     public cursorStyleOverride: EditorCursorStyleSetting | undefined = undefined;
 
-    public setCursorStyle(style: CursorStyle | null): void {
+    private cursorStyleSettingValue: EditorCursorStyleSetting | undefined = undefined;
+    private readonly onDidChangeCursorStyleSettingEmitter = this.register(new Emitter<void>());
+
+    /** The override or `editor.cursorStyle`, before the terminal folds it into its three shapes. */
+    public get cursorStyleSetting(): EditorCursorStyleSetting | undefined {
+        return this.cursorStyleSettingValue;
+    }
+
+    /** Fires only when {@link cursorStyleSetting} actually changes. */
+    public readonly onDidChangeCursorStyleSetting = this.onDidChangeCursorStyleSettingEmitter.event;
+
+    /** `style` is what the terminal draws for `setting`. */
+    public setCursorStyle(setting: EditorCursorStyleSetting | undefined, style: CursorStyle | null): void {
         this.component.setCursorStyle(style);
+        if (this.cursorStyleSettingValue === setting) return;
+        this.cursorStyleSettingValue = setting;
+        this.onDidChangeCursorStyleSettingEmitter.fire();
     }
 
     public setCursorSurroundingLines(lines: number): void {
@@ -375,6 +449,30 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setColorDecorators(options: IColorDecoratorsOptions): void {
         this.component.setColorDecorators(options);
+    }
+
+    public setLinksEnabled(enabled: boolean): void {
+        this.component.setLinksEnabled(enabled);
+    }
+
+    public onDidClickLink(listener: (link: ILink) => void): IDisposable {
+        return this.component.onDidClickLink(listener);
+    }
+
+    public getLinksAtSelections(): readonly ILink[] {
+        return this.component.getLinksAtSelections();
+    }
+
+    public setInlayHints(options: IInlayHintsOptions): void {
+        this.component.setInlayHints(options);
+    }
+
+    public setCodeLens(options: ICodeLensOptions): void {
+        this.component.setCodeLens(options);
+    }
+
+    public getCodeLensPicksAtLine(line: number): Promise<readonly ICodeLensPick[]> {
+        return this.component.getCodeLensPicksAtLine(line);
     }
 
     /**
@@ -399,8 +497,57 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setGutterChangeDecorations(decorations);
     }
 
-    public setExtensionGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
-        this.component.setExtensionGutterChangeDecorations(decorations);
+    public setOverviewRulerDecorations(decorations: readonly IOverviewRulerDecoration[]): void {
+        this.component.setOverviewRulerDecorations(decorations);
+    }
+
+    public setGlyphMarginDecorations(owner: string, decorations: readonly IGlyphMarginDecoration[]): void {
+        this.component.setGlyphMarginDecorations(owner, decorations);
+    }
+
+    public setGlyphMarginReserved(reserved: boolean): void {
+        this.component.setGlyphMarginReserved(reserved);
+    }
+
+    public setLineHighlightDecorations(decorations: readonly ILineHighlightDecoration[]): void {
+        this.component.setLineHighlightDecorations(decorations);
+    }
+
+    public onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable {
+        return this.component.onDidClickGlyphMargin(listener);
+    }
+
+    public setLineMessageDecorations(owner: string, decorations: readonly ILineMessageDecoration[]): void {
+        this.component.setLineMessageDecorations(owner, decorations);
+    }
+
+    /** The owner's cells absent from the document, drawn before their offsets (the inline breakpoints). */
+    public setOwnedInlineInsertions(owner: string, insertions: readonly IInlineInsertion[]): void {
+        this.component.setOwnedInlineInsertions(owner, insertions);
+    }
+
+    public getLineMessageDecorations(owner: string): ReadonlyMap<number, ILineMessageDecoration> {
+        return this.component.getLineMessageDecorations(owner);
+    }
+
+    public onDidClickLineMessage(listener: (click: ILineMessageClick) => void): IDisposable {
+        return this.component.onDidClickLineMessage(listener);
+    }
+
+    public getVisibleLineRange(): { startLine: number; endLine: number } {
+        return this.component.getVisibleLineRange();
+    }
+
+    public onDidChangeVisibleRange(listener: () => void): IDisposable {
+        return this.component.onDidChangeVisibleRange(listener);
+    }
+
+    public setExtensionTextDecorations(set: IExtensionTextDecorationSet): void {
+        this.component.setExtensionTextDecorations(set);
+    }
+
+    public getDecorationHoverMessages(position: IPosition): (readonly string[])[] {
+        return this.component.getDecorationHoverMessages(position);
     }
 
     public setGhostText(ghost: IGhostText | null): void {

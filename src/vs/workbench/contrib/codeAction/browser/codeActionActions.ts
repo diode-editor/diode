@@ -1,16 +1,17 @@
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
-import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
+import { selectionToRange } from "../../../../editor/common/core/iSelection.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { getCodeActions, type ICodeActionItem } from "../../../../editor/contrib/codeAction/codeAction.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice } from "../../../services/statusbar/common/transientNotice.ts";
-import { selectionRange } from "../../format/browser/formatActions.ts";
 
 /**
  * No stale guards like formatting has: the subprocess applies the edits via `workspace.applyEdit`,
@@ -74,6 +75,18 @@ export const organizeImportsAction: CommandAction = {
     },
 };
 
+function kindRank(kind: string | undefined): number {
+    if (kind === undefined) return 3;
+    if (kind === "quickfix" || kind.startsWith("quickfix.")) return 0;
+    if (kind === "refactor" || kind.startsWith("refactor.")) return 1;
+    if (kind === "source" || kind.startsWith("source.")) return 2;
+    return 3;
+}
+
+function isValidQuickFix({ kind, disabled }: ICodeActionItem["action"]): boolean {
+    return disabled === undefined && kindRank(kind) === 0;
+}
+
 async function pickCodeAction(
     accessor: ServiceAccessor,
     options: { readonly only?: string; readonly title: string; readonly empty: string },
@@ -89,22 +102,41 @@ async function pickCodeAction(
         showTransientNotice(statusBar, "codeAction.notice", text);
     };
 
-    const text = editor.getText();
-    const found = await getCodeActions(
-        languageFeatures.codeActionProvider,
-        editor,
-        {
-            uri: editor.uri.toString(),
-            languageId: editor.languageId,
-            versionId: editor.model.document.versionId,
-            // Cursor/selection as in VS Code: actions in place (an empty
-            // selection means the cursor line, to cover the line's diagnostics).
-            range: selectionRange(editor.viewState.selections[0], text),
-            // The spread keeps the request clean: `only: undefined` means "any kind".
-            ...(options.only === undefined ? {} : { only: options.only }),
-        },
-        CancellationTokenNone,
-    );
+    const ask = (range: IRange, only: string | undefined): Promise<ICodeActionItem[]> =>
+        getCodeActions(
+            languageFeatures.codeActionProvider,
+            editor,
+            {
+                uri: editor.uri.toString(),
+                languageId: editor.languageId,
+                versionId: editor.model.document.versionId,
+                range,
+                // The spread keeps the request clean: `only: undefined` means "any kind".
+                ...(only === undefined ? {} : { only }),
+            },
+            CancellationTokenNone,
+        );
+
+    // The exact selection, as upstream `CodeActionOracle`: an extension compares it with its diagnostic
+    // ranges itself, and the whole line fits inside none of them (ShellCheck's `Apply fix`).
+    const selection = editor.viewState.selections[0];
+    const found = await ask(selectionToRange(selection), options.only);
+    // Upstream `editor.codeActionWidget.includeNearbyQuickFixes` (on by default): no quick fix under the caret
+    // brings in those of a diagnostic on its line. Deviation: only the nearest one, upstream asks at every marker.
+    // The extension host keeps two answers per provider (`COMPLETION_CACHE_DEPTH`), a third would evict the first.
+    if (options.only === undefined && !found.some(({ action }) => isValidQuickFix(action))) {
+        const { line, character } = selection.active;
+        const nearest = accessor
+            .get(MarkerServiceDIToken)
+            .read({ resource: editor.uri.toString() })
+            .filter(({ range }) => range.start.line === line || range.end.line === line)
+            .map(({ range }) => range.end)
+            .sort((a, b) => Math.abs(a.character - character) - Math.abs(b.character - character))
+            .at(0);
+        if (nearest !== undefined) {
+            found.push(...(await ask({ start: nearest, end: nearest }, "quickfix")));
+        }
+    }
     // Disabled ones (`CodeAction.disabled`) as upstream
     // (`CodeActionController.showCodeActionList`): Quick Fix doesn't show them
     // at all, and a menu with a requested kind (refactorings, source) shows them
@@ -121,13 +153,6 @@ async function pickCodeAction(
     // preferred first in its group. Providers are walked in registration
     // order, and without sorting one verbose provider (16 tsserver
     // refactorings) pushed linter fixes past the popup edge.
-    const kindRank = (kind: string | undefined): number => {
-        if (kind === undefined) return 3;
-        if (kind === "quickfix" || kind.startsWith("quickfix.")) return 0;
-        if (kind === "refactor" || kind.startsWith("refactor.")) return 1;
-        if (kind === "source" || kind.startsWith("source.")) return 2;
-        return 3;
-    };
     const sorted = [...shown].sort(({ action: a }, { action: b }) => {
         const byKind = kindRank(a.kind) - kindRank(b.kind);
         if (byKind !== 0) return byKind;

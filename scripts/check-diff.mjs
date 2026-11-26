@@ -12,16 +12,16 @@ import { pathToFileURL } from "node:url";
 const CACHE_DIR = "node_modules/.cache/diode";
 const SOURCE_RE = /^(src|extensions)\/.+\.(ts|mts|cts)$/;
 const TEST_RE = /\.test\.ts$/;
-const STEPS = ["tsc", "lint", "test"];
+const STEPS = ["tsc", "lint", "ratchet", "test"];
 
 function usage(code) {
-    console.log(`Usage: npm run check:diff -- [--base <ref>] [--near] [--coverage] [--skip tsc,lint,test] [--list]
+    console.log(`Usage: npm run check:diff -- [--base <ref>] [--near] [--coverage] [--skip tsc,lint,ratchet,test] [--list]
 
   --base <ref>   diff base (merge-base with origin/main by default)
   --near         instead of \`vitest related\` (the whole importer graph), only neighbor
                  tests: Foo.ts → Foo.test.ts, Foo.*.test.ts; plus the changed tests
   --coverage     add coverage of the changed non-test files (the ratchet is untouched)
-  --skip <steps> skip comma-separated steps: tsc, lint, test
+  --skip <steps> skip comma-separated steps: tsc, lint, ratchet, test
   --list         only list the diff files and exit`);
     process.exit(code);
 }
@@ -125,7 +125,16 @@ function main() {
             "--tsBuildInfoFile",
             `${CACHE_DIR}/tsc.tsbuildinfo`,
         ]);
-        if (!ok) failed.push("tsc");
+        // The vendored HTML language features compile with their own tsconfig (upstream's compiler options).
+        const htmlOk = run("tsc -p extensions/html-language-features", bin("tsc"), [
+            "--noEmit",
+            "--incremental",
+            "--tsBuildInfoFile",
+            `${CACHE_DIR}/tsc-html.tsbuildinfo`,
+            "-p",
+            "extensions/html-language-features",
+        ]);
+        if (!ok || !htmlOk) failed.push("tsc");
     }
 
     if (!opts.skip.has("lint")) {
@@ -143,6 +152,16 @@ function main() {
         if (!ok) failed.push("lint");
     }
 
+    if (!opts.skip.has("ratchet") && files.some((f) => !TEST_RE.test(f))) {
+        // Dead code is deleted, not silenced (docs/MUTATION.md): the per-file count of
+        // `Stryker disable` markers about unreachable code only goes down.
+        if (!run("stryker-disable ratchet", process.execPath, ["scripts/check-stryker-disable.mjs"])) failed.push("ratchet");
+    }
+    if (!opts.skip.has("ratchet") && files.includes("vitest.config.ts")) {
+        // The coverage gate stays at 100: the thresholds are not lowered to green a partial run.
+        if (!run("coverage thresholds", process.execPath, ["scripts/check-coverage-thresholds.mjs"])) failed.push("ratchet");
+    }
+
     if (!opts.skip.has("test")) {
         let args;
         if (opts.near) {
@@ -157,10 +176,9 @@ function main() {
         }
         if (args && opts.coverage) {
             const sources = files.filter((f) => !TEST_RE.test(f));
-            // The 100% ratchet with autoUpdate on a subset of tests goes red and rewrites vitest.config.ts.
+            // The 100% gate on a subset of tests goes red: zero the thresholds for this run only.
             args.push(
                 "--coverage",
-                "--coverage.thresholds.autoUpdate=false",
                 "--coverage.thresholds.statements=0",
                 "--coverage.thresholds.branches=0",
                 "--coverage.thresholds.functions=0",

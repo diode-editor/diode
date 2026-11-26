@@ -12,20 +12,24 @@ export interface ITerminalCellPosition {
     readonly y: number;
 }
 
-/** A detected link; `start`/`end` are inclusive cells, a wrapped link spans several rows. */
-export interface ITerminalLink {
-    readonly text: string;
-    readonly uri: Uri;
-    readonly type: TerminalLinkType;
-    readonly parsedLink: IParsedLink | undefined;
+/** Inclusive cells; a range over several rows takes the rows between whole. */
+export interface ITerminalCellRange {
     readonly start: ITerminalCellPosition;
     readonly end: ITerminalCellPosition;
 }
 
-export function isInLink(link: ITerminalLink, x: number, y: number): boolean {
-    if (y < link.start.y || y > link.end.y) return false;
-    if (y === link.start.y && x < link.start.x) return false;
-    return !(y === link.end.y && x > link.end.x);
+/** A detected link; a wrapped link spans several rows. */
+export interface ITerminalLink extends ITerminalCellRange {
+    readonly text: string;
+    readonly uri: Uri;
+    readonly type: TerminalLinkType;
+    readonly parsedLink: IParsedLink | undefined;
+}
+
+export function isInCellRange(range: ITerminalCellRange, x: number, y: number): boolean {
+    if (y < range.start.y || y > range.end.y) return false;
+    if (y === range.start.y && x < range.start.x) return false;
+    return !(y === range.end.y && x > range.end.x);
 }
 
 export interface ITerminalLinkProviderOptions {
@@ -62,10 +66,10 @@ export class TerminalLinkProvider {
 
         const lines: ITerminalBufferLine[] = [firstLine];
         let startLine = row;
-        while (startLine > minStartLine && lines[0].isWrapped) {
+        while (startLine > minStartLine) {
             const previous = buffer.getLine(startLine - 1);
-            // Stryker disable next-line ConditionalExpression: rows from 0 up always exist; the guard narrows the type.
-            if (previous === undefined) break;
+            // Stryker disable next-line ConditionalExpression: rows from 0 up always exist; the check narrows the type.
+            if (!lines[0].isWrapped || previous === undefined) break;
             lines.unshift(previous);
             startLine--;
         }

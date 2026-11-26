@@ -36,5 +36,5 @@
 - Расширения — RPC к extension host. Языковые серверы поднимают сами расширения через стоковый
   `vscode-languageclient`. Подсветка — TextMate-грамматики.
 - Ввод — stdin в raw mode, Kitty keyboard protocol там, где терминал его умеет.
-- Отладка через DAP — направление на потом. Сейчас `vscode.debug` — null-объект (см.
-  [матрицу API](docs/public/API-COVERAGE.md)).
+- Отладка — через DAP: адаптер приносит расширение (CodeLLDB для C/C++), ядро ведёт сессию, виды и консоль
+  ([матрица API](docs/public/API-COVERAGE.md#vscodedebug)).

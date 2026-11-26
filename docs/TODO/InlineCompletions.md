@@ -76,7 +76,7 @@ docs/arch/Extensions.md («Inline-completion seam»).
 По ним прошла сверка механики «призрак в середине строки» (n-4); пути — от `src/vs/` эталона (`node scripts/vscode-ref.mjs`).
 
 - Ghost text у upstream — не отдельный рендер, а **injected-text декорация**: `editor/contrib/inlineCompletions/browser/view/ghostText/ghostTextView.ts` ставит `after: {content, …, cursorStops: InjectedTextCursorStops.Left}` — отсюда «каретка слева от фантома» как норма, а не как наш выбор.
-- Математика инъекций живёт во **вью-модели**: `editor/common/modelLineProjectionData.ts` (`injectionOffsets`; `translateToInputOffset` ≈ наш `documentOffset`, `translateToOutputPosition(affinity)` ≈ наши `composedOffset`/`composedCaretOffset`) и `editor/common/viewModel/monospaceLineBreaksComputer.ts` — брейки wrap считаются по тексту **с** инъекциями. Отсюда наш word-wrap-люфт ниже: у нас вставки компонует сам рендер (`common/viewModel/lineInsertions.ts`, `IInlineInsertion`), а `common/viewModel/lineBreaksComputer.ts` получает настоящий текст строки — закрывать люфт там, а не в рендере.
+- Математика инъекций живёт во **вью-модели**: `editor/common/modelLineProjectionData.ts` (`injectionOffsets`; `translateToInputOffset` ≈ наш `documentOffset`, `translateToOutputPosition(affinity)` ≈ наши `composedOffset`/`composedCaretOffset`) и `editor/common/viewModel/monospaceLineBreaksComputer.ts` — брейки wrap считаются по тексту **с** инъекциями. У нас вставки компонует сам рендер (`common/viewModel/lineInsertions.ts`, `IInlineInsertion`), а `common/viewModel/lineBreaksComputer.ts` меряет ту же композитную строку.
 - «Движение каретки гасит подсказку» — тоже эталон: `editor/contrib/inlineCompletions/browser/controller/inlineCompletionsController.ts` гасит на `CursorChangeReason.Explicit || source === 'api'`.
 
 ## Осознанные отличия v1 от upstream (люфты)
@@ -90,9 +90,6 @@ docs/arch/Extensions.md («Inline-completion seam»).
   - **Многострочная подсказка mid-line**: хвост строки остаётся на строке каретки
     (после `lines[0]`), а не уезжает под последнюю строку фантома, как у upstream —
     зона несёт только фантомный текст, документной строке в неё не переехать.
-  - **Word wrap подсказку не переносит**: перенос считается по настоящему тексту
-    строки, поэтому фантом с хвостом могут выйти за правый край и склиппиться
-    (upstream пере-заворачивает строку с injected text).
   - **Каретка ровно на границе фрагмента wrap** с фантомом остаётся без
     аппаратного курсора на кадр (фантом рисуется в конце предыдущего ряда, а
     каретка адресуется следующим — то же отсутствие cursor affinity, что в

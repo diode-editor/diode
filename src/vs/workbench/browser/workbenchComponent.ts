@@ -1,5 +1,6 @@
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 
 import { CommandActionsDIToken, registerAction } from "../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
@@ -33,13 +34,12 @@ import type { IEditorService } from "../services/editor/common/editorService.ts"
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
+import { attachKeyboardInputHold } from "../services/keybinding/browser/keyboardInputHold.ts";
 import { KeybindingsEditorServiceDIToken } from "../services/keybinding/common/iKeybindingsEditorService.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
 import type { LifecycleService } from "../services/lifecycle/browser/lifecycleService.ts";
 import { LifecycleServiceDIToken } from "../services/lifecycle/browser/lifecycleService.ts";
-import type { IFileSearchService } from "../services/search/common/fileSearch.ts";
-import { FileSearchServiceDIToken } from "../services/search/common/fileSearch.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import type { ThemeService } from "../services/themes/common/themeService.ts";
@@ -62,6 +62,7 @@ import { QuickInputServiceDIToken } from "./parts/quickinput/quickInputService.t
 import { type SidebarService, SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import { StatusBarComponent, StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
 import { type ViewsService, ViewsServiceDIToken } from "./parts/views/viewsService.ts";
+import { bindSashHoverDelay } from "./sashHoverDelay.ts";
 import type { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 import { WorkbenchLayoutElement } from "./workbenchLayoutElement.ts";
@@ -99,7 +100,6 @@ export class WorkbenchComponent extends Component {
     private explorerService: ExplorerService;
     private sidebarService: SidebarService;
     private viewsService: ViewsService;
-    private fileSearchService: IFileSearchService;
     private quickInput: QuickInputService;
     private statusBarComponent: StatusBarComponent;
     private notificationsComponent: NotificationsComponent;
@@ -156,6 +156,7 @@ export class WorkbenchComponent extends Component {
         this.terminalService = accessor.get(TerminalServiceDIToken);
         this.dispatcher = this.register(accessor.get(KeybindingDispatcherDIToken));
         this.dispatcher.hasKeyboardCapturingOverlay = () => this.view.overlayLayer.hasKeyboardCapturingOverlay();
+        this.dispatcher.activeElement = () => this.view.focusManager?.activeElement;
         // The capture phase runs before the focused widget: mid-chord, keys are
         // swallowed before they reach the editor. Registered BEFORE the main menu: mnemonics
         // listen on the same root, and a node's listeners run in subscription order —
@@ -170,6 +171,7 @@ export class WorkbenchComponent extends Component {
                 handler(event);
                 if (event.defaultPrevented && !this.view.isLayoutDirty) this.view.markDirty();
             };
+        this.register(attachKeyboardInputHold(this.view, accessor.get(CommandRegistryDIToken)));
         // Stryker disable ObjectLiteral,BooleanLiteral: capture vs bubble only differs for a widget that swallows keydown in the target phase mid-chord; printable keys and default actions are suppressed anyway (keypress capture, preventDefault), and the dispatcher bypasses modal overlays
         this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDownCapture), {
             capture: true,
@@ -178,7 +180,6 @@ export class WorkbenchComponent extends Component {
         this.view.addEventListener("keypress", this.dispatcher.handleKeyPressCapture, { capture: true });
         this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDown));
         this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
-        this.fileSearchService = this.register(accessor.get(FileSearchServiceDIToken));
         const quickInputComponent = this.register(accessor.get(QuickInputComponentDIToken));
         this.quickInput = accessor.get(QuickInputServiceDIToken);
         this.statusBarComponent = this.register(statusBarComponent);
@@ -188,16 +189,9 @@ export class WorkbenchComponent extends Component {
         this.workbenchContextKeys = this.register(accessor.get(WorkbenchContextKeysDIToken));
 
         this.workbenchLayout = new WorkbenchLayoutElement();
-        // Upstream `SashSettingsController`: the delay applies live, without a restart.
-        const configuration = accessor.get(IConfigurationServiceDIToken);
-        const applySashHoverDelay = (): void => {
-            this.workbenchLayout.setSashHoverDelay(configuration.get("workbench.sash.hoverDelay"));
-        };
-        applySashHoverDelay();
         this.register(
-            configuration.onDidChangeConfiguration((event) => {
-                // Stryker disable next-line ConditionalExpression: equivalent — re-applying the unchanged delay on another key's change is a no-op
-                if (event.affectsConfiguration("workbench.sash.hoverDelay")) applySashHoverDelay();
+            bindSashHoverDelay(accessor.get(IConfigurationServiceDIToken), (ms) => {
+                this.workbenchLayout.setSashHoverDelay(ms);
             }),
         );
         this.workbenchLayout.setCenterContent(this.editorPartComponent.view);
@@ -212,8 +206,6 @@ export class WorkbenchComponent extends Component {
         };
 
         this.dialogService.attachHost(this.view);
-        this.view.setContent(this.workbenchLayout);
-        this.view.setStatusBar(this.statusBarComponent.view);
         this.workbenchContextKeys.attachView(this.view);
 
         quickInputComponent.attachHost(this.view);
@@ -228,7 +220,13 @@ export class WorkbenchComponent extends Component {
         this.register(accessor.get(KeybindingsEditorServiceDIToken)).applyUserKeybindings(userKeybindings);
 
         const menuBarComponent = this.register(accessor.get(MenuBarComponentDIToken));
-        this.view.setMenuBar(menuBarComponent.view);
+        // The chrome rows are the workbench's, not the root's (upstream `layout.ts` puts the title
+        // and status bars into the workbench grid): the layout fills what the bars leave.
+        const chrome = new VFlexElement();
+        chrome.addChild(menuBarComponent.view, { height: vflexFixed(1), width: "fill" });
+        chrome.addChild(this.workbenchLayout, { height: vflexFill(), width: "fill" });
+        chrome.addChild(this.statusBarComponent.view, { height: vflexFixed(1), width: "fill" });
+        this.view.setContent(chrome);
 
         // The single "theme → root var scope" point (N3).
         this.register(
@@ -301,15 +299,11 @@ export class WorkbenchComponent extends Component {
         // Keyed by the workspace IDENTITY, not the folder path (resolveWorkspaceStorageDir).
         this.workbenchState.openWorkspace(workspaceId);
         // Features restore their view state themselves on `onDidOpenWorkspace`,
-        // synchronously inside openWorkspace. The index builds in the background without blocking the first frame.
-        void this.fileSearchService.activate(dirPath);
+        // synchronously inside openWorkspace. No file index here: like upstream, Quick Open walks the folder
+        // when it opens, in the extension host (#1179).
         // `setRootPath` only recreates the provider; nodes are loaded only by refresh() —
         // without it Open Folder left an empty panel. On bootstrap `activate()` awaits the load.
         if (this.mounted) void this.explorerService.refresh();
-    }
-
-    public get fileIndexReady(): Promise<void> {
-        return this.fileSearchService.ready;
     }
 
     public focusEditor(): void {

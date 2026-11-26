@@ -4,7 +4,7 @@ import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { LanguageServiceDIToken } from "../../../../editor/common/languages/iLanguageService.ts";
-import { getEncodingInfo } from "../../../../editor/common/model/encoding.ts";
+import { encodingInfoOf } from "../../../../editor/common/model/encoding.ts";
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -182,14 +182,10 @@ export class EditorStatusContribution extends Disposable {
         return viewState.insertSpaces ? `Spaces: ${tabSize}` : `Tab Size: ${tabSize}`;
     }
 
-    /** An unknown id (defensive) is shown as is. */
+    /** A name outside the table ("cp1252" from `openTextDocument(uri, { encoding })`) is shown as is, as upstream. */
     private encodingSegment(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;
-        const info = getEncodingInfo(editor.encoding);
-        /* v8 ignore start -- defensive: editor.encoding is always a table id (setEncoding validates, decodeBuffer returns SUPPORTED_ENCODINGS entries) */
-        if (info === undefined) return editor.encoding;
-        /* v8 ignore stop */
-        return info.statusLabel;
+        return encodingInfoOf(editor.encoding).statusLabel;
     }
 
     private eolSegment(editor: IActiveEditorStatus | null): string | null {

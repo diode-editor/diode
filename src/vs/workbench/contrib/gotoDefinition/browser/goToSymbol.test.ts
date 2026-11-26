@@ -6,7 +6,13 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 
-import { createLocationModel, getDefinitions } from "./goToSymbol.ts";
+import {
+    createLocationModel,
+    getDeclarations,
+    getDefinitions,
+    getImplementations,
+    getTypeDefinitions,
+} from "./goToSymbol.ts";
 
 const TS = { uri: Uri.file("/w/a.ts"), languageId: "typescript" };
 const REQUEST: IDefinitionRequest = {
@@ -65,6 +71,68 @@ describe("createLocationModel", () => {
 
     it("an empty response has no first target", () => {
         expect(createLocationModel([])).toEqual({ references: [], first: undefined });
+    });
+});
+
+describe("getImplementations — aggregation over the registry", () => {
+    it("merges responses; a failing provider means 'no targets'; each provider gets the request and token", async () => {
+        const registry = new LanguageFeaturesService().implementationProvider;
+        const seen: unknown[] = [];
+        registry.register("*", {
+            provideImplementation: (request, token) => {
+                seen.push(request, token);
+                return Promise.resolve([target(1)]);
+            },
+        });
+        registry.register("*", { provideImplementation: () => Promise.reject(new Error("boom")) });
+        registry.register("typescript", { provideImplementation: () => Promise.resolve([target(2)]) });
+        const token = new CancellationTokenSource().token;
+
+        const model = await getImplementations(registry, TS, REQUEST, token);
+
+        expect(model.references).toEqual([target(1), target(2)]);
+        expect(model.first).toEqual(target(2));
+        expect(seen).toEqual([REQUEST, token]);
+    });
+});
+
+describe("getTypeDefinitions — aggregation over the registry", () => {
+    it("merges responses; a failing provider means 'no targets'; each provider gets the request and token", async () => {
+        const registry = new LanguageFeaturesService().typeDefinitionProvider;
+        const seen: unknown[] = [];
+        registry.register("*", {
+            provideTypeDefinition: (request, token) => {
+                seen.push(request, token);
+                return Promise.resolve([target(1)]);
+            },
+        });
+        registry.register("*", { provideTypeDefinition: () => Promise.reject(new Error("boom")) });
+        const token = new CancellationTokenSource().token;
+
+        const model = await getTypeDefinitions(registry, TS, REQUEST, token);
+
+        expect(model.references).toEqual([target(1)]);
+        expect(seen).toEqual([REQUEST, token]);
+    });
+});
+
+describe("getDeclarations — aggregation over the registry", () => {
+    it("merges responses; a failing provider means 'no targets'; each provider gets the request and token", async () => {
+        const registry = new LanguageFeaturesService().declarationProvider;
+        const seen: unknown[] = [];
+        registry.register("*", {
+            provideDeclaration: (request, token) => {
+                seen.push(request, token);
+                return Promise.resolve([target(1)]);
+            },
+        });
+        registry.register("*", { provideDeclaration: () => Promise.reject(new Error("boom")) });
+        const token = new CancellationTokenSource().token;
+
+        const model = await getDeclarations(registry, TS, REQUEST, token);
+
+        expect(model.references).toEqual([target(1)]);
+        expect(seen).toEqual([REQUEST, token]);
     });
 });
 

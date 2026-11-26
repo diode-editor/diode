@@ -14,6 +14,7 @@ import type { ITokenStyleResolver } from "../../../../editor/common/languages/iT
 import { TokenStyleResolverDIToken } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { TokenizationRegistryDIToken } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import { validateEncoding } from "../../../../editor/common/model/encoding.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
@@ -162,7 +163,40 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     public readonly textFileModels: TextFileModelService;
     private readonly paneBuilder: TextEditorPaneBuilder;
 
-    public virtualDocumentSource: IVirtualDocumentSource = NULL_VIRTUAL_DOCUMENT_SOURCE;
+    /** The extension host's text document content providers: the composition assigns it. */
+    private extensionDocumentSource: IVirtualDocumentSource = NULL_VIRTUAL_DOCUMENT_SOURCE;
+    /** The workbench's own schemes (`debug:`), asked before the extensions'. */
+    private readonly workbenchDocumentSources = new Map<string, (uri: Uri) => Promise<string | null>>();
+    private readonly composedDocumentSource: IVirtualDocumentSource = {
+        canProvide: (scheme) =>
+            this.workbenchDocumentSources.has(scheme) || this.extensionDocumentSource.canProvide(scheme),
+        provide: (uri) => {
+            const workbench = this.workbenchDocumentSources.get(uri.scheme);
+            return workbench === undefined ? this.extensionDocumentSource.provide(uri) : workbench(uri);
+        },
+    };
+
+    /**
+     * Reads give the workbench's schemes and then the assigned source's (upstream: the text model content providers of
+     * `ITextModelService`, the workbench's and the extensions' alike); an assignment replaces only the latter.
+     */
+    public get virtualDocumentSource(): IVirtualDocumentSource {
+        return this.composedDocumentSource;
+    }
+
+    public set virtualDocumentSource(source: IVirtualDocumentSource) {
+        this.extensionDocumentSource = source;
+    }
+
+    /** Upstream `registerTextModelContentProvider` of a workbench contribution: the content of a scheme's documents. */
+    public registerDocumentSource(scheme: string, provide: (uri: Uri) => Promise<string | null>): IDisposable {
+        this.workbenchDocumentSources.set(scheme, provide);
+        return {
+            dispose: () => {
+                this.workbenchDocumentSources.delete(scheme);
+            },
+        };
+    }
 
     private readonly onDidFailOpenEmitter = new Emitter<{ readonly uri: Uri; readonly reason: string }>();
     /**
@@ -173,7 +207,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /** The service owns the model until the first {@link openUri} hands it to a tab. */
     private readonly untitledWithoutEditor = new Map<string, TextFileModel>();
-    private readonly untitledTabCounts = new WeakMap<TextFileModel, number>();
+    private readonly untitledTabCounts = new WeakMap<TextFileModel, { tabs: number }>();
     /** What extensions last heard as the active editor. */
     private activeEditorUri: string | null = null;
 
@@ -661,19 +695,30 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return this.fileModelsWithoutEditor.models();
     }
 
-    public async openTextDocumentWithoutEditor(uri: Uri): Promise<boolean> {
+    public async openTextDocumentWithoutEditor(uri: Uri, encoding?: string): Promise<boolean> {
         if (uri.scheme !== "file") return false;
         try {
             if (!(await this.files.stat(uri)).isFile) return false;
         } catch {
             return false;
         }
-        this.holdFileModel(uri);
+        const model = this.holdFile(uri);
+        if (encoding !== undefined) {
+            if (model.isModified) {
+                throw new Error("Cannot re-open a dirty text document with different encoding. Save it first.");
+            }
+            // Upstream `setEncoding(…, EncodingMode.Decode)` returns early on the same encoding.
+            const validated = await validateEncoding(encoding);
+            if (model.encoding !== validated) await model.reopenWithEncoding(validated);
+        }
         return true;
     }
 
     public holdFileModel(uri: Uri): TextFileModel | null {
-        if (uri.scheme !== "file") return null;
+        return uri.scheme === "file" ? this.holdFile(uri) : null;
+    }
+
+    private holdFile(uri: Uri): TextFileModel {
         const reference = this.textFileModels.acquire(uri);
         this.fileModelsWithoutEditor.add(reference);
         this.fireEditorsChanged();
@@ -873,10 +918,13 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.openResolvedUri(uri, content, options);
     }
 
-    /** `output:` and snapshot diff sides are not restorable: the tab owner writes their content, the resource doesn't address it. */
+    /**
+     * `output:` and snapshot diff sides are not restorable: the tab owner writes their content, the resource doesn't
+     * address it. Neither is a workbench scheme's document (`debug:` needs its session).
+     */
     public canRestore(uri: Uri): boolean {
         if (uri.scheme === "file" || uri.scheme === "untitled") return true;
-        return this.virtualDocumentSource.canProvide(uri.scheme);
+        return this.extensionDocumentSource.canProvide(uri.scheme);
     }
 
     /** A resource that isn't open gets no tab: the user didn't ask for one. A provider failure only goes to the log: the refresh is in the background. */
@@ -1007,13 +1055,18 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /** Tabs of one untitled document in different groups share the model: it dies with the last of them. */
     private referenceUntitled(model: TextFileModel): ITextFileModelReference {
-        this.untitledTabCounts.set(model, (this.untitledTabCounts.get(model) ?? 0) + 1);
+        let count = this.untitledTabCounts.get(model);
+        if (count === undefined) {
+            count = { tabs: 0 };
+            this.untitledTabCounts.set(model, count);
+        }
+        const tabs = count;
+        tabs.tabs++;
         return {
             model,
             dispose: () => {
-                const left = (this.untitledTabCounts.get(model) ?? 1) - 1;
-                this.untitledTabCounts.set(model, left);
-                if (left === 0) model.dispose();
+                tabs.tabs--;
+                if (tabs.tabs === 0) model.dispose();
             },
         };
     }

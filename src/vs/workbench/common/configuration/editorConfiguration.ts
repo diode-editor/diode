@@ -126,13 +126,79 @@ export const editorConfiguration = {
             maximum: 1000000,
             description: "Controls the max number of color decorators that can be rendered in an editor at once.",
         },
+        // `editor.codeLensFontFamily` and `editor.codeLensFontSize` are not ported: a terminal has one font.
+        "editor.codeLens": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Controls whether the editor shows CodeLens.",
+        },
+        // `editor.inlayHints.fontSize` and `fontFamily` are not ported: a terminal has one font.
+        "editor.inlayHints.enabled": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["on", "onUnlessPressed", "offUnlessPressed", "off"],
+            enumDescriptions: [
+                "Inlay hints are enabled",
+                "Inlay hints are showing by default and hide when holding Ctrl+Alt. In diode this behaves like on: a terminal does not report key releases.",
+                "Inlay hints are hidden by default and show when holding Ctrl+Alt. In diode this behaves like off: a terminal does not report key releases.",
+                "Inlay hints are disabled",
+            ],
+            default: "on",
+            // Upstream `validate`: the value was a boolean once.
+            booleanEquivalents: { true: "on", false: "off" },
+            description: "Enables the inlay hints in the editor.",
+        },
+        "editor.inlayHints.padding": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description: "Enables the padding around the inlay hints in the editor.",
+        },
+        "editor.inlayHints.maximumLength": {
+            scope: "language-overridable",
+            type: "integer",
+            default: 43,
+            minimum: 0,
+            description:
+                "Maximum overall length of inlay hints, for a single line, before they get truncated by the editor. Set to `0` to never truncate",
+        },
+        // Our own key, the human's decision: it stands in for the font size and family a terminal cannot honor.
+        "diode.editor.inlayHints.fontStyle": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["normal", "italic", "dim"],
+            default: "normal",
+            description:
+                "Text style of inlay hints. Diode stands in for `editor.inlayHints.fontSize` and `fontFamily`, which a terminal cannot honor.",
+        },
         // "multiFile" is not supported and behaves like "singleFile".
         "editor.occurrencesHighlight": {
             scope: "language-overridable",
             type: "string",
             enum: ["off", "singleFile", "multiFile"],
+            enumDescriptions: [
+                "Does not highlight occurrences.",
+                "Highlights occurrences only in the current file.",
+                "Experimental: Highlights occurrences across all valid open files.",
+            ],
             default: "singleFile",
-            description: "Controls whether the editor highlights semantic symbol occurrences.",
+            description: "Controls whether occurrences should be highlighted across open files.",
+        },
+        "editor.occurrencesHighlightDelay": {
+            scope: "language-overridable",
+            type: "integer",
+            default: 0,
+            minimum: 0,
+            maximum: 2000,
+            description: "Controls the delay in milliseconds after which occurrences are highlighted.",
+        },
+        "editor.linkedEditing": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description:
+                "Controls whether the editor has linked editing enabled. Depending on the language, related symbols such as HTML tags, are updated while editing.",
         },
         // Our own key: VS Code draws the overview ruler inside its scrollbar and has nowhere else to put it.
         "editor.scrollbarMarkers": {
@@ -229,11 +295,32 @@ export const editorConfiguration = {
                 "The number of lines above which a file is treated as large when `editor.largeFileOptimizations` " +
                 "is on.",
         },
+        "editor.links": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Controls whether the editor should detect links and make them clickable.",
+        },
+        "editor.formatOnType": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description: "Controls whether the editor should automatically format the line after typing.",
+        },
         "editor.formatOnSave": {
             scope: "language-overridable",
             type: "boolean",
             default: false,
             description: "Format a file on save. A formatter must be available (an extension providing it).",
+        },
+        // Upstream's `enum` lists the installed extensions and is filled at run time; the schema here is static.
+        "editor.defaultFormatter": {
+            scope: "language-overridable",
+            type: ["string", "null"],
+            default: null,
+            description:
+                "Defines a default formatter which takes precedence over all other formatter settings. " +
+                "Must be the identifier of an extension contributing a formatter.",
         },
         // As upstream, gates only the automatic request: `editor.action.inlineSuggest.trigger` works even with `false`.
         "editor.inlineSuggest.enabled": {
@@ -270,6 +357,28 @@ export const editorConfiguration = {
             // Upstream's Constants.MAX_SAFE_SMALL_INTEGER (1 << 30).
             maximum: 1073741824,
             description: "Controls the delay in milliseconds after which quick suggestions will show up.",
+        },
+        // Verbatim from upstream (`markdownDescription` → `description`).
+        "editor.acceptSuggestionOnCommitCharacter": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description:
+                "Controls whether suggestions should be accepted on commit characters. For example, in JavaScript, " +
+                "the semi-colon (`;`) can be a commit character that accepts a suggestion and types that character.",
+        },
+        "editor.suggest.insertMode": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["insert", "replace"],
+            enumDescriptions: [
+                "Insert suggestion without overwriting text right of the cursor.",
+                "Insert suggestion and overwrite text right of the cursor.",
+            ],
+            default: "insert",
+            description:
+                "Controls whether words are overwritten when accepting completions. Note that this depends on " +
+                "extensions opting into this feature.",
         },
         "editor.suggestOnTriggerCharacters": {
             scope: "language-overridable",

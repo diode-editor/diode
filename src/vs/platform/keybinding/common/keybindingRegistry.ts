@@ -324,7 +324,11 @@ export function chordsEqual(a: KeybindingChord, b: KeybindingChord): boolean {
     });
 }
 
-function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean {
+/**
+ * `continuation` — the part after the first one of a chord (Ctrl+K *G*): there a bare non-Latin key is a
+ * key press for the chord, not text, so it falls back by the physical key even without a modifier.
+ */
+function matchesBinding(event: KeyboardEventLike, binding: Keybinding, continuation: boolean): boolean {
     const modifiersMatch =
         event.ctrlKey === binding.ctrlKey &&
         event.shiftKey === binding.shiftKey &&
@@ -334,14 +338,45 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean 
 
     if (event.key.toLowerCase() === binding.key.toLowerCase()) return true;
 
-    // Layout-independent fallback: for single-letter shortcuts match by physical key code.
-    // This makes e.g. Ctrl+S work even when the Russian layout is active. With Alt only a
+    // Layout-independent fallback, as VS Code's `keyboard.dispatch: code`: match by physical key code.
+    // For letters this makes e.g. Ctrl+S work even when the Russian layout is active. With Alt only a
     // non-Latin key falls back (Alt + Cyrillic "a" → Alt+F): a Latin key decides by itself, so AZERTY Alt+a
     // (physical Q) stays Alt+A — the same rule as the menu bar mnemonics.
-    const physicalFallback = event.ctrlKey || event.metaKey || (event.altKey && event.key.charCodeAt(0) >= 0x80);
+    // Punctuation falls back only for a non-Latin character with Ctrl, Cmd or Alt (Ctrl+Shift+Cyrillic
+    // "ha" → Ctrl+Shift+[): a Latin character always decides by itself, whatever the layout.
+    // In a chord continuation a bare non-Latin key falls back too: Ctrl+K then Cyrillic "ghe" is Ctrl+K G.
+    const nonLatin = event.key.charCodeAt(0) >= 0x80;
+    const ctrlOrMeta = event.ctrlKey || event.metaKey;
+    const nonLatinFallback = nonLatin && (event.altKey || continuation);
+    const punctuationCode = PUNCTUATION_CODES.get(binding.key);
+    const physicalFallback =
+        punctuationCode === undefined ? ctrlOrMeta || nonLatinFallback : (nonLatin && ctrlOrMeta) || nonLatinFallback;
     // No guards for multi-char keys or a missing code: `Key${"ENTER"}` is never a real code.
-    return physicalFallback && event.code === `Key${binding.key.toUpperCase()}`;
+    return physicalFallback && event.code === (punctuationCode ?? `Key${binding.key.toUpperCase()}`);
 }
+
+/** The pressed parts match the start of `chord`; parts after the first are chord continuations. */
+function chordStartsWith(chord: KeybindingChord, seq: readonly KeyboardEventLike[]): boolean {
+    return seq.every((event, i) => matchesBinding(event, chord[i], i > 0));
+}
+
+/**
+ * Physical key codes (`KeyboardEvent.code`) of the punctuation keys a binding can name — the same table the
+ * engine's `inferCode` puts on the event. A Map: a binding key like "constructor" must not hit the prototype.
+ */
+const PUNCTUATION_CODES: ReadonlyMap<string, string> = new Map([
+    ["[", "BracketLeft"],
+    ["]", "BracketRight"],
+    [";", "Semicolon"],
+    ["'", "Quote"],
+    [",", "Comma"],
+    [".", "Period"],
+    ["/", "Slash"],
+    ["\\", "Backslash"],
+    ["`", "Backquote"],
+    ["-", "Minus"],
+    ["=", "Equal"],
+]);
 
 export class KeybindingRegistry implements IDisposable {
     private entries: KeybindingEntry[] = [];
@@ -491,13 +526,8 @@ export class KeybindingRegistry implements IDisposable {
             return contextKeys.evaluate(entry.when);
         };
 
-        const prefixMatches = (entry: KeybindingEntry): boolean => {
-            if (entry.chord.length < seq.length) return false;
-            for (let i = 0; i < seq.length; i++) {
-                if (!matchesBinding(seq[i], entry.chord[i])) return false;
-            }
-            return true;
-        };
+        const prefixMatches = (entry: KeybindingEntry): boolean =>
+            entry.chord.length >= seq.length && chordStartsWith(entry.chord, seq);
 
         let hasLongerCandidate = false;
         // From the end, strongest first: it wins on a complete match.
@@ -561,14 +591,7 @@ export class KeybindingRegistry implements IDisposable {
             const entry = entries[i];
             if (entry.chord.length <= seq.length) continue;
             if (entry.when && !contextKeys?.evaluate(entry.when)) continue;
-            let matches = true;
-            for (let j = 0; j < seq.length; j++) {
-                if (!matchesBinding(seq[j], entry.chord[j])) {
-                    matches = false;
-                    break;
-                }
-            }
-            if (matches) return entry.chord.slice(0, seq.length);
+            if (chordStartsWith(entry.chord, seq)) return entry.chord.slice(0, seq.length);
         }
         return seq.map((e) => ({
             key: e.key,

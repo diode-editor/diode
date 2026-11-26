@@ -11,6 +11,12 @@ import {
 } from "./treeViewWireParsers.ts";
 
 describe("treeViewWireParsers", () => {
+    it("a refreshed row keeps the handle the host knows it by; garbage reads as none", () => {
+        const row = { handle: "0/0:after", label: "after", collapsibleState: 0 };
+        expect(parseWireTreeItems([{ ...row, previousHandle: "0/0:before" }])[0]?.previousHandle).toBe("0/0:before");
+        expect(parseWireTreeItems([{ ...row, previousHandle: 7 }])[0]?.previousHandle).toBeUndefined();
+    });
+
     it("registration: flags are true only when true, the owner only when a string", () => {
         expect(
             parseWireTreeViewRegistration({

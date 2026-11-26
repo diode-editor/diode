@@ -1,9 +1,6 @@
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import type { IncomingMessage, Server, ServerResponse } from "node:http";
-import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
-import { join, normalize, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -21,6 +18,7 @@ import {
 } from "./helpers/extensionsDisk.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { createRegistryFixture } from "./helpers/registryFixture.ts";
+import { RegistryServer } from "./helpers/registryServer.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
@@ -53,82 +51,8 @@ const NOT_INSTALLED = "test.qa3-notinstalled";
 let root: string;
 /** The fixture as a directory: the CLI seeds from it. */
 let registryDir: string;
-let registry: FixtureRegistryServer;
+let registry: RegistryServer;
 let seeds = 0;
-
-/**
- * The fixture directory over HTTP: the window's registry. `path` artifacts become `url` ones (the HTTP source
- * takes only those). Requests are logged; `fail` answers 500 to a path a number of times; `offline` drops all.
- */
-class FixtureRegistryServer {
-    public readonly requests: string[] = [];
-    public offline = false;
-    private readonly failures = new Map<string, number>();
-    private server!: Server;
-    public url = "";
-
-    public constructor(private readonly dir: string) {}
-
-    public async listen(): Promise<void> {
-        this.server = createServer((req, res) => {
-            this.handle(req, res);
-        });
-        await new Promise<void>((resolveListen) => this.server.listen(0, "127.0.0.1", resolveListen));
-        this.url = `http://127.0.0.1:${String((this.server.address() as AddressInfo).port)}/`;
-    }
-
-    public close(): Promise<void> {
-        return new Promise((resolveClose) => this.server.close(() => resolveClose()));
-    }
-
-    public fail(path: string, times = Number.POSITIVE_INFINITY): void {
-        this.failures.set(path, times);
-    }
-
-    /** Requests of one path, a query string included. */
-    public count(path: string): number {
-        return this.requests.filter((r) => r === path).length;
-    }
-
-    private handle(req: IncomingMessage, res: ServerResponse): void {
-        const path = (req.url ?? "/").split("?")[0]!;
-        this.requests.push(path);
-        if (this.offline) {
-            req.socket.destroy();
-            return;
-        }
-        const left = this.failures.get(path) ?? 0;
-        if (left > 0) {
-            this.failures.set(path, left - 1);
-            res.writeHead(500).end("injected failure");
-            return;
-        }
-        const file = normalize(join(this.dir, path));
-        if (!file.startsWith(this.dir)) {
-            res.writeHead(403).end();
-            return;
-        }
-        let body: Buffer;
-        try {
-            body = readFileSync(file);
-        } catch {
-            res.writeHead(404).end();
-            return;
-        }
-        if (path.startsWith("/meta/")) {
-            const meta = JSON.parse(body.toString("utf8")) as {
-                versions: { artifact: { type: string; path?: string; url?: string } }[];
-            };
-            for (const version of meta.versions) {
-                if (version.artifact.type === "path") {
-                    version.artifact = { type: "url", url: `${this.url}${version.artifact.path!}` };
-                }
-            }
-            body = Buffer.from(JSON.stringify(meta));
-        }
-        res.writeHead(200).end(body);
-    }
-}
 
 function pageId(id: string): string {
     return id.replaceAll(".", "-");
@@ -252,7 +176,8 @@ async function pressButton(app: HeadlessApp, label: string): Promise<void> {
 }
 
 async function rowText(app: HeadlessApp, group: string, id: string): Promise<string | null> {
-    const row = await app.session.node(`#extensionsGroup-${group}-${pageId(id)}`);
+    // The entry's first line: name, version, badges.
+    const row = await app.session.node(`#extensionsGroup-${group}-${pageId(id)}--title`);
     return row?.text ?? null;
 }
 
@@ -350,7 +275,7 @@ describe("Extension auto-update — QA of stage 3 (functional e2e, HTTP registry
             { ...old(CORRUPT, "1.1.0"), corruptSha: true },
             { ...old(NOT_INSTALLED, "1.0.0"), displayName: "Qa Not Installed" },
         ]);
-        registry = new FixtureRegistryServer(registryDir);
+        registry = new RegistryServer(registryDir);
         await registry.listen();
     }, 300_000);
 

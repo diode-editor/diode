@@ -18,13 +18,13 @@ winget-манифесты, версия на лендинге; лицензия 
 
 - [ ] Секрет `SITE_PAT` (fine-grained, только `diode-editor.github.io`, Contents: read and write) — до него
       job `site` красная; проверить первым же релизом или ручным запуском `site-version.yml`.
-- [~] Первая подача в winget: PR [microsoft/winget-pkgs#442141](https://github.com/microsoft/winget-pkgs/pull/442141)
-      (2026-09-27, ветка `DiodeEditor.Diode-0.3.0` в форке `tihonove/winget-pkgs`, коммит через
-      Git Data API — клон с `tree:0` при push дотягивает всё дерево). 2026-10-30 модератор вернул PR
-      (`Needs-Author-Feedback`, `Manifest-Version-Deprecated`): манифест 1.12.0 устарел, нужен 1.28.0.
-      В тот же день `packaging/render.mjs` поднят до 1.28.0, а PR переведён на версию 0.12.3 (0.3.0 не
-      работала на Windows, см. ниже); имя ветки осталось старым. После мержа — секрет
-      `WINGET_TOKEN` (PAT с `public_repo`), дальше версии подаёт `release.yml`.
+- [~] winget: первая подача [microsoft/winget-pkgs#442141](https://github.com/microsoft/winget-pkgs/pull/442141)
+      (0.12.3) влита 2026-11-09. Секрет `WINGET_TOKEN` заведён 2026-11-10, дальше версии подаёт
+      недельный `winget.yml` (не `release.yml`: релизы почти ежедневные, модерация — дни). Первое
+      обновление через `wingetcreate` — [#476852](https://github.com/microsoft/winget-pkgs/pull/476852)
+      (0.16.2) ждёт модератора. Риск: `wingetcreate` 1.12.13 пишет манифест 1.12.0, за который
+      модератор возвращал первую подачу (`Manifest-Version-Deprecated`). Вернут — подавать манифесты
+      1.28.0 из `packaging/render.mjs` через `wingetcreate submit`.
 - [ ] Не проверено руками: `winget install DiodeEditor.Diode` (после мержа PR) — нужна Windows.
 - [ ] **Windows-SEA до 0.8.5 не узнавал себя** (найдено в #612): `isSeaBinary()` на Windows всегда
       отвечал `false` (`createRequire("file:///")` на win32 бросает), и бинарь искал `diode.bundle`,

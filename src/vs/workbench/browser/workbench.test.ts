@@ -1,3 +1,4 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import type { HFlexElement } from "@tuidom/elements/layout/hFlexElement";
@@ -153,6 +154,21 @@ describe("Workbench integration", () => {
 
         expect(h.testApp.focusedElement).not.toBeNull();
         expect(h.testApp.focusedElement).toBe(h.testApp.querySelector("EditorElement"));
+    });
+
+    it("lays out the chrome: menu bar on row 0, status bar on the last row, the layout between them", () => {
+        const width = 70;
+        const rows = 20;
+        const h = createAppTestHarness({ size: new Size(width, rows) });
+        const box = (selector: string): { y: number; height: number; width: number } => {
+            const element = h.testApp.querySelector(selector);
+            if (!element) throw new Error(`no ${selector}`);
+            return { y: element.globalPosition.y, height: element.layoutSize.height, width: element.layoutSize.width };
+        };
+
+        expect(box("#menuBar")).toEqual({ y: 0, height: 1, width });
+        expect(box("WorkbenchLayoutElement")).toEqual({ y: 1, height: rows - 2, width });
+        expect(box("#statusBar")).toEqual({ y: rows - 1, height: 1, width });
     });
 
     it("creates UI tree with statusbar", () => {
@@ -425,19 +441,14 @@ describe("Workbench — Quick Open", () => {
     });
 });
 
-describe("Workbench — runtime extended-keys detection", () => {
+describe("Workbench — the tier does not change mid-session (#1049)", () => {
     let savedEnv: NodeJS.ProcessEnv;
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        // Force a legacy baseline: tmux masks $TERM and ssh strips the kitty env flag,
-        // so neither the term-name hint nor the env-flag hint fires.
+        // Behind tmux keys may arrive CSI-u encoded while diode itself never asked for it.
         process.env.TERM = "tmux-256color";
         process.env.TMUX = "/tmp/tmux-1000/default,1,0";
-        delete process.env.KITTY_WINDOW_ID;
-        delete process.env.GHOSTTY_RESOURCES_DIR;
-        delete process.env.WEZTERM_PANE;
-        delete process.env.ALACRITTY_WINDOW_ID;
         delete process.env.TERM_PROGRAM;
         delete process.env.COLORTERM;
     });
@@ -454,20 +465,11 @@ describe("Workbench — runtime extended-keys detection", () => {
         return { workbench, env };
     }
 
-    it("promotes the tier off legacy when a CSI-u key arrives (e.g. Ctrl+Tab behind tmux)", () => {
+    it("a CSI-u key (Ctrl+Tab behind tmux) leaves the tier at legacy", () => {
         const { workbench, env } = mountWorkbench();
-        expect(env.tier).toBe("legacy");
 
         workbench.view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab", ctrlKey: true, raw: "\x1b[9;5u" }));
-
-        expect(env.tier).toBe("csi-u");
-        expect(env.hasCapability("extended-keys")).toBe(true);
-    });
-
-    it("leaves the tier at legacy for ordinary (non-CSI-u) keys", () => {
-        const { workbench, env } = mountWorkbench();
-
-        workbench.view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "a", raw: "a" }));
+        workbench.view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "s", metaKey: true, raw: "\x1b[115;9u" }));
 
         expect(env.tier).toBe("legacy");
     });

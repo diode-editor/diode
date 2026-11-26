@@ -78,9 +78,56 @@ public class App {
 
 export const APP_JAVA_PATH = path.join("src", "main", "java", "demo", "App.java");
 
+/** An interface with two implementations and a caller: what navigation, symbols and both hierarchies ask about. */
+export const SHAPES_JAVA: Readonly<Record<string, string>> = {
+    "Shape.java": `package demo;
+
+public interface Shape {
+    double area();
+}
+`,
+    "Circle.java": `package demo;
+
+public class Circle implements Shape {
+    @Override
+    public double area() {
+        return 3.14;
+    }
+}
+`,
+    "Square.java": `package demo;
+
+public class Square implements Shape {
+    @Override
+    public double area() {
+        return 1.0;
+    }
+}
+`,
+    "Drawing.java": `package demo;
+
+public class Drawing {
+    private final Shape shape = new Circle();
+    private int count;
+
+    double measure() {
+        count = 1;
+        System.out.println(count);
+        return shape.area();
+    }
+
+    double render() {
+        return measure();
+    }
+}
+`,
+};
+
 export interface IMavenProject {
     readonly root: string;
     readonly appPath: string;
+    /** A source next to App.java, in its package. */
+    sourcePath(name: string): string;
     dispose(): void;
 }
 
@@ -89,15 +136,18 @@ export interface IMavenProject {
  * puts its eclipse configuration, and jdt.ls won't import a project containing it —
  * "App.java is a non-project file", and no semantic diagnostics until the timeout.
  */
-export function createMavenProject(): IMavenProject {
+export function createMavenProject(sources: Readonly<Record<string, string>> = {}): IMavenProject {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-java-proj-"));
     const appPath = path.join(root, APP_JAVA_PATH);
     fs.mkdirSync(path.dirname(appPath), { recursive: true });
     fs.writeFileSync(path.join(root, "pom.xml"), POM_XML, "utf-8");
     fs.writeFileSync(appPath, APP_JAVA, "utf-8");
+    const sourcePath = (name: string): string => path.join(path.dirname(appPath), name);
+    for (const [name, text] of Object.entries(sources)) fs.writeFileSync(sourcePath(name), text, "utf-8");
     return {
         root,
         appPath,
+        sourcePath,
         dispose: (): void => {
             fs.rmSync(root, { recursive: true, force: true });
         },

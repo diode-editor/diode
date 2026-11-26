@@ -22,6 +22,12 @@ export interface IShutdownParticipant {
     collectDirty(): readonly IShutdownDirtyItem[];
 }
 
+/**
+ * Upstream `onBeforeShutdown` veto of a contribution (the debug sessions' `debug.confirmOnExit`): `true` keeps the
+ * window open. A sync `false` keeps the shutdown synchronous.
+ */
+export type ShutdownVeto = (reason: ShutdownReason) => boolean | Promise<boolean>;
+
 /** Why the app shuts down: the reason only affects what comes after (exit or a new process). */
 export type ShutdownReason = "quit" | "reload" | "inspector";
 
@@ -52,6 +58,7 @@ export class LifecycleService {
     public static dependencies = [DialogServiceDIToken] as const;
 
     private participants: IShutdownParticipant[] = [];
+    private readonly vetoes = new Set<ShutdownVeto>();
     private readonly willShutdownListeners = new Set<(event: IWillShutdownEvent) => void>();
     private readonly shutdownSyncListeners = new Set<() => void>();
     private shutdownPromise: Promise<void> | null = null;
@@ -109,11 +116,15 @@ export class LifecycleService {
         this.participants.push(participant);
     }
 
+    public registerShutdownVeto(veto: ShutdownVeto): ILifecycleSubscription {
+        return subscribe(this.vetoes, veto);
+    }
+
     /**
-     * Without dirty items `onProceed` is called synchronously (before the first await). Cancel, like
-     * a Save that failed to save, leaves the app as is.
+     * Without dirty items and vetoes `onProceed` is called synchronously (before the first await). Cancel, like
+     * a Save that failed to save, leaves the app as is; so does a veto, asked after the dirty items.
      */
-    public async requestShutdown(onProceed: () => unknown): Promise<void> {
+    public async requestShutdown(onProceed: () => unknown, reason: ShutdownReason = "quit"): Promise<void> {
         for (const participant of this.participants) {
             for (const item of participant.collectDirty()) {
                 if (!item.isStillDirty()) continue;
@@ -121,6 +132,11 @@ export class LifecycleService {
                 if (choice === "cancel") return;
                 if (choice === "save" && !(await item.save())) return;
             }
+        }
+        for (const veto of this.vetoes) {
+            const vetoed = veto(reason);
+            // A sync `false` does not await: without vetoing ones the shutdown stays synchronous.
+            if (vetoed !== false && (await vetoed)) return;
         }
         await onProceed();
     }

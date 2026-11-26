@@ -8,7 +8,7 @@ import { LanguageConfigurationService } from "../../language/common/languageConf
 
 // The `golang.go` shape: without `vscode.debug` the user lost ~60 `go.*` commands.
 describe("ExtensionHost — an extension with a debugger and the Test API activates fully", () => {
-    it("activate() reaches the command; no sessions, profiles and collections work, the language layer is in the core", async () => {
+    it("activate() reaches the command; no sessions, the adapter factory is taken, profiles and collections work, the language layer is in the core", async () => {
         const output: { channel: string; level: string; value: string }[] = [];
         const outputSink: IOutputSink = {
             append: (channel, _label, level, value) => {
@@ -23,7 +23,18 @@ describe("ExtensionHost — an extension with a debugger and the Test API activa
             NULL_LOGGER,
         );
         const harness = await createExtensionTestHarness({
-            extensions: [extensionFixture("test.goActivationShape", "goActivationShape.cjs")],
+            extensions: [
+                {
+                    ...extensionFixture("test.goActivationShape", "goActivationShape.cjs"),
+                    // As golang.go: only the extension that defines the `go` debugger registers its adapter factory.
+                    manifest: {
+                        name: "test.goActivationShape",
+                        publisher: "test",
+                        version: "0.0.1",
+                        contributes: { debuggers: [{ type: "go", label: "Go" }] },
+                    },
+                },
+            ],
             outputSink,
             languageConfigurations,
         });
@@ -45,11 +56,7 @@ describe("ExtensionHost — an extension with a debugger and the Test API activa
                 autoClosingPairs: [{ open: "{", close: "}", notIn: [] }],
             });
 
-            expect(output.map((line) => `${line.channel}/${line.level}: ${line.value}`)).toEqual([
-                expect.stringMatching(/^extensions\/warn: debugging "go" is not supported in TUI yet/),
-                expect.stringMatching(/^extensions\/warn: tests "go" are not shown in TUI yet/),
-                expect.stringMatching(/^extensions\/warn: starting a debug session is not supported in TUI yet/),
-            ]);
+            expect(output).toEqual([]);
         } finally {
             await harness.dispose();
         }

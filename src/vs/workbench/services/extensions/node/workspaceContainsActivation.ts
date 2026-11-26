@@ -106,7 +106,7 @@ export function createRipgrepWorkspaceScanner(
                     if (line !== "") finish(line);
                 });
                 // Exit codes 1 (nothing) and 2 (some directories unreadable) aren't failures, as in
-                // `FileSearchService`. A failed spawn (no rg, no folder) is: the extension stays inactive with a reason.
+                // `FileSearchEngine`. A failed spawn (no rg, no folder) is: the extension stays inactive with a reason.
                 guard.onDidEnd((end) => {
                     finish(null, end.error);
                 });

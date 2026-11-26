@@ -195,6 +195,21 @@ describe("QuickPickElement — Space in multi-select", () => {
         expect(event.defaultPrevented).toBe(true);
     });
 
+    it("Space after the query filtered everything out of an active row checks nothing", () => {
+        const picker = makePicker();
+        picker.canPickMany = true;
+        picker.items = ITEMS;
+        const onCheckedChange = vi.fn();
+        picker.onCheckedChange = onCheckedChange;
+        picker.moveActive(1); // alpha is active
+        picker.refreshItems([]); // the active index stays, the list under it is gone
+
+        key(picker, " ");
+
+        expect([...picker.checkedItems]).toEqual([]);
+        expect(onCheckedChange).not.toHaveBeenCalled();
+    });
+
     it("Space on an empty list breaks nothing", () => {
         const picker = makePicker();
         picker.canPickMany = true;

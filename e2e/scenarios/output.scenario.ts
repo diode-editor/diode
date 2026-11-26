@@ -28,7 +28,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Bootstrap"));
         // No "⋯" with a "Switch Output ›" copy: an `isSelection` submenu is a SelectBox, as in VS Code.
         await editor.waitForText((t) => {
-            const tabRow = t.split("\n").find((line) => line.includes("PROBLEMS  OUTPUT  TERMINAL"));
+            const tabRow = t.split("\n").find((line) => line.includes("PROBLEMS  OUTPUT  DEBUG CONSOLE  TERMINAL"));
             return tabRow !== undefined && tabRow.includes("Bootstrap") && !tabRow.includes("⋯");
         });
         await editor.capture("panel");

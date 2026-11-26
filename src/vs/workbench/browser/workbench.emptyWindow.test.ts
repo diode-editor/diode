@@ -57,10 +57,10 @@ describe("Workbench — window without a workspace", () => {
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).toBe(EXPLORER_VIEWLET_ID);
         const shown = screen();
         // Upstream's empty-window view name; with one section it is the sidebar header (#898). The 30-column
-        // sidebar clips it before the switcher chevron and the header buttons.
+        // sidebar (28 columns inside its frame) clips it before the switcher chevron and the header buttons.
         const header = h.testApp.querySelector("#paneHeader-workbench-explorer-fileView");
         expect(header?.inspectState()).toMatchObject({ title: "NO FOLDER OPENED" });
-        expect(shown).toContain(" NO FOLDER O");
+        expect(shown).toContain("│ NO FOLDER ");
         expect(shown).toContain("You have not yet opened a");
         expect(shown).toContain("[ Open Folder ]");
     });
@@ -89,14 +89,16 @@ describe("Workbench — window without a workspace", () => {
         h.commands.execute("workbench.view.search");
         const shown = screen();
         expect(shown).toContain("SEARCH");
-        expect(shown).toContain("Search needs an open folder.");
+        // The sidebar's 28 inner columns wrap the sentence.
+        expect(shown).toMatch(/Search needs an open\s*│[^\n]*\n│ folder\./u);
         expect(shown).toContain("[ Open Folder ]");
     });
 
     it("Source Control without a folder also says what is missing", () => {
         h.commands.execute("workbench.view.scm");
         const shown = screen();
-        expect(shown).toContain("To use source control, open a");
+        // The sidebar's 28 inner columns wrap the sentence.
+        expect(shown).toMatch(/To use source control, open│[^\n]*\n│ a folder containing a Git/u);
         expect(shown).toContain("[ Open Folder ]");
     });
 
@@ -128,7 +130,6 @@ describe("Workbench — window without a workspace", () => {
     // nodes only via refresh(); without the refresh in setWorkspaceFolder the tree is empty.
     it("Open Folder from an empty window populates the tree, not just removes the hint", async () => {
         h.workbench.setWorkspaceFolder(ws.dir);
-        await h.workbench.fileIndexReady;
         await vi.waitFor(() => {
             expect(screen()).toContain("alpha.txt");
         });

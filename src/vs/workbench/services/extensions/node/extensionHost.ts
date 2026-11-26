@@ -9,10 +9,17 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchyRequest,
+    ICallHierarchySession,
+} from "../../../../editor/common/languages/iCallHierarchySource.ts";
+import type {
     IApplyCodeActionOptions,
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type { ICodeLensRequest } from "../../../../editor/common/languages/iCodeLensSource.ts";
 import type { IColorInformation, IDocumentColorRequest } from "../../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
@@ -23,17 +30,39 @@ import type {
     ICoreDefinitionLocation,
     IDefinitionRequest,
 } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type {
+    IDocumentHighlight,
+    IDocumentHighlightRequest,
+} from "../../../../editor/common/languages/iDocumentHighlightSource.ts";
+import type {
+    ICoreDocumentSymbol,
+    IDocumentSymbolRequest,
+} from "../../../../editor/common/languages/iDocumentSymbolSource.ts";
+import type {
+    IEvaluatableExpression,
+    IEvaluatableExpressionRequest,
+} from "../../../../editor/common/languages/iEvaluatableExpressionSource.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
-import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
+import type {
+    IFormattingRequest,
+    IOnTypeFormattingRequest,
+} from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
+import type { IInlayHintsRequest, InlayHint } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { IInlineValuesRequest, InlineValue } from "../../../../editor/common/languages/iInlineValuesSource.ts";
 import {
     type ILanguageConfigurationService,
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import type {
+    ILinkedEditingRangeRequest,
+    ILinkedEditingRanges,
+} from "../../../../editor/common/languages/iLinkedEditingSource.ts";
+import type { ILinkRequest } from "../../../../editor/common/languages/iLinkSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -51,6 +80,12 @@ import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchyRequest,
+    ITypeHierarchySession,
+} from "../../../../editor/common/languages/iTypeHierarchySource.ts";
+import type { ICoreWorkspaceSymbolLocation } from "../../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { ConfigurationScope } from "../../../../platform/configuration/common/configurationRegistry.ts";
@@ -79,11 +114,14 @@ import {
 } from "../../../api/common/iEditorDecorationsService.ts";
 import { type IEditorLayoutService, NULL_EDITOR_LAYOUT_SERVICE } from "../../../api/common/iEditorLayoutService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
+import type { IExtensionDebugSink } from "../../../api/common/iExtensionDebugSink.ts";
 import { type IExtensionFileWatcher, NULL_EXTENSION_FILE_WATCHER } from "../../../api/common/iExtensionFileWatcher.ts";
 import type { IExtensionTaskSink } from "../../../api/common/iExtensionTaskSink.ts";
+import type { IExtensionTestingSink } from "../../../api/common/iExtensionTestingSink.ts";
 import type { IExtensionTreeViewsSink } from "../../../api/common/iExtensionTreeViewsSink.ts";
 import type {
     DiagnosticsSink,
+    IExtensionTerminalProfileSink,
     IExtensionTerminalSink,
     IFileDialogSink,
     INotificationSink,
@@ -99,7 +137,15 @@ import {
 import type { ILanguageStatusSink } from "../../../api/common/iLanguageStatusSink.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import type { IWorkspaceFoldersSink } from "../../../api/common/iWorkspaceFoldersSink.ts";
-import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
+import type {
+    IWireCodeLens,
+    IWireCodeLensList,
+    IWireDocumentLinkList,
+    IWireLanguageProviderRegistration,
+    IWireWorkspaceSymbolProviderRegistration,
+    IWireWorkspaceSymbols,
+    WireCodeLensCacheId,
+} from "../../../api/common/wireTypes.ts";
 import {
     type IWireDocumentChangedEvent,
     type IWireDocumentStateChanged,
@@ -120,7 +166,8 @@ import type { IExtensionUriHandlers } from "../common/extensionUrlHandler.ts";
 
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
 import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
-import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
+import { DebugCustomer } from "./customers/debugCustomer.ts";
+import { DecorationsCustomer, type GutterIconReader } from "./customers/decorationsCustomer.ts";
 import { DiagnosticsCustomer, type IMarkerReader } from "./customers/diagnosticsCustomer.ts";
 import { DocumentsCustomer, MAX_SYNCED_DOCUMENT_CHARS } from "./customers/documentsCustomer.ts";
 import { EditorCustomer } from "./customers/editorCustomer.ts";
@@ -133,19 +180,23 @@ import {
     createInMemoryEnvironmentVariableCollectionStore,
     EnvironmentVariableCollectionsCustomer,
 } from "./customers/environmentVariableCollectionsCustomer.ts";
+import { FileOperationsCustomer } from "./customers/fileOperationsCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { LanguageConfigurationCustomer } from "./customers/languageConfigurationCustomer.ts";
 import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
 import { LanguageStatusCustomer } from "./customers/languageStatusCustomer.ts";
+import { SearchCustomer } from "./customers/searchCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { TasksCustomer } from "./customers/tasksCustomer.ts";
 import { TerminalCustomer } from "./customers/terminalCustomer.ts";
+import { TestingCustomer } from "./customers/testingCustomer.ts";
 import { TreeViewsCustomer } from "./customers/treeViewsCustomer.ts";
 import { UriHandlersCustomer } from "./customers/uriHandlersCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { WorkspaceFoldersCustomer } from "./customers/workspaceFoldersCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
 import { ExtensionPhases } from "./extensionPhases.ts";
+import type { IDeclarativeExtension } from "./extensionRegistration.ts";
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 import { createTransientExtensionStateStore, type IExtensionStateStore } from "./extensionStateStore.ts";
 import {
@@ -179,6 +230,8 @@ export interface IExtensionHostConfigProvider {
     getWorkspaceFolders(): readonly IWorkspaceFolderInfo[];
     /** `undefined` when a folder is opened directly or the window is empty. */
     getWorkspaceFile(): string | undefined;
+    /** Settings under it are always utf-8 for `workspace.decode`/`encode` (upstream `getDefaultEncodingOverrides`). */
+    readonly userRoamingDataHome?: string;
     onDidChange(cb: (affectedKeys: readonly string[]) => void): IDisposable;
     /** By the time the promise resolves, {@link onDidChange} has already fired with the new value. */
     updateValue(key: string, value: unknown, target: ConfigurationTarget): Promise<void>;
@@ -199,6 +252,8 @@ export interface IExtensionHostOptions {
     readonly editorDecorations?: IEditorDecorationsService;
     readonly fileDecorations?: IFileDecorationsService;
     readonly themeColorResolver?: IThemeColorResolver;
+    /** Reads `gutterIconPath` files of decoration types; without it every icon is a plain dot. */
+    readonly gutterIconReader?: GutterIconReader;
     /** Expands `$(name)` in command titles from the manifest; Nerd Font glyphs when absent. */
     readonly icons?: IProductIconService;
     readonly diagnosticsSink?: DiagnosticsSink;
@@ -218,10 +273,15 @@ export interface IExtensionHostOptions {
     /** When the subprocess dies, the host itself calls `clear()`: its items go with it. */
     readonly languageStatusSink?: ILanguageStatusSink;
     readonly terminalSink?: IExtensionTerminalSink;
+    readonly terminalProfileSink?: IExtensionTerminalProfileSink;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly taskSink?: IExtensionTaskSink;
+    /** Configuration providers and `startDebugging`/`stopDebugging`; without it nothing starts. */
+    readonly debugSink?: IExtensionDebugSink;
     /** When the subprocess dies, the host itself calls `reset()`: every extension tree goes back to an empty section. */
     readonly treeViewsSink?: IExtensionTreeViewsSink;
+    /** When the subprocess dies, the host itself calls `reset()`: its test controllers go with their trees. */
+    readonly testingSink?: IExtensionTestingSink;
     readonly clipboard?: IClipboard;
     readonly externalOpener?: IExternalOpener;
     readonly environment?: IExtensionHostEnvironment;
@@ -268,7 +328,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     /** Revival is lazy, on the next event rather than right at death, to avoid a crash loop. */
     private replayPending = false;
     /** Keys of extensions without `main`: a dependency on them is satisfied (like upstream `_isResolvedExtension`). */
-    private readonly declarativeExtensions = new Set<string>();
+    /** By `extensionKey`. */
+    private readonly declarativeExtensions = new Map<string, IDeclarativeExtension>();
     private readonly notificationSink: INotificationSink | undefined;
     /** Negative so they never collide with the subprocess's `window.show*Message` handles (those count up from 1). */
     private nextHostMessageHandle = -1;
@@ -293,6 +354,9 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly diagnostics: DiagnosticsCustomer;
     private readonly fileSystem: FileSystemCustomer;
     private readonly uriHandlersCustomer: UriHandlersCustomer;
+    public readonly fileOperations: FileOperationsCustomer;
+    /** Quick Open's file index lives in the subprocess (#1179); a request spawns it when needed. */
+    public readonly fileSearch: SearchCustomer;
     private readonly storageHomes: () => IExtensionStorageHomes;
     private readonly extensionState: IExtensionStateStore;
     /** `workspaceState` belongs to THIS workspace: a write after a folder change would leak into another store. */
@@ -324,6 +388,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE,
                 options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE,
                 options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER,
+                options.gutterIconReader,
             ),
         );
         const requestTimeouts: RequestTimeouts = { ...DEFAULT_REQUEST_TIMEOUTS, ...options.requestTimeouts };
@@ -346,11 +411,17 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             options.icons,
         );
         this.fileSystem = this.register(new FileSystemCustomer(options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER));
-        this.terminals = new TerminalCustomer(options.terminalSink);
+        this.terminals = new TerminalCustomer(options.terminalSink, options.terminalProfileSink);
         this.environmentVariableCollections = new EnvironmentVariableCollectionsCustomer(
             options.environmentVariableCollections ?? createInMemoryEnvironmentVariableCollectionStore(),
         );
         this.uriHandlersCustomer = this.register(new UriHandlersCustomer());
+        this.fileOperations = new FileOperationsCustomer(this.logger);
+        this.fileSearch = this.register(
+            new SearchCustomer(() =>
+                this.hostDisposed ? Promise.reject(new Error("ExtensionHost disposed")) : this.ensureSubprocess(),
+            ),
+        );
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createRipgrepWorkspaceScanner();
@@ -382,11 +453,15 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.terminals,
             this.environmentVariableCollections,
             new TasksCustomer(options.taskSink),
+            new DebugCustomer(options.debugSink),
             new TreeViewsCustomer(options.treeViewsSink),
+            new TestingCustomer(options.testingSink),
             new LanguageConfigurationCustomer(options.languageConfigurations ?? NULL_LANGUAGE_CONFIGURATION_SERVICE),
             new WorkspaceFoldersCustomer(options.workspaceFoldersSink),
             new LanguageStatusCustomer(options.languageStatusSink),
             this.uriHandlersCustomer,
+            this.fileOperations,
+            this.fileSearch,
         ];
     }
 
@@ -435,11 +510,12 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         };
     }
 
-    public registerDeclarativeExtension(id: string): void {
-        this.declarativeExtensions.add(extensionKey(id));
+    public registerDeclarativeExtension(extension: IDeclarativeExtension): void {
+        this.declarativeExtensions.set(extensionKey(extension.id), extension);
+        this.pushExtensionCatalog();
     }
 
-    /** Extensions without `main` aren't listed — a deviation from upstream `extensions.all` (docs/public/API-COVERAGE.md). */
+    /** Every installed extension, those without `main` too (upstream `extensions.all`). */
     private extensionCatalog(): IWireExtensionCatalog {
         const extensions: IWireExtensionDescription[] = [];
         for (const reg of this.phases.all()) {
@@ -448,6 +524,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 extensionPath: extensionRootPath(reg),
                 packageJSON: reg.manifest,
                 isActive: this.phases.isActive(reg.id),
+            });
+        }
+        for (const declarative of this.declarativeExtensions.values()) {
+            extensions.push({
+                id: declarative.id,
+                extensionPath: declarative.extensionPath,
+                packageJSON: declarative.manifest,
+                isActive: false,
             });
         }
         return { extensions };
@@ -818,6 +902,31 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideInlineCompletions(handle, req, token);
     }
 
+    public provideDocumentSymbols(
+        handle: number,
+        req: IDocumentSymbolRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDocumentSymbol[]> {
+        return this.languageFeatures.provideDocumentSymbols(handle, req, token);
+    }
+
+    public provideWorkspaceSymbols(
+        handle: number,
+        query: string,
+        token?: ICancellationToken,
+    ): Promise<IWireWorkspaceSymbols> {
+        return this.languageFeatures.provideWorkspaceSymbols(handle, query, token);
+    }
+
+    public resolveWorkspaceSymbol(
+        handle: number,
+        cacheId: number,
+        id: number,
+        token?: ICancellationToken,
+    ): Promise<ICoreWorkspaceSymbolLocation | null> {
+        return this.languageFeatures.resolveWorkspaceSymbol(handle, cacheId, id, token);
+    }
+
     public provideFoldingRanges(
         handle: number,
         req: IFoldingRequest,
@@ -834,12 +943,161 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideSelectionRanges(handle, req, token);
     }
 
+    public prepareCallHierarchy(
+        handle: number,
+        req: ICallHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ICallHierarchySession | null> {
+        return this.languageFeatures.prepareCallHierarchy(handle, req, token);
+    }
+
+    public provideCallHierarchyIncomingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyIncomingCall[]> {
+        return this.languageFeatures.provideCallHierarchyIncomingCalls(handle, sessionId, itemId, token);
+    }
+
+    public provideCallHierarchyOutgoingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyOutgoingCall[]> {
+        return this.languageFeatures.provideCallHierarchyOutgoingCalls(handle, sessionId, itemId, token);
+    }
+
+    public releaseCallHierarchy(handle: number, sessionId: number): void {
+        this.languageFeatures.releaseCallHierarchy(handle, sessionId);
+    }
+
+    public prepareTypeHierarchy(
+        handle: number,
+        req: ITypeHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ITypeHierarchySession | null> {
+        return this.languageFeatures.prepareTypeHierarchy(handle, req, token);
+    }
+
+    public provideTypeHierarchySupertypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.languageFeatures.provideTypeHierarchySupertypes(handle, sessionId, itemId, token);
+    }
+
+    public provideTypeHierarchySubtypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.languageFeatures.provideTypeHierarchySubtypes(handle, sessionId, itemId, token);
+    }
+
+    public releaseTypeHierarchy(handle: number, sessionId: number): void {
+        this.languageFeatures.releaseTypeHierarchy(handle, sessionId);
+    }
+
+    public provideDocumentHighlights(
+        handle: number,
+        req: IDocumentHighlightRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly IDocumentHighlight[] | null> {
+        return this.languageFeatures.provideDocumentHighlights(handle, req, token);
+    }
+
+    public provideEvaluatableExpression(
+        handle: number,
+        req: IEvaluatableExpressionRequest,
+        token?: ICancellationToken,
+    ): Promise<IEvaluatableExpression | null> {
+        return this.languageFeatures.provideEvaluatableExpression(handle, req, token);
+    }
+
+    public provideLinkedEditingRanges(
+        handle: number,
+        req: ILinkedEditingRangeRequest,
+        token?: ICancellationToken,
+    ): Promise<ILinkedEditingRanges | null> {
+        return this.languageFeatures.provideLinkedEditingRanges(handle, req, token);
+    }
+
+    public provideDocumentLinks(
+        handle: number,
+        req: ILinkRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireDocumentLinkList | null> {
+        return this.languageFeatures.provideDocumentLinks(handle, req, token);
+    }
+
+    public resolveDocumentLink(
+        handle: number,
+        cacheId: number,
+        id: number,
+        token?: ICancellationToken,
+    ): Promise<string | null> {
+        return this.languageFeatures.resolveDocumentLink(handle, cacheId, id, token);
+    }
+
     public provideDocumentColors(
         handle: number,
         req: IDocumentColorRequest,
         token?: ICancellationToken,
     ): Promise<readonly IColorInformation[] | null> {
         return this.languageFeatures.provideDocumentColors(handle, req, token);
+    }
+
+    public provideInlayHints(
+        handle: number,
+        req: IInlayHintsRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlayHint[] | null> {
+        return this.languageFeatures.provideInlayHints(handle, req, token);
+    }
+
+    public provideInlineValues(
+        handle: number,
+        req: IInlineValuesRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlineValue[] | null> {
+        return this.languageFeatures.provideInlineValues(handle, req, token);
+    }
+
+    public get onDidChangeInlayHints(): Event<number> {
+        return this.languageFeatures.onDidChangeInlayHints;
+    }
+
+    public provideCodeLenses(
+        handle: number,
+        req: ICodeLensRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLensList | null> {
+        return this.languageFeatures.provideCodeLenses(handle, req, token);
+    }
+
+    public resolveCodeLens(
+        handle: number,
+        cacheId: WireCodeLensCacheId,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLens | null> {
+        return this.languageFeatures.resolveCodeLens(handle, cacheId, token);
+    }
+
+    public releaseCodeLenses(handle: number, cacheId: number): void {
+        this.languageFeatures.releaseCodeLenses(handle, cacheId);
+    }
+
+    public executeCodeLensCommand(handle: number, cacheId: WireCodeLensCacheId): Promise<void> {
+        return this.languageFeatures.executeCodeLensCommand(handle, cacheId);
+    }
+
+    public get onDidChangeCodeLenses(): Event<number> {
+        return this.languageFeatures.onDidChangeCodeLenses;
     }
 
     public provideDocumentSemanticTokens(
@@ -875,6 +1133,30 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideDefinition(handle, req, token);
     }
 
+    public provideImplementation(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.languageFeatures.provideImplementation(handle, req, token);
+    }
+
+    public provideTypeDefinition(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.languageFeatures.provideTypeDefinition(handle, req, token);
+    }
+
+    public provideDeclaration(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.languageFeatures.provideDeclaration(handle, req, token);
+    }
+
     public provideHover(
         handle: number,
         req: IHoverRequest,
@@ -907,6 +1189,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideFormattingEdits(handle, req, token);
     }
 
+    public provideOnTypeFormattingEdits(
+        handle: number,
+        req: IOnTypeFormattingRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ITextEdit[]> {
+        return this.languageFeatures.provideOnTypeFormattingEdits(handle, req, token);
+    }
+
     public provideCodeActions(
         handle: number,
         req: ICodeActionRequest,
@@ -929,6 +1219,10 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     public getLanguageProviders(): readonly IWireLanguageProviderRegistration[] {
         return this.languageFeatures.getProviders();
+    }
+
+    public getWorkspaceSymbolProviders(): readonly IWireWorkspaceSymbolProviderRegistration[] {
+        return this.languageFeatures.getWorkspaceSymbolProviders();
     }
 
     public get onLanguageProvidersChanged(): Event<void> {

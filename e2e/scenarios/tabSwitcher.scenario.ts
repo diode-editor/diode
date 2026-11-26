@@ -1,5 +1,8 @@
 import { resolve } from "node:path";
 
+import { findNode } from "../helpers/inspectorClient.ts";
+import { waitUntil } from "../helpers/waitFor.ts";
+
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // The headless inspector does not send keyup for a lone modifier (kitty event type 3) — the end of a series is
@@ -16,11 +19,16 @@ export default defineScenario({
     cols: 120,
     rows: 32,
     async run(editor) {
-        // Wait for each series step by the content under the overlay (the names are always in the frame); markers come
-        // from the files' first line, which is above the overlay (~10% of the screen height).
-        const underOverlay = { "folding.ts": "folding-chevron hover", "sample.ts": "used by SEA e2e" } as const;
+        // Wait for each series step by the content under the overlay (the names are always in the frame). The overlay
+        // (~10% of the screen height) covers the editor's first lines, so the markers are text beside or below it:
+        // the tail of folding.ts's first line and sample.ts's fifth line. Every part is framed with "╭", so whether
+        // the overlay is open is read from the element tree, not from the frame.
+        const underOverlay = { "folding.ts": "several foldable regions", "sample.ts": "String(answer)" } as const;
+        const switcherOpen = async (): Promise<boolean> =>
+            findNode((await editor.getDocument()).root, (node) => node.type === "TabSwitcherElement") !== null;
         const stepTo = async (file: keyof typeof underOverlay): Promise<void> => {
-            await editor.waitForText((t) => t.includes("╭") && t.includes(underOverlay[file]));
+            await editor.waitForText((t) => t.includes(underOverlay[file]));
+            if (!(await switcherOpen())) throw new Error(`the tab switcher is not open at the ${file} step`);
         };
 
         await editor.waitForText(
@@ -49,7 +57,7 @@ export default defineScenario({
 
         // Ctrl+PgDn follows tab order, not MRU.
         await editor.sendKey("Ctrl+PageDown");
-        await editor.waitForText((t) => !t.includes("╭"));
+        await waitUntil(switcherOpen, (open) => !open, { describe: "the tab switcher closes" });
         await editor.capture("visual-cycle");
     },
 });

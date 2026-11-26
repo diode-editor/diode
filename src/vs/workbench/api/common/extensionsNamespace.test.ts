@@ -170,6 +170,16 @@ describe("extensionsNamespace", () => {
         );
     });
 
+    it("proposed `allAcrossExtensionHosts`: one extension host: all extensions across hosts are `all`, none from another host", () => {
+        const stub = makeStubRpc();
+        const { extensions } = createExtensionsNamespace(stub.rpc);
+        stub.fire("extensions.catalog", { extensions: [description("pub.one"), description("pub.two")] });
+
+        expect(extensions.allAcrossExtensionHosts).toBe(extensions.all);
+        expect(extensions.all.map((e) => e.isFromDifferentExtensionHost)).toEqual([false, false]);
+        expect(extensions.getExtension("pub.two", true)).toBe(extensions.all[1]);
+    });
+
     it("entry identity is stable within a set and refreshed with a new catalog", () => {
         // Comparison by reference does occur in extensions (we got burned on `activeTextEditor`).
         const stub = makeStubRpc();

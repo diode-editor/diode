@@ -41,9 +41,33 @@
   «магазин пуст»; сбой — строка `Retry — <причина>` в секции магазина, карточки
   установленного остаются. Остальной кэш `meta` (страницы, пикер) живёт всю сессию; его сбрасывает
   `Check for Updates`, и только после успешного чтения индекса (офлайн список остаётся прежним).
-- **Запрос `@outdated`** (как `/@outdated/i` эталона, в любом месте и регистре): только устаревшие,
-  остаток запроса фильтрует как обычно (`parseExtensionQuery` в `common/`). Устаревшие установлены по
-  определению, поэтому под `@outdated` секции `MARKETPLACE` нет — строки не дублируются.
+- **Фильтры поиска** — `common/extensionQuery.ts` (имя и разбор как у `extensionQuery.ts` эталона плюс
+  куски `extensionsViews.ts`, которые его читают). Весь каталог в памяти, поэтому все фильтры локальные;
+  эталон отдаёт `category:`/`tag:`/`@sort` галерее.
+  - `@installed` / `@outdated` (= `@updates` эталона) — в любом месте и регистре; список — секция
+    `INSTALLED`, секция `MARKETPLACE` пуста (без «No extensions found»: строки не дублируются).
+    `@installed` побеждает `@outdated`, как порядок проверок эталона.
+  - `category:x` / `@category:"x y"` — без регистра; несколько — «любая из»; `category:-x` исключает (в
+    эталоне дефис остаётся в значении и исключение не срабатывает — делаем то, что задумано);
+    `category:none` — расширения без категорий. `tag:x` — точное совпадение ключевого слова без регистра.
+    Категории и теги карточки — из `index.json` реестра (`sync-manifest` в репозитории реестра переносит их
+    из манифеста), иначе из манифеста установленного (`IInstalledExtension.categories`/`keywords`).
+  - `@id:pub.name` — только эти id, остальной запрос игнорируется (`queryByIds` эталона).
+  - `@sort:name` и `@sort:publishedDate` сортируют; `installs`/`rating`/`updateDate` разбираются, но
+    данных под них нет — порядок прежний (отступление).
+  - Остаток — обычный подстрочный поиск по id, имени и описанию (`matchesExtensionQuery`).
+  - Не поддержаны (нет данных): `@popular`, `@featured`, `@recommended`, `@recentlyPublished`, `@builtin`,
+    `@enabled`/`@disabled`, `@ext:`, `@contribute:`, `@mcp`. Автодополнения по `@` в поле поиска нет.
+- **Меню `Filter Extensions...`** (`browser/extensionFilterActions.ts`, `extensionsFilterSubMenu` эталона) —
+  подменю в `...` секции, а не воронка в поле поиска, как в эталоне: у нашего поля нет кнопок (отступление).
+  Пункты: `Category ›` (20 категорий `EXTENSION_CATEGORIES`, команды `extensions.actions.searchByCategory.*`
+  вне палитры), `Installed` и `Updates` (`workbench.extensions.action.installedExtensions` /
+  `.extensionUpdates`, в палитре как `Extensions: Show …`), `Sort By ›` (`Name`, `Published Date` —
+  `extensions.sort.*`, заменяют `@sort:` в текущем запросе). Пункты без данных опущены, как эталон опускает
+  то, чего нет в возможностях галереи. `openExtensionsSearch` (`browser/extensionsSearch.ts`) — `openSearch`
+  эталона; через него идут и `Install Additional Test Extensions...` (`@category:"testing"`), и пункт
+  `Install Additional Color Themes...` в выборе темы, и `Preferences: Browse Color Themes in Marketplace`
+  (`category:themes`).
 - **Ручное обновление** (ExtensionUpdates, этап 2; эталон — `checkForUpdates` / `updateAll` в
   `extensions.contribution.ts`), `browser/extensionUpdateActions.ts`:
   - `Extensions: Check for Extension Updates` (`workbench.extensions.action.checkForUpdates`) —
@@ -61,8 +85,8 @@
     `Reload Window` (та же команда, что на странице), если обновилось хоть одно. Доступность —
     typed when-контекст `hasOutdatedExtensions` (имя эталона, `ExtensionUpdateContribution`): до
     первого чтения каталога ложен.
-  - Обе — в меню `⋯` заголовка секции `EXTENSIONS`, группа `1_updates`, порядок 1 и 2 (у эталона —
-    `ViewContainerTitle`; у нас в контейнере одна секция, и её `⋯` — то же место).
+  - Обе — в меню `⋯` заголовка секции `MARKETPLACE`, группа `1_updates`, порядок 1 и 2 (у эталона —
+    `ViewContainerTitle`; у нас это меню секции каталога, рядом с `Refresh`).
 - **Фоновая проверка и автообновление** (ExtensionUpdates, этап 3; эталон — `initializeAutoUpdate`,
   `eventuallyCheckForUpdates`, `autoUpdateExtensions` в `extensionsWorkbenchService.ts`). Расписание и
   правила — чистый `ExtensionUpdateScheduler` (`common/extensionUpdateScheduler.ts`, часы `IClock` из
@@ -98,12 +122,24 @@
     нажатия остаётся на флажке: шапка при пересборке возвращает фокус кнопке того же вида.
   - Время в e2e — метод инспектора `Diode.advanceClock {ms}` (`HeadlessSession.advanceClock`): двигает
     `AdjustableClock`, пройденные таймеры срабатывают. Без инспектора часы — `Date.now`/`setTimeout`.
-- `contrib/extensions/browser/extensionsComponent.ts` — вьюлет `EXTENSIONS`
-  (`view.id = "extensionsView"`): `InputElement` + `ListViewElement` с двумя
-  группами (MARKETPLACE / INSTALLED), раскладка «шапка + тело» — общий
-  `HeaderBodyViewElement` (вынесен из Search); активация строки
-  открывает страницу через шов `IExtensionsEditorTarget` (`EditorService`
-  структурно, биндинг — в `diode/modules/extensionsModule.ts`).
+- `contrib/extensions/browser/extensionsComponent.ts` — вьюлет `EXTENSIONS` из двух секций:
+  `MARKETPLACE` (`workbench.extensions.marketplace`, `view.id = "extensionsView"`: `InputElement` +
+  `ListViewElement`, раскладка «шапка + тело» — общий `HeaderBodyViewElement`, вынесен из Search) и
+  `INSTALLED` (`workbench.extensions.installed`, свой `ListViewElement`). Запрос фильтрует обе.
+  **Отступление:** у эталона поле поиска стоит над всеми секциями, в шапке вьюлета; у контейнера
+  секций своей шапки нет, поэтому поиск живёт в секции каталога.
+- **Строка расширения** (`buildExtensionRow`, `EXTENSION_ROW_HEIGHT = 3`) — одна строка списка в три
+  строки экрана: имя + версия + бейджи / описание / издатель (приглушён); у эталона то же без иконки.
+  Между строками список рисует линию `panel.border` (`rowSeparatorColor` tuidom): три строки подряд без
+  неё читались скомканно. Hover, выделение и клик — на всю строку; прокрутка tuidom привязана к верху
+  строки (наполовину строка не видна — инвариант вложенности). Строки состояния (`Loading`, `No extensions
+  found`, `Retry —`) однострочные и без курсора. Id строк — `extensionsGroup-<marketplace|installed>-<id>`
+  (остались от групп: по ним адресуют e2e и инспектор); у самой строки текста нет, первая строка —
+  надпись `<id строки>--title` (`extensionRowTitleId`).
+- **Открытие** — Enter, двойной клик и, по `workbench.list.openMode: singleClick` (дефолт эталона),
+  одиночный клик по любой строке расширения; настройка читается на каждом клике. Страница открывается
+  через шов `IExtensionsEditorTarget` (`EditorService` структурно, биндинг — в
+  `diode/modules/extensionsModule.ts`).
 - `contrib/extensions/browser/extensionEditorPane.ts` — вкладка расширения:
   `IEditorPane` с ресурсом `extension:<id>` (идентичность вкладки —
   `EditorService.openPane`: повторное открытие переключает, а не плодит), тело —

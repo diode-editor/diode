@@ -10,6 +10,13 @@ import {
 } from "./iTextEdit.ts";
 
 describe("hasOverlappingEdits", () => {
+    it("an insertion at the start of a deletion does not overlap it, in either order", () => {
+        const deletion = createDeleteEdit(1, 1, 1, 2);
+        const insertion = createInsertEdit(1, 1, "x");
+        expect(hasOverlappingEdits([deletion, insertion])).toBe(false);
+        expect(hasOverlappingEdits([insertion, deletion])).toBe(false);
+    });
+
     it("an empty batch and a single edit do not overlap", () => {
         expect(hasOverlappingEdits([])).toBe(false);
         expect(hasOverlappingEdits([createDeleteEdit(0, 0, 0, 5)])).toBe(false);

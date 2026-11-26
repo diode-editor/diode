@@ -16,6 +16,7 @@ import {
     HTTPS_ORIGIN,
     LABELS,
     ROLES,
+    bodyBlockers,
     branchName,
     gh,
     ghJson,
@@ -156,7 +157,8 @@ function inProgress(lim, hostname) {
 
 /**
  * Blockers of an issue: GitHub's native dependencies ("Blocked by" in the UI) plus a
- * `Blocked by #A, #B` line in the body. Each as { number, state }; `blocked` while any is open.
+ * `Blocked by #A, #B` line of its own in the body (see `bodyBlockers`); a self-reference is
+ * ignored. Each as { number, state }; `blocked` while any is open.
  */
 function blockers(issue, repo) {
     const byNumber = new Map();
@@ -168,9 +170,10 @@ function blockers(issue, repo) {
             // the endpoint answered with something unexpected: body text still counts
         }
     }
-    const line = /blocked by:?\s*((?:#\d+[,\s]*)+)/i.exec(issue.body ?? "");
-    for (const m of line === null ? [] : line[1].matchAll(/#(\d+)/g)) {
-        const n = Number(m[1]);
+    byNumber.delete(issue.number);
+    const body = bodyBlockers(issue.body, issue.number);
+    if (body.self) process.stderr.write(`facts: #${issue.number} names itself in "Blocked by"; ignored\n`);
+    for (const n of body.numbers) {
         if (byNumber.has(n)) continue;
         const res = gh(["issue", "view", String(n), "--json", "state", "--jq", ".state"]);
         byNumber.set(n, { number: n, state: res.ok ? res.stdout.trim().toLowerCase() : "unknown" });

@@ -35,7 +35,9 @@ export class TerminalEnvStatusContribution extends Disposable {
                 alignment: "left",
                 priority: 100,
                 onClick: () => {
-                    void commands.execute("diode.keyboardDoctor");
+                    void commands.execute("workbench.action.openSettingsJson", {
+                        revealSetting: { key: "terminal.tier" },
+                    });
                 },
             }),
         );
@@ -47,10 +49,12 @@ export class TerminalEnvStatusContribution extends Disposable {
     }
 
     private segmentText(): string {
-        const modes = [...this.terminalEnv.getActiveModes()].filter((m) => m !== "local").sort();
+        const env = this.terminalEnv;
+        const modes = [...env.getActiveModes()].filter((m) => m !== "local").sort();
         const suffix = modes.length > 0 ? ` · ${modes.join(",")}` : "";
-        const rung = this.terminalEnv.macKeysRung;
+        const rung = env.macKeysRung;
         const mac = rung === undefined ? "" : ` · mac-${rung}`;
-        return `${this.terminalEnv.tier}${mac}${suffix}`;
+        const available = env.availableTier === undefined ? "" : ` · ${env.availableTier} available`;
+        return `${env.tier}${mac}${suffix}${available}`;
     }
 }

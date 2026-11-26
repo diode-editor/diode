@@ -17,6 +17,7 @@ import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import type { IDiffEditorPane2Input } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
+import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import { DialogService } from "../../services/dialogs/browser/dialogService.ts";
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
@@ -89,6 +90,19 @@ describe("EditorLayoutServiceAdapter", () => {
 
         expect(pushes.length).toBe(1);
         expect(pushes[0].groups.length).toBe(2);
+    });
+
+    it("producer: an indentation change of a tab open before the adapter reaches the snapshot", async () => {
+        service.openFile(ws.path("a.ts"));
+        const late = new EditorLayoutServiceAdapter(service, service.editorGroups);
+        const pushes: IWireEditorLayout[] = [];
+        late.onDidChangeLayout((layout) => pushes.push(layout));
+
+        (service.editorGroups.groups[0].getPane(0) as TextEditorPane).setIndentOptions({ tabSize: 7 });
+        await Promise.resolve();
+        late.dispose();
+
+        expect(pushes.at(-1)?.groups[0].tabs[0].tabSize).toBe(7);
     });
 
     it("onDidChangeLayout: disposing a subscription twice is an idempotent no-op", () => {
@@ -238,6 +252,25 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.editorGroups.activeGroup).toBe(before);
         source.finish("late");
         await slow;
+    });
+
+    it("[api:window.showTextDocument] while a non-disk document Beside loads, the editor it is opened from stays active", async () => {
+        // svelte.showCompiledCodeToSide asks for the content of its preview by window.activeTextEditor: an empty
+        // active group in the meantime left it with "no svelte file selected". Upstream activates the group with the
+        // editor already in it.
+        const uriA = Uri.file(ws.path("a.ts")).toString();
+        service.openFile(ws.path("a.ts"));
+        const source = slowSource();
+
+        const shown = adapter.showTextDocument({ uri: "slow://host/doc", viewColumn: -2 });
+        await Promise.resolve();
+        expect(service.getActiveEditor()?.uri.toString()).toBe(uriA);
+
+        source.finish("compiled");
+        const result = await shown;
+        expect(result.viewColumn).toBe(2);
+        expect(service.editorGroups.activeGroup.id).toBe(result.groupId);
+        expect(service.getActiveEditor()?.uri.toString()).toBe("slow://host/doc");
     });
 
     it("[api:window.showTextDocument] in one group a slow open does not take the tab of a newer call", async () => {

@@ -15,6 +15,239 @@ export interface ISettingSchemaEntry {
 
 export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
+        key: "debug.allowBreakpointsEverywhere",
+        type: "boolean",
+        default: false,
+        description: "Allow setting breakpoints in any file.",
+    },
+    {
+        key: "debug.autoExpandLazyVariables",
+        type: "string",
+        default: "auto",
+        description:
+            "Controls whether variables that are lazily resolved, such as getters, are automatically resolved and expanded by the debugger.",
+        enum: ["auto", "on", "off"],
+    },
+    {
+        key: "debug.breakpointsView.presentation",
+        type: "string",
+        default: "list",
+        description: "Controls whether breakpoints are displayed in a tree view grouped by file, or as a flat list.",
+        enum: ["tree", "list"],
+    },
+    {
+        key: "debug.closeReadonlyTabsOnEnd",
+        type: "boolean",
+        default: false,
+        description:
+            "At the end of a debug session, all the read-only tabs associated with that session will be closed",
+    },
+    {
+        key: "debug.confirmOnExit",
+        type: "string",
+        default: "never",
+        description: "Controls whether to confirm when the window closes if there are active debug sessions.",
+        enum: ["never", "always"],
+    },
+    {
+        key: "debug.console.acceptSuggestionOnEnter",
+        type: "string",
+        default: "off",
+        description:
+            "Controls whether suggestions should be accepted on Enter in the Debug Console. Enter is also used to evaluate whatever is typed in the Debug Console.",
+        enum: ["off", "on"],
+    },
+    {
+        key: "debug.console.closeOnEnd",
+        type: "boolean",
+        default: false,
+        description: "Controls if the Debug Console should be automatically closed when the debug session ends.",
+    },
+    {
+        key: "debug.console.collapseIdenticalLines",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls if the Debug Console should collapse identical lines and show a number of occurrences with a badge.",
+    },
+    {
+        key: "debug.console.fontFamily",
+        type: "string",
+        default: "default",
+        description: "Controls the font family in the Debug Console.",
+    },
+    {
+        key: "debug.console.fontSize",
+        type: "number",
+        default: 14,
+        description: "Controls the font size in pixels in the Debug Console.",
+    },
+    {
+        key: "debug.console.historySuggestions",
+        type: "boolean",
+        default: true,
+        description: "Controls if the Debug Console should suggest previously typed input.",
+    },
+    {
+        key: "debug.console.lineHeight",
+        type: "number",
+        default: 0,
+        description:
+            "Controls the line height in pixels in the Debug Console. Use 0 to compute the line height from the font size.",
+    },
+    {
+        key: "debug.console.maximumLines",
+        type: "number",
+        default: 10000,
+        description: "Controls the maximum number of lines in the Debug Console.",
+    },
+    {
+        key: "debug.console.wordWrap",
+        type: "boolean",
+        default: true,
+        description: "Controls if the lines should wrap in the Debug Console.",
+    },
+    {
+        key: "debug.disassemblyView.showSourceCode",
+        type: "boolean",
+        default: true,
+        description: "Show Source Code in Disassembly View.",
+    },
+    {
+        key: "debug.enableStatusBarColor",
+        type: "boolean",
+        default: true,
+        description: "Color of the status bar when the debugger is active.",
+    },
+    {
+        key: "debug.focusEditorOnBreak",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the editor should be focused when the debugger breaks.",
+    },
+    {
+        key: "debug.focusWindowOnBreak",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the workbench window should be focused when the debugger breaks.",
+    },
+    {
+        key: "debug.gutterMiddleClickAction",
+        type: "string",
+        default: "logpoint",
+        description: "Controls the action to perform when clicking the editor gutter with the middle mouse button.",
+        enum: ["logpoint", "conditionalBreakpoint", "triggeredBreakpoint", "none"],
+    },
+    {
+        key: "debug.hideLauncherWhileDebugging",
+        type: "boolean",
+        default: false,
+        description:
+            "Hide 'Start Debugging' control in title bar of 'Run and Debug' view while debugging is active. Only relevant when `#debug.toolBarLocation#` is not `docked`.",
+    },
+    {
+        key: "debug.hideSlowPreLaunchWarning",
+        type: "boolean",
+        default: false,
+        description: "Hide the warning shown when a `preLaunchTask` has been running for a while.",
+    },
+    {
+        key: "debug.inlineValues",
+        type: "string",
+        default: "auto",
+        description: "Show variable values inline in editor while debugging.",
+        enum: ["on", "off", "auto"],
+    },
+    {
+        key: "debug.internalConsoleOptions",
+        type: "string",
+        default: "openOnFirstSessionStart",
+        description: "Controls when the internal Debug Console should open.",
+        enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart"],
+    },
+    {
+        key: "debug.onTaskErrors",
+        type: "string",
+        default: "prompt",
+        description: "Controls what to do when errors are encountered after running a preLaunchTask.",
+        enum: ["debugAnyway", "showErrors", "prompt", "abort"],
+    },
+    {
+        key: "debug.openDebug",
+        type: "string",
+        default: "openOnDebugBreak",
+        description: "Controls when the debug view should open.",
+        enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart", "openOnDebugBreak"],
+    },
+    {
+        key: "debug.openExplorerOnEnd",
+        type: "boolean",
+        default: false,
+        description: "Automatically open the explorer view at the end of a debug session.",
+    },
+    {
+        key: "debug.saveBeforeStart",
+        type: "string",
+        default: "allEditorsInActiveGroup",
+        description: "Controls what editors to save before starting a debug session.",
+        enum: ["allEditorsInActiveGroup", "nonUntitledEditorsInActiveGroup", "none"],
+    },
+    {
+        key: "debug.showBreakpointsInOverviewRuler",
+        type: "boolean",
+        default: false,
+        description: "Controls whether breakpoints should be shown in the overview ruler.",
+    },
+    {
+        key: "debug.showInlineBreakpointCandidates",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether inline breakpoints candidate decorations should be shown in the editor while debugging.",
+    },
+    {
+        key: "debug.showInStatusBar",
+        type: "string",
+        default: "onFirstSessionStart",
+        description: "Controls when the debug status bar item should be visible.",
+        enum: ["never", "always", "onFirstSessionStart"],
+    },
+    {
+        key: "debug.showSubSessionsInToolBar",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether the debug sub-sessions are shown in the debug tool bar. When this setting is false the stop command on a sub-session will also stop the parent session.",
+    },
+    {
+        key: "debug.showVariableTypes",
+        type: "boolean",
+        default: false,
+        description: "Show variable type in variable pane during debug session",
+    },
+    {
+        key: "debug.terminal.clearBeforeReusing",
+        type: "boolean",
+        default: false,
+        description: "Before starting a new debug session in an integrated or external terminal, clear the terminal.",
+    },
+    {
+        key: "debug.toolBarLocation",
+        type: "string",
+        default: "floating",
+        description:
+            "Controls the location of the debug toolbar. Either `floating` in all views, `docked` in the debug view, `commandCenter` (requires `#window.commandCenter#`), or `hidden`.",
+        enum: ["floating", "docked", "commandCenter", "hidden"],
+    },
+    {
+        key: "diode.editor.inlayHints.fontStyle",
+        type: "string",
+        default: "normal",
+        description:
+            "Text style of inlay hints. Diode stands in for `editor.inlayHints.fontSize` and `fontFamily`, which a terminal cannot honor.",
+        enum: ["normal", "italic", "dim"],
+    },
+    {
         key: "diode.icons.nerdFont",
         type: "string",
         default: "auto",
@@ -43,11 +276,24 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Path to typescript/lib/tsserver.js for workspaces without their own TypeScript installation. Empty lets the language server resolve TypeScript itself.",
     },
     {
+        key: "editor.acceptSuggestionOnCommitCharacter",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether suggestions should be accepted on commit characters. For example, in JavaScript, the semi-colon (`;`) can be a commit character that accepts a suggestion and types that character.",
+    },
+    {
         key: "editor.codeActionsOnSave",
         type: "object | array",
         default: {},
         description:
             'Code action kinds to be run on save (e.g. `{"source.fixAll": true}`). Kinds match hierarchically: `source.fixAll` also runs `source.fixAll.ruff`.',
+    },
+    {
+        key: "editor.codeLens",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the editor shows CodeLens.",
     },
     {
         key: "editor.colorDecorators",
@@ -96,6 +342,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["auto", "always", "never"],
     },
     {
+        key: "editor.defaultFormatter",
+        type: "string | null",
+        default: null,
+        description:
+            "Defines a default formatter which takes precedence over all other formatter settings. Must be the identifier of an extension contributing a formatter.",
+    },
+    {
         key: "editor.detectIndentation",
         type: "boolean",
         default: true,
@@ -120,6 +373,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "boolean",
         default: false,
         description: "Format a file on save. A formatter must be available (an extension providing it).",
+    },
+    {
+        key: "editor.formatOnType",
+        type: "boolean",
+        default: false,
+        description: "Controls whether the editor should automatically format the line after typing.",
     },
     {
         key: "editor.gotoLocation.alternativeDeclarationCommand",
@@ -262,6 +521,26 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["peek", "gotoAndPeek", "goto"],
     },
     {
+        key: "editor.inlayHints.enabled",
+        type: "string",
+        default: "on",
+        description: "Enables the inlay hints in the editor.",
+        enum: ["on", "onUnlessPressed", "offUnlessPressed", "off"],
+    },
+    {
+        key: "editor.inlayHints.maximumLength",
+        type: "integer",
+        default: 43,
+        description:
+            "Maximum overall length of inlay hints, for a single line, before they get truncated by the editor. Set to `0` to never truncate",
+    },
+    {
+        key: "editor.inlayHints.padding",
+        type: "boolean",
+        default: false,
+        description: "Enables the padding around the inlay hints in the editor.",
+    },
+    {
         key: "editor.inlineSuggest.delay",
         type: "number",
         default: 50,
@@ -310,11 +589,30 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "The size in megabytes above which a file is treated as large when `editor.largeFileOptimizations` is on: it opens read-only with tokenization, wrapping, folding, word highlighting, quick diff and extension sync turned off.",
     },
     {
+        key: "editor.linkedEditing",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether the editor has linked editing enabled. Depending on the language, related symbols such as HTML tags, are updated while editing.",
+    },
+    {
+        key: "editor.links",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the editor should detect links and make them clickable.",
+    },
+    {
         key: "editor.occurrencesHighlight",
         type: "string",
         default: "singleFile",
-        description: "Controls whether the editor highlights semantic symbol occurrences.",
+        description: "Controls whether occurrences should be highlighted across open files.",
         enum: ["off", "singleFile", "multiFile"],
+    },
+    {
+        key: "editor.occurrencesHighlightDelay",
+        type: "integer",
+        default: 0,
+        description: "Controls the delay in milliseconds after which occurrences are highlighted.",
     },
     {
         key: "editor.quickSuggestions",
@@ -355,6 +653,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "boolean",
         default: true,
         description: "Whether subwords (like 'foo' in 'fooBar' or 'foo_bar') should be selected.",
+    },
+    {
+        key: "editor.suggest.insertMode",
+        type: "string",
+        default: "insert",
+        description:
+            "Controls whether words are overwritten when accepting completions. Note that this depends on extensions opting into this feature.",
+        enum: ["insert", "replace"],
     },
     {
         key: "editor.suggestOnTriggerCharacters",
@@ -473,6 +779,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "When an extension is listed here, a confirmation prompt will not be shown when that extension handles a URI.",
     },
     {
+        key: "files.autoGuessEncoding",
+        type: "boolean",
+        default: false,
+        description:
+            "When enabled, the editor will attempt to guess the character set encoding when opening files. This setting can also be configured per language. Note, this setting is not respected by text search. Only `#files.encoding#` is respected.",
+    },
+    {
         key: "files.autoSave",
         type: "string",
         default: "off",
@@ -481,10 +794,75 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["off", "afterDelay", "onFocusChange", "onWindowChange"],
     },
     {
+        key: "files.candidateGuessEncodings",
+        type: "array",
+        default: [],
+        description:
+            "List of character set encodings that the editor should attempt to guess in the order they are listed. In case it cannot be determined, `#files.encoding#` is respected",
+    },
+    {
         key: "files.enableTrash",
         type: "boolean",
         default: true,
         description: "Move files to the OS trash when available; when disabled, delete permanently.",
+    },
+    {
+        key: "files.encoding",
+        type: "string",
+        default: "utf8",
+        description:
+            "The default character set encoding to use when reading and writing files. This setting can also be configured per language.",
+        enum: [
+            "utf8",
+            "utf8bom",
+            "utf16le",
+            "utf16be",
+            "windows1252",
+            "iso88591",
+            "iso88593",
+            "iso885915",
+            "macroman",
+            "cp437",
+            "windows1256",
+            "iso88596",
+            "windows1257",
+            "iso88594",
+            "iso885914",
+            "windows1250",
+            "iso88592",
+            "cp852",
+            "windows1251",
+            "cp866",
+            "cp1125",
+            "iso88595",
+            "koi8r",
+            "koi8u",
+            "koi8ru",
+            "koi8t",
+            "iso885913",
+            "windows1253",
+            "iso88597",
+            "windows1255",
+            "iso88598",
+            "iso885910",
+            "cp865",
+            "iso885916",
+            "windows1254",
+            "iso88599",
+            "cp857",
+            "windows1258",
+            "windows874",
+            "iso885911",
+            "cp850",
+            "gb2312",
+            "gbk",
+            "gb18030",
+            "cp950",
+            "big5hkscs",
+            "shiftjis",
+            "eucjp",
+            "euckr",
+        ],
     },
     {
         key: "files.exclude",
@@ -507,6 +885,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "boolean",
         default: false,
         description: "When enabled, insert a final new line at the end of the file when saving it.",
+    },
+    {
+        key: "files.participants.timeout",
+        type: "number",
+        default: 60000,
+        description:
+            "Timeout in milliseconds after which file participants for create, rename, and delete are cancelled. Use `0` to disable participants.",
     },
     {
         key: "files.refactoring.autoSave",
@@ -595,15 +980,242 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     },
     {
         key: "git.path",
-        type: "string",
-        default: "",
-        description: "Path to a git binary to prefer (its directory is prepended to PATH). Empty uses git from PATH.",
+        type: "string | null | array",
+        default: null,
+        description:
+            "Path and filename of the git executable, e.g. `C:\\Program Files\\Git\\bin\\git.exe` (Windows). This can also be an array of string values containing multiple paths to look up.",
     },
     {
         key: "git.refreshDebounce",
         type: "number",
         default: 200,
         description: "Debounce, in milliseconds, before recomputing git status and diff after a change.",
+    },
+    {
+        key: "html.autoClosingTags",
+        type: "boolean",
+        default: true,
+        description: "Enable/disable autoclosing of HTML tags.",
+    },
+    {
+        key: "html.autoCreateQuotes",
+        type: "boolean",
+        default: true,
+        description:
+            "Enable/disable auto creation of quotes for HTML attribute assignment. The type of quotes can be configured by `#html.completion.attributeDefaultValue#`.",
+    },
+    {
+        key: "html.completion.attributeDefaultValue",
+        type: "string",
+        default: "doublequotes",
+        description: "Controls the default value for attributes when completion is accepted.",
+        enum: ["doublequotes", "singlequotes", "empty"],
+    },
+    {
+        key: "html.customData",
+        type: "array",
+        default: [],
+        description:
+            "A list of relative file paths pointing to JSON files following the [custom data format](https://github.com/microsoft/vscode-html-languageservice/blob/master/docs/customData.md).\n\nVS Code loads custom data on startup to enhance its HTML support for the custom HTML tags, attributes and attribute values you specify in the JSON files.\n\nThe file paths are relative to workspace and only workspace folder settings are considered.",
+    },
+    {
+        key: "html.format.contentUnformatted",
+        type: "string | null",
+        default: "pre,code,textarea",
+        description:
+            "List of tags, comma separated, where the content shouldn't be reformatted. `null` defaults to the `pre` tag.",
+    },
+    {
+        key: "html.format.enable",
+        type: "boolean",
+        default: true,
+        description: "Enable/disable default HTML formatter.",
+    },
+    {
+        key: "html.format.extraLiners",
+        type: "string | null",
+        default: "head, body, /html",
+        description:
+            'List of tags, comma separated, that should have an extra newline before them. `null` defaults to `"head, body, /html"`.',
+    },
+    {
+        key: "html.format.indentHandlebars",
+        type: "boolean",
+        default: false,
+        description: "Format and indent `{{#foo}}` and `{{/foo}}`.",
+    },
+    {
+        key: "html.format.indentInnerHtml",
+        type: "boolean",
+        default: false,
+        description: "Indent `<head>` and `<body>` sections.",
+    },
+    {
+        key: "html.format.maxPreserveNewLines",
+        type: "number | null",
+        default: null,
+        description: "Maximum number of line breaks to be preserved in one chunk. Use `null` for unlimited.",
+    },
+    {
+        key: "html.format.preserveNewLines",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether existing line breaks before elements should be preserved. Only works before elements, not inside tags or for text.",
+    },
+    {
+        key: "html.format.templating",
+        type: "boolean",
+        default: false,
+        description: "Honor django, erb, handlebars and php templating language tags.",
+    },
+    {
+        key: "html.format.unformatted",
+        type: "string | null",
+        default: "wbr",
+        description:
+            "List of tags, comma separated, that shouldn't be reformatted. `null` defaults to all tags listed at https://www.w3.org/TR/html5/dom.html#phrasing-content.",
+    },
+    {
+        key: "html.format.unformattedContentDelimiter",
+        type: "string",
+        default: "",
+        description: "Keep text content together between this string.",
+    },
+    {
+        key: "html.format.wrapAttributes",
+        type: "string",
+        default: "auto",
+        description: "Wrap attributes.",
+        enum: [
+            "auto",
+            "force",
+            "force-aligned",
+            "force-expand-multiline",
+            "aligned-multiple",
+            "preserve",
+            "preserve-aligned",
+        ],
+    },
+    {
+        key: "html.format.wrapAttributesIndentSize",
+        type: "number | null",
+        default: null,
+        description:
+            "Indent wrapped attributes to after N characters. Use `null` to use the default indent size. Ignored if `#html.format.wrapAttributes#` is set to `aligned`.",
+    },
+    {
+        key: "html.format.wrapLineLength",
+        type: "integer",
+        default: 120,
+        description: "Maximum amount of characters per line (0 = disable).",
+    },
+    {
+        key: "html.hover.documentation",
+        type: "boolean",
+        default: true,
+        description: "Show tag and attribute documentation in hover.",
+    },
+    { key: "html.hover.references", type: "boolean", default: true, description: "Show references to MDN in hover." },
+    {
+        key: "html.mirrorCursorOnMatchingTag",
+        type: "boolean",
+        default: false,
+        description: "Enable/disable mirroring cursor on matching HTML tag.",
+    },
+    {
+        key: "html.suggest.hideEndTagSuggestions",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether the built-in HTML language support suggests closing tags. When disabled, end tag completions like `</div>` will not be shown.",
+    },
+    {
+        key: "html.suggest.html5",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the built-in HTML language support suggests HTML5 tags, properties and values.",
+    },
+    {
+        key: "html.trace.server",
+        type: "string",
+        default: "off",
+        description: "Traces the communication between VS Code and the HTML language server.",
+        enum: ["off", "messages", "verbose"],
+    },
+    {
+        key: "html.validate.scripts",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the built-in HTML language support validates embedded scripts.",
+    },
+    {
+        key: "html.validate.styles",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the built-in HTML language support validates embedded styles.",
+    },
+    {
+        key: "javascript.inlayHints.functionLikeReturnTypes.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable inlay hints for implicit return types on function signatures:\n```typescript\n\nfunction foo() /* :number */ {\n\treturn Date.now();\n} \n \n```",
+    },
+    {
+        key: "javascript.inlayHints.parameterNames.enabled",
+        type: "string",
+        default: "none",
+        description:
+            "Enable/disable inlay hints for parameter names:\n```typescript\n\nparseInt(/* str: */ '123', /* radix: */ 8)\n \n```",
+        enum: ["none", "literals", "all"],
+    },
+    {
+        key: "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName",
+        type: "boolean",
+        default: true,
+        description: "Suppress parameter name hints on arguments whose text is identical to the parameter name.",
+    },
+    {
+        key: "javascript.inlayHints.parameterTypes.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable inlay hints for implicit parameter types:\n```typescript\n\nel.addEventListener('click', e /* :MouseEvent */ => ...)\n \n```",
+    },
+    {
+        key: "javascript.inlayHints.propertyDeclarationTypes.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable inlay hints for implicit types on property declarations:\n```typescript\n\nclass Foo {\n\tprop /* :number */ = Date.now();\n}\n \n```",
+    },
+    {
+        key: "javascript.inlayHints.variableTypes.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable inlay hints for implicit variable types:\n```typescript\n\nconst foo /* :number */ = Date.now();\n \n```",
+    },
+    {
+        key: "javascript.inlayHints.variableTypes.suppressWhenTypeMatchesName",
+        type: "boolean",
+        default: true,
+        description: "Suppress type hints on variables whose name is identical to the type name.",
+    },
+    {
+        key: "javascript.referencesCodeLens.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable references CodeLens in JavaScript and TypeScript files. This CodeLens shows the number of references for classes and exported functions and allows you to peek or navigate to them.",
+    },
+    {
+        key: "javascript.referencesCodeLens.showOnAllFunctions",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable the [references CodeLens](#js/ts.referencesCodeLens.enabled) on all functions in JavaScript and TypeScript files.",
     },
     {
         key: "keyboard.platform",
@@ -614,6 +1226,38 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["auto", "mac", "linux", "windows"],
     },
     {
+        key: "launch",
+        type: "object",
+        default: { configurations: [], compounds: [] },
+        description:
+            "Global debug launch configuration. Should be used as an alternative to 'launch.json' that is shared across workspaces.",
+    },
+    {
+        key: "merge-conflict.autoNavigateNextConflict.enabled",
+        type: "boolean",
+        default: false,
+        description: "Whether to automatically navigate to the next merge conflict after resolving a merge conflict.",
+    },
+    {
+        key: "merge-conflict.codeLens.enabled",
+        type: "boolean",
+        default: true,
+        description: "Create a CodeLens for merge conflict blocks within editor.",
+    },
+    {
+        key: "merge-conflict.decorators.enabled",
+        type: "boolean",
+        default: true,
+        description: "Create decorators for merge conflict blocks within editor.",
+    },
+    {
+        key: "merge-conflict.diffViewPosition",
+        type: "string",
+        default: "Current",
+        description: "Controls where the diff view should be opened when comparing changes in merge conflicts.",
+        enum: ["Current", "Beside", "Below"],
+    },
+    {
         key: "scm.graph.pageSize",
         type: "number",
         default: 50,
@@ -622,22 +1266,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
         key: "search.exclude",
         type: "object",
-        default: {
-            "**/node_modules": true,
-            "**/bower_components": true,
-            "**/.venv": true,
-            "**/dist": true,
-            "**/out": true,
-            "**/build": true,
-            "**/target": true,
-            "**/coverage": true,
-            "**/.next": true,
-            "**/.gradle": true,
-            "**/.cache": true,
-            "**/.turbo": true,
-            "**/.stryker-tmp": true,
-            "**/.claude/worktrees": true,
-        },
+        default: { "**/node_modules": true, "**/bower_components": true, "**/*.code-search": true },
         description:
             "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
     },
@@ -653,6 +1282,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "boolean",
         default: true,
         description: "Whether to include results from recently opened files in the file results for Quick Open.",
+    },
+    {
+        key: "search.quickOpen.includeSymbols",
+        type: "boolean",
+        default: false,
+        description: "Whether to include results from a global symbol search in the file results for Quick Open.",
     },
     {
         key: "search.useGlobalIgnoreFiles",
@@ -751,6 +1386,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "A set of command IDs whose keybindings will not be sent to the shell but instead always be handled by VS Code. This allows keybindings that would normally be consumed by the shell to act instead the same as when the terminal is not focused, for example `Ctrl+P` to launch Quick Open.\n\n&nbsp;\n\nMany commands are skipped by default. To override a default and pass that command's keybinding to the shell instead, add the command prefixed with the `-` character. For example add `-workbench.action.quickOpen` to allow `Ctrl+P` to reach the shell.\n\n&nbsp;\n\nThe following list of default skipped commands is truncated when viewed in Settings Editor. To see the full list, [open the default settings JSON](command:workbench.action.openRawDefaultSettings 'Open Default Settings (JSON)') and search for the first command from the list below.\n\n&nbsp;\n\nDefault Skipped Commands:\n\n- editor.action.accessibilityHelp\n- editor.action.toggleTabFocusMode\n- notification.acceptPrimaryAction\n- notifications.hideList\n- notifications.hideToasts\n- runCommands\n- sessions.focusActiveSession\n- sessions.focusSessionInGrid1\n- sessions.focusSessionInGrid2\n- sessions.focusSessionInGrid3\n- sessions.focusSessionInGrid4\n- sessions.focusSessionInGrid5\n- sessions.focusSessionInGrid6\n- sessions.focusSessionInGrid7\n- sessions.focusSessionInGrid8\n- sessions.focusSessionInGrid9\n- sessions.goBack\n- sessions.goForward\n- sessionsViewPane.navigateNextSession\n- sessionsViewPane.navigatePreviousSession\n- workbench.action.closeQuickOpen\n- workbench.action.debug.continue\n- workbench.action.debug.disconnect\n- workbench.action.debug.pause\n- workbench.action.debug.restart\n- workbench.action.debug.run\n- workbench.action.debug.start\n- workbench.action.debug.stepInto\n- workbench.action.debug.stepOut\n- workbench.action.debug.stepOver\n- workbench.action.debug.stop\n- workbench.action.firstEditorInGroup\n- workbench.action.focusActiveEditorGroup\n- workbench.action.focusEighthEditorGroup\n- workbench.action.focusFifthEditorGroup\n- workbench.action.focusFirstEditorGroup\n- workbench.action.focusFourthEditorGroup\n- workbench.action.focusLastEditorGroup\n- workbench.action.focusNextPart\n- workbench.action.focusPreviousPart\n- workbench.action.focusSecondEditorGroup\n- workbench.action.focusSeventhEditorGroup\n- workbench.action.focusSixthEditorGroup\n- workbench.action.focusThirdEditorGroup\n- workbench.action.lastEditorInGroup\n- workbench.action.navigateDown\n- workbench.action.navigateLeft\n- workbench.action.navigateRight\n- workbench.action.navigateUp\n- workbench.action.nextEditor\n- workbench.action.nextEditorInGroup\n- workbench.action.nextPanelView\n- workbench.action.nextSideBarView\n- workbench.action.openNextRecentlyUsedEditor\n- workbench.action.openNextRecentlyUsedEditorInGroup\n- workbench.action.openPreviousRecentlyUsedEditor\n- workbench.action.openPreviousRecentlyUsedEditorInGroup\n- workbench.action.previousEditor\n- workbench.action.previousEditorInGroup\n- workbench.action.previousPanelView\n- workbench.action.previousSideBarView\n- workbench.action.quickOpen\n- workbench.action.quickOpenLeastRecentlyUsedEditor\n- workbench.action.quickOpenLeastRecentlyUsedEditorInGroup\n- workbench.action.quickOpenPreviousEditor\n- workbench.action.quickOpenPreviousRecentlyUsedEditor\n- workbench.action.quickOpenPreviousRecentlyUsedEditorInGroup\n- workbench.action.quickOpenView\n- workbench.action.showCommands\n- workbench.action.tasks.build\n- workbench.action.tasks.reRunTask\n- workbench.action.tasks.rerunForActiveTerminal\n- workbench.action.tasks.restartTask\n- workbench.action.tasks.runTask\n- workbench.action.tasks.showLog\n- workbench.action.tasks.showTasks\n- workbench.action.tasks.terminate\n- workbench.action.tasks.test\n- workbench.action.terminal.acceptSelectedSuggestion\n- workbench.action.terminal.acceptSelectedSuggestionEnter\n- workbench.action.terminal.chat.cancel\n- workbench.action.terminal.chat.close\n- workbench.action.terminal.chat.discard\n- workbench.action.terminal.chat.feedbackHelpful\n- workbench.action.terminal.chat.feedbackReportIssue\n- workbench.action.terminal.chat.feedbackUnhelpful\n- workbench.action.terminal.chat.insertCommand\n- workbench.action.terminal.chat.makeRequest\n- workbench.action.terminal.chat.runCommand\n- workbench.action.terminal.chat.start\n- workbench.action.terminal.chat.viewInChat\n- workbench.action.terminal.clear\n- workbench.action.terminal.clearSelection\n- workbench.action.terminal.copyAndClearSelection\n- workbench.action.terminal.copyLastCommand\n- workbench.action.terminal.copyLastCommandAndLastCommandOutput\n- workbench.action.terminal.copyLastCommandOutput\n- workbench.action.terminal.copySelection\n- workbench.action.terminal.copySelectionAsHtml\n- workbench.action.terminal.deleteToLineStart\n- workbench.action.terminal.deleteWordLeft\n- workbench.action.terminal.deleteWordRight\n- workbench.action.terminal.findNext\n- workbench.action.terminal.findPrevious\n- workbench.action.terminal.focus\n- workbench.action.terminal.focusAccessibleBuffer\n- workbench.action.terminal.focusAtIndex1\n- workbench.action.terminal.focusAtIndex2\n- workbench.action.terminal.focusAtIndex3\n- workbench.action.terminal.focusAtIndex4\n- workbench.action.terminal.focusAtIndex5\n- workbench.action.terminal.focusAtIndex6\n- workbench.action.terminal.focusAtIndex7\n- workbench.action.terminal.focusAtIndex8\n- workbench.action.terminal.focusAtIndex9\n- workbench.action.terminal.focusFind\n- workbench.action.terminal.focusHover\n- workbench.action.terminal.focusNext\n- workbench.action.terminal.focusNextPane\n- workbench.action.terminal.focusPrevious\n- workbench.action.terminal.focusPreviousPane\n- workbench.action.terminal.goToRecentDirectory\n- workbench.action.terminal.hideFind\n- workbench.action.terminal.hideSuggestWidget\n- workbench.action.terminal.kill\n- workbench.action.terminal.killEditor\n- workbench.action.terminal.moveToEditor\n- workbench.action.terminal.moveToLineEnd\n- workbench.action.terminal.moveToLineStart\n- workbench.action.terminal.moveToTerminalPanel\n- workbench.action.terminal.new\n- workbench.action.terminal.newInActiveWorkspace\n- workbench.action.terminal.newInNewWindow\n- workbench.action.terminal.paste\n- workbench.action.terminal.pastePwsh\n- workbench.action.terminal.pasteSelection\n- workbench.action.terminal.resizePaneDown\n- workbench.action.terminal.resizePaneLeft\n- workbench.action.terminal.resizePaneRight\n- workbench.action.terminal.resizePaneUp\n- workbench.action.terminal.runActiveFile\n- workbench.action.terminal.runRecentCommand\n- workbench.action.terminal.runSelectedText\n- workbench.action.terminal.scrollDown\n- workbench.action.terminal.scrollDownPage\n- workbench.action.terminal.scrollToBottom\n- workbench.action.terminal.scrollToNextCommand\n- workbench.action.terminal.scrollToPreviousCommand\n- workbench.action.terminal.scrollToTop\n- workbench.action.terminal.scrollUp\n- workbench.action.terminal.scrollUpPage\n- workbench.action.terminal.searchWorkspace\n- workbench.action.terminal.selectAll\n- workbench.action.terminal.selectNextPageSuggestion\n- workbench.action.terminal.selectNextSuggestion\n- workbench.action.terminal.selectPrevPageSuggestion\n- workbench.action.terminal.selectPrevSuggestion\n- workbench.action.terminal.selectToNextCommand\n- workbench.action.terminal.selectToNextLine\n- workbench.action.terminal.selectToPreviousCommand\n- workbench.action.terminal.selectToPreviousLine\n- workbench.action.terminal.sendSequence\n- workbench.action.terminal.sendSignal\n- workbench.action.terminal.sizeToContentWidth\n- workbench.action.terminal.split\n- workbench.action.terminal.splitInActiveWorkspace\n- workbench.action.terminal.stopVoice\n- workbench.action.terminal.suggestToggleDetails\n- workbench.action.terminal.suggestToggleDetailsFocus\n- workbench.action.terminal.toggleFindCaseSensitive\n- workbench.action.terminal.toggleFindRegex\n- workbench.action.terminal.toggleFindWholeWord\n- workbench.action.terminal.toggleTerminal\n- workbench.action.terminal.triggerSuggest\n- workbench.action.toggleFullScreen\n- workbench.action.toggleMaximizedPanel\n- workbench.action.togglePanel\n- workbench.action.zoomIn\n- workbench.action.zoomOut\n- workbench.action.zoomReset",
     },
     {
+        key: "terminal.integrated.copyOnSelection",
+        type: "boolean",
+        default: false,
+        description: "Controls whether text selected in the terminal will be copied to the clipboard.",
+    },
+    {
         key: "terminal.integrated.defaultLocation",
         type: "string",
         default: "view",
@@ -785,6 +1426,27 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         default: false,
         description:
             "Dispatches most keybindings to the terminal instead of the workbench, overriding `#terminal.integrated.commandsToSkipShell#`, which can be used alternatively for fine tuning.",
+    },
+    {
+        key: "terminal.integrated.shellIntegration.enabled",
+        type: "boolean",
+        default: true,
+        description:
+            "Determines whether or not shell integration is auto-injected to support features like enhanced command tracking and current working directory detection. \n\nShell integration works by injecting the shell with a startup script. The script gives VS Code insight into what is happening within the terminal.\n\nSupported shells:\n\n- Linux/macOS: bash, fish, pwsh, zsh\n - Windows: pwsh, git bash\n\nThis setting applies only when terminals are created, so you will need to restart your terminals for it to take effect.\n\n Note that the script injection may not work if you have custom arguments defined in the terminal profile, have enabled `#editor.accessibilitySupport#`, have a [complex bash `PROMPT_COMMAND`](https://code.visualstudio.com/docs/editor/integrated-terminal#_complex-bash-promptcommand), or other unsupported setup. To disable decorations, see `#terminal.integrated.shellIntegration.decorationsEnabled#`",
+    },
+    {
+        key: "terminal.integrated.shellIntegration.environmentReporting",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether to report the shell environment, enabling its use in features such as `#terminal.integrated.suggest.enabled#`. This may cause a slowdown when printing your shell's prompt.",
+    },
+    {
+        key: "terminal.integrated.shellIntegration.timeout",
+        type: "integer",
+        default: -1,
+        description:
+            "Configures the duration in milliseconds to wait for shell integration after launch before declaring it's not there. The default value `-1` uses a variable wait time based on whether shell integration injection is enabled and whether it's a remote window. Values between 1 and 499 are clamped to 500ms. Consider setting this to a large value if your shell starts very slowly.",
     },
     {
         key: "terminal.integrated.tabs.enabled",
@@ -824,6 +1486,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["always", "singleTerminal", "singleTerminalOrNarrow", "never"],
     },
     {
+        key: "terminal.integrated.wordSeparators",
+        type: "string",
+        default: " ()[]{}',\"`─‘’“”|",
+        description:
+            "A string containing all characters to be considered word separators when double-clicking to select word and in the fallback 'word' link detection. Since this is used for link detection, including characters such as `:` that are used when detecting links will cause the line and column part of links like `file:10:5` to be ignored.",
+    },
+    {
         key: "terminal.modes",
         type: "object",
         default: {},
@@ -833,8 +1502,144 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         key: "terminal.tier",
         type: "string",
         default: "auto",
-        description: 'Tier override: "auto" detects the terminal capabilities tier.',
+        description:
+            'Keyboard protocol tier. "auto" turns the extended protocol on at startup when the terminal (or tmux) confirms it and stays legacy otherwise; "legacy" keeps legacy keys and only shows in the status bar when the terminal can do more; "csi-u" and "kitty" force the extended protocol on. Applies after restart.',
         enum: ["auto", "legacy", "csi-u", "kitty"],
+    },
+    {
+        key: "testing.alwaysRevealTestOnStateChange",
+        type: "boolean",
+        default: false,
+        description:
+            "Always reveal the executed test when `#testing.followRunningTest#` is on. If this setting is turned off, only failed tests will be revealed.",
+    },
+    {
+        key: "testing.automaticallyOpenTestResults",
+        type: "string",
+        default: "openOnTestStart",
+        description: "Controls when the testing view should open.",
+        enum: ["neverOpen", "openOnTestStart", "openOnTestFailure", "openExplorerOnTestStart"],
+    },
+    {
+        key: "testing.defaultGutterClickAction",
+        type: "string",
+        default: "run",
+        description: "Controls the action to take when left-clicking on a test decoration in the gutter.",
+        enum: ["run", "debug", "runWithCoverage", "contextMenu"],
+    },
+    {
+        key: "testing.followRunningTest",
+        type: "boolean",
+        default: false,
+        description: "Controls whether the running test should be followed in the Test Explorer view.",
+    },
+    {
+        key: "testing.gutterEnabled",
+        type: "boolean",
+        default: true,
+        description: "Controls whether test decorations are shown in the editor gutter.",
+    },
+    {
+        key: "testing.resultsView.layout",
+        type: "string",
+        default: "treeRight",
+        description: "Controls the layout of the Test Results view.",
+        enum: ["treeRight", "treeLeft"],
+    },
+    {
+        key: "testing.saveBeforeTest",
+        type: "boolean",
+        default: true,
+        description: "Control whether save all dirty editors before running a test.",
+    },
+    {
+        key: "testing.showAllMessages",
+        type: "boolean",
+        default: false,
+        description: "Controls whether to show messages from all test runs.",
+    },
+    {
+        key: "typescript.implementationsCodeLens.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable implementations CodeLens in TypeScript files. This CodeLens shows the implementers of TypeScript interfaces.",
+    },
+    {
+        key: "typescript.implementationsCodeLens.showOnInterfaceMethods",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable [implementations CodeLens](#js/ts.implementationsCodeLens.enabled) on TypeScript interface methods.",
+    },
+    {
+        key: "typescript.inlayHints.enumMemberValues.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable inlay hints for member values in enum declarations:\n```typescript\n\nenum MyValue {\n\tA /* = 0 */;\n\tB /* = 1 */;\n}\n \n```",
+    },
+    {
+        key: "typescript.inlayHints.functionLikeReturnTypes.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable inlay hints for implicit return types on function signatures:\n```typescript\n\nfunction foo() /* :number */ {\n\treturn Date.now();\n} \n \n```",
+    },
+    {
+        key: "typescript.inlayHints.parameterNames.enabled",
+        type: "string",
+        default: "none",
+        description:
+            "Enable/disable inlay hints for parameter names:\n```typescript\n\nparseInt(/* str: */ '123', /* radix: */ 8)\n \n```",
+        enum: ["none", "literals", "all"],
+    },
+    {
+        key: "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName",
+        type: "boolean",
+        default: true,
+        description: "Suppress parameter name hints on arguments whose text is identical to the parameter name.",
+    },
+    {
+        key: "typescript.inlayHints.parameterTypes.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable inlay hints for implicit parameter types:\n```typescript\n\nel.addEventListener('click', e /* :MouseEvent */ => ...)\n \n```",
+    },
+    {
+        key: "typescript.inlayHints.propertyDeclarationTypes.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable inlay hints for implicit types on property declarations:\n```typescript\n\nclass Foo {\n\tprop /* :number */ = Date.now();\n}\n \n```",
+    },
+    {
+        key: "typescript.inlayHints.variableTypes.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable inlay hints for implicit variable types:\n```typescript\n\nconst foo /* :number */ = Date.now();\n \n```",
+    },
+    {
+        key: "typescript.inlayHints.variableTypes.suppressWhenTypeMatchesName",
+        type: "boolean",
+        default: true,
+        description: "Suppress type hints on variables whose name is identical to the type name.",
+    },
+    {
+        key: "typescript.referencesCodeLens.enabled",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable references CodeLens in JavaScript and TypeScript files. This CodeLens shows the number of references for classes and exported functions and allows you to peek or navigate to them.",
+    },
+    {
+        key: "typescript.referencesCodeLens.showOnAllFunctions",
+        type: "boolean",
+        default: false,
+        description:
+            "Enable/disable the [references CodeLens](#js/ts.referencesCodeLens.enabled) on all functions in JavaScript and TypeScript files.",
     },
     {
         key: "window.autoDetectColorScheme",
@@ -842,6 +1647,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         default: false,
         description:
             "If enabled, will automatically select a color theme based on the system color mode. If the system color mode is dark, `#workbench.preferredDarkColorTheme#` is used, else `#workbench.preferredLightColorTheme#`.",
+    },
+    {
+        key: "workbench.colorCustomizations",
+        type: "object",
+        default: {},
+        description: "Overrides colors from the currently selected color theme.",
     },
     {
         key: "workbench.colorTheme",

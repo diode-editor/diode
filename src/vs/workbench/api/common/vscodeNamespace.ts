@@ -9,7 +9,7 @@ import { implementsApi } from "./apiSurface.ts";
 import { createAuthenticationNoop } from "./authenticationNoop.ts";
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createCommentsNoop } from "./commentsNoop.ts";
-import { createDebugNoop } from "./debugNoop.ts";
+import { createDebugNamespace } from "./debugNamespace.ts";
 import {
     Breakpoint,
     DebugAdapterExecutable,
@@ -24,14 +24,33 @@ import {
     SourceBreakpoint,
 } from "./debugTypes.ts";
 import { ExtHostEnvironmentVariableCollections } from "./environmentVariableCollection.ts";
+import { parseWireEnvInitialize, parseWireEnvLogLevel } from "./envWire.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
+import type { ExtHostNodeDebugAdapters } from "./extHostDebugAdapter.ts";
 import type { IExtHostDisk } from "./extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import { createExtHostTesting } from "./extHostTesting.ts";
 import { createExtHostTreeViews } from "./extHostTreeViews.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
+import { createLmNoop } from "./lmNoop.ts";
+import {
+    LanguageModelChatMessage,
+    LanguageModelChatMessageRole,
+    LanguageModelChatToolMode,
+    LanguageModelDataPart,
+    LanguageModelError,
+    LanguageModelPromptTsxPart,
+    LanguageModelTextPart,
+    LanguageModelToolCallPart,
+    LanguageModelToolResult,
+    LanguageModelToolResultPart,
+    McpHttpServerDefinition,
+    McpStdioServerDefinition,
+} from "./lmTypes.ts";
+import { QuickInputButtonLocation, QuickInputButtons } from "./quickInputButtons.ts";
 import { createTasksNamespace } from "./tasksNamespace.ts";
 import { createTelemetryLogger } from "./telemetryLogger.ts";
 import { createTerminalNamespace } from "./terminalNamespace.ts";
@@ -47,7 +66,8 @@ import {
     TestRunRequest,
     TestTag,
 } from "./testingTypes.ts";
-import { createTestsNoop } from "./testsNoop.ts";
+import { TextEditorRevealType } from "./textEditorRevealType.ts";
+import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
@@ -78,11 +98,14 @@ import {
     DiagnosticSeverity,
     DiagnosticTag,
     DisposableImpl,
+    DocumentDropOrPasteEditKind,
+    DocumentHighlight,
     DocumentHighlightKind,
     DocumentLink,
     DocumentSymbol,
     EndOfLine,
     EnvironmentVariableMutatorType,
+    EvaluatableExpression,
     EventEmitter,
     ExtensionKind,
     ExtensionMode,
@@ -95,11 +118,17 @@ import {
     Hover,
     IndentAction,
     InlayHint,
+    InlayHintKind,
+    InlayHintLabelPart,
     InlineCompletionItem,
     InlineCompletionList,
     InlineCompletionTriggerKind,
+    InlineValueEvaluatableExpression,
+    InlineValueText,
+    InlineValueVariableLookup,
     InputBoxValidationSeverity,
     LanguageStatusSeverity,
+    LinkedEditingRanges,
     Location,
     LogLevel,
     MarkdownString,
@@ -147,11 +176,13 @@ import {
     TelemetryTrustedValue,
     TerminalExitReason,
     TerminalLocation,
+    TerminalProfile,
     TerminalShellExecutionCommandLineConfidence,
     TextDocumentChangeReason,
     TextDocumentSaveReason,
     TextEdit,
     TextEditorCursorStyle,
+    TextEditorLineNumbersStyle,
     TextEditorSelectionChangeKind,
     ThemeColor,
     ThemeIcon,
@@ -169,11 +200,10 @@ import {
     type IWireEnvInitialize,
     type IWireExtensionDescription,
     parseWireClipboardText,
-    parseWireEnvInitialize,
     parseWireOpenExternalResult,
 } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
-import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
+import { createWorkspace } from "./workspaceNamespace.ts";
 
 export interface IVscodeHost {
     readonly namespace: typeof vscode;
@@ -188,7 +218,11 @@ export interface IVscodeHost {
 }
 
 /** Mutating actions go to the host as RPC requests: the shim has no direct reference to host services. */
-export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IVscodeHost {
+export function buildVscodeNamespace(
+    rpc: SubprocessRpc,
+    disk: IExtHostDisk,
+    nodeDebugAdapters?: ExtHostNodeDebugAdapters,
+): IVscodeHost {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc,
@@ -217,35 +251,52 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     const showWithoutOpening = window.showTextDocument;
     window.showTextDocument = openBeforeShow(showWithoutOpening, (uri) => workspace.openTextDocument(uri));
     // Deferred call: `tasks` is not built yet (it needs the `workspace` folders).
-    const workspace = createWorkspaceNamespace(ctx, (type, provider) => tasks.registerTaskProvider(type, provider));
+    const { workspace, referenceDocument } = createWorkspace(ctx, (type, provider) =>
+        tasks.registerTaskProvider(type, provider),
+    );
     // Built BEFORE languages: applyCodeAction runs the actions' commands.
     const apiCommands = createApiCommands({
         showTextDocument: (uri, options) => showWithoutOpening(uri, options),
         openExternal: (target) => env.openExternal(target),
-        openTextDocument: (uri) => workspace.openTextDocument(uri),
+        referenceDocument,
         // Deferred call: providers live in `languages`, whose code actions run `commands`.
         executeCompletionItemProvider: (...args) => executeProviders.completionItems(...args),
         executeCodeActionProvider: (...args) => executeProviders.codeActions(...args),
+        executeHoverProvider: (...args) => executeProviders.hovers(...args),
+        getActiveTextEditor: () => window.activeTextEditor,
+        executeHostCommand: (id, args) => rpc.request("commands.executeCommand", { id, args }),
     });
+    const testing = createExtHostTesting(rpc);
     const commands = buildCommandsNamespace(
         rpc,
         () => window.activeTextEditor,
         ctx.owner,
         apiCommands,
-        treeViews.processArgument,
+        (arg) => testing.processArgument(treeViews.processArgument(arg)),
     );
     const { languages, executeProviders } = createLanguagesNamespace(ctx, {
         applyEdit: (edit, metadata) => workspace.applyEdit(edit, metadata),
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
+        // API commands are not declared to the host, the extension's own are.
+        hasCommand: async (command) => apiCommands.has(command) || (await commands.getCommands()).includes(command),
     });
 
     // The `env.initialize` seed arrives before the first activation; there are no terminal profiles, so `onDidChangeShell` never fires.
-    let hostEnvironment: IWireEnvInitialize = { machineId: "", shell: "", appRoot: "" };
+    let hostEnvironment: IWireEnvInitialize = { machineId: "", shell: "", appRoot: "", logLevel: LogLevel.Info };
     rpc.handleNotification("env.initialize", (params) => {
         hostEnvironment = parseWireEnvInitialize(params);
     });
+    const onDidChangeLogLevel = new EventEmitter<vscode.LogLevel>();
+    rpc.handleNotification("env.didChangeLogLevel", (params) => {
+        const { logLevel } = parseWireEnvLogLevel(params);
+        if (logLevel === hostEnvironment.logLevel) return;
+        // The getter answers the new level by the time listeners run, as upstream.
+        hostEnvironment = { ...hostEnvironment, logLevel };
+        onDidChangeLogLevel.fire(logLevel);
+    });
 
-    const env = {
+    // Frozen as upstream: assigning `env.language` and the like throws in strict code.
+    const env = Object.freeze({
         get machineId(): string {
             return hostEnvironment.machineId;
         },
@@ -257,6 +308,10 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
             return hostEnvironment.appRoot;
         },
         onDidChangeShell: new EventEmitter<string>().event,
+        get logLevel(): vscode.LogLevel {
+            return hostEnvironment.logLevel;
+        },
+        onDidChangeLogLevel: onDidChangeLogLevel.event,
         appName: "Diode",
         appHost: "desktop",
         language: UI_LOCALE,
@@ -274,6 +329,15 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
                 // skipEncoding, as upstream: a plain `toString()` would give the system `?token%3D42` instead of `?token=42`.
                 await rpc.request("env.openExternal", { uri: target.toString(true) }),
             ),
+        /**
+         * Upstream on the desktop without a remote: no tunnel and no web origin to map to, so every uri,
+         * `diode:` included, comes back as is (a copy, as `URI.from` of the main side's answer). Only an
+         * empty scheme, possible in a plain object, is refused with upstream's message.
+         */
+        asExternalUri: (target: vscode.Uri): Promise<vscode.Uri> =>
+            target.scheme.trim() === ""
+                ? Promise.reject(new Error("Invalid scheme - cannot be empty"))
+                : Promise.resolve(Uri.from(target)),
 
         /** Deviation from upstream: the id does not survive an extension host restart. `redhat.java` uses it to tell its own launch from another one. */
         sessionId: randomUUID(),
@@ -286,7 +350,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
 
         // `Web` in the contract means browser access (vscode.dev), not "non-graphical UI".
         uiKind: UIKind.Desktop,
-    };
+    });
 
     const { extensions, exportsById, onDidReceiveCatalog } = createExtensionsNamespace(rpc);
     const secrets = createExtensionSecretsFactory(rpc);
@@ -320,11 +384,9 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CompletionItem,
         CompletionList,
         CompletionTriggerKind,
-        // Cast here and in the three classes below that hold SnippetString in fields: our
-        // SnippetString has only `appendText` without escaping, no d.ts builders.
-        SnippetString: SnippetString as unknown as typeof vscode.SnippetString,
-        InlineCompletionItem: InlineCompletionItem as unknown as typeof vscode.InlineCompletionItem,
-        InlineCompletionList: InlineCompletionList as unknown as typeof vscode.InlineCompletionList,
+        SnippetString,
+        InlineCompletionItem,
+        InlineCompletionList,
         InlineCompletionTriggerKind,
         EndOfLine,
         TextDocumentSaveReason,
@@ -351,14 +413,25 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CodeAction,
         CodeActionKind,
         CodeActionTriggerKind,
+        DocumentDropOrPasteEditKind,
         DocumentLink,
+        DocumentHighlight,
         DocumentHighlightKind,
         InlayHint,
+        InlayHintKind,
+        LinkedEditingRanges,
+        InlineValueText,
+        InlineValueVariableLookup,
+        InlineValueEvaluatableExpression,
+        EvaluatableExpression,
+        InlayHintLabelPart,
         SymbolInformation,
         SymbolKind,
         SymbolTag,
         CompletionItemTag,
+        CallHierarchyIncomingCall,
         CallHierarchyItem,
+        CallHierarchyOutgoingCall,
         TypeHierarchyItem,
         CancellationError,
         CancellationTokenSource,
@@ -377,11 +450,14 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         StatusBarAlignment,
         TerminalExitReason,
         TerminalLocation,
+        TerminalProfile,
         TerminalShellExecutionCommandLineConfidence,
         EnvironmentVariableMutatorType,
         UIKind,
         ColorThemeKind,
         TextEditorCursorStyle,
+        TextEditorLineNumbersStyle,
+        TextEditorRevealType,
         TextEditorSelectionChangeKind,
         ThemeColor,
         FileDecoration,
@@ -426,8 +502,14 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CommentThreadCollapsibleState,
         CommentMode,
         CommentThreadState,
-        // No debugger (owner's decision), but without the namespace `golang.go` aborted `activate()`.
-        debug: createDebugNoop(rpc),
+        debug: createDebugNamespace({
+            rpc,
+            owner: ctx.owner,
+            workspaceFolders: () => workspace.workspaceFolders,
+            extensions,
+            onDidReceiveCatalog,
+            nodeAdapters: nodeDebugAdapters,
+        }),
         DebugAdapterExecutable,
         DebugAdapterServer,
         DebugAdapterNamedPipeServer,
@@ -439,7 +521,21 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         Breakpoint,
         SourceBreakpoint,
         FunctionBreakpoint,
-        tests: createTestsNoop(rpc),
+        // No language models, but CodeLLDB registers its LM tools in `activate()`.
+        lm: createLmNoop(rpc, ctx.owner),
+        LanguageModelChatMessageRole,
+        LanguageModelChatMessage,
+        LanguageModelError,
+        LanguageModelChatToolMode,
+        LanguageModelToolCallPart,
+        LanguageModelToolResultPart,
+        LanguageModelTextPart,
+        LanguageModelPromptTsxPart,
+        LanguageModelToolResult,
+        LanguageModelDataPart,
+        McpStdioServerDefinition,
+        McpHttpServerDefinition,
+        tests: testing.tests,
         TestRunProfileKind,
         TestTag,
         TestRunRequest,
@@ -451,6 +547,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         BranchCoverage,
         DeclarationCoverage,
         DocumentSymbol,
+        QuickInputButtonLocation,
+        QuickInputButtons,
         QuickPickItemKind,
         NotebookCellKind,
         IndentAction,

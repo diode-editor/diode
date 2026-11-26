@@ -1,7 +1,7 @@
-import { SPINNER_FRAMES } from "../../../platform/progress/common/progressService.ts";
+import { formatProgressPercent, SPINNER_FRAMES } from "../../../platform/progress/common/progressService.ts";
 import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
-import type { IProgressSink } from "../common/iExtensionWindowSinks.ts";
+import type { IProgressSink, IProgressStartOptions } from "../common/iExtensionWindowSinks.ts";
 
 const SPINNER_INTERVAL_MS = 100;
 
@@ -27,9 +27,13 @@ class ProgressEntry {
         const parts = [this.title, this.message]
             .filter((p): p is string => p !== undefined && p !== "")
             .map((p) => this.icons.renderCodicons(p));
-        const percent = this.percent !== undefined ? ` (${String(Math.round(this.percent))}%)` : "";
-        return `${spinner} ${parts.join(" · ")}${percent}`;
+        return `${spinner} ${parts.join(" · ")}${formatProgressPercent(this.percent)}`;
     }
+}
+
+/** Upstream sums `increment`s into a percentage; clamped, since extensions overshoot. */
+export function accumulatePercent(percent: number | undefined, increment: number): number {
+    return Math.min(100, Math.max(0, (percent ?? 0) + increment));
 }
 
 /** Captions expand `$(name)`: upstream this is `ProgressLocation.Window`, which expands icons. */
@@ -42,7 +46,8 @@ export class ProgressStatusBarAdapter implements IProgressSink {
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
-    public start(handle: number, title: string): void {
+    /** Window progress has no Cancel: upstream's status bar entry offers none either. */
+    public start(handle: number, { title }: Pick<IProgressStartOptions, "title">): void {
         // A repeated start of the same handle: defensively dismiss the previous entry.
         if (this.entries.has(handle)) this.end(handle);
         const entry = new ProgressEntry(title, this.icons);
@@ -64,7 +69,7 @@ export class ProgressStatusBarAdapter implements IProgressSink {
         if (entry === undefined) return;
         if (message !== undefined) entry.message = message;
         if (increment !== undefined) {
-            entry.percent = Math.min(100, Math.max(0, (entry.percent ?? 0) + increment));
+            entry.percent = accumulatePercent(entry.percent, increment);
         }
         entry.bar.update({ text: entry.render() });
     }

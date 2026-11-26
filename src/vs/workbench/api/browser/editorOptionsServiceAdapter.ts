@@ -1,7 +1,6 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
-import type { EditorCursorStyleSetting } from "../../../editor/common/config/editorCursorStyle.ts";
 import {
     currentCursorChangeSource,
     type CursorChangeSource,
@@ -9,9 +8,18 @@ import {
 } from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
-import { createRange } from "../../../editor/common/core/iRange.ts";
+import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import {
+    type ILanguageConfigurationService,
+    NULL_LANGUAGE_CONFIGURATION_SERVICE,
+} from "../../../editor/common/languages/iLanguageConfigurationService.ts";
+import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
+import { SnippetController2 } from "../../../editor/contrib/snippet/browser/snippetController2.ts";
+import { SnippetParser } from "../../../editor/contrib/snippet/browser/snippetParser.ts";
+import type { IClipboard } from "../../../platform/clipboard/common/iClipboard.ts";
+import type { IWorkspaceContextService } from "../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
@@ -23,7 +31,6 @@ import type {
     IActiveEditorSelections,
     IEditorOptionsPatch,
     IEditorOptionsService,
-    IEditorOptionsState,
 } from "../common/iEditorOptionsService.ts";
 import {
     type IWireEditorEdit,
@@ -31,6 +38,19 @@ import {
     type IWireWorkspaceEditOp,
     selectionChangeKindOf,
 } from "../common/wireTypes.ts";
+
+/** What `insertSnippet` resolves the snippet variables from. */
+export interface ISnippetVariableServices {
+    readonly clipboard: Pick<IClipboard, "readText"> | undefined;
+    readonly languageConfigurations: Pick<ILanguageConfigurationService, "get" | "ensureLoaded">;
+    readonly workspace: Pick<IWorkspaceContextService, "getWorkspace" | "getWorkspaceFolder"> | undefined;
+}
+
+const NO_SNIPPET_VARIABLE_SERVICES: ISnippetVariableServices = {
+    clipboard: undefined,
+    languageConfigurations: NULL_LANGUAGE_CONFIGURATION_SERVICE,
+    workspace: undefined,
+};
 
 export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private readonly group: IEditorService;
@@ -48,32 +68,33 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
      */
     private pendingSelectionSource: CursorChangeSource | undefined;
 
-    public constructor(group: IEditorService, groups: IEditorGroupsService, workspaceEdits: IBulkEditService) {
+    public constructor(
+        group: IEditorService,
+        groups: IEditorGroupsService,
+        workspaceEdits: IBulkEditService,
+        private readonly snippetVariables: ISnippetVariableServices = NO_SNIPPET_VARIABLE_SERVICES,
+    ) {
         this.group = group;
         this.groups = groups;
         this.workspaceEdits = workspaceEdits;
     }
 
-    public getActiveEditorOptions(): IEditorOptionsState | null {
-        const editor = this.group.getActiveTabEditor();
-        if (editor === null) return null;
-        return {
-            tabSize: editor.viewState.tabSize,
-            insertSpaces: editor.viewState.insertSpaces,
-        };
-    }
-
-    public setActiveEditorOptions(patch: IEditorOptionsPatch): void {
-        const editor = this.group.getActiveTabEditor();
-        if (editor === null) return;
-        editor.setIndentOptions(patch);
-    }
-
-    public setEditorCursorStyle(uri: string, groupId: number, style: EditorCursorStyleSetting): void {
+    public setEditorOptions(uri: string, groupId: number, patch: IEditorOptionsPatch): void {
         const editor = this.editorFor(uri, groupId);
         if (editor === null) return;
-        editor.cursorStyleOverride = style;
+        editor.setIndentOptions(patch);
+        if (patch.cursorStyle === undefined) return;
+        editor.cursorStyleOverride = patch.cursorStyle;
         this.group.editorConfiguration.applyCursorStyle(editor);
+    }
+
+    public revealEditorRange(uri: string, groupId: number, range: IRange, revealType: RangeRevealType): void {
+        const editor = this.editorFor(uri, groupId);
+        if (editor === null) return;
+        const doc = editor.model.document;
+        const start = clampPositionToDocument(doc, range.start);
+        const end = clampPositionToDocument(doc, range.end);
+        editor.viewState.revealRangeByType({ start, end }, revealType);
     }
 
     public getActiveEditorFilePath(): string | null {
@@ -181,7 +202,12 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     public applyActiveEditorEdits(
         uri: string,
         edits: readonly IWireEditorEdit[],
-        options: { version?: number; setEndOfLine?: EndOfLine; undoStopBefore?: boolean; undoStopAfter?: boolean } = {},
+        options: {
+            version?: number;
+            setEndOfLine?: EndOfLine;
+            undoStopBefore?: boolean;
+            undoStopAfter?: boolean;
+        } = {},
     ): boolean {
         // The edit targets the document (the model is shared): any tab of the resource in any group will do.
         const editor = this.anyEditorFor(uri);
@@ -198,6 +224,43 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         if (textEdits.length > 0) editor.applyExternalEdits(textEdits, "extension edit", undefined, options);
         if (options.setEndOfLine !== undefined) editor.setEol(options.setEndOfLine);
         return true;
+    }
+
+    public async insertSnippet(
+        uri: string,
+        groupId: number | undefined,
+        template: string,
+        ranges: readonly IRange[],
+        options: { version: number; undoStopBefore?: boolean; undoStopAfter?: boolean; keepWhitespace?: boolean },
+    ): Promise<boolean> {
+        const editor = this.editorFor(uri, groupId);
+        if (editor === null || editor.readOnly || ranges.length === 0) return false;
+        const document = editor.model.document;
+        const { clipboard, languageConfigurations, workspace } = this.snippetVariables;
+        // Upstream reads the clipboard only for a template that needs it, and gives up if the editor changed meanwhile:
+        // an edit fails the version check below, a moved selection this one.
+        const needsClipboard = clipboard !== undefined && SnippetParser.guessNeedsClipboard(template);
+        let clipboardText: string | undefined;
+        let configuration = languageConfigurations.get(document.languageId);
+        if (needsClipboard || configuration === undefined) {
+            const selectionsBefore = editor.viewState.selections;
+            [clipboardText, configuration] = await Promise.all([
+                needsClipboard ? clipboard.readText() : undefined,
+                configuration ?? languageConfigurations.ensureLoaded(document.languageId),
+            ]);
+            if (!sameSelections(editor.viewState.selections, selectionsBefore)) return false;
+        }
+        if (options.version !== document.versionId) return false;
+        return SnippetController2.get(editor).apply(
+            ranges.map(({ start, end }) => ({
+                range: { start: clampPositionToDocument(document, start), end: clampPositionToDocument(document, end) },
+                template,
+            })),
+            {
+                ...options,
+                variables: { resource: editor.uri, clipboardText, comments: configuration.comments, workspace },
+            },
+        );
     }
 
     public async applyWorkspaceEdit(
@@ -261,7 +324,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
  * Coordinates are passed as is; the executor clamps them. `null` means a file operation on a non-disk
  * resource: the whole edit is rejected.
  */
-function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null {
+export function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null {
     const result: BulkEditOperation[] = [];
     for (const op of ops) {
         if (op.kind === "text") {

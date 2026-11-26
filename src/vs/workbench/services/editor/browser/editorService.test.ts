@@ -536,7 +536,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             const file = writeFile("a.ts", "a\nb");
             ctrl.newUntitled();
-            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            ctrl.getActiveEditor()!.typeText("x");
             ctrl.openFile(file);
             ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
 
@@ -596,6 +596,15 @@ describe("EditorService", () => {
             } finally {
                 fs.chmodSync(path.dirname(locked), 0o700);
             }
+        });
+
+        it("an untitled document without a tab and without a file to write stays open: undefined", async () => {
+            const ctrl = createEditorService();
+            const uri = ctrl.createUntitled({ content: "draft" });
+            await expect(ctrl.save(uri)).resolves.toBeUndefined();
+            expect(ctrl.getUntitledModelsWithoutEditor().map((model) => model.uri.toString())).toEqual([
+                uri.toString(),
+            ]);
         });
     });
 

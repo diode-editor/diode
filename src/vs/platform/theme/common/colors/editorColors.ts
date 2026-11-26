@@ -42,6 +42,62 @@ export const editorColors = {
         defaults: { dark: "#474747", light: "#C6C6C6" },
         description: "Background color of a symbol during read-access, for example when reading a variable.",
     },
+    // Opaque approximations of VS Code's #004972B8 (dark) / #0e639c40 (light), as above.
+    "editor.wordHighlightStrongBackground": {
+        defaults: { dark: "#083D5B", light: "#C3D8E6" },
+        description:
+            "Background color of a symbol during write-access, like writing to a variable. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "editor.wordHighlightTextBackground": {
+        defaults: { dark: "editor.wordHighlightBackground", light: "editor.wordHighlightBackground" },
+        description:
+            "Background color of a textual occurrence for a symbol. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    // VS Code's hcDark is cyan and its hcLight #292929; hc kinds map to dark/light here.
+    "editorLink.activeForeground": {
+        defaults: { dark: "#4E94CE", light: "#0000FF" },
+        description: "Color of active links.",
+    },
+    // Opaque approximations of VS Code's #f00 with alpha 0.3 composited over the editor bg. VS Code's hcLight is
+    // white; hc kinds map to dark/light here.
+    "editor.linkedEditingBackground": {
+        defaults: { dark: "#621515", light: "#FFB3B3" },
+        description: "Background color when the editor auto renames on type.",
+    },
+    // Opaque approximations of VS Code's rgba(124,124,124,0.3) (dark) / rgba(10,50,100,0.2) (light) composited over
+    // the editor bg; its hc kinds take the same values.
+    "editor.snippetTabstopHighlightBackground": {
+        defaults: { dark: "#3A3A3A", light: "#CED6E0" },
+        description: "Highlight background color of a snippet tabstop.",
+    },
+    // The borders and the final tab stop's background are for themes only: a cell has no border, the background is
+    // `null` in VS Code too.
+    "editor.snippetTabstopHighlightBorder": {
+        defaults: null,
+        description: "Highlight border color of a snippet tabstop.",
+    },
+    "editor.snippetFinalTabstopHighlightBackground": {
+        defaults: null,
+        description: "Highlight background color of the final tabstop of a snippet.",
+    },
+    // VS Code's light is rgba(10,50,100,0.5), composited over white here; its hcLight #292929 maps to light.
+    "editor.snippetFinalTabstopHighlightBorder": {
+        defaults: { dark: "#525252", light: "#8599B2" },
+        description: "Highlight border color of the final tabstop of a snippet.",
+    },
+    // For themes only: a terminal cell has no border to draw. VS Code's hc default is `activeContrastBorder`.
+    "editor.wordHighlightBorder": {
+        defaults: null,
+        description: "Border color of a symbol during read-access, like reading a variable.",
+    },
+    "editor.wordHighlightStrongBorder": {
+        defaults: null,
+        description: "Border color of a symbol during write-access, like writing to a variable.",
+    },
+    "editor.wordHighlightTextBorder": {
+        defaults: null,
+        description: "Border color of a textual occurrence for a symbol.",
+    },
     // VS Code's hcLight is #CCCCCC; hc kinds map to dark/light here.
     "editorWhitespace.foreground": {
         defaults: { dark: "#e3e4e229", light: "#33333333" },
@@ -81,11 +137,46 @@ export const editorColors = {
         defaults: { dark: "#EEEEEE", light: "#6C6C6C" },
         description: "Foreground color of hints in the editor.",
     },
+    // Opaque approximations of VS Code's #ffffff0b (dark) / #fdff0033 (light) over the editor bg.
+    "editor.rangeHighlightBackground": {
+        defaults: { dark: "#282828", light: "#FFFFCC" },
+        description:
+            "Background color of highlighted ranges, like by quick open and find features. The color must not be opaque so as not to hide underlying decorations.",
+    },
     // Opaque approximations of VS Code's #ffffff56 (dark) / #0007 (light)
     // composited over the editor bg, as for `editor.wordHighlightBackground`.
     "editorGhostText.foreground": {
         defaults: { dark: "#6A6A6A", light: "#888888" },
         description: "Foreground color of the ghost text in the editor.",
+    },
+    "editorCodeLens.foreground": {
+        defaults: { dark: "#999999", light: "#919191" },
+        description: "Foreground color of editor CodeLens",
+    },
+    "editorInlayHint.foreground": {
+        defaults: { dark: "#969696", light: "#969696" },
+        description: "Foreground color of inline hints",
+    },
+    // Upstream `transparent(badgeBackground, .10)`: there are no color expressions here, so it is baked.
+    "editorInlayHint.background": {
+        defaults: { dark: "#4D4D4D1A", light: "#C4C4C41A" },
+        description: "Background color of inline hints",
+    },
+    "editorInlayHint.typeForeground": {
+        defaults: { dark: "editorInlayHint.foreground", light: "editorInlayHint.foreground" },
+        description: "Foreground color of inline hints for types",
+    },
+    "editorInlayHint.typeBackground": {
+        defaults: { dark: "editorInlayHint.background", light: "editorInlayHint.background" },
+        description: "Background color of inline hints for types",
+    },
+    "editorInlayHint.parameterForeground": {
+        defaults: { dark: "editorInlayHint.foreground", light: "editorInlayHint.foreground" },
+        description: "Foreground color of inline hints for parameters",
+    },
+    "editorInlayHint.parameterBackground": {
+        defaults: { dark: "editorInlayHint.background", light: "editorInlayHint.background" },
+        description: "Background color of inline hints for parameters",
     },
     "editorGutter.background": {
         defaults: null,
@@ -124,6 +215,24 @@ export const editorColors = {
         defaults: { dark: "#A0A0A0CC", light: "#A0A0A0CC" },
         description:
             "Overview ruler marker color for symbol highlights. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "editorOverviewRuler.wordHighlightStrongForeground": {
+        defaults: { dark: "#C0A0C0CC", light: "#C0A0C0CC" },
+        description:
+            "Overview ruler marker color for write-access symbol highlights. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "editorOverviewRuler.selectionHighlightForeground": {
+        defaults: { dark: "#A0A0A0CC", light: "#A0A0A0CC" },
+        description:
+            "Overview ruler marker color for selection highlights. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "editorOverviewRuler.wordHighlightTextForeground": {
+        defaults: {
+            dark: "editorOverviewRuler.selectionHighlightForeground",
+            light: "editorOverviewRuler.selectionHighlightForeground",
+        },
+        description:
+            "Overview ruler marker color of a textual occurrence for a symbol. The color must not be opaque so as not to hide underlying decorations.",
     },
     "editorGutter.foldingControlForeground": {
         defaults: null,
@@ -188,5 +297,37 @@ export const editorColors = {
     "editorHoverWidget.highlightForeground": {
         defaults: { dark: "#2AAAFF", light: "#0066BF" },
         description: "Foreground color of the active item in the parameter hint.",
+    },
+    // Inline merge conflicts (vscode.merge-conflict paints them through extension decorations). Upstream
+    // derives them with `transparent()`; the alpha stays, the engine composites it over the text.
+    "merge.currentHeaderBackground": {
+        defaults: { dark: "#40C8AE80", light: "#40C8AE80" },
+        description:
+            "Current header background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.currentContentBackground": {
+        defaults: { dark: "#40C8AE33", light: "#40C8AE33" },
+        description:
+            "Current content background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.incomingHeaderBackground": {
+        defaults: { dark: "#40A6FF80", light: "#40A6FF80" },
+        description:
+            "Incoming header background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.incomingContentBackground": {
+        defaults: { dark: "#40A6FF33", light: "#40A6FF33" },
+        description:
+            "Incoming content background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.commonHeaderBackground": {
+        defaults: { dark: "#60606066", light: "#60606066" },
+        description:
+            "Common ancestor header background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.commonContentBackground": {
+        defaults: { dark: "#60606029", light: "#60606029" },
+        description:
+            "Common ancestor content background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
     },
 } as const satisfies ColorContribution;

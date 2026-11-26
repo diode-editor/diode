@@ -31,6 +31,8 @@ import {
 } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+import { ConfigurationResolverServiceDIToken } from "../../../services/configurationResolver/browser/configurationResolverService.ts";
+import type { IConfigurationResolverService } from "../../../services/configurationResolver/common/configurationResolver.ts";
 import { type DialogService, DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
 import {
@@ -64,6 +66,7 @@ import {
     type ITaskRunContext,
     type ITaskSummary,
     TerminalTaskSystem,
+    variableSourcesOf,
 } from "./terminalTaskSystem.ts";
 
 export type { ITaskEvent, ITaskSummary } from "./terminalTaskSystem.ts";
@@ -94,9 +97,15 @@ const TASKS_LOG_CHANNEL = "tasks";
 export interface IWorkspaceTaskConfiguration {
     readonly tasks: readonly ITask[];
     readonly configuring: readonly IConfiguringTask[];
+    /** The `inputs` section of tasks.json, if it is an array. */
+    readonly inputs: readonly unknown[] | undefined;
 }
 
-const NO_WORKSPACE_TASKS: IWorkspaceTaskConfiguration = { tasks: [], configuring: [] };
+const NO_WORKSPACE_TASKS: IWorkspaceTaskConfiguration = { tasks: [], configuring: [], inputs: undefined };
+
+function messageOf(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
 
 /** Installs the extension host bridge; `undefined` means providers of all types. */
 export type TaskProviderActivator = (type: string | undefined) => Promise<void>;
@@ -134,6 +143,7 @@ export class TaskService extends Disposable {
         TerminalEditorServiceDIToken,
         MarkerServiceDIToken,
         ProblemMatcherRegistryDIToken,
+        ConfigurationResolverServiceDIToken,
     ] as const;
 
     private readonly system: TerminalTaskSystem;
@@ -168,6 +178,7 @@ export class TaskService extends Disposable {
         editorTerminals: ITaskEditorTerminals,
         markers: MarkerService,
         private readonly problemMatchers: ProblemMatcherRegistry,
+        private readonly resolver: IConfigurationResolverService,
     ) {
         super();
         // Stryker disable next-line StringLiteral,ObjectLiteral: log channel name and label are wiring; the e2e tasks scenario sees "Tasks"
@@ -280,7 +291,7 @@ export class TaskService extends Disposable {
         }
         // A matcher of tasks.json may refer to a contributed pattern or base (upstream's `_computeWorkspaceFolderTasks`).
         await this.problemMatchers.onReady();
-        const { tasks, configuring, problems } = parseTasksJson(
+        const { tasks, configuring, problems, inputs } = parseTasksJson(
             text,
             folder,
             this.platform,
@@ -295,7 +306,7 @@ export class TaskService extends Disposable {
             // Errors (not warnings) also get a toast (upstream's `_showOutput`).
             if (problems.some((problem) => problem.startsWith("Error:"))) this.promptToShowOutput();
         }
-        return { tasks, configuring };
+        return { tasks, configuring, inputs };
     }
 
     public tasksJsonUri(): Uri | undefined {
@@ -393,7 +404,7 @@ export class TaskService extends Disposable {
             }
             return tasks ?? [];
         } catch (error) {
-            this.logger.warn(`Error: ${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(`Error: ${messageOf(error)}`);
             return [];
         }
     }
@@ -421,7 +432,11 @@ export class TaskService extends Disposable {
             await this.saveBeforeRun();
             // A task run before the extensions' matchers are registered waits for them (upstream's `_executeTask`).
             await this.problemMatchers.onReady();
-            return await this.handleExecuteResult(this.system.run(task, this.runContext()));
+            // A running task asks for no inputs: its instancePolicy decides (upstream checks before acquiring input).
+            const context = this.system.isActive(task) ? this.contextWith(new Map()) : await this.acquireInput(task);
+            // A cancelled input or command cancels the run.
+            if (context === undefined) return undefined;
+            return await this.handleExecuteResult(this.system.run(task, context));
         } catch (error) {
             this.handleError(error);
             throw error;
@@ -433,13 +448,21 @@ export class TaskService extends Disposable {
         await this.editors.saveAll();
         let result: ITaskExecuteResult | undefined;
         try {
-            result = this.system.rerun(this.runContext());
+            const last = this.system.getLastTask();
+            if (last?.runOptions.reevaluateOnRerun === true) {
+                const context = await this.acquireInput(last);
+                if (context === undefined) return;
+                result = this.system.run(last, context);
+            } else {
+                result = this.system.rerun();
+            }
         } catch (error) {
             this.handleError(error);
             return;
         }
+        // The task promise only resolves (a closed terminal is a summary without a code), so nothing to catch.
         if (result !== undefined) {
-            void this.handleExecuteResult(result).catch(() => undefined);
+            void this.handleExecuteResult(result);
             return;
         }
         // A running task always leaves a "last" one; we get here only when nothing is running.
@@ -600,21 +623,27 @@ export class TaskService extends Disposable {
         await this.editors.saveAll();
     }
 
-    private runContext(): ITaskRunContext {
+    /**
+     * Upstream's `_acquireInput` (variables are resolved against the first folder: no multi-root,
+     * `docs/TODO/MultiRoot.md`): the task's commands and inputs are asked for (each once) before it starts, along
+     * with all its other variables; `undefined` — the user cancelled.
+     */
+    private async acquireInput(task: ITask): Promise<ITaskRunContext | undefined> {
+        const values = await this.resolver.resolveWithInteraction(
+            this.folder(),
+            variableSourcesOf(task),
+            "tasks",
+            undefined,
+            async () => (await this.getWorkspaceConfiguration()).inputs,
+        );
+        return values === undefined ? undefined : this.contextWith(values);
+    }
+
+    private contextWith(values: ReadonlyMap<string, string>): ITaskRunContext {
         const folder = this.folder();
-        const editor = this.editors.getActiveTabEditor();
-        const file = editor?.uri.scheme === "file" ? editor : undefined;
         return {
             platform: this.platform,
-            variables: {
-                folderPath: folder?.uri.fsPath,
-                filePath: file?.uri.fsPath,
-                lineNumber: file === undefined ? undefined : file.primaryCursorLine + 1,
-                env: process.env,
-                userHome: process.env.HOME ?? process.env.USERPROFILE,
-                cwd: process.cwd(),
-                getConfiguration: (key) => this.configuration.get(key),
-            },
+            resolve: (value) => this.resolver.resolveWithValues(folder, value, values),
         };
     }
 
@@ -623,7 +652,7 @@ export class TaskService extends Disposable {
     }
 
     private handleError(error: unknown): void {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = messageOf(error);
         this.logger.error(message);
         this.notifications.show({ severity: "error", message, modal: false, items: [] });
     }

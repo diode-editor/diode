@@ -28,7 +28,10 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         installedVersion: null,
         availability: "available",
         pinned: false,
+        categories: [],
+        tags: [],
         needsReload: false,
+        operation: null,
         ...overrides,
     };
 }
@@ -126,6 +129,20 @@ describe("statusLine", () => {
 
     it("incompatible", () => {
         expect(statusLine(entry({ availability: "incompatible" }))).toBe("Incompatible with this build of Diode");
+    });
+
+    it.each([
+        ["not installed", {}],
+        ["outdated", { availability: "outdated", installedVersion: "0.9.0" }],
+        ["incompatible", { availability: "incompatible" }],
+    ] as const)("installing, whatever the state (%s)", (_name, state) => {
+        expect(statusLine(entry({ ...state, operation: "installing" }))).toBe("Installing…");
+    });
+
+    it("uninstalling", () => {
+        expect(
+            statusLine(entry({ availability: "installed", installedVersion: "1.0.0", operation: "uninstalling" })),
+        ).toBe("Uninstalling…");
     });
 });
 

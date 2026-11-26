@@ -8,6 +8,8 @@ import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.t
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
 import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import { refreshDiffSnapshots } from "./openDiffPair.ts";
 
@@ -20,7 +22,7 @@ const REFRESH_DEBOUNCE_MS = 200;
 
 /** US-31: snapshot sides (a `git:` revision) don't update themselves; refresh them on providers' `onDidChangeFile`. */
 export class DiffSnapshotRefreshContribution extends Disposable implements IWorkbenchContribution {
-    public static dependencies = [EditorGroupsServiceDIToken, IFileServiceDIToken] as const;
+    public static dependencies = [EditorGroupsServiceDIToken, IFileServiceDIToken, EditorServiceDIToken] as const;
 
     private readonly pending = new Set<string>();
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -30,6 +32,7 @@ export class DiffSnapshotRefreshContribution extends Disposable implements IWork
     public constructor(
         private readonly groups: IEditorGroupsService,
         private readonly providers: IFileService,
+        private readonly editors: IEditorService,
     ) {
         super();
         this.register(
@@ -62,7 +65,7 @@ export class DiffSnapshotRefreshContribution extends Disposable implements IWork
             for (const pane of group.getPanes()) {
                 if (!(pane instanceof DiffEditorPane2)) continue;
                 if (!pane.snapshotSides().some((side) => this.sideTouched(pane, side, changed))) continue;
-                await refreshDiffSnapshots(this.providers, pane);
+                await refreshDiffSnapshots({ files: this.providers, editors: this.editors }, pane);
                 /* v8 ignore start -- the race "a new batch arrived while reading" can't be reproduced
                    deterministically in a unit test: its run is already scheduled, ours is stale */
                 if (seq !== this.refreshSeq) return;

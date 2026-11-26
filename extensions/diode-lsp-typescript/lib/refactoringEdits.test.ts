@@ -203,6 +203,15 @@ describe("diode-lsp-typescript — refactoring edit in the upstream shape", () =
         expect(host.applyRefactoringEdit).toHaveBeenCalledExactlyOnceWith(params);
     });
 
+    it("an edit with neither changes nor documentChanges is applied as it is", async () => {
+        const { host, middleware } = makeHost({});
+        const params: ApplyWorkspaceEditParams = { edit: {} };
+        expect(await duringRefactoring(middleware, params)).toEqual({ applied: true });
+        expect(host.stat).not.toHaveBeenCalled();
+        expect(host.unlink).not.toHaveBeenCalled();
+        expect(host.applyRefactoringEdit).toHaveBeenCalledExactlyOnceWith(params);
+    });
+
     it("withCreatedFiles keeps the edit label and annotations", () => {
         const annotations = { a: { label: "Move" } };
         expect(

@@ -1,0 +1,31 @@
+{
+    "members": [
+        "commands.registerCommand",
+        "env.appName",
+        "env.language",
+        "languages.createDiagnosticCollection",
+        "languages.match",
+        "languages.registerCodeActionsProvider",
+        "languages.registerDocumentFormattingEditProvider",
+        "window.activeTextEditor",
+        "window.createOutputChannel",
+        "window.createStatusBarItem",
+        "window.onDidChangeActiveTextEditor",
+        "window.onDidChangeVisibleTextEditors",
+        "window.tabGroups",
+        "window.visibleTextEditors",
+        "window.withProgress",
+        "workspace.createFileSystemWatcher",
+        "workspace.fs",
+        "workspace.getConfiguration",
+        "workspace.getWorkspaceFolder",
+        "workspace.onDidChangeConfiguration",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidChangeWorkspaceFolders",
+        "workspace.onDidCloseTextDocument",
+        "workspace.onDidOpenTextDocument",
+        "workspace.onDidSaveTextDocument",
+        "workspace.textDocuments",
+        "workspace.workspaceFolders"
+    ]
+}

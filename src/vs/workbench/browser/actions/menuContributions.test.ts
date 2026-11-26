@@ -105,6 +105,9 @@ describe("MENU_CONTRIBUTIONS — resulting built-in menus", () => {
     it("EditorContext: language feature items come with provider keys", () => {
         const contextKeys = new ContextKeyService();
         contextKeys.set("editorHasDefinitionProvider", true);
+        contextKeys.set("editorHasImplementationProvider", true);
+        contextKeys.set("editorHasTypeDefinitionProvider", true);
+        contextKeys.set("editorHasDeclarationProvider", true);
         contextKeys.set("editorHasReferenceProvider", true);
         contextKeys.set("editorHasRenameProvider", true);
         contextKeys.set("editorHasCodeActionsProvider", true);
@@ -114,6 +117,9 @@ describe("MENU_CONTRIBUTIONS — resulting built-in menus", () => {
 
         expect(labels(MenuId.EditorContext, undefined, contextKeys)).toEqual([
             "Go to Definition",
+            "Go to Declaration",
+            "Go to Type Definition",
+            "Go to Implementations",
             "Find All References",
             "─",
             "Rename Symbol",

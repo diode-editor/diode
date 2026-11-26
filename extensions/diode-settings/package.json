@@ -1,7 +1,7 @@
 {
   "name": "settings",
   "displayName": "Settings Editing",
-  "description": "IntelliSense for settings.json: completes known configuration keys.",
+  "description": "IntelliSense for settings.json and launch.json: completes known configuration keys and the debuggers' launch configuration attributes.",
   "version": "0.1.0",
   "publisher": "diode",
   "license": "MIT",

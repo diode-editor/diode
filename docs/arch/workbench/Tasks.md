@@ -25,14 +25,21 @@
   определения (`createCustomizedTask` ≈ `createCustomTask`: `label`, `detail`, `hide`, `group`,
   `isBackground`, матчеры, `presentation`, `options`, `runOptions` записи поверх; id, определение и
   исполнение — провайдера); не дал провайдер такой задачи — ошибка эталона в лог, `resolveTask`
-  провайдера не спрашивается. Файл перечитывается на каждом запросе
+  провайдера не спрашивается. Тот же файл — раздел `tasks` настроек ([Configuration.md](../Configuration.md),
+  слой воркспейса): `getConfiguration('tasks').update('tasks', […], Workspace)` расширения пишет сюда,
+  и `fetchTasks` видит задачу. Файл перечитывается на каждом запросе
   задач (дёшево; правка применяется без вотчера), о проблемах одного и того же текста говорится
   один раз.
-- **Переменные** (`common/taskVariables.ts`) — с нуля по `variableResolver.ts` эталона:
-  `workspaceFolder[Basename]`, `workspaceRoot`, `cwd` (у задачи с папкой — папка, как у эталона),
-  `env:`, `config:`, `userHome`, `pathSeparator`/`/`, переменные активного файла (`file`,
-  `fileBasename[NoExtension]`, `fileExtname`, `fileDirname`, `relativeFile[Dirname]`, `lineNumber`).
-  Неизвестная — как есть (эталон), `${input:}`/`${command:}` — явный отказ, а не запуск с литералом.
+- **Переменные** — общий резолвер `services/configurationResolver/` (им же пользуется отладка),
+  раздел «Резолвер переменных» ниже. Задачи — как `_acquireInput` эталона: перед стартом `TaskService` отдаёт
+  `resolveWithInteraction` то, что подставляет система задач (`variableSourcesOf` рядом с `launchOf`:
+  команда с опциями, определение, `filePrefix` инлайн-матчеров; секция `tasks`, `inputs` — из
+  tasks.json, читается только при встрече `${input:…}`); каждый `${input:…}` и `${command:…}`
+  спрашивается один раз, отмена любого — отмена запуска (без ошибки). Система задач получает в
+  контексте `resolve` (строка или JSON-дерево) — подстановку с этими значениями, остальное (имена
+  матчеров из реестра) — без взаимодействия. Задача, которая уже бежит (`isActive`), ничего не
+  спрашивает: решает её `instancePolicy`. Rerun с `reevaluateOnRerun` — новый запуск сервиса со
+  взаимодействием, без него — `system.rerun()` повторяет прежний запуск как есть.
 - **Исполнение** (`browser/terminalTaskSystem.ts`): шелл по умолчанию — `DefaultShellResolverDIToken`
   (`getSystemShell`; шов в `terminal/common`, потому что имя шелла нужно до создания терминала),
   `-c` + командная строка `_buildShellCommandLine` с таблицей экранирования эталона; процесс —
@@ -143,3 +150,29 @@ busy-состояния (`picker.busy` эталона) у нашего quick pic
 нет — запись показывается кареткой в её начале и прокруткой к ней; кастомизация задачи провайдера
 без папки пишется в tasks.json первой папки (у эталона — ничего не делает); файл без задач
 получает ключи шаблона `modify`'ем поверх своих ключей (у эталона — `updateValue('tasks', …)`).
+
+## Резолвер переменных (`services/configurationResolver/`)
+
+Перенос `IConfigurationResolverService` эталона, `ConfigurationResolverServiceDIToken`:
+- `common/configurationResolverExpression.ts` — обход строки или JSON-дерева (значения и ключи на
+  любой глубине), `${…}` со сбалансированными скобками; подставленное значение сканируется снова, но
+  не на ту же переменную (`${env:A}` = `${env:A}` не зацикливается).
+- `common/variableResolver.ts` — синхронный `evaluateSingleVariable`: все переменные эталона
+  (`workspaceFolder[:имя]`, `workspaceFolderBasename`, `cwd`, `env:`, `config:`, `userHome`, файл
+  редактора и его части, `fileWorkspaceFolder[Basename]`, `fileDirnameBasename`, `lineNumber`,
+  `columnNumber`, `selectedText`, `execPath`, `execInstallFolder` (папка бинаря),
+  `extensionInstallFolder:id`, `pathSeparator`/`/`), тексты отказов дословно. Неизвестная,
+  `${command:}` и `${input:}` без значения — как есть.
+- `browser/configurationResolverService.ts` — снимок окна (активный файловый редактор, папки,
+  настройки, окружение) и взаимодействие: `${command:id}` — `CommandRegistry` с конфигурацией
+  аргументом (алиасы — `variables`), строка или отмена; `inputs` — `promptString` (quick input,
+  `password`), `pickString` (дефолт первым с «(Default)», опция `{label, value}` → `label: value`),
+  `command`. Последние 5 значений — в состоянии воркспейса (`configResolveInputLru`, ключ
+  `секция.id`, пароль не запоминается) и становятся значением по умолчанию; поля ввода разных
+  резолвов идут по очереди. Расширения (`extensionInstallFolder`) подключает модуль хоста расширений
+  (`setExtensions`).
+- Отступления: `inputs` передаёт вызывающий (наш tasks.json сервис задач читает сам, а не секцией настроек, у
+  эталона пятый параметр — `ConfigurationTarget`); нет `contributeVariable` (`${defaultBuildTask}`,
+  `taskVar:`) и `resolveWithEnvironment` — пока без потребителя; ключи платформ (`windows`/`osx`/
+  `linux`) резолвер не применяет — задачи применяют их при разборе; добавлен синхронный
+  `resolveWithValues` — `VariableResolver` системы задач эталона.

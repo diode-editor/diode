@@ -1,0 +1,12 @@
+{
+    // The launch-completion e2e scenario: IntelliSense by the `demo` debugger of the Debug Demo extension
+    // (e2e/fixtures/user-data-with-debug-demo), its `configurationAttributes` and `configurationSnippets`.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Demo",
+            "type": "demo",
+            "request": "launch"
+        }
+    ]
+}

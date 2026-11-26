@@ -8,6 +8,7 @@ import { CommandRegistry } from "../../../platform/commands/common/commandRegist
 import { parseWhen, whenKeys } from "../../../platform/contextkey/common/contextKeyExpr.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { CONFIGURATION_CONTRIBUTIONS } from "../../common/configuration/configurationContributions.ts";
 import { MENU_CONTRIBUTIONS, WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 import { withMacKeybindings } from "./macKeybindings.ts";
@@ -15,7 +16,15 @@ import { withMacKeybindings } from "./macKeybindings.ts";
 /** The source of truth is the `ContextKeyTypes` interface itself; the test reads it instead of duplicating it. */
 function declaredContextKeys(): Set<string> {
     const source = readFileSync(new URL("../../../platform/contextkey/common/contextKeys.ts", import.meta.url), "utf8");
-    return new Set([...source.matchAll(/^ {4}(\w+)\??:/gm)].map((match) => match[1]));
+    // A dotted upstream name (`testing.canRefresh`) is a quoted field.
+    return new Set([...source.matchAll(/^ {4}"?([\w.]+)"?\??:/gm)].map((match) => match[1]));
+}
+
+/** `config.<setting>` reads a setting: declared when the setting is registered. */
+function isRegisteredSettingKey(key: string): boolean {
+    if (!key.startsWith("config.")) return false;
+    const setting = key.slice("config.".length);
+    return CONFIGURATION_CONTRIBUTIONS.some((node) => setting in node.properties);
 }
 
 /** Dynamic key families: environment modes and terminal capabilities. */
@@ -59,7 +68,11 @@ describe("when clauses of built-in registrations", () => {
         const unknown = new Set<string>();
         for (const when of builtinWhens()) {
             for (const key of whenKeys(parseWhen(when)!)) {
-                if (!declared.has(key) && !DYNAMIC_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)))
+                if (
+                    !declared.has(key) &&
+                    !isRegisteredSettingKey(key) &&
+                    !DYNAMIC_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))
+                )
                     unknown.add(key);
             }
         }

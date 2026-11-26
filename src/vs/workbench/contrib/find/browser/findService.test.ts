@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { TAB_HEIGHT } from "@tuidom/elements/editorgroup/editorTabItemElement";
 import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,7 +23,9 @@ import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatche
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import { CORNER_RIGHT_MARGIN } from "../../../browser/parts/editor/cornerDockElement.ts";
 import { EditorGroupComponent } from "../../../browser/parts/editor/editorGroupComponent.ts";
+import { GroupCornerStack } from "../../../browser/parts/editor/groupCornerStack.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
@@ -104,7 +107,7 @@ describe("FindService", () => {
         const testApp = TestApp.create(body, new Size(80, 24));
         testApp.render();
 
-        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
+        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view }, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
         // The only group's widget (created lazily; here explicitly, for the asserts).
         const widget = component.widgetFor(group.editorGroups.activeGroup.id)!;
@@ -265,22 +268,25 @@ describe("FindService", () => {
         });
     });
 
-    it("right-aligns the widget one column shy of the group's edge", () => {
+    it("right-aligns the widget one column shy of the group frame's right line", () => {
         const { find, groupComponent, testApp } = setup("foo bar foo");
         find.open();
         testApp.render();
 
         const groupWidth = groupComponent.view.layoutSize.width;
         const widgetW = Math.min(60, Math.max(28, groupWidth - 2));
-        const borderRow = 1; // directly under the tab strip
+        const borderRow = TAB_HEIGHT; // directly under the tab strip
 
         const charAt = (x: number): string => testApp.backend.getTextAt(new Point(x, borderRow), 1);
 
-        // 1-col margin: the group's last column stays empty, the corner sits just inside it.
-        expect(charAt(groupWidth - 1)).toBe(" ");
-        expect(charAt(groupWidth - 2)).toBe("╮");
+        // The group's last column is its frame's right line; a free column between it and the widget.
+        expect(charAt(groupWidth - 1)).toBe("│");
+        expect(charAt(groupWidth - CORNER_RIGHT_MARGIN)).toBe(" ");
+        expect(charAt(groupWidth - CORNER_RIGHT_MARGIN - 1)).toBe("╮");
         // Top-left corner lands exactly widgetW columns to the left of the corner.
-        expect(charAt(groupWidth - 1 - widgetW)).toBe("╭");
+        expect(charAt(groupWidth - CORNER_RIGHT_MARGIN - widgetW)).toBe("╭");
+        // The tab strip above stays the tabs': the widget starts under its baseline.
+        expect(testApp.backend.getTextAt(new Point(0, 1), 15)).toContain("file.txt");
     });
 
     it("seeds the query from a single-line selection on open", () => {
@@ -384,14 +390,14 @@ describe("FindService", () => {
 
     it("isVisible() is false before the host view is attached", () => {
         const { group, themeService } = makeGroup();
-        const component = new FindComponent(NO_GROUP_HOSTS);
+        const component = new FindComponent(NO_GROUP_HOSTS, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
         expect(find.isVisible()).toBe(false);
     });
 
     it("open() / hide() before the host view is attached are no-ops and do not throw", () => {
         const { group, themeService } = makeGroup();
-        const component = new FindComponent(NO_GROUP_HOSTS);
+        const component = new FindComponent(NO_GROUP_HOSTS, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
         expect(() => {
             find.open();
@@ -406,7 +412,7 @@ describe("FindService", () => {
     it("next()/prev() before the view layer is attached is a no-op: no widget and none can be created", () => {
         // No host: widgetFor returns null, navigation silently exits.
         const { group } = makeGroup();
-        const component = new FindComponent(NO_GROUP_HOSTS);
+        const component = new FindComponent(NO_GROUP_HOSTS, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
 
         expect(() => {
@@ -445,7 +451,7 @@ describe("FindService", () => {
         const body = new BodyElement();
         body.setContent(groupComponent.view);
         TestApp.create(body, new Size(80, 24)).render();
-        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
+        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view }, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
 
         expect(() => {

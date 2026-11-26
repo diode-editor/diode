@@ -364,6 +364,23 @@ describe("obsoleteExtensions", () => {
             expect(fs.readdirSync(path.join(extensionsDir, EXTENSION_LEASES_DIR))).toEqual(["100.json"]);
         });
 
+        it("without `isAlive` the real processes decide: our own lease protects, a lease of a pid nobody has goes", () => {
+            onDisk("acme.live-1.0.0");
+            onDisk("acme.dead-1.0.0");
+            const dead = 2 ** 30;
+            writeExtensionLease(extensionsDir, ["acme.live-1.0.0"], process.pid);
+            writeExtensionLease(extensionsDir, ["acme.dead-1.0.0"], dead);
+            markObsolete(extensionsDir, ["acme.live-1.0.0", "acme.dead-1.0.0"]);
+
+            const deleted = cleanUpExtensions(extensionsDir, { referencedDirs: () => new Set(), logger: fakeLogger() });
+
+            expect(deleted).toEqual(["acme.dead-1.0.0"]);
+            expect(exists("acme.live-1.0.0")).toBe(true);
+            expect(fs.readdirSync(path.join(extensionsDir, EXTENSION_LEASES_DIR))).toEqual([
+                `${String(process.pid)}.json`,
+            ]);
+        });
+
         it("an unreadable live lease protects everything; foreign files in .inuse are ignored", () => {
             onDisk("acme.demo-1.0.0");
             ws.writeFile(`extensions/${EXTENSION_LEASES_DIR}/100.json`, "{");

@@ -32,7 +32,30 @@
   редакторов (`pointerPolicy: "passthrough"` — док-виджет, клики мимо уходят в
   редактор); хост (`OverlayHostElement` группы) `FindComponent` берёт у полосы групп
   (`EditorPartComponent.groupOverlayHost`, зависимость DI) при первом Ctrl+F в группе. `show()` позиционирует
-  виджет (правый край группы с 1-колоночным отступом, под tab strip) и фокусирует input.
+  виджет (правый край группы с 1-колоночным отступом, под tab strip, под тулбаром отладки — см. ниже) и фокусирует input.
+
+### Угол группы: тулбар отладки и find
+
+Правый верхний угол группы (под tab strip) делят док-виджеты — тулбар отладки и find. Механизм общий,
+`browser/parts/editor/`:
+- `groupCornerStack.ts` — `GroupCornerStack` (DI-синглтон): угол каждой группы — стопка в порядке `CORNER_ORDER`
+  (тулбар, потом find). Виджет, который сдвигает нижних, берёт слот и сообщает высоту (`setHeight`, 0 — скрыт);
+  верхняя строка любого — `topOf(groupId, order)`: 1 + высоты показанных слотов выше. `onDidChange(groupId)` — верх
+  в группе мог сдвинуться, владельцы перепозиционируются. Find — низ стопки, под ним никого: слота не берёт, только
+  читает `topOf` при показе и по `onDidChange` (тулбар пришёл или ушёл — find опускается или поднимается).
+- `cornerDockElement.ts` — `CornerDockElement`: строка оверлей-слоя группы на всю её ширину, прижимает виджет к
+  правому краю с отступом в колонку **на каждом layout** — слой ставит элементы в фиксированные точки, а ширина
+  группы меняется сплитом, сашем и окном. Сама строка прозрачна: не красит и не берёт клик (`hitTestSelf` →
+  `false`), клик мимо виджета уходит в редактор. Новую ширину сообщает после кадра (`onDidChangeWidth`, микрозадача):
+  виджет, зависящий от неё, пересобирается вне layout.
+- `contrib/debug/browser/debugToolbar.ts` — `DebugToolbar`: кнопки меню `DebugToolBar` (`глиф + подпись`, глиф
+  цветом `debugIcon.*Foreground`, недоступные — `disabledForeground`, hover — `toolbar.hoverBackground`) в рамке
+  find (`editorWidget.*`) внутри `CornerDockElement`. Подписи — пока ряд влезает в группу, иначе только глифы.
+  Кнопки только для мыши (сессия без захвата клавиатуры и фокуса). Показан, пока сессия не `inactive`,
+  `debug.toolBarLocation` — `floating`/`commandCenter` и не все сессии `suppressDebugToolbar`; живёт в активной
+  группе: при смене группы сессия оверлея и слот переезжают. Find позиционируется по-прежнему один раз при показе
+  (его ширина от ширины группы на ресайз не пересчитывается).
+
 - `contrib/find/browser/findService.ts` — состояние поиска query → matches → current
   index: `open` (сеет запрос из однострочного выделения), `close` (курсор
   остаётся на текущем совпадении, подсветка снимается), `next`/`prev`
@@ -96,8 +119,41 @@
 - **`editor.wordBasedSuggestions`** — пять режимов эталона; дефолт `offWithInlineSuggestions` = как
   `matchingDocuments`, гасит слова только при inline-провайдере И включённом Copilot
   (`github.copilot.enable`) — с Supermaven без Copilot слова остаются, как в vscode.
+- **Символы фиксации** (`CompletionItem.commitCharacters`, эталон `CommitCharacterController`): на
+  `onWillType` редактора символ из `commitCharacters` выбранного пункта при открытом попапе принимает пункт,
+  затем печатается обычным набором — два шага undo, а триггер-символ (`.` у TypeScript) открывает новый
+  список. Выключает `editor.acceptSuggestionOnCommitCharacter`. Набор не ждёт resolve: правки, которых
+  ещё нет в кэше, догоняют вставку отдельным шагом undo, когда resolve ответит (эталонные «async
+  additional edits»), и бросаются, если документ менялся раньше их начала или перечитан.
+- **Режим вставки** (`editor.suggest.insertMode`, эталон `getOverwriteInfo`): `range` пункта приходит из
+  хоста как `{ insert, replace }` (`vscode`-шный `{ inserting, replacing }`), дефолт `insert` заменяет
+  только до каретки — `con|sole` + `const` → `constsole`; `replace` затирает слово справа.
+  `acceptAlternativeSelectedSuggestion` (Shift+Enter / Shift+Tab) берёт противоположный режим. Пункт без
+  `range` всегда заменяет префикс: дефолтного replace-диапазона эталона (слово целиком) у нас нет.
+- **Отступы** (эталон вставляет пункт сниппетом с `adjustWhitespace`): строки 2+ многострочного
+  `insertText` получают ведущие пробелы текущей строки, нормализованные по `tabSize`/`insertSpaces`
+  редактора (`adjustTextWhitespace` в `snippetSession.ts`); `keepWhitespace` — вставка как есть.
 - Не сделано: режим `inline` (попап просто не открывает), провайдерский `suppressSuggestions`,
   `snippetsPreventQuickSuggestions`, retrigger при переходе к новому слову (`_onNewContext`).
+
+### Choice сниппета: эксклюзивный провайдер
+
+`CompletionService.showSimpleSuggestions(provider)` — аналог `showSimpleSuggestions` эталона: попап только с
+пунктами этого провайдера, без слов буфера и **при выделении и нескольких каретках** (обычный запрос их
+отсекает). Accept заменяет текст вокруг первичной каретки, а у остальных — тот же текст вокруг каждой
+(`createEditsAndSnippetsFromSelections` эталона); где там другой текст — заменяется выделение этой каретки.
+Каретки встают в конец каждой вставки.
+
+Потребитель — choice сниппет-сессии (`SnippetChoiceCompletions` в `workbench/contrib/snippet/browser/snippetService.ts`,
+порт `_handleChoice` и провайдера из `snippetController2.ts` эталона). Пока сессия на choice, в реестре
+`completionProvider` стоит провайдер с селектором `language + scheme + pattern` документа и `exclusive: true` —
+остальные провайдеры языка не спрашиваются, ни явным Ctrl+Space, ни набором; ушла с choice — провайдер снят.
+Пункты: `kind: Value`, `label = insertText` = вариант, `sortText` `a`, `aa`, … (авторский порядок), `range` —
+плейсхолдер, `command: jumpToNextSnippetPlaceholder`; пока текст плейсхолдера — один из вариантов, `filterText`
+`<текст>_<вариант>`, чтобы фильтр по выделенному тексту не прятал остальные. Отвечает только на позиции первичной
+каретки. Приход на новый choice открывает попап в микротаске после смены выделения; уход закрывает его (пока
+провайдер эксклюзивен, открытый попап — его). Shift+Tab на choice — `jumpToPrevSnippetPlaceholder` с весом
+`EditorContrib + 91`, выше Shift+Tab suggest эталона (`acceptAlternativeSelectedSuggestion`, у нас его нет).
 
 ## Подсказка параметров
 

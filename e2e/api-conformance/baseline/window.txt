@@ -3,6 +3,7 @@ vscode API - window Default value for showInput Box not accepted when it fails v
 vscode API - window Tabs - ensure active tab is correct
 vscode API - window Tabs - vscode.open & vscode.diff
 vscode API - window active editor not always correct... #49125
+vscode API - window createStatusBar
 vscode API - window default column when opening a file
 vscode API - window editor, active text editor
 vscode API - window editor, assign and check view columns

@@ -134,7 +134,8 @@ describe("ConfigurationService — workspace layer", () => {
 
             expect(cfg.get("terminal.tier")).toBe("legacy");
             expect(cfg.get("update.mode")).toBe("default");
-            expect(cfg.get("java.secret")).toBeUndefined();
+            // The manifest has no type and no default: its default is null, as upstream, not the workspace's value.
+            expect(cfg.get("java.secret")).toBeNull();
             expect(cfg.inspect("terminal.tier").workspace).toBeUndefined();
             expect(cfg.get("java.home")).toBe("/jdk");
             expect(cfg.get("unknown.key")).toBe(1);
@@ -302,14 +303,19 @@ describe("ConfigurationService — workspace layer", () => {
         it("folder change moves the watch; no folder — no watch", async () => {
             const watcher = new FakeFileWatcher();
             const cfg = await load({ watcher });
-            const userFile = paths().settingsFile;
-            expect(watcher.watched()).toEqual([userFile]);
+            const userFiles = [paths().settingsFile, path.join(path.dirname(paths().settingsFile), "tasks.json")];
+            expect(watcher.watched()).toEqual(userFiles);
 
             await cfg.setWorkspace([folder.dir]);
-            expect(watcher.watched()).toEqual([userFile, path.join(folder.dir, ".diode", "settings.json")]);
+            expect(watcher.watched()).toEqual([
+                ...userFiles,
+                path.join(folder.dir, ".diode", "settings.json"),
+                path.join(folder.dir, ".diode", "tasks.json"),
+                path.join(folder.dir, ".diode", "launch.json"),
+            ]);
 
             await cfg.setWorkspace([]);
-            expect(watcher.watched()).toEqual([userFile]);
+            expect(watcher.watched()).toEqual(userFiles);
         });
 
         it("reload() rereads the workspace layer too", async () => {

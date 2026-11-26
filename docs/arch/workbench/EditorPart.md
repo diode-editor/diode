@@ -16,7 +16,10 @@
   сторона диффа) — `appendContent`/`replaceContent`, без save/encoding/watch/dirty.
 - `services/textfile/common/textFileModel.ts` — per-file модель (аналог
   `ITextFileEditorModel`) поверх `BaseTextEditorModel`: файл с диска либо
-  untitled — dirty-статус против диска (`isModified` = versionId + EOL-ось),
+  untitled — dirty-статус против диска (`isModified` = `alternativeVersionId` документа против сохранённой;
+  смена EOL — такая же правка, отдельной оси нет; пустой untitled без привязанного пути чист всегда;
+  undo до сохранённого текста снимает ●, redo возвращает; streamed save помечает сохранённой
+  альтернативную версию снимка),
   ось encoding, запись на диск (`save`/`saveAs`/`saveWithEncoding` +
   `TextFileSaveParticipant`), перечитка (`revertToDisk`/`reopenWithEncoding`) и
   слежение за файлом на диске
@@ -161,18 +164,19 @@
   делит долю источника пополам); хуки сервису (`canAddGroupHook`,
   `focusGroupContentHook`) и персисту (`onDidChangeGroupLayout`,
   `IEditorGroupsLayoutView` для `WorkbenchStateService`).
-  Разделитель групп — `separatorColorVar = "editorGroup.border"` (аналог
-  `separatorBorder` grid-а VS Code): у каждой границы своя колонка `│` или
-  строка `─` на фоне `editor.background`, саш лежит на ней и на hover/drag
-  перекрашивает её в `sash.hoverBorder`. Отступление от эталона: линия не
-  тоньше клетки, поэтому каждая граница отнимает у групп клетку; доли и
-  минимумы — без неё, `canFit(n)` = `n×min + (n−1) ≤ main` (#894).
+  Каждая группа — в собственной рамке (`framedGroups`, [Frames.md](Frames.md)):
+  группы стоят вплотную, граница — две линии рамок, саш в две клетки лежит на
+  обеих и не подсвечивается. Разделитель `editorGroup.border` (аналог
+  `separatorBorder` grid-а VS Code, #894) больше не ставится: место заняли
+  рамки; токен остаётся зарегистрированным ради тем.
 - `browser/parts/editor/editorGroupComponent.ts` — контрол ОДНОЙ группы;
   **композиционный корень** из примитивов tuidom: `view` = `OverlayHostElement`
   (локальный OverlayLayer для find-виджета группы; `view.id =
   "editorGroup-<groupId>"`) поверх `VFlexElement` [`EditorTabStripElement`
-  (1 ряд), контент-слот (остаток; пустой — фон-филлер `editor.background`,
-  focusable у пустой группы)]: по `group.onDidChangeEditors` вставляет view
+  (3 ряда: вкладки-коробки на базовой линии — верхе рамки группы; с кнопками
+  заголовка — ряд «полоса + `EditorTitleActionsBox`»), `FrameElement` с
+  `openTop` вокруг контент-слота (остаток; пустой — фон-филлер
+  `editor.background`, focusable у пустой группы)]: по `group.onDidChangeEditors` вставляет view
   активной вкладки и перерисовывает табы (метки с минимальной разводкой тёзок
   пер-стрип, иконки, маркер изменённости — `getTabStripStyles`); клики по
   табам возвращает в группу (`activateTab`; крестик — `EditorService.closeEditor(group,

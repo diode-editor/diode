@@ -15,11 +15,13 @@ function closeWindow(
 ): Promise<void> {
     const lifecycle = accessor.get(LifecycleServiceDIToken);
     const host = accessor.get(HostProcessDIToken);
-    return lifecycle.requestShutdown(() =>
-        lifecycle.shutdown(reason, () => {
-            if (reason === "quit") host.exit();
-            else host.restart(relaunch);
-        }),
+    return lifecycle.requestShutdown(
+        () =>
+            lifecycle.shutdown(reason, () => {
+                if (reason === "quit") host.exit();
+                else host.restart(relaunch);
+            }),
+        reason,
     );
 }
 

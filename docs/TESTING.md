@@ -171,7 +171,7 @@ it("types with two cursors on the same line", () => {
 ## Тестовые утилиты
 
 ### AppTestHarness (`TestUtils/AppTestHarness.ts`)
-Boot-харнесс интеграционных тестов над `WorkbenchComponent`: `createAppTestHarness({ workspaceFolder?, size?, openFile?, focusEditor? })` собирает тестовый DI-контейнер, монтирует корневой компонент и оборачивает его view в `TestApp`. Возвращает `{ testApp, workbench, commands, container, activeEditor(), dispose() }`. Харнесс синхронный — async-активация (`await workbench.activate()`, `fileIndexReady`) остаётся в тесте. Воркспейсом не владеет — композиция с `createTempWorkspace` (см. канонический сниппет в разделе Workbench).
+Boot-харнесс интеграционных тестов над `WorkbenchComponent`: `createAppTestHarness({ workspaceFolder?, size?, openFile?, focusEditor? })` собирает тестовый DI-контейнер, монтирует корневой компонент и оборачивает его view в `TestApp`. Возвращает `{ testApp, workbench, commands, container, activeEditor(), dispose() }`. Харнесс синхронный — async-активация (`await workbench.activate()`) остаётся в тесте. Субпроцесса расширений нет, поэтому поиск файлов Quick Open идёт тем же `FileSearchEngine` в процессе; файловые строки пикера приходят асинхронно — жди их `vi.waitFor`. Воркспейсом не владеет — композиция с `createTempWorkspace` (см. канонический сниппет в разделе Workbench).
 
 ### TempWorkspace (`TestUtils/TempWorkspace.ts`)
 Временный воркспейс: `createTempWorkspace({ prefix?, files? })` → `{ dir, writeFile(rel, content), path(rel), dispose() }`. Сид-файлы поддерживают вложенные пути; `dispose()` — рекурсивный `rmSync`, безопасен в `afterEach`/`finally`.
@@ -254,7 +254,7 @@ expectScreen(backend, screen`
 
 Откуда 1,5 ГБ: инстанс редактора ≈ 330 МБ RSS, LSP-сьюты сверху держат сервер (basedpyright ≈ 385 МБ, tsserver ≈ 356 МБ) — около 1 ГБ на LSP-тест, сборка бинаря (tsup + SEA) при промахе кэша — ещё ~0,7 ГБ. Wall e2e почти не зависит от ядер: это ожидания (settle, старт языковых серверов), а не CPU, — на 4 ядрах и двух воркерах прогон всего вдвое дольше, чем на 16 и восьми.
 
-**Тяжёлая полоса.** Файлы с настоящими JVM (redhat.java: syntax- и standard-сервер) — `e2e/marketplace/marketplace.test.ts` и `e2e/scenarios-heavy.test.ts` (сценарий `java-lsp`) — вынесены в отдельный проект vitest `e2e-heavy` (`sequence.groupOrder: 1`, `maxWorkers: 1`): он идёт ПОСЛЕ остальных и строго по одному. Замер: две JVM-пары разом на 7,6 ГБ дали пик 6,3 ГБ и таймауты обеих (и соседнего `rename-symbol` от голода по CPU). Список узкий намеренно — всё, что туда попадает, теряет параллельность; новый потребитель JVM — в `HEAVY` в `vitest.e2e.config.ts` (сценарий — в `HEAVY_SCENARIOS` в `suite.ts`). Проекты с разным `maxWorkers` в vitest 4 обязаны иметь разный `groupOrder`, а группы идут последовательно — поэтому полоса именно «после», а не «рядом».
+**Тяжёлая полоса.** Файлы с настоящими JVM (redhat.java: syntax- и standard-сервер) — `e2e/marketplace/marketplace.test.ts` и `e2e/scenarios-heavy.test.ts` (сценарии на JVM, например `java-lsp`) — вынесены в отдельный проект vitest `e2e-heavy` (`sequence.groupOrder: 1`, `maxWorkers: 1`): он идёт ПОСЛЕ остальных и строго по одному. Замер: две JVM-пары разом на 7,6 ГБ дали пик 6,3 ГБ и таймауты обеих (и соседнего `rename-symbol` от голода по CPU). Список узкий намеренно — всё, что туда попадает, теряет параллельность; новый потребитель JVM — в `HEAVY` в `vitest.e2e.config.ts` (сценарий — в `HEAVY_SCENARIOS` в `suite.ts`). Проекты с разным `maxWorkers` в vitest 4 обязаны иметь разный `groupOrder`, а группы идут последовательно — поэтому полоса именно «после», а не «рядом».
 
 **Автоповтор упавших файлов** (`scripts/e2e.mjs` — это и есть `npm run test:e2e`): проход 1 — весь набор с JSON-репортом в `reports/e2e/`; проход 2 — только упавшие файлы, одним воркером, на том же бинаре. Код 0 — только если второй проход зелёный. Упавшие в первом и зелёные во втором печатаются в итоге списком **FLAKY** — с тестами и первой строкой ошибки (в CI ещё и в `$GITHUB_STEP_SUMMARY` и аннотацией). Флак не прячется: он виден в каждом прогоне, пока его не починят. Повтора нет, если упало больше `DIODE_E2E_RETRY_MAX` (8) файлов — это поломка, а не флак; если vitest вышел с ошибкой без упавших файлов (необработанная ошибка, globalSetup); при `DIODE_E2E_RETRY=0`. `retry` самого vitest выключен намеренно: он повторяет молча и под той же нагрузкой. Исключение — тесты и сценарии из [списка известных флаков](#список-известных-флаков-test-flakesjson-testutilsflaketestrunnerts): известный флак не должен стоить перезапуска CI (в CI e2e идёт одним воркером, второй проход — в тех же условиях, и `region-folding` падал в обоих), а аннотация `Known flake retried` оставляет его видимым. Упал во всех попытках — файл красный и идёт во второй проход как обычно. Аргументы уходят vitest как есть: `npm run test:e2e -- e2e/mouse.test.ts`. Итог — `reports/e2e/summary.md`/`summary.json`.
 
@@ -432,7 +432,7 @@ expect(ed?.state?.hasSelection).toBe(true);
 
 Действующие сьюты по этой конвенции: `extensionHost.pythonLsp*`, `e2e/pythonLsp.test.ts`,
 сценарий `python-lsp`, `e2e/editorconfig-stock.test.ts`, `extensionHost.maptzRegionfolder`,
-сценарий `region-folding`, `extensionHost.terraformLsp` и сценарий `terraform-lsp`. Закоммиченных сторонних `.vsix` в репозитории больше нет; стока,
+сценарий `region-folding`, `extensionHost.terraformLsp` и сценарий `terraform-lsp`, `extensionHost.svelte*` и сценарий `svelte-lsp`. Закоммиченных сторонних `.vsix` в репозитории больше нет; стока,
 которого нет на Open VSX, это тоже касается — такой vsix перевыкладывается в реестре
 (`kind: "proxy-hosted"`, лицензия должна разрешать редистрибуцию). Новые тесты на стоковые
 расширения пишутся сразу по конвенции; предпосылка — расширение опубликовано в магазине
@@ -470,7 +470,8 @@ PATH есть. `claudeCodeSessionEnv()` ещё и обнуляет `CLAUDE_CONFI
 (`acme.sample` — не установлен, `test.tab-setter` — установлен 0.0.1 при реестровых 0.0.2,
 `old.legacy` — требует `vscode ^99`), а «жив ли настоящий магазин» отвечает сетевой сьют выше.
 
-Бейджи проверяются не по кадру, а по тексту строки из инспектора (`#extensionsGroup-…`): сайдбар
+Бейджи проверяются не по кадру, а по тексту первой строки расширения из инспектора
+(`#extensionsGroup-…--title`: строка трёхстрочная, `text` есть только у надписей): сайдбар
 узкий, и в кадре хвост строки обрезан — ассерт на кадр ловил бы ширину панели, а не содержание.
 
 `e2e/extensionsInstall.functional.test.ts` — установка целиком: кнопка на странице → распакованный
@@ -507,13 +508,14 @@ PATH есть. `claudeCodeSessionEnv()` ещё и обнуляет `CLAUDE_CONFI
 
 ## Контракт extension API: тесты эталона (`test:api-conformance`)
 
-`npm run test:api-conformance` (под лизой, скилл `heavy-run`; около 11 минут) запускает `extensions/vscode-api-tests` с запиннённого тега внутри настоящего Diode из исходников и сравнивает зелёные тесты с базовым списком. Это источник задач и храповик [эпика #912](https://github.com/diode-editor/diode/issues/912). Гейта PR нет: прогон идёт ночью (джоба `api-conformance` в `nightly.yml`, красная джоба и сводка в отчёте, релиз она не держит). Перевод в гейт — отдельным решением человека после двух недель без флаков.
+`npm run test:api-conformance` (под лизой, скилл `heavy-run`; около 11 минут) запускает `extensions/vscode-api-tests` с запиннённого тега внутри настоящего Diode из исходников и сравнивает зелёные тесты с базовым списком. Это источник задач и храповик [эпика #912](https://github.com/diode-editor/diode/issues/912). Гейт PR: джоба `api-conformance` в `ci.yml` идёт на каждом PR и push в `main`, параллельно остальным, около пяти минут; регрессия базового списка красит джобу, сводка — артефакт `api-conformance-report`. Отдельно — `node scripts/ci-run.mjs api-conformance`. В мутационный гейт не входит: Stryker гоняет только vitest. В гейт переведена решением человека 2026-11-04 после пяти ночей без единого переключения статуса; до этого джоба шла в `nightly.yml`. Флак — тест в `exclusions.json` с причиной, а не повтор.
 
 Устройство — `e2e/api-conformance/`:
 
 - **Исходники не копируем.** `upstream.mjs` достаёт каталог с тега через `git archive` из чекаута `scripts/vscode-ref.mjs` (sparse-клон, `extensions/` в его рабочем дереве нет).
 - **Расширение** (`build.mjs`): манифест эталона с заменой `main` и `activationEvents`, файлы тестов собраны esbuild, рядом `mocha` со всеми зависимостями (версия 11: двенадцатая — ESM, её `require` в хосте расширений не даёт конструктор). `createRandomFile`/`deleteFile` из `utils.ts` заменены на обычные файлы воркспейса; если текст эталона не нашёлся, сборка падает с названием функции.
-- **Раскладка.** Эталон сравнивает пути с `__dirname/../../testWorkspace`. Сборка подставляет `__dirname` так, чтобы это был открытый воркспейс, поэтому `workspaceFolders` и `getWorkspaceFolder` идут честно.
+- **Strict mode** (`alwaysStrict`, как в `extensions/tsconfig.base.json` эталона): без `"use strict"` присваивание замороженному или getter-only члену молча игнорируется, и ни один `assert.throws` на readonly-член не проходит.
+- **Раскладка.** Эталон сравнивает пути с `__dirname/../../testWorkspace`. Сборка подставляет `__dirname` так, чтобы это был открытый воркспейс, поэтому `workspaceFolders` и `getWorkspaceFolder` идут честно. `testWorkspace/.vscode/settings.json` эталона (`files.exclude`, `search.exclude`, …) копируется в `.diode/settings.json`: Diode `.vscode/settings.json` не читает, и без копии `findFiles` не видит `files.exclude`.
 - **Обвязка внутри редактора** (`harness/extension.js`): `_extensionTests.getLogLevel`/`setLogLevel` и `_workbench.revertAllDirty`. У Diode нет команды отката, поэтому откат сделан публичным API: файл получает текст с диска и сохраняется, untitled очищается.
 - **Сессия на файл, последовательно** (`run.mjs`), каждому файлу свежая копия воркспейса. Тесты файла запускаются командой после готовности редактора, результат дописывается в файл построчно. Файл получает общий предел (`--file-timeout`, 300 с); зависшую сессию `drive stop` добивает, незавершённые тесты считаются красными, остальные файлы идут дальше. Проверить руками: `--only commands,env --hang commands --file-timeout 30`.
 - **Таймаут теста 8 с.** Падения по нему — следствие отсутствующих команд и событий (ожидание ответа, которого нет), а не медленной машины, поэтому не поднят.
@@ -544,19 +546,20 @@ PATH есть. `claudeCodeSessionEnv()` ещё и обнуляет `CLAUDE_CONFI
 
 1. `tsc --noEmit --incremental` — по всей программе (тип ломается не там, где правка), buildinfo в `node_modules/.cache/diode/`; повторный прогон — секунды.
 2. `eslint --cache --cache-strategy content` — только изменённые файлы.
-3. `vitest related --run <файлы>` — тесты, которые транзитивно импортируют изменённое.
+3. `scripts/check-stryker-disable.mjs` — храповик на `Stryker disable` про недостижимый код ([MUTATION.md](MUTATION.md#выживший-мутант--не-всегда-дыра)), когда в диффе есть не-тестовые файлы.
+4. `vitest related --run <файлы>` — тесты, которые транзитивно импортируют изменённое.
 
 ```bash
 npm run check:diff                     # tsc + eslint + vitest related
 npm run check:diff -- --near           # тесты только соседние: foo.ts → foo.test.ts, foo.*.test.ts
 npm run check:diff -- --coverage       # + покрытие изменённых не-тестовых файлов
 npm run check:diff -- --base <ref>     # другая база (стек PR: база — ветка родителя)
-npm run check:diff -- --skip tsc,lint  # пропустить шаги
+npm run check:diff -- --skip tsc,lint  # пропустить шаги (tsc, lint, ratchet, test)
 npm run check:diff -- --list           # только показать файлы диффа
 ```
 
 - Правка в `base/` или `platform/` по графу импортов тянет сотни тестов (`strings.ts` → 230 файлов, ~5 мин). Для них — `--near`: правка рядом с одним тестом проверяется за ~30 с вместе с типами и линтом.
-- `--coverage` выключает храповик на этот прогон (`thresholds.autoUpdate=false` и нули): на подмножестве тестов глобальные 100% краснеют и переписывают `vitest.config.ts`. Отчёт `text` по изменённым файлам, с полностью покрытыми.
+- `--coverage` обнуляет пороги на этот прогон: на подмножестве тестов глобальные 100% краснеют. Отчёт `text` по изменённым файлам, с полностью покрытыми.
 - Под лизу команда не попадает: она нарочно лёгкая.
 
 **Это не гейт сдачи.** Кэш type-aware eslint не перепроверяет файл, если тип поменялся в его зависимости, `related`/`--near` не видят тестов вне графа, а покрытие подмножества — не храповик. Перед PR — как раньше: `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run test:mutation` (тяжёлые — под лизой, скилл [`heavy-run`](../.claude/skills/heavy-run/SKILL.md)).
@@ -565,7 +568,7 @@ npm run check:diff -- --list           # только показать файл�
 
 ## Гейты в CI без PR
 
-Мутационный гейт, e2e и покрытие можно прогнать на раннере GitHub на своей ветке, без PR и без лизы: `npm run ci:run -- <static|test|mutation|e2e|e2e-windows|all>` → скилл [`heavy-run`](../.claude/skills/heavy-run/SKILL.md#гейт-в-ci-без-pr).
+Мутационный гейт, e2e и покрытие можно прогнать на раннере GitHub на своей ветке, без PR и без лизы: `npm run ci:run -- <static|test|mutation|e2e|e2e-windows|api-conformance|all>` → скилл [`heavy-run`](../.claude/skills/heavy-run/SKILL.md#гейт-в-ci-без-pr).
 
 Тяжёлое локально (полный `npm run lint`, `npm test` перед сдачей, мутационный гейт, e2e, покрытие, `build:sea`, бенчи) — под лизой `claude-lease run -- …`, тот же скилл.
 
@@ -581,9 +584,9 @@ npm run test:coverage      # = vitest run --coverage
 
 ### Политика: покрываем весь новый код
 
-Цель — 100% покрытия по всему, что реально исполняется. Это закреплено **храповиком** `coverage.thresholds` с `autoUpdate: true`:
-- если покрытие падает ниже зафиксированной планки — прогон/CI **краснеет**;
-- если покрытие выросло — vitest сам поднимает числа порогов в конфиге (коммить их).
+Цель — 100% покрытия по всему, что реально исполняется. Это закреплено порогами `coverage.thresholds` в `vitest.config.ts`: все четыре (statements, branches, functions, lines) равны 100, и при любом непокрытом месте `npm run test:coverage` и job `test` **краснеют**.
+
+Числа порогов **не опускаем** — это проверяет `npm run coverage-thresholds-check` ([`scripts/check-coverage-thresholds.mjs`](../scripts/check-coverage-thresholds.mjs)) в job `static` и в `check:diff`. Дважды (#465, #568) пороги опускали руками, чтобы позеленить частичный прогон, и три недели покрытие могло упасть до 55% при зелёном CI. Непокрытое место закрывается тестом или, если файл попадает в категорию ниже, исключением в `coverage.exclude`.
 
 ### Что и почему исключаем из метрики
 
@@ -677,8 +680,8 @@ host, и вдвое медленный проход сдвигает его ли
 
 | Бенч | Что меряет |
 | --- | --- |
-| `FileSearchService.bench.ts` → `activate / index N files` | фоновый обход до готовности индекса Quick Open (с уступками event loop) |
-| `FileSearchService.bench.ts` → `search …` | цена одного запроса Quick Open (нажатие) |
+| `fileSearchEngine.bench.ts` → `index N files` | обход `rg --files` до готовности индекса Quick Open |
+| `fileSearchEngine.bench.ts` → `search …` | цена одного запроса Quick Open (нажатие) |
 | `FileTreeDataProvider.bench.ts` → `getChildren …` | раскрытие одного большого каталога |
 | `TreeViewElement.bench.ts` → `refresh / toggleExpand / render` | flatten дерева, O(N)-сканы, кадр вьюпорта |
 

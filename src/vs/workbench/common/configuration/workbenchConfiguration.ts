@@ -30,6 +30,13 @@ export const workbenchConfiguration = {
             description:
                 "Specifies the color theme when system color mode is light and `#window.autoDetectColorScheme#` is enabled.",
         },
+        // Upstream's `allOf: [{ $ref: workbenchColorsSchemaId }]` (completion of color ids) is not ported.
+        "workbench.colorCustomizations": {
+            scope: "window",
+            type: "object",
+            default: {},
+            description: "Overrides colors from the currently selected color theme.",
+        },
         // Only the Explorer opens previews: upstream's `enablePreviewFromQuickOpen` and
         // `enablePreviewFromCodeNavigation` are off by default.
         "workbench.editor.enablePreview": {
@@ -98,7 +105,8 @@ export const workbenchConfiguration = {
             default: "onHover",
             description: "Controls whether the tree should render indent guides.",
         },
-        // Only the Explorer reads it so far: other trees and lists open on Enter and double click.
+        // Read by the Explorer, Open Editors, extension tree views and the Extensions view; other trees and
+        // lists open on Enter and double click.
         "workbench.list.openMode": {
             scope: "window",
             type: "string",

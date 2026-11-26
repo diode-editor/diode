@@ -17,6 +17,7 @@ describe("createEnvironmentService", () => {
             logsDir: "/home/alice/.diode/user-data/logs",
             registry: undefined,
             userHome: "/home/alice",
+            userRoamingDataHome: "/home/alice/.diode/user-data/User",
             settingsResource: "/home/alice/.diode/user-data/User/profiles/work/settings.json",
             keybindingsResource: "/home/alice/.diode/user-data/User/profiles/work/keybindings.json",
             globalStorageDir: "/home/alice/.diode/user-data/User/profiles/work/globalStorage",

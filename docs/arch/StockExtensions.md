@@ -23,6 +23,15 @@
   `bundled/libs/bin/ruff`, его исполняемость восстанавливает `installVsix` (exec-бит из
   zip-атрибутов). Курируемый дефолт `ruff.importStrategy: "useBundled"` — детерминированный
   нативный сервер без Python. Смоук — undercurl F401.
+- **`KevinRose.vsc-python-indent`** (#967) — universal, Enter в `.py` идёт через
+  `pythonIndent.newlineAndIndent`. Enter между скобками (`foo(|)`, висячий отступ) зовёт
+  `insertSnippet` без `await`, с пустым edit builder: без этого метода перевод строки терялся.
+  `insertSnippet` разбирает шаблон в ядре (`editor/contrib/snippet`, #1031) и открывает сниппет-сессию
+  (#1032): с `pythonIndent.useTabOnHangingIndent` Tab после висячего отступа уводит каретку к закрывающей скобке
+  (`$0` эталона в конце вставки, перед `)`). Каретка едет в том же запросе `editor.insertSnippet`, что и
+  правка: следующая клавиша приходит раньше ответа расширения. Смоук — набор посимвольно, файл на диске после `def f(x):` и `foo(`, Tab к скобке с `useTabOnHangingIndent`.
+  Клавиша, обогнавшая ответ на Enter, сделала бы правку устаревшей и потеряла бы перевод строки
+  (проверка версии как в эталоне), поэтому клавиши ждут ответа → [Extensions.md](Extensions.md).
 - **`dbaeumer.vscode-eslint`** — universal. Расширение НЕ бандлит линтер: eslintServer резолвит
   библиотеку eslint из `node_modules` открытого проекта, поэтому тестовые обвязки доносят её сами
   (`eslintFixture.ts`: кэшируемый `npm install eslint` + симлинк в воркспейс; закоммитить такую
@@ -34,8 +43,8 @@
   `"workbench.colorTheme": "Catppuccin Mocha"` → фон редактора в кадре равен `editor.background` из
   `themes/mocha.json`, тема есть в пикере.
 - **`golang.go`** (сайт#19) — universal, гейт `engines.diode: ">=0.9.2"` (до #657 активация падала на
-  `vscode.debug`). `support: partial`: отладчика нет, Testing view и code lens'ов пока нет,
-  welcome/pprof — webview; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
+  `vscode.debug`). `support: partial`: отладчика нет (`debug test` — тост), Testing view нет,
+  welcome/pprof — webview; code lens, inlay hints, навигация, ссылки импортов, `@`, `#` и обе иерархии работают; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
   как JDK у `redhat.java`). gopls в vsix нет — расширение ставит его само `go install`; смоук кладёт
   заранее собранный gopls в GOBIN (в CI — `.github/actions/go-tools`), без Go кейс пропускается
   (`requires` у чека). Open VSX пишет id как `golang/Go` — см. открытый пункт про регистр id в
@@ -75,8 +84,301 @@
   а не в безымянный `.markdownlint.json` (#931). `support: partial`: нет сниппетов комментариев `markdownlint-disable`
   (`contributes.snippets`). Смоук — MD018 в Problems, quick fix через `Ctrl+.`, конфиг в отдельной вкладке. После
   `source.fixAll` каретка сдвигается: расширение заменяет документ целиком через `editor.edit`.
+- **`yzhang.markdown-all-in-one`** — прокси на сток Open VSX 3.6.2, без языкового сервера. Гейт `engines.diode: ">=0.12.6"`:
+  расширению нужны ядровые `tab`, `editor.action.insertLineAfter` и `editor.action.insertSnippet` (#968), в 0.12.5 их нет.
+  `support: partial`. Привязки `enter`, `tab`, `ctrl+b`, `ctrl+i` ограничены языками Markdown в `when`: вне `.md` клавиши
+  ведут себя как раньше, `Ctrl+B` переключает боковую панель. Поэтому у `insertLineAfter` нет ядровой `ctrl+enter` эталона.
+  В терминале без расширенных клавиш `Ctrl+I` — тот же байт, что Tab, а `Ctrl+M` — что Enter; остаётся палитра. Линза оглавления в 3.6.2 — только
+  статус (`Table of Contents (up to date)`, `command: ''`), кнопки Update нет, обновляют `toc.update` и сохранение
+  (`toc.updateOnSave`). Подсказки файлов и якорей — за настройкой `markdown.extension.completion.enabled`, по умолчанию
+  выключена, как и в эталоне. Своего превью Markdown в Diode нет, поэтому `markdown.previewStyles`, `markdownItPlugins` и
+  `autoShowPreviewToSide` не действуют. `setDecorations` виден частично: зачёркивание рисуют и грамматика (`markup.strikethrough` темы), и декорация расширения
+  (`textDecoration: line-through`, #1058) — без второй его не было бы только в теме без стиля зачёркивания; у code span
+  нет фона, а рамки не будет и дальше (`border` клетке нечем нарисовать). При
+  активации расширение пишет в stderr `"undefined" is not valid JSON`: читает `VSCODE_NLS_CONFIG`, которого у нас нет,
+  ловит ошибку и работает на английском.
+- **`christian-kohler.npm-intellisense`** — прокси на сток Open VSX 1.4.5, `support: full`, правок в ядре не понадобилось.
+  Гейт `engines.diode: ">=0.12.5"` — последний тег на момент записи. Читает устаревший `workspace.rootPath`: без открытой
+  папки не регистрирует ни провайдер, ни команду, как и в VS Code. Встроенный TS-клиент тоже предлагает зависимости из
+  `package.json`, поэтому `left-pad` в попапе ничего не доказывает: смоук смотрит на `@types/…`, у которого TS срезает
+  префикс. `npm-intellisense.import` вставляет строку в позицию каретки (`selection.start`), а не в начало файла; `;\r\n`
+  из `importLinebreak` приводится к EOL документа. Escape в quick pick даёт в расширении `TypeError` (`item.label` от
+  `undefined`) — в журнале это `unhandled rejection`, файл не меняется, хост жив. Смоук выбирает пункт стрелкой, а не
+  набором `@types`: `@` закрывает попап, и пока tsserver не прогрелся, тот не возвращается (ядро, не расширение).
+- **`biomejs.biome`** — прокси на сток Open VSX 3.8.1, бинаря в расширении нет: сервер берётся из `@biomejs/biome` в
+  `node_modules` проекта, без пакета расширение молчит, как и в VS Code. Берём релизный канал: `2026.10.241124` из «latest»
+  Open VSX — pre-release, реестр его отвергает. Гейт `engines.diode: ">=0.12.8"`: нужны `editor.defaultFormatter` и format on
+  type из коммитов после тега 0.12.7. `support: partial`: нет пикера Format Document With, Biome выбирают настройкой.
+  Триггер format on type у сервера — `}`, а не `;` и не Enter. Inlay hints, линзы, навигацию и символы сервер не даёт, смоук
+  проверяет это по журналу. У команд форматирования лимита времени нет, как в эталоне; format on save обрывается на
+  дедлайне участника сохранения (5 с), и большой файл сохраняется без форматирования. Смоук ставит пакет в каталог проекта через `npm` и без него пропускается.
+- **`bradlc.vscode-tailwindcss`** (#974) — прокси на сток Open VSX 0.16.0. Сервер — отдельный процесс, `tailwindcss` берётся
+  из проекта (v3 и v4), а стартует сервер, только если в воркспейсе есть конфиг v3 или CSS с импортом Tailwind: в проекте без
+  него расширение молчит, как в VS Code. Гейт `engines.diode: ">=0.12.8"`: правки ядра после тега 0.12.7. Первый запрос
+  цветов и ссылок сервер держит до сборки проекта — дольше 5 с, поэтому у цветов и ссылок дедлайна больше нет, как в эталоне;
+  `ColorDetector` спрашивает провайдеры тиком позже, когда документ уже у хоста (иначе файл, открытый по ходу сессии,
+  оставался без квадратиков до правки). Hover отдаёт CSS
+  блоком кода, а `stripMarkdown` срезал внутри кода `*` как курсив и `\` как экранирование (`calc(var(--spacing) * 4)`,
+  селектор `.bg-\[\#ff0000\]`) — код теперь прячется до разметки и экранирований, как в CommonMark, а попап сохраняет
+  отступ строк кода. Пункт подсказки вида Color рисует квадратик своего цвета вместо значка, как `colorspan`
+  эталона: цвет берётся эталонным `ColorExtractor` из label, detail или края documentation (у Tailwind — `"#fe9a00"`), поле
+  `color` у пункта — tuidom 0.30.0. `support: partial`: квадратик перед именованным цветом в тексте (`bg-red-500`) расширение
+  рисует само через `setDecorations` со вставкой `before` и цветом в `renderOptions` диапазона — мост этого не знает (класс C,
+  #1023); через `registerColorProvider` идут только произвольные значения (`bg-[#ff0000]`), у них квадратик есть.
+  `editor.quickSuggestions.strings` расширение не просит и не трогает: подсказки в `class="` открываются по триггерным символам
+  сервера (пробел, `-`, `"`, `:`), с дефолтом `strings: off`, как в эталоне. Смоук — undercurl конфликта `p-4`/`p-6`, квадратик
+  у `bg-[#ff0000]`, CSS в hover, quick fix, квадратик в подсказке `text-amber-`, `tailwindCSS.sortSelection`, линза
+  `Generates 11 classes` в CSS v4; пакет ставится через `npm`, без него кейс пропускается.
+- **`tamasfe.even-better-toml`** — прокси на сток Open VSX 0.21.2, сервер taplo в WASM внутри расширения. Гейт
+  `engines.diode: ">=0.12.8"`: нужны ссылки из #1012 и замена текста в поле rename, обе правки вышли после тега 0.12.7.
+  `support: partial`: схемы из каталога schemastore не подхватываются. Причина проверена: 0.21.2 сравнивает `$schema`
+  каталога с `https://json.schemastore.org/schema-catalog.json`, а живой каталог отдаёт `https://www.schemastore.org/…`;
+  тот же каталог с одним исправленным значением `Cargo.toml` получает схему. В коде taplo адрес поправлен после 0.21.2,
+  новой версии в Open VSX нет. Работают `#:schema` и `evenBetterToml.schema.associations`. Сообщение в OUTPUT
+  `did not match any variant of untagged enum SchemaCatalog` — про это, а не про нас. Ссылки сервер отдаёт только при
+  `evenBetterToml.schema.links: true` и только для ключей, у которых в схеме есть `x-taplo.links`. При синтаксической
+  ошибке сервер не проверяет дубликаты ключей, поэтому `conflicting keys` видно только в файле без синтаксических ошибок.
+  Статус-бар остаётся `no schema selected` до первой правки файла: текст меняется только по уведомлению
+  `taplo/didChangeSchemaAssociation`, а расширение подписывается на него после `client.start()`. Подсказки и hover при этом
+  уже работают. В пикере `TOML: Select Schema` схема из `associations` видна дважды: список отдаёт сервер, причину не
+  разбирали, выбор пункта работает. Inlay hints, линзы, implementation, иерархии, linked editing и format on type сервер не
+  даёт: это фиксируют `extensionHost.toml.test.ts` и смоук по журналу.
+- **`shardulm94.trailing-spaces`** — прокси на сток Open VSX 0.4.4. Подсветка хвостовых пробелов — фон
+  `trailing-spaces.backgroundColor` (по умолчанию `rgba(255,0,0,0.3)`, композит над фоном редактора, #981); рамку
+  `borderColor` клетке нарисовать нечем, она пропадает. Подсветка стоит на координатах последнего `setDecorations`:
+  расширение шлёт его на каждое изменение документа. `Delete - Modified Lines Only` сравнивает документ с файлом на диске, git не
+  использует: в репозитории и вне его поведение одно, безымянный документ чистится целиком. `trimOnSave` — will-save
+  `waitUntil`: каретка в удалённом хвосте встаёт на конец текста, undo возвращает пробелы и каретку, следующее
+  сохранение чистит снова. Сообщение «Deleting N trailing space regions» в статус-баре обрезано общим пределом
+  `MAX_ITEM_WIDTH` (24 ячейки, `extensionStatusBarAdapter.ts`), в эталоне предел — 40% ширины окна. Смоук — колонка
+  каретки в кадре и байты файла, для команды и для `trimOnSave`.
+- **`vscjava.vscode-maven`** (#977) — прокси на сток Open VSX 0.45.3. Гейт `engines.diode: ">=0.12.6"`: нужны `window.createInputBox` и кнопка Back (`New Project`), константно ложные `commandPalette` и ключ `isWorkspaceTrusted`. Плагины в дереве приходят со строки без `id`, а после `mvn help:describe` расширение переименовывает строку: handle такой строки строится из подписи и меняется, поэтому `treeView.refresh` несёт `previousHandle`, и воркбенч перечитывает родителя (как `getItemsToRefresh` эталона). `support: partial`: `Debug` в меню цели плагина отладчик не запускает (тост расширения `Debugger for Java is required`), сниппеты `pom.xml` вставляются без табстопов и поправки отступа: это пункты подсказок, а сниппет-сессия есть только у `insertSnippet` (#1032), подсказки — #1035, пункт в меню чужого вида `javaProject.maven` не показывается. Нужен `mvn` из PATH или `maven.executable.path`: без него тост `Maven executable not found in PATH`, битый явный путь расширение передаёт в терминал как есть. `maven.goal.custom` и `maven.project.effectivePom` без аргумента не показывают ничего или падают, и в эталоне тоже: у них `when: never`, зовут их из дерева или через `maven.goal.execute` → `Custom ...`. Quick fix `Add a dependency` появляется, только когда каретка внутри `<dependencies>`, а не на самом теге. Генерация архетипа задаёт вопросы в терминале (`Define value for property`), фокус туда не переходит, как в эталоне. Смоук — `a:b` в секции, чистая от `when: never` палитра и `BUILD SUCCESS` цели, без `mvn` кейс пропускается (`requires`).
+- **`llvm-vs-code-extensions.vscode-clangd`** (#976, сайт#43) — прокси на сток Open VSX 0.6.0, universal. Гейт
+  `engines.diode: ">=0.12.8"`: нужны ключи `resource*` (без них `Alt+O`, `Shift+Alt+T` и пункты меню редактора с
+  `resourceLangId == cpp` молчали) и `reveal` сразу после `setContext` (`Show AST` ставит `clangd.ast.hasData` и зовёт
+  `reveal(null)`, не дожидаясь ключа; изменения ключей у нас расходились микрозадачей позже, `when` вида ещё был
+  ложен, и секция оставалась закрытой — теперь `setContext` рассылает изменение сразу, как эталон). Бинаря в расширении нет: `clangd` из PATH или `clangd.path`, без него тост с кнопкой Install, загрузка —
+  `clangd_<версия>` в globalStorage, расширение само пишет `clangd.path` и делает `clangd.restart` (на linux/arm64 сборки
+  нет: «No clangd 23.1.0 binary available»). Без `compile_commands.json` у clangd нет фонового индекса: F12 на функцию из
+  другого файла ведёт на объявление в заголовке, `#`, Implementations, входящие вызовы и подтипы видят только открытые
+  файлы — в сьютах они идут с базой компиляции. `#` отдаёт определение, а не объявление. `support: partial`: неактивные
+  ветки препроцессора приглушены: тип с `isWholeLine` и `opacity` (`clangd.inactiveRegions.opacity`, 0.55) смешивает цвет
+  текста с фоном (#1058), смоук сверяет цвет комментария в `#if 0` и вне его. `commandPalette` у стока не
+  применяется (общая строка «not applied yet»): `Types: Show Base Classes` видна в палитре и вне C++. Сьюты
+  `extensionHost.clangd*` и CI-шаги ставят `clangd` из apt; без него — пропуск (`clangdMissing`). Смоук — undercurl на
+  `int x = "s";`, сценарий `clangd` — подсказки, `Alt+O`, дерево типа и AST.
+- **`redhat.vscode-yaml`** (#972, сайт#40) — прокси на сток Open VSX 2.0.0, сервер `yaml-language-server` в бандле. Open VSX
+  отдаёт «latest» `2.1.2026102308`, но это pre-release (`preRelease: true`), реестр его не берёт. Гейт
+  `engines.diode: ">=0.12.8"`: ссылки (#1012) и `@` (#989) влиты после тега 0.12.7. `support: partial`. Схема — из
+  модлайна `# yaml-language-server: $schema=...` (относительный путь работает без сети), `yaml.schemas` или каталога
+  schemastore.org (`.github/workflows/*.yml` → `GitHub Workflow` в статус-баре, клик — пикер схем, линза над первой
+  строкой открывает схему через провайдер содержимого). Без сети схема по URL пропускается, YAML-проверки (`Map keys
+  must be unique`) остаются. Сервер отдаёт символы, F12 и rename по якорям, ссылки на `$ref: "#/…"`, quick fix `Delete
+  unused anchor`, on-type на Enter (отступ после `key:` и `- `, нужен `editor.formatOnType`); inlay hints,
+  implementation, иерархий и linked editing у него нет — это фиксирует `extensionHost.yaml.test.ts`. `configurationDefaults`
+  `[yaml]` дают `strings: true` в `editor.quickSuggestions`: plain-скаляр (`shell: b`) — строковый токен грамматики, и
+  без этой настройки попап бы не открылся; в комментарии он молчит. В кавычках (`shell: "b`) авто-подсказок нет, как и в
+  эталоне: диапазон пункта у сервера начинается с кавычки, а `"b` с меткой `bash` фильтр не сводит. Hover сервера
+  начинается с `#### <заголовок схемы>` — `stripMarkdown` снимает ATX-заголовки вне fenced-блоков. Пределы в `limits`:
+  hover без markdown-рендера, URL схемы из модлайна обрезан в статус-баре общим `MAX_ITEM_WIDTH` (24 ячейки). При старте
+  расширение спрашивает про телеметрию Red Hat тостом: смоук, сьют и сценарий ставят `redhat.telemetry.enabled: false`.
+- **`svelte.svelte-vscode`** (#975) — прокси на сток Open VSX 110.3.2; сервер, компилятор Svelte и TypeScript лежат в
+  vsix, ставить ничего не надо. Гейт `engines.diode: ">=0.12.8"`: символы документа (#989) и рабочей области (#1014) и
+  `showTextDocument` рядом из этой задачи — после тега 0.12.7. Inlay hints и линза ссылок идут по настройкам TypeScript
+  (`typescript.inlayHints.*`, `typescript.referencesCodeLens.enabled`): своих ключей для них манифест не объявляет, сервер
+  читает чужие, как в VS Code. `support: partial`: TS-плагин (`contributes.typescriptServerPlugins`) не грузится, `.ts` не
+  видит пропсы компонентов и rename объявления из `.ts` до `.svelte` не доходит. Вопрос «включить TS-плагин?» приходит
+  при первом открытом `.svelte`; `Enable` только пишет `svelte.enable-ts-plugin`: `_typescript.configurePlugin`
+  расширение зовёт лишь при наличии `vscode.typescript-language-features`, а его в Diode нет, встроенный TypeScript не
+  задет. Сниппеты (`contributes.snippets`) не предлагаются. Rename из разметки переименовывает импорт через алиас
+  (`greet as salute`): сервер всегда просит у TS префикс и суффикс, в VS Code так же. Call hierarchy видит вызовы, а не
+  ссылки: `on:click={increment}` — не вызов. Type hierarchy, on-type и ссылок документа у сервера нет, тест это фиксирует.
+  `Extract Component` создаёт файл и пишет текст в его модель без вкладки: файл грязный до сохранения, выход спрашивает
+  про него, как в эталоне; в корне проводника он появляется только после refresh — известная дыра «корень дерева
+  Explorer не наблюдается» ([FileTreePerformance](../TODO/FileTreePerformance.md)). `Show Compiled Code` открывает превью рядом
+  и просит у провайдера содержимого текст по `window.activeTextEditor`: новая пустая группа становилась активной до
+  открытия, и превью писало «no svelte file selected»; теперь, как в эталоне, группа добавляется без активации, а
+  активирует её открытие. Смоук — undercurl, `Enable` и настройка в файле,
+  `Show Compiled Code`, рестарт сервера и undercurl встроенного TypeScript в `.ts` после ответа.
+- **`Angular.ng-template`** (Angular Language Service) — прокси на сток Open VSX 22.2.0, universal, гейт
+  `engines.diode: ">=0.18.0"`, `support: partial`. Ядро не правилось: сервер `@angular/language-server` и TypeScript
+  лежат в vsix, клиент — `vscode-languageclient` по `TransportKind.ipc`, документы `{scheme: file, language: html}` и
+  `{scheme: file, language: typescript}`. TypeScript берётся из поставки расширения, если не задан `typescript.tsdk`, в
+  VS Code так же. Angular в vsix нет: клиент спрашивает сервер `IsInAngularProject`, и ответ «да» только с
+  `@angular/core` в `node_modules` проекта, поэтому обвязки доносят его сами (`angularFixture.ts`: кэшируемый
+  `npm install`, симлинк в воркспейс). Работают ngtsc-диагностика в `.html` и во встроенном `template:`, completion
+  членов, компонентов и привязок, hover (и во встроенном `template:`) и F12 из шаблона в компонент, ссылки из `.ts` в шаблон, линза `Go to component`,
+  `Go to template` и `View Template Typecheck Block`, подсветка шаблонов инъекциями грамматик. Сервер расширение
+  форкает по **каталогу** `server`: бинарь в режиме node (`runAsNode`) импортировал путь как ESM-модуль и на 0.18.0
+  падал с `ERR_UNSUPPORTED_DIR_IMPORT`. Запись уже была опубликована с гейтом 0.18.0, а опубликованную версию не
+  правят; решение человека — запись не снимать, исправление выходит в следующей версии. Смоук магазина ставит
+  расширение бинарём, поэтому ловит именно это. Пределы:
+    - HTML во встроенном `template:` (#1203) — как в VS Code: middleware расширения кладёт весь текст `.ts` в
+      виртуальный документ `angular-embedded-content://html/<uri>.html` своего `TextDocumentContentProvider` и
+      сливает ответ Angular с `vscode.executeCompletionItemProvider`/`vscode.executeHoverProvider` по нему; отвечает
+      встроенный `html-language-features`. Hover — ответ Angular, если он есть (на элементе это `(element) span:
+      HTMLSpanElement`), иначе HTML (MDN на статическом атрибуте). Две детали ядра, обе калька эталона: документ
+      без модели запрашивает языковые фичи (`openDocumentWithoutModel`, в эталоне так делает создание модели в
+      `$tryOpenDocument`) — это и будит HTML-расширение по `onLanguage:html`, когда открыт только `.ts`; API-команда
+      держит документ ссылкой на время вызова (`referenceDocument`, `createModelReference` эталона), и документ
+      провайдера, который никто не открывал, закрывается вместе с ней — у провайдера Angular нет `onDidChange`, и
+      следующий вызов обязан перечитать текст. Активация в эталоне не ждётся, поэтому самый первый запрос, который
+      будит HTML-расширение, может прийти без HTML-тегов. Сьют — `extensionHost.angular.embeddedHtml.test.ts`,
+      герметичный близнец — `extensionHost.htmlLsp.virtualDocument.test.ts`.
+    - Find All References из `.ts` показывает `.ts`-места дважды: отвечают встроенный TypeScript и Angular. Эталон
+      дедуплицирует в `goToSymbol.ts` (`_sortedAndDeduped`), `getReferences.ts` — нет (#1200).
+    - Rename из `.ts` не доходит до шаблона, **в VS Code так же**: `rename.ts` эталона берёт провайдер, чей
+      `prepareRename` дал место, а middleware Angular пропускает `prepareRename` только внутри строковых литералов,
+      так что готовит и переименовывает встроенный TypeScript.
+    - В логе бывает `Notification angular/projectLoadingStart defines 0 params but received 1 arguments` —
+      несоответствие внутри самого расширения, на работу не влияет.
+
+    Смоук — undercurl ngtsc(2339) под `missingProp` в `.html`; сьют — `extensionHost.angular.test.ts`, демо —
+    `angular-lsp`.
+
+- **`timonwong.shellcheck`** (#970) — прокси на сток Open VSX 0.48.4. Гейт `engines.diode: ">=0.12.8"`: нужны ссылки в редакторе (#953) и правки этой задачи из коммитов после тега 0.12.7. `shellcheck.runtime: "auto"` на десктопе — это `native`, сам на wasm не падает: без бинаря расширение пишет `The shellcheck program was not found`, кнопка `Try experimental WebAssembly` тоста переключает настройку. При первом запуске этот тост стоит в очереди за `What's New` (тосты идут по одному), редактор живёт. `Apply fix` расширение отдаёт, только если запрошенный диапазон лежит внутри диагностики, поэтому `Ctrl+.` шлёт точное выделение, как `CodeActionOracle`, а если под кареткой исправлений нет, они добираются запросом `only: quickfix` с конца ближайшего маркера строки (`includeNearbyQuickFixes` эталона, но он спрашивает у всех маркеров, и настройки у нас нет). `support: partial`: нет сниппетов и walkthrough — кнопка `See What's New` только пишет в лог `command "workbench.action.openWalkthrough" not found`. С `shellcheck.markdownDiagnostics` hover под диагностикой показывает и блок расширения: `stripMarkdown` срезает HTML-теги (`supportHtml` до UI не доходит и не нужен), иконки `codicon` и цвета не рисуются (#1021). `Show wiki` и ссылка в `# shellcheck disable=` идут через внешний открыватель: браузер, а без графической сессии тост с адресом. Клика по коду в Problems нет: `Diagnostic.code.target` до панели не доезжает. Hover открывается командой (`Ctrl+K Ctrl+U`), наведения мышью в редакторе нет. Смоук — wasm, без внешнего инструмента: undercurl, код в Problems, hover с `markdownDiagnostics` без тегов, `Apply fix`, диагностика при наборе, `Disable`, ссылка, модальный диалог.
+- **`waderyan.gitblame`** (#1234, сайт#61) — прокси на сток Open VSX 13.1.0: 14.0 требует `vscode >=1.138`, последний совместимый с нашим 1.127 — 13.1. Гейт `engines.diode: ">=0.19.1"`. Расширение встаёт по `onFileSystem:file` (его `workspaceContains:**/.git/HEAD` прячет дефолтный `files.exclude`, в эталоне так же) и ищет git через `git.path`: дефолт обязан быть `null`, как в эталоне — на пустой строке `?? "git"` не срабатывал, и расширение звало пустую команду («Not in a git repository»). С `gitblame.inlineMessageEnabled` blame текущей строки стоит после неё (пустой диапазон на столбце `MAX_SAFE_INTEGER`, `after` + MarkdownString `hoverMessage`); Show Hover (`Ctrl+K Ctrl+U`) с кареткой в конце строки показывает ховер — по умолчанию строку `git blame`, с `gitblame.extendedHoverInformation: "inline"` — коммит, автора и время. `<br>` между строками ховера срезается вместе с тегами, и строки склеиваются (рендеринга markdown нет). Мышиного ховера нет. Сьют — `e2e/gitBlameStock.test.ts`.
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
+
+## Отладка C/C++: `vadimcn.vscode-lldb` (CodeLLDB)
+
+Приёмка вехи 1 эпика отладчика — #1149. Запись магазина — `proxy-openvsx` 1.12.3, universal, `support: partial`,
+гейт `engines.diode: ">=0.17.0"` (minor, в котором вышел отладчик; dev- и nightly-сборки гейт не блокирует).
+
+- **Первая активация** (`onStartupFinished`) скачивает платформенный пакет (`codelldb-<platform>.vsix`, ~30 МБ) с
+  релизов GitHub и ставит его командой `workbench.extensions.command.installFromVSIX` (#1134); прогресс —
+  тост «Acquiring CodeLLDB platform package». Без сети адаптер не стартует. Пакет есть и под linux-arm64.
+- **API:** `vscode.lm.registerTool` — null-объект (#1133, warn-строка в Output); адаптер —
+  `DebugAdapterInlineImplementation` поверх обратного TCP (`ReverseAdapterConnector`); `${command:pickProcess}` —
+  quick pick процессов; `contributes.views.debug` (Modules, Excluded Callers) — в Run and Debug: ключ `debug`
+  контейнера видов ведёт в `workbench.view.debug`, как `getViewContainer` эталона (до #1149 виды уходили в Explorer).
+- **Консоль** по умолчанию в режиме `commands`: ввод — команда LLDB (`frame variable sum`), выражение — с `?`.
+- **Проверено живьём** (`drive --install vadimcn.vscode-lldb`, gcc 15, aarch64): F9 + F5 с `preLaunchTask`, остановка
+  с подсветкой строки, VARIABLES (массив, структуры, указатель на список), F10/F11/Shift+F11, Continue до следующей
+  итерации, WATCH, выражение в Debug Console, `"terminal": "integrated"` + `scanf`, Stop, Restart, attach с
+  `${command:pickProcess}`. Сценарий — `codelldb` (`e2e/scenarios/codelldb.scenario.ts`, `network: true`, без gcc —
+  пропуск).
+- **Не работает:** вывод HTML (`debugger.display_html`, webview), вид дизассемблера; LM-инструменты молча не
+  регистрируются.
+- **`continued` перед `stopped`.** На шаг CodeLLDB отвечает, шлёт `continued {threadId: 0, allThreadsContinued: true}` и
+  через ~10 мс `stopped`; ядро часто разбирает оба события в одной задаче (между двумя событиями эталон границы задачи не
+  ставит). Фильтр `continued` в `DebugSession` снимает только остановки, пришедшие до него, иначе он стирал новую, и
+  заголовок CALL STACK терял «Paused on step» (отступление, #1149).
+- **Как в эталоне, хотя выглядит странно:** после шага CALL STACK держит «Load More Stack Frames», пока не нажмёшь:
+  CodeLLDB объявляет `supportsDelayedStackTraceLoading` и не шлёт `totalFrames`, второй запрос остатка стека не меняет нижние кадры, и
+  `refreshTopOfCallstack` эталона не шлёт события. Debug Console открывается после ответа на `launch` — уже после
+  того, как `runInTerminal` показал терминал, поэтому поверх оказывается консоль.
+
+## Отладка Node.js: `ms-vscode.js-debug` (JavaScript Debugger)
+
+Приёмка вехи 3 эпика отладчика — #1161. Запись магазина — `proxy-openvsx` 1.140.1, universal, `support: partial`,
+гейт `engines.diode: ">=0.18.2"` (дочерние сессии #1159 и правки #1161 вышли после 0.18.1). В комплекте js-debug нет
+(решение человека 2026-11-14), поэтому путь пользователя — F5 на `.js`: без отладчиков F5 и Ctrl+F5 открывают Run and
+Debug (`debug.openView` эталона), кнопка Run and Debug спрашивает «You don't have an extension for debugging
+JavaScript…», ответ ищет в магазине `@category:debuggers JavaScript`. После установки F5 предлагает Node.js первым в
+списке отладчиков и стартует без `launch.json`.
+
+- **Проверено живьём** (`drive --install`): `launch` с брейкпоинтом (сессия-родитель «Launch Program» и дочерняя
+  `app.js [pid]` — js-debug всегда отлаживает через дочернюю сессию), `child_process.fork` — брейкпоинт в дочернем процессе, его сессия в CALL STACK под родителем,
+  `attach` к `node --inspect`, JavaScript Debug Terminal, npm-скрипты (`Node.js...` в Select and Start Debugging —
+  динамические конфигурации, «Run Script: start» идёт через `node-terminal`), авто-аттач в режиме smart.
+- **JavaScript Debug Terminal** перед каждым подключением зовёт `workspace.requestWorkspaceTrust` — API из предложения
+  `workspaceTrust` (оно у js-debug в `enabledApiProposals`). Без члена `node app.js` в терминале висел неподключённым;
+  теперь он есть в рантайме и отвечает `true` (модели доверия нет). Остальное из предложения (`portsAttributes`,
+  `tunnels`) js-debug проверяет на `typeof` и обходится без них.
+- **Авто-аттач** у эталона — не js-debug, а встроенное `vscode.debug-auto-launch` (Node Debug Auto-attach): пункт
+  статус-бара «Auto Attach: Smart», команда `Debug: Toggle Auto Attach`, IPC-сервер, через который процессы из
+  терминала просят js-debug подключиться (`extension.js-debug.setAutoAttachVariables` кладёт переменные в
+  `environmentVariableCollection`). Оно у нас встроенное, код эталона дословно (`scripts/import-vscode-editor.mjs`):
+  вендорный файл не проходит наш `tsc` (эталон собирает его с `@types/node` 24, где `data` сокета — `Buffer`), поэтому
+  прелюдия `// @ts-nocheck`. По умолчанию `debug.javascript.autoAttachFilter` — `disabled`, пункта статус-бара нет;
+  переменные достаются только новым терминалам, как в эталоне.
+- Сценарий — `js-debug` (`e2e/scenarios/jsDebug.scenario.ts`, `network: true`): F5 без `launch.json`, Debug Terminal,
+  Toggle Auto Attach → Smart и `node app.js` в новом терминале.
+- **Не работает:** отчёт `Debug: Diagnose Breakpoint Problems` — вебвью. Отладка в браузере (Chrome, Edge,
+  встроенный браузер) не проверялась.
+- **Как в эталоне, хотя выглядит странно:** в Select and Start Debugging → Node.js... «JavaScript Debug Terminal» и
+  «Run Current File» стоят дважды — для папки и для пользовательского launch (`getDynamicConfigurationsByType` эталона
+  спрашивает провайдер по каждому launch). Сессия «Run Script: …» не кончается вместе со скриптом — её закрывает Stop,
+  и вместе с ней js-debug закрывает свой терминал. В узком сайдбаре имя дочерней сессии в CALL STACK съедает метка
+  состояния справа (`PAUSED ON BREAKPOINT`), как ellipsis у эталона.
+
+## Merge Conflict: встроенный `vscode.merge-conflict`
+
+У эталона это часть продукта, поэтому у нас он встроенный, а не запись магазина. Сначала был прокси на
+пересборку Eclipse Theia 1.95.3 (#969, #1004), но тогда пользователь не видел линз, пока не поставит расширение
+сам, а версия отставала от запинненного тега. Код эталона лежит дословно в `extensions/merge-conflict/src/`
+(`scripts/import-vscode-editor.mjs`, `--check` следит за дрейфом). Телеметрия — null-объект
+`telemetryReporter.ts`. Активация `onStartupFinished`.
+
+Блоки current и incoming залиты на всю ширину строки токенами `merge.*Background` (#981), подписи
+`(Current Change)` / `(Incoming Change)` в заголовках — `after`-вставки (#1054). `Compare` держится на двух правках
+ядра: сторона `vscode.diff` читается и из провайдера содержимого, а не только из файлового сервиса (порядок как в
+`TextModelResolverService`: сначала провайдер ФС), а `Range.toJSON` отдаёт эталонную пару `[start, end]`:
+расширение кладёт `JSON.stringify` диапазонов в query и разбирает обратно как массив. `merge-conflict.next` при
+переходе вверх ставит конфликт верхней строкой, и линза над ним остаётся за краем: прокрутка на строку вверх её
+показывает. Тест — `e2e/mergeConflict.test.ts` (линза в кадре, `Compare` с обеими сторонами, клик
+`Accept Incoming`, байты файла), сценарий-демо — `e2e/scenarios/merge-conflict.scenario.ts`.
+
+## HTML: встроенный `vscode.html-language-features`
+
+Решение человека 2026-11-17 (#1202): код эталона — клиент и сервер — лежит дословно в
+`extensions/html-language-features/{client,server}/` (`scripts/import-vscode-editor.mjs`, `--check` следит за
+дрейфом), а не `vscode-langservers-extracted` со своим клиентом. Своё — только `main.ts` вместо эталонного
+`client/src/node/htmlClientMain.ts` (тот ищет сервер рядом со своим `package.json` на диске, а у builtin файлов на
+диске нет) и `lib/settingsSections.ts`. Активация `onLanguage:html`/`onLanguage:handlebars`, сервер стартует лениво
+на первом документе.
+
+- **Сборка и поставка.** `build-extensions.mjs` собирает сервер одним ESM-файлом
+  `server/out/node/htmlServerMain.mjs` (≈3.3 МБ, `typescript` — внешний), `pack-ts-server.mjs` кладёт его в
+  `ts-server.bundle` рядом с `node_modules/typescript` и `jquery.d.ts`: режим `<script>` берёт TypeScript и
+  `lib.*.d.ts` того же пакета, что и встроенный tsserver (ассет вырос на ≈3.4 МБ, своей копии TypeScript нет).
+  Путь хост отдаёт переопределением дефолта `diode.html.bundledServerPath` (`builtinConfigInjection`, как у TS);
+  запуск — эталонный `{ module, transport: ipc }`: `fork` берёт `process.execPath` хоста расширений, под SEA это
+  бинарь в node-режиме. Единственная вырезка в коде эталона — каталог `lib.*.d.ts` в `javascriptLibs.ts`: эталон
+  ищет его в `../../node_modules` (свои `extensions/node_modules` VS Code), у нас — там, куда резолвится
+  `typescript`. Вендоренный код компилируется своим `tsconfig.json` (опции эталона: импорты типов без
+  `import type`), корневой его исключает, `npm run typecheck` и `check:diff` гоняют оба.
+- **Секции настроек чужих builtin'ов.** Сервер читает секции `css` (`css.lint` целиком в CSS-валидатор) и
+  `js/ts` (`implicitProjectConfig.strictNullChecks` без проверки), которые в VS Code всегда объявлены
+  `css-language-features` и `typescript-language-features`. У нас их нет, клиент отвечает `null`, и валидация
+  всего документа падала на каждой правке. Middleware `workspace/configuration` в `main.ts` дополняет ответ:
+  пустая секция и дефолты эталона для ключей, которые сервер разыменовывает.
+- **handlebars** подключается, как в эталоне, через `contributes.htmlLanguageParticipants` своего манифеста —
+  клиент читает его из `extensions.allAcrossExtensionHosts` (proposed `extensionsAny`, у нас один хост — это
+  `extensions.all`). Для этого декларативные расширения теперь в каталоге `extensions.all` с `packageJSON`.
+- **Отступления.** Сниппеты в подсказках вставляются текстом (`href="$1"` → `href=""`, каретка после кавычек)
+  — сниппет-сессии в подсказках нет (#1035); авто-вставка `html/autoInsert` идёт через `insertSnippet`, там каретка
+  встаёт как в VS Code. Картинка Baseline в hover элемента рисуется подписью `!Baseline icon` — markdown движка
+  картинок не знает. `editor.suggest.insertMode` у нас нет, ядро и так берёт `replacing`-диапазон — как
+  `configurationDefaults` эталона для html. `html.mirrorCursorOnMatchingTag` устарел и в эталоне ни на что не влияет.
+- **Тесты** — `extensionHost.htmlLsp*.test.ts` против собранного сервера (completion, hover, авто-вставка, формат,
+  символы, folding, ссылки, `<style>`/`<script>`, валидация, handlebars, виртуальный документ через
+  `vscode.executeCompletionItemProvider`/`vscode.executeHoverProvider`), демо — `e2e/scenarios/html-language-features.scenario.ts`.
+  `formulahendry.auto-close-tag` смоук проверяет на `.xml`: на `.html` закрывали бы оба, как и в VS Code.
+
+## TypeScript: встроенный `diode-lsp-typescript` (typescript-language-server)
+
+Не из магазина: builtin, сервер вшит в поставку ([Extensions.md](Extensions.md)). Тесты —
+`extensionHost.typescriptLsp.{navigation,symbols}.test.ts`, демо — `typescript-navigation`.
+
+- **Работает:** Go to Implementations (панель при нескольких, переход при одном), Go to Type Definition, F12 с
+  несколькими целями (панель `Definitions` и `editor.gotoLocation.multipleDefinitions: goto`), подсветка вхождений
+  двумя цветами, linked editing JSX-тегов в `.tsx`, `@` и `@:` с containerName, `#` по файлам проекта, call hierarchy
+  в обе стороны.
+- **Сервер не отдаёт, провайдера нет:** declaration, on-type formatting, document links, type hierarchy. Пунктов
+  `Go to Declaration` и `Show Type Hierarchy` в контекстном меню `.ts` нет.
+- **Подсветка вхождений идёт мимо LSP.** Сервер отображает `writtenReference` в Read, а Write отдаёт только для
+  `definition`, которого `documentHighlights` не присылает: всё пришло бы цветом чтения. Middleware
+  `provideDocumentHighlights` спрашивает tsserver через `typescript.tsserverRequest` и различает виды, как
+  `convertDocumentHighlight` эталона (`lib/documentHighlights.ts`). Нет ответа — обычный запрос. `export { x }` и
+  параметр tsserver считает записью: это его решение, в VS Code так же.
+- **F12 на вызове перегрузки — одна цель:** tsserver называет разрешённую перегрузку. Три цели — на импорте или на
+  объявлении.
+- **Большой проект.** Поиск реализаций популярного метода (`IDisposable.dispose` в этом репозитории) идёт дольше
+  5 с; дедлайн выдавал это за пустой ответ, поэтому у навигации его нет. Индикатора прогресса, как у эталона
+  (`progressService.showWhile`), пока нет: до ответа кадр не меняется.
 
 ## Python: `detachhead.basedpyright` и `charliermarsh.ruff`
 
@@ -90,6 +392,38 @@ vsix», а не строка в таблице builtin-клиента. Сьют�
   `fromEnvironment` зовёт API `ms-python.python` без try/catch и роняет активацию — курируемый
   дефолт `importStrategy: "useBundled"`. Folding у Python — indentation-based ядра: сервер
   `textDocument/foldingRange` не реализует.
+- **basedpyright, inlay hints** (#939) — работают без правок ядра, включены по умолчанию:
+  `-> int` после сигнатуры, `: int` у переменной, `a=` перед позиционным аргументом. Тип сервер
+  выводит только из аннотаций: на `def f(a, b): return a + b` и `r = f(1, 2)` он сам отвечает
+  `-> Any` и не даёт подсказки у `r`, это не потеря на нашей стороне (проверено прямым запросом к
+  серверу). `editor.inlayHints.enabled` и `[python]` действуют сразу и сервер не трогают. Настройки
+  `basedpyright.analysis.inlayHints.*` доходят до сервера без перезапуска, но подсказки на экране
+  меняются со следующего запроса (правка, прокрутка за запрошенное окно): сервер не шлёт
+  `workspace/inlayHint/refresh`, а контроллер эталона на чужую настройку не перезапрашивает. Вывод
+  про эталон — по исходникам сервера и контроллера, в живом VS Code не сверялось. Code lens у
+  сервера нет: `codeLensProvider` нет в ответе на `initialize`, регистрации тоже; появление в новой
+  версии покажет `extensionHost.pythonLsp.inlayHints.test.ts`.
+- **basedpyright, навигация** (#955) — из правок ядра понадобился только фокус: принятый Go to Line и Go to Symbol ведут в редактор, как
+  `gotoLocation` эталона, а не обратно в панель. Ответы сервера закреплены в
+  `extensionHost.pythonLsp.navigation.test.ts`, и у них есть нормы, которые легко принять за потерю на
+  нашей стороне:
+  - Implementations на методе базового класса отдаёт **и сам метод**: база и два наследника — три строки.
+    На вызове через базовый тип ответ тот же.
+  - Declaration на импортированном имени **не ведёт на строку `import`**: сервер проходит импорт насквозь,
+    как и definition. Различаются они только при стабе рядом: definition идёт в `.py`, declaration — в `.pyi`.
+  - F12 на вызове перегруженной функции даёт одну цель (реализацию); все `@overload` и реализация — на
+    имени объявления. Панель Definitions даёт ещё переменная с двумя присваиваниями.
+  - Подсветка различает чтение и запись; у call hierarchy вызывающий с верхнего уровня файла — псевдоэлемент
+    `(module) main.py`.
+  - `#` находит символы и в неоткрытых файлах: сервер индексирует папку воркспейса сам.
+  - Linked editing, document links и type hierarchy сервер не отдаёт: провайдеров нет, это закреплено тестом.
+- **basedpyright, format on type** (#955) — `{` в строке ставит `f` перед кавычкой; триггер у сервера один,
+  `{`. Включает манифест: `configurationDefaults` `[python] editor.formatOnType: true` доходит до нашего
+  `editor.formatOnType`, в живом приложении проверено. Выключатели: `basedpyright.analysis.autoFormatStrings`
+  действует на стороне сервера и без перезапуска (он перестаёт предлагать правку),
+  `editor.formatOnType: false` в `[python]` — у нас, до запроса. Грабля для тестов: незакрытый `print(f"{`
+  оставляет токенайзер сервера внутри f-строки, и `"{` на следующих строках правку уже не получает; тест
+  очищает буфер перед каждым набором.
 - **ruff**: линт-диагностики — pull с re-pull на правку буфера; quickfix по диагностике (safe-фикс
   `isPreferred`); `source.organizeImports.ruff` / `source.fixAll.ruff` (иерархический матч kinds);
   формат документа и выделения — от нативного `ruff server`, Python не нужен. `importStrategy:
@@ -145,11 +479,62 @@ eval-режим node, иначе расширение молча не линти
 - **Не будет (webview)**: редактор настроек форматтера (`contributes.customEditors`; регистрация —
   инертный no-op, иначе падала вся активация), markdown-превью документации, диалог Change Signature.
   Отладка, тесты, «Java Projects» — отдельные расширения Extension Pack for Java.
-- Inlay hints, code lens, outline, workspace symbols, call/type hierarchy, selection range, on-type
-  formatting сервер умеет — Java получит их сама по мере закрытия `register*Provider`
-  ([API-COVERAGE](../public/API-COVERAGE.md)). Классов-ловушек у этого клиента не всплыло: ошибок
-  конвертации в `client.outputChannel` за прогоны нет. Активация → готовность на игрушечном проекте
-  с тёплыми кэшами ≈ 19 с.
+- **Inlay hints и code lens работают.** Подсказки имён параметров — сразу (`literals`, дефолт
+  расширения), `java.inlayHints.parameterNames.enabled: none` убирает их на лету. Линзы —
+  `java.referencesCodeLens.enabled` и `java.implementationCodeLens`, дефолты расширения выключены; клик
+  идёт через `java.show.references`/`java.show.implementations` в `editor.action.showReferences`.
+  `0 references` на кадре есть, как в VS Code; команда у него настоящая, но едет с пустым списком, и
+  `peekLocations` молча ничего не открывает (в эталоне `muteMessage` без `noResultsMessage`). **Грабля:** линзы
+  приходят сразу, а считает их jdt.ls только после импорта проекта, десятки секунд, поэтому у
+  `resolveCodeLens` нет дедлайна, как в эталоне; с дедлайном 5 с кадр навсегда оставался с
+  `no commands` ([Extensions.md](Extensions.md)). Тесты —
+  `extensionHost.javaLsp.{inlayHints,codeLens}.test.ts`, демо — `java-lens-hints`.
+- **Навигация и символы** (#956) работают без правок ядра, проверено на сервере из vsix 1.56.0.
+  Implementations, Type Definition, Declaration: у JDT declaration переопределения — метод интерфейса,
+  definition — само переопределение. Подсветка вхождений различает запись и чтение, объявление поля
+  сервер считает записью. `@` отдаёт пакет, класс, поля и методы по одному разу: свой document symbol
+  провайдер расширения поверх клиентского дублей не даёт, берётся первый непустой ответ. `#` отвечает только из
+  standard-сервера и находит классы из неоткрытых файлов. Методы из исходников он отдаёт только при
+  `java.symbols.includeSourceMethodDeclarations: true`, и сервер называет их без скобок: `measure`.
+- **Обе иерархии** (#956): call hierarchy incoming/outgoing и type hierarchy subtypes/supertypes, Java —
+  единственный стоковый сервер с обеими. Отвечает только standard-сервер. Сразу после импорта jdt.ls отвечает дольше 5 с, поэтому у
+  Implementations и обеих иерархий нет дедлайна на проводе, как в эталоне: с дедлайном панель оставалась
+  пустой. Имена в ответе сервера с сигнатурой: `render() : double`.
+- **`Java: Show Type Hierarchy`** (#956) показывает дерево через API `vscode.references-view` (`setInput`): без этого
+  расширения команда молчала. Рядом работает и нативный `references-view.showTypeHierarchy`. Кнопки заголовка расширения
+  привязаны к `view == references-view.tree`, поэтому этот id отдан его дереву.
+- **Format on type** (#956): `;`, Enter и `}` форматируют блок при `editor.formatOnType: true`. Эта настройка
+  выключена по умолчанию, как в эталоне, и манифест расширения её не включает: из коробки Java не
+  форматирует при наборе. `java.format.onType.enabled: false` снимает регистрацию провайдера. Дедлайна на проводе нет, как в эталоне:
+  клавиша нажимается один раз, потерянный ответ никто не перезапросит, а следующая правка отменяет запрос.
+- **Linked editing и document links** сервер не предоставляет, провайдеров нет. Ссылки в Java-файлах
+  находит только детектор ядра.
+- Классов-ловушек у этого клиента не всплыло: ошибок конвертации в `client.outputChannel` за прогоны
+  нет. Активация → готовность на игрушечном проекте с тёплыми кэшами ≈ 19 с. Тесты —
+  `extensionHost.javaLsp.{navigation,hierarchy,symbols,formatOnType}.test.ts`, демо — `java-hierarchy`.
+
+## Vitest: `vitest.explorer`
+
+- **Активация** — `workspaceContains` (`**/*{vite,vitest}*.config*`, `node_modules/.bin/vitest`):
+  расширение запускает Vitest проекта (нужен в `node_modules`) и следит за файлами по `**/*`.
+- **Тесты** (#1068) — контроллер `vitest` доходит до `TestService`: после активации
+  `testing.providerCount > 0`, `testing.canRefresh`; **Test: Refresh Tests** зовёт его `refreshHandler`
+  (в OUTPUT → Vitest — новый «Resolving configs»). Вьюха Testing (#1069): контейнер появляется с
+  контроллером, дерево `src` → `math.test.ts` → `math` → тесты, Enter открывает файл на строке теста;
+  «Update Snapshot» из меню строки получает `TestItem` расширения и запускает тест (в OUTPUT → Vitest —
+  `Enqueuing "adds"`, стоковый тест это проверяет). Запуски (#1070): Run Tests зовёт `runHandler` профиля
+  Vitest, `adds` ✓, `fails` ✗, родители ✗, сводка `1/2`; «Rerun Failed Tests» запускает только `fails`
+  (стоковый тест). Поле редактора (#1073): у `describe("math"` — run-all, у каждого `it(` — run; клик по
+  глифу `fails` запускает только его, после прогона глиф — ✗ красным; правый клик — Run Test, Reveal in Test
+  Explorer и пункты Vitest из `testing/item/gutter` (стоковый тест). TEST RESULTS (#1071): панель открывается с запуском, в дереве `fails` с сообщением
+  `expected 1 to be 2`, в выводе задачи — отчёт vitest с `FAIL` (стоковый тест). Сообщения (#1072): vitest
+  шлёт `expectedOutput`/`actualOutput` — у `fails` слева diff «Expected result» `2` / «Actual result» `1`, под
+  ним кадры стека с `math.test.ts:8`; «Copy Error» (`testing/message/context`, `when: resourcePath in
+  vitest.testFiles` — ключи по месту сообщения) кладёт в буфер отчёт vitest с именем теста и файлом (стоковый тест).
+- **Магазин** — запись `vitest.explorer` (`support: partial`, `engines.diode` — релиз с вьюхой Testing).
+  Стоковый тест — `extensionHost.vitestExplorer.test.ts`: воркспейс `package.json` + `vitest.config.ts`
+  + `src/math.test.ts`, `node_modules` — симлинк на репозиторий diode (vitest там есть).
+- «Open Trace View» у vitest (`testing/item/context`, #1069) скрыт его же `when` (`testId in vitest.traceViewTests`).
 
 ## Go: `golang.go` (gopls)
 
@@ -165,10 +550,29 @@ eval-режим node, иначе расширение молча не линти
 - **vscode-go при `isIncomplete: true` ставит ВСЕМ пунктам `filterText` первого** (фильтрует gopls,
   клиент обязан перезапрашивать на каждый символ); gopls кладёт авто-импорт в `additionalTextEdits`
   сразу, resolve-провайдера у него нет.
+- **Линзы.** Над `func TestX` — `run test | debug test`, над `package` — `run package tests | run file
+  tests` (`go.enableCodeLens.runtest`, провайдер самого расширения, не gopls); в `go.mod` —
+  `Reset go.mod diagnostics | Run govulncheck | Run go mod tidy` от gopls. Клик по `run test` гоняет
+  `go test` в канал OUTPUT «Go Tests» (`extensions.golang.go.go-tests`). `debug test` доходит до
+  `vscode.debug.startDebugging` — null-объект показывает тост и отдаёт `false`.
+- **Inlay hints и настройки.** `go.inlayHints.*` расширение кладёт в `ui.inlayhint.hints` из
+  middleware `workspace/configuration`, но только если ключ `gopls` (`type: object` без `default`)
+  читается объектом — поэтому дефолт по типу ключа манифеста обязателен, как `getDefaultValue` эталона
+  (иначе `null`, и смена настройки до сервера не доходит). `workspace/inlayHint/refresh` gopls не шлёт
+  вовсе: новое значение видно со следующего запроса (правка, прокрутка за окно, открытие файла) — так
+  же и в VS Code. `go.enableCodeLens` расширение применяет сразу, своим `onDidChangeCodeLenses`.
+- **Навигация и символы** (тесты `extensionHost.goLsp.{navigation,links,symbols,hierarchy}.test.ts`,
+  сценарий `go-navigation`, gopls v0.24.0). Работают без правок ядра: Implementations (на методе
+  интерфейса — методы типов, на интерфейсе — типы), Type Definition, подсветка чтения/записи, `@`, `#`, call и
+  type hierarchy. На `#` gopls отвечает и символами рантайма (`heldLockInfo` на запрос `Hello`), поэтому
+  `matchSymbol` поднимает префикс и полное совпадение имени выше разрозненного совпадения. Middleware `provideTypeDefinition` при непустом выделении, содержащем позицию,
+  добавляет в запрос `range`, и gopls отвечает типом выделенного выражения: `pair.Second` даёт `Polite`,
+  хотя на той же позиции без выделения — `Pair`. Ссылка импорта — только на путь в кавычках, ведёт на
+  pkg.go.dev; `gopls: {"ui.navigation.importShortcut": "Definition"}` её убирает. Declaration, linked
+  editing и format on type gopls не предлагает — провайдеры не регистрируются, тест это фиксирует.
 - **Решения человека:** отладчик не делаем (`vscode.debug` — null-объект); фичи, которых ядро ещё не
-  умеет (CodeLens, inlay hints, outline, Go to Implementation, call hierarchy, Testing view, деревья
-  `go.explorer`/package outline, when-фильтр палитры), ради Go отдельно не делаем — заработают сами
-  с ядром. Welcome-страница и pprof — webview, не будет.
+  умеет (outline, Testing view, деревья `go.explorer`/package outline, when-фильтр палитры), ради Go
+  отдельно не делаем — заработают сами с ядром. Welcome-страница и pprof — webview, не будет.
 - Спайк заново: `PATH=<go>/bin:$PATH npm run -s drive -- start --seed e2e/fixtures/goSample --install
   golang.go --open main.go`, лог — `drive -- output extensions.golang.go.go`.
 
@@ -187,12 +591,41 @@ eval-режим node, иначе расширение молча не линти
 4. Конструкторы панелей до старта LS — `authentication.*` и `createTreeView`/`registerTreeDataProvider`
    (null-объекты — [Extensions.md](Extensions.md)).
 
-Классы-значения, которые бандл использует, но в рантайме их нет (`DocumentSymbol`,
-`CallHierarchy*Call`, `InlineValue*`, …; `SelectionRange` и `Color*` уже есть), для активации не нужны — их зовут конвертеры
-languageclient только при вызове провайдера, а соответствующие `register*Provider` у нас no-op;
-понадобятся вместе с провайдерами. Автодополнение по схеме AWS работает из вшитых схем без terraform
+Классы-значения `DocumentSymbol` и `CallHierarchy*Call` теперь есть в рантайме вместе со швами их
+провайдеров: `@` проходит через конвертер languageclient и не оставляет ошибок клиента в OUTPUT.
+`InlineValue*` и `registerInlineValuesProvider` теперь настоящие (#1153): провайдер вызывается, пока
+отладчик стоит в файле его языка. Автодополнение по схеме AWS работает из вшитых схем без terraform
 CLI и `terraform init`; форматирование требует terraform в PATH (`Terraform (CLI) is required`) —
 окружение, а не Diode. Запись магазина гейтится `engines.diode >=0.7.3`.
+
+**Code lens.** `terraform.codelens.referenceCount: true` даёт над блоками, на которые есть ссылки, линзу
+`N references`; клик идёт через команду расширения `client.showReferences` (не `terraform.showReferences`) в
+`editor.action.showReferences` и открывает references view. Расширение читает настройку один раз, при
+старте клиента, и только тогда объявляет серверу `experimental.showReferencesCommandId`; `codeLensProvider`
+сервер объявляет всегда и без этой настройки отвечает пусто. Поэтому смена настройки на лету линзы не
+снимает — расширение предлагает «Reload VSCode window», после перезагрузки их нет. Это поведение самого
+vsix, в VS Code то же. Снять линзы без перезагрузки можно настройкой ядра `editor.codeLens: false`.
+`inlayHintProvider` `terraform-ls` не объявляет, провайдер inlay hints не регистрируется. Тесты —
+`extensionHost.terraformLsp.codeLens.test.ts`, сценарий — `terraform-code-lens.scenario.ts`.
+
+**Навигация и символы** (terraform-ls 0.39; тест `extensionHost.terraformLsp.navigation.test.ts`, сценарий
+`terraform-symbols`). Правка ядра одна: `LinkDetector` спрашивал провайдеров прямо из конструктора, раньше
+синхронизации документа, и файл, открытый после регистрации провайдера, оставался без ссылок до первой правки.
+
+- **Declaration = Definition.** На `var.region` оба запроса дают один и тот же блок `variable "region"`;
+  прямой опрос сервера показал одинаковые ответы и с `linkSupport`, и без него. Различие было бы новым
+  поведением сервера — тест это заметит.
+- **Ссылки — только на метку блока `provider`**, ведут на `registry.terraform.io/providers/<адрес>/<версия>/docs`.
+  На метке `resource` ссылки нет: так отвечает сам сервер, ответ проверен в обход расширения.
+- **`@`** — блоки верхнего уровня с именами вида `resource "aws_instance" "web"` (`SymbolKind.Class`),
+  атрибуты вложены; `containerName` у верхних блоков пуст, у атрибута это имя его блока.
+- **`#`** находит блоки открытого каталога (в том числе из неоткрытого файла) и вызванных модулей; другие
+  каталоги рабочей области сервер обнаруживает, но не разбирает, и в `#` их нет. Поэтому
+  `indexing.ignorePaths` на выдачу `#` не влияет: настройка доходит до обходчика (в логе сервера
+  `skipping walk due to dir being excluded`), а каталог вызванного модуля индексируется и из игнора.
+- **Нет на сервере:** implementation, type definition, document highlight, linked editing, format on type,
+  call и type hierarchy. Провайдеры не регистрируются, пунктов в контекстном меню `.tf` нет; тест фиксирует
+  матрицу, чтобы обновление сервера её заметило.
 
 ## Форматирование: `esbenp.prettier-vscode`
 

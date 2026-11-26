@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { feed } from "../../../TestUtils/terminalLinks.ts";
-import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
+import { createTestConfigurationService, EXTENDED_TIER_SETTINGS } from "../../../TestUtils/testConfigurationService.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ExplorerServiceDIToken } from "../contrib/files/browser/explorerService.ts";
 import { TerminalEditorServiceDIToken } from "../contrib/terminal/browser/terminalEditorService.ts";
@@ -37,7 +37,7 @@ describe("Workbench — Terminal: Open Detected Link", () => {
         ws = createTempWorkspace({ prefix: "diode-terminal-detected-links-", files: FILES });
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
-            configurationService: createTestConfigurationService(settings),
+            configurationService: createTestConfigurationService({ ...EXTENDED_TIER_SETTINGS, ...settings }),
         });
         terminal = h.container.get(TerminalServiceDIToken);
         input = [];
@@ -102,11 +102,17 @@ describe("Workbench — Terminal: Open Detected Link", () => {
     /** The frame's lines that hold `text`, blanks collapsed; the picker is above the terminal. */
     function frameLines(text: string): string[] {
         h.testApp.render();
-        return h.testApp.backend
-            .screenToString()
-            .split("\n")
-            .filter((line) => line.includes(text))
-            .map((line) => line.replace(/\s+/g, " ").trim());
+        return (
+            h.testApp.backend
+                .screenToString()
+                .split("\n")
+                .filter((line) => line.includes(text))
+                // The quick pick row between its own side lines (the parts' frames run outside them).
+                .map((line) => {
+                    const inner = line.split("│").find((segment) => segment.includes(text)) ?? "";
+                    return `│ ${inner.replace(/\s+/g, " ").trim()} │`;
+                })
+        );
     }
 
     /** `_` per underlined cell of the widget row, trailing blanks trimmed. */

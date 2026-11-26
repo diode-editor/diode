@@ -10,7 +10,7 @@ import type { TextFileModel } from "./textFileModel.ts";
  * Per participant. Same order of magnitude as language RPCs (5000 for a cold language server): a silent
  * participant behind an RPC to the host must not hang the save.
  */
-const SAVE_PARTICIPANT_TIMEOUT_MS = 5000;
+export const SAVE_PARTICIPANT_TIMEOUT_MS = 5000;
 
 /** On timeout resolves to an empty edit set (save as is). */
 function raceSaveParticipantTimeout(run: Promise<readonly ISaveEdit[]>): Promise<readonly ISaveEdit[]> {

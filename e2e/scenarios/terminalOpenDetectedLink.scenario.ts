@@ -38,7 +38,7 @@ export default defineScenario({
             `printf '%s\\n' "package"".json:2" "src/vs/base/common/platform"".ts:3:2" "src/vs/base/common/uri"".ts"`,
         );
         await editor.sendKey("Enter");
-        const printed = await editor.waitForText((t) => t.includes(LINK) && t.includes("uri.ts\n"));
+        const printed = await editor.waitForText((t) => t.includes(LINK) && /uri\.ts *│$/m.test(t));
         const at = findTextCell(printed, LINK);
         if (at === null) throw new Error("the link is not on screen");
 

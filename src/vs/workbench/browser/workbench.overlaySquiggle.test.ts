@@ -53,7 +53,6 @@ describe("Workbench: overlay above squiggled text", () => {
             size: SIZE,
         });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
 
         const editor = h.testApp.querySelector("EditorElement") as EditorElement;
         editor.markerDecorations = Array.from({ length: 20 }, (_, line) => ({

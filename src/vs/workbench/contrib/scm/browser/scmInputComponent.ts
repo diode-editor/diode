@@ -1,7 +1,4 @@
-import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
-import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
-import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
@@ -24,6 +21,7 @@ import { ProgressServiceDIToken } from "../../../../platform/progress/common/pro
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { Component } from "../../../browser/component.ts";
+import { ActionButtonElement } from "../../../browser/parts/views/actionButtonElement.ts";
 import { SCM_INPUT_MESSAGE_STATE } from "../../../common/stateKeys.ts";
 import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
@@ -42,92 +40,6 @@ export const SCM_INPUT_HEIGHT = 4;
 
 /** Marker that sets `scmInputFocus`, which Ctrl+Enter = commit depends on. */
 export class ScmCommitInputElement extends InputElement {}
-
-/**
- * VS Code SCM action button. Not `ButtonElement`: that one needs an immutable label and
- * natural width, here the text changes and is centered across the full width.
- */
-export class ScmActionButtonElement extends TUIElement {
-    public onActivate?: () => void;
-
-    private label = "";
-    private disabledState = false;
-
-    public constructor() {
-        super();
-        this.focusable = true;
-        this.style = {
-            fg: "button.foreground",
-            bg: "button.background",
-            when: [
-                { states: ["hover"], bg: "button.hoverBackground" },
-                { states: ["focus"], bg: "button.hoverBackground" },
-            ],
-        };
-        this.addEventListener("click", (event) => {
-            if (event.defaultPrevented || this.disabledState) return;
-            this.onActivate?.();
-        });
-    }
-
-    public getLabel(): string {
-        return this.label;
-    }
-
-    public setLabel(label: string): void {
-        if (label === this.label) return;
-        this.label = label;
-        this.markDirty();
-    }
-
-    public isDisabled(): boolean {
-        return this.disabledState;
-    }
-
-    public setDisabled(disabled: boolean): void {
-        if (disabled === this.disabledState) return;
-        this.disabledState = disabled;
-        this.focusable = !disabled;
-        this.markDirty();
-    }
-
-    public override inspectState(): Record<string, unknown> {
-        return { label: this.label, disabled: this.disabledState, hidden: this.hidden };
-    }
-
-    public override getMinIntrinsicHeight(_width: number): number {
-        return 1;
-    }
-
-    public override getMaxIntrinsicHeight(_width: number): number {
-        return 1;
-    }
-
-    protected override performLayout(constraints: BoxConstraints): Size {
-        const width = Number.isFinite(constraints.maxWidth) ? constraints.maxWidth : constraints.minWidth;
-        return super.performLayout(BoxConstraints.tight(constraints.constrain(new Size(width, 1))));
-    }
-
-    protected override performDefaultAction(event: TUIEventBase): void {
-        if (event.type !== "keydown") return;
-        const keyEvent = event as TUIKeyboardEvent;
-        if ((keyEvent.key === "Enter" || keyEvent.key === " ") && !this.disabledState) {
-            event.preventDefault();
-            this.onActivate?.();
-        }
-    }
-
-    public override render(context: RenderContext): void {
-        const { fg, bg } = this.resolvedStyle;
-        const colors = this.disabledState
-            ? { fg: this.styleVar("button.secondaryForeground"), bg: this.styleVar("button.secondaryBackground") }
-            : { fg, bg };
-        const width = this.layoutSize.width;
-        for (let x = 0; x < width; x++) context.setCell(x, 0, { char: " ", ...colors });
-        const start = Math.max(0, Math.floor((width - this.label.length) / 2));
-        context.drawText(start, 0, this.label, colors, { maxWidth: width });
-    }
-}
 
 export interface IScmActionButtonState {
     readonly visible: boolean;
@@ -177,7 +89,7 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
     ] as const;
 
     public readonly input = new ScmCommitInputElement();
-    public readonly actionButton = new ScmActionButtonElement();
+    public readonly actionButton = new ActionButtonElement();
     public readonly view: PaddingContainerElement;
 
     private buttonCommand: string | null = null;
@@ -293,8 +205,8 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
 
         // An operation is running — progress owns the label. Disable is immediate (isBusy), while display
         // waits for a delay: the click is disabled instantly and a fast operation does not flash text.
-        const running = this.progress.viewProgress().get(SCM_CHANGES_VIEW_ID);
-        if (running !== undefined) {
+        const running = this.progress.operationProgress(SCM_CHANGES_VIEW_ID);
+        if (running !== null) {
             this.actionButton.setLabel(`${running.spinner} ${running.title}`);
             this.actionButton.setDisabled(true);
             return;

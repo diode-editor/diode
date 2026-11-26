@@ -20,7 +20,7 @@ VS Code нет.
 - [INSTALL.md](INSTALL.md) — каналы установки одной командой каждый, пин версии; устройство каналов — в packaging/README.md, не здесь
 - [FIRST-RUN.md](FIRST-RUN.md) — первые десять минут: CLI, навигация, выход, где лежат настройки и профили
 - [DIFFERENCES.md](DIFFERENCES.md) — отличия от VS Code в одном месте: что меняет терминал и что выбрано осознанно (ссылки на подробности по страницам)
-- [KEYBOARD.md](KEYBOARD.md) — что терминал не доставляет (Ctrl+Shift, Ctrl+Tab, Cmd) и таблица замен `Ctrl+K`, уровни legacy/extended/cmd, Keyboard Doctor
+- [KEYBOARD.md](KEYBOARD.md) — что терминал не доставляет (Ctrl+Shift, Ctrl+Tab, Cmd) и таблица замен `Ctrl+K`, уровни legacy/extended/cmd
 - [TERMINAL.md](TERMINAL.md) — настройка терминала: цвета, расширенные клавиши по эмуляторам, буфер обмена (OSC 52), ssh, tmux (клавиши, буфер, заголовок окна), screen
 - [EXTENSIONS.md](EXTENSIONS.md) — магазин и курируемый реестр, установка из редактора и из CLI, `.vsix`, где лежат, что не может работать, публикация в реестр
 - [API-COVERAGE.md](API-COVERAGE.md) — матрица готовности API расширений VS Code (для авторов расширений)

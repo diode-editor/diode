@@ -1,16 +1,32 @@
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
+import type { GlobalFeatureRegistry } from "../globalFeatureRegistry.ts";
 import type { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
+import type { CallHierarchyProvider } from "../languages/iCallHierarchySource.ts";
 import type { CodeActionProvider } from "../languages/iCodeActionSource.ts";
+import type { CodeLensProvider } from "../languages/iCodeLensSource.ts";
 import type { DocumentColorProvider } from "../languages/iColorSource.ts";
 import type { CompletionItemProvider } from "../languages/iCompletionSource.ts";
-import type { DefinitionProvider } from "../languages/iDefinitionSource.ts";
+import type {
+    DeclarationProvider,
+    DefinitionProvider,
+    ImplementationProvider,
+    TypeDefinitionProvider,
+} from "../languages/iDefinitionSource.ts";
+import type { DocumentHighlightProvider } from "../languages/iDocumentHighlightSource.ts";
+import type { DocumentSymbolProvider } from "../languages/iDocumentSymbolSource.ts";
+import type { EvaluatableExpressionProvider } from "../languages/iEvaluatableExpressionSource.ts";
 import type { FoldingRangeProvider } from "../languages/iFoldingSource.ts";
 import type {
     DocumentFormattingEditProvider,
     DocumentRangeFormattingEditProvider,
+    OnTypeFormattingEditProvider,
 } from "../languages/iFormattingSource.ts";
 import type { HoverProvider } from "../languages/iHoverSource.ts";
+import type { InlayHintsProvider } from "../languages/iInlayHintsSource.ts";
 import type { InlineCompletionsProvider } from "../languages/iInlineCompletionSource.ts";
+import type { InlineValuesProvider } from "../languages/iInlineValuesSource.ts";
+import type { LinkedEditingRangeProvider } from "../languages/iLinkedEditingSource.ts";
+import type { LinkProvider } from "../languages/iLinkSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
 import type { RenameProvider } from "../languages/iRenameSource.ts";
 import type { SelectionRangeProvider } from "../languages/iSelectionRangeSource.ts";
@@ -19,23 +35,40 @@ import type {
     DocumentSemanticTokensProvider,
 } from "../languages/iSemanticTokensSource.ts";
 import type { SignatureHelpProvider } from "../languages/iSignatureHelpSource.ts";
+import type { TypeHierarchyProvider } from "../languages/iTypeHierarchySource.ts";
+import type { WorkspaceSymbolProvider } from "../languages/iWorkspaceSymbolSource.ts";
 
 export interface ILanguageFeaturesService {
     readonly hoverProvider: LanguageFeatureRegistry<HoverProvider>;
     readonly definitionProvider: LanguageFeatureRegistry<DefinitionProvider>;
+    readonly implementationProvider: LanguageFeatureRegistry<ImplementationProvider>;
+    readonly typeDefinitionProvider: LanguageFeatureRegistry<TypeDefinitionProvider>;
+    readonly declarationProvider: LanguageFeatureRegistry<DeclarationProvider>;
     readonly referenceProvider: LanguageFeatureRegistry<ReferenceProvider>;
     readonly renameProvider: LanguageFeatureRegistry<RenameProvider>;
     readonly signatureHelpProvider: LanguageFeatureRegistry<SignatureHelpProvider>;
     readonly completionProvider: LanguageFeatureRegistry<CompletionItemProvider>;
     readonly documentFormattingEditProvider: LanguageFeatureRegistry<DocumentFormattingEditProvider>;
     readonly documentRangeFormattingEditProvider: LanguageFeatureRegistry<DocumentRangeFormattingEditProvider>;
+    readonly onTypeFormattingEditProvider: LanguageFeatureRegistry<OnTypeFormattingEditProvider>;
     readonly codeActionProvider: LanguageFeatureRegistry<CodeActionProvider>;
     readonly foldingRangeProvider: LanguageFeatureRegistry<FoldingRangeProvider>;
+    readonly documentSymbolProvider: LanguageFeatureRegistry<DocumentSymbolProvider>;
+    readonly workspaceSymbolProvider: GlobalFeatureRegistry<WorkspaceSymbolProvider>;
     readonly inlineCompletionsProvider: LanguageFeatureRegistry<InlineCompletionsProvider>;
     readonly selectionRangeProvider: LanguageFeatureRegistry<SelectionRangeProvider>;
+    readonly documentHighlightProvider: LanguageFeatureRegistry<DocumentHighlightProvider>;
+    readonly linkedEditingRangeProvider: LanguageFeatureRegistry<LinkedEditingRangeProvider>;
+    readonly evaluatableExpressionProvider: LanguageFeatureRegistry<EvaluatableExpressionProvider>;
     readonly documentSemanticTokensProvider: LanguageFeatureRegistry<DocumentSemanticTokensProvider>;
     readonly documentRangeSemanticTokensProvider: LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>;
     readonly colorProvider: LanguageFeatureRegistry<DocumentColorProvider>;
+    readonly documentLinkProvider: LanguageFeatureRegistry<LinkProvider>;
+    readonly inlayHintsProvider: LanguageFeatureRegistry<InlayHintsProvider>;
+    readonly codeLensProvider: LanguageFeatureRegistry<CodeLensProvider>;
+    readonly inlineValuesProvider: LanguageFeatureRegistry<InlineValuesProvider>;
+    readonly callHierarchyProvider: LanguageFeatureRegistry<CallHierarchyProvider>;
+    readonly typeHierarchyProvider: LanguageFeatureRegistry<TypeHierarchyProvider>;
 }
 
 // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label

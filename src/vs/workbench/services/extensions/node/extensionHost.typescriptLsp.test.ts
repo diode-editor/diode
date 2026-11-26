@@ -150,7 +150,7 @@ describe("ExtensionHost — stock typescript-language-server (end-to-end)", () =
             },
             diagnosticsSink: (_owner, resource, markers) => published.push({ resource, markers }),
             progressSink: {
-                start: (handle, title) => progressEvents.push({ kind: "start", handle, title }),
+                start: (handle, { title }) => progressEvents.push({ kind: "start", handle, title }),
                 report: (handle) => progressEvents.push({ kind: "report", handle }),
                 end: (handle) => progressEvents.push({ kind: "end", handle }),
             },

@@ -20,8 +20,9 @@ export interface InputBoxOptions {
     title?: string;
     prompt?: string;
     placeholder?: string;
-    /** The cursor is placed at the end. */
     value?: string;
+    /** Upstream `valueSelection`, `[start, end)`; unset selects the whole value, so typing replaces it. */
+    valueSelection?: readonly [number, number];
     /** Masked only on screen and in the inspector; `validateInput` and the result get the real value. */
     password?: boolean;
     /** Responses that are stale by the time they arrive are dropped, so the message always matches the current text. */
@@ -144,6 +145,8 @@ export class QuickInputService {
             };
 
             view.setQuery(opts.value ?? "");
+            const [selectionStart, selectionEnd] = opts.valueSelection ?? [0, view.getQuery().length];
+            view.setQuerySelection(selectionStart, selectionEnd);
             runValidation(view.getQuery());
 
             this.component.show();
@@ -306,6 +309,10 @@ export class QuickInputService {
         if (this.component.isOpen()) this.component.view.toggleChecked();
     }
 
+    public backOpen(): void {
+        if (this.component.isOpen()) this.component.view.goBack();
+    }
+
     public focusOpen(): void {
         if (this.component.isOpen()) this.component.view.focus();
     }
@@ -332,18 +339,14 @@ export class QuickInputService {
         this.settle(undefined);
     }
 
-    /** Quick Open rebinds the widget callbacks back to itself when it opens. */
+    /**
+     * Quick Open rebinds the widget callbacks back to itself when it opens. `onAcceptValue` is not rebound here:
+     * every owner sets `acceptMode` itself, and only `inputBox` (which binds its own handler) accepts the text.
+     */
     private takeOwnership(): void {
         const view = this.component.view;
         view.onCancel = () => {
             this.settle(undefined);
-        };
-        view.onAcceptValue = (value) => {
-            // Deferred close (as in QuickOpenService): returning focus synchronously mid-keypress
-            // would hand the rest of the same Enter to the editor.
-            queueMicrotask(() => {
-                this.settle(value);
-            });
         };
         this.component.onDidClose = () => {
             this.settle(undefined);

@@ -27,7 +27,6 @@ describe("Workbench — messages on the frame", () => {
         ws = createTempWorkspace({ prefix: "ws-", files: { "alpha.txt": "Alpha content" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: `${ws.dir}/alpha.txt`, focusEditor: true });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         notifications = h.container.get(NotificationServiceDIToken);
         h.testApp.render();
     });
@@ -57,11 +56,14 @@ describe("Workbench — messages on the frame", () => {
         const rows = screen().split("\n");
         const { width, height } = h.testApp.root.layoutSize;
 
-        const boxRows = rows.map((row, y) => ({ y, x: row.indexOf("╭") })).filter((r) => r.x >= 0);
-        expect(boxRows).toHaveLength(1);
-        expect(boxRows[0].x).toBe(width - 1 - TOAST_WIDTH);
-        const bottomRow = rows.findIndex((row) => row.includes("╰"));
+        // The parts' frames have rounded corners too: locate the toast by its element, then check its corners.
+        const toasts = h.testApp.querySelector("#notificationToasts")!;
+        const { x, y } = toasts.globalPosition;
+        expect(x).toBe(width - 1 - TOAST_WIDTH);
+        expect(rows[y][x]).toBe("╭");
+        const bottomRow = y + toasts.layoutSize.height - 1;
         expect(bottomRow).toBe(height - 2);
+        expect(rows[bottomRow][x]).toBe("╰");
     });
 
     it("several messages form a stack; those waiting for room become a counter", () => {
@@ -187,7 +189,10 @@ describe("Workbench — messages on the frame", () => {
 
         expect(rows.join("\n")).toContain("Delete 12 files?");
         expect(rows.join("\n")).toContain("Cannot be undone.");
-        const left = rows.find((row) => row.includes("╭"))?.indexOf("╭") ?? -1;
+        // The parts' frames have rounded corners too: locate the window by its element.
+        const dialog = h.container.get(NotificationsComponentDIToken).getOpenAsk()!.view;
+        const left = dialog.globalPosition.x;
+        expect(rows[dialog.globalPosition.y][left]).toBe("╭");
         expect(left).toBeGreaterThan(0);
         expect(left).toBeLessThan(h.testApp.root.layoutSize.width - 1 - TOAST_WIDTH);
 
@@ -364,8 +369,12 @@ describe("Workbench — messages on the frame", () => {
             items: ["Delete"],
         });
         const rows = screen().split("\n");
-        const top = rows.findIndex((row) => row.includes("╭"));
-        const bottom = rows.findIndex((row) => row.includes("╰"));
+        // The parts' frames have rounded corners too: locate the window by its element, then check its corners.
+        const dialog = h.container.get(NotificationsComponentDIToken).getOpenAsk()!.view;
+        const { x, y: top } = dialog.globalPosition;
+        const bottom = top + dialog.layoutSize.height - 1;
+        expect(rows[top][x]).toBe("╭");
+        expect(rows[bottom][x]).toBe("╰");
         const height = h.testApp.root.layoutSize.height;
 
         expect(top).toBeGreaterThan(1);

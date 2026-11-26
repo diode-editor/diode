@@ -4,11 +4,13 @@ import { deriveDefaultColors } from "../colorRegistry.ts";
 import { baseColors } from "./baseColors.ts";
 import { chartsColors } from "./chartsColors.ts";
 import { controlColors } from "./controlColors.ts";
+import { debugColors } from "./debugColors.ts";
 import { diffColors } from "./diffColors.ts";
 import { editorColors } from "./editorColors.ts";
 import { gitColors } from "./gitColors.ts";
 import { scmGraphColors } from "./scmGraphColors.ts";
 import { terminalColors } from "./terminalColors.ts";
+import { testingColors } from "./testingColors.ts";
 import { workbenchColors } from "./workbenchColors.ts";
 
 /**
@@ -26,6 +28,8 @@ export const COLOR_CONTRIBUTIONS = {
     ...diffColors,
     ...terminalColors,
     ...chartsColors,
+    ...testingColors,
+    ...debugColors,
 } as const satisfies ColorContribution;
 
 export type WorkbenchColorKey = keyof typeof COLOR_CONTRIBUTIONS;

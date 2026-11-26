@@ -14,6 +14,10 @@ export function createRange(startLine: number, startCharacter: number, endLine: 
     };
 }
 
+export function isEmptyRange(range: IRange): boolean {
+    return positionsEqual(range.start, range.end);
+}
+
 export function rangesEqual(a: IRange, b: IRange): boolean {
     return positionsEqual(a.start, b.start) && positionsEqual(a.end, b.end);
 }
@@ -21,4 +25,9 @@ export function rangesEqual(a: IRange, b: IRange): boolean {
 /** Bounds are inclusive, like upstream `containsPosition`. */
 export function rangeContainsPosition(range: IRange, position: IPosition): boolean {
     return comparePositions(range.start, position) <= 0 && comparePositions(position, range.end) <= 0;
+}
+
+/** Upstream `Range.containsRange`: `inner` lies in `outer`, the edges included. */
+export function rangeContainsRange(outer: IRange, inner: IRange): boolean {
+    return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
 }

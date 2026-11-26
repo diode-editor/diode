@@ -24,6 +24,32 @@ export const COMPILED_BUILTIN_ENTRY = "out/extension.cjs";
 const SOURCE_ENTRY = "main.ts";
 
 /**
+ * The HTML language server (vendored upstream sources) runs as a separate node process: a single ESM file next to the
+ * HTML builtin. `typescript` stays external: the server resolves it from where it lies, the repo's `node_modules` in
+ * dev and the unpacked `ts-server.bundle` in the binary (`pack-ts-server.mjs` packs the server next to TypeScript).
+ * `@vscode/l10n` is bundled as CommonJS and still calls `require("fs")`: the banner gives the ESM output a `require`,
+ * as upstream's `esbuild.mts` does.
+ */
+async function buildHtmlServer(dir) {
+    await build({
+        entryPoints: [join(dir, "server/src/node/htmlServerNodeMain.ts")],
+        outfile: join(dir, "server/out/node/htmlServerMain.mjs"),
+        platform: "node",
+        format: "esm",
+        bundle: true,
+        target: "es2024",
+        external: ["typescript"],
+        mainFields: ["module", "main"],
+        // Aliased: a bundled module may import `createRequire` itself (the vendored `javascriptLibs.ts` does).
+        banner: {
+            js: 'import { createRequire as bannerCreateRequire } from "module"; const require = bannerCreateRequire(import.meta.url);',
+        },
+        sourcemap: false,
+        logLevel: "warning",
+    });
+}
+
+/**
  * A leftover relative `require` breaks the extension silently: `LanguagesNamespace`
  * swallows provider errors, and completion quietly goes empty.
  */
@@ -82,6 +108,7 @@ export async function buildExtensions({ repoRoot }) {
         });
         assertSelfContained(outfile, entry.name);
         built.push({ id: entry.name, entryPoint, outfile });
+        if (entry.name === "html-language-features") await buildHtmlServer(dir);
     }
     return built;
 }

@@ -47,6 +47,13 @@ export interface IExtensionOwnedEnvironmentVariableMutator extends IEnvironmentV
     readonly extensionIdentifier: string;
 }
 
+/** Upstream `mutatorTypeToLabelMap`: the suffix of the `VSCODE_ENV_*` variable the shell integration script reads. */
+const MUTATOR_TYPE_LABELS: Record<EnvironmentVariableMutatorType, string> = {
+    [EnvironmentVariableMutatorType.Replace]: "REPLACE",
+    [EnvironmentVariableMutatorType.Append]: "APPEND",
+    [EnvironmentVariableMutatorType.Prepend]: "PREPEND",
+};
+
 /** Only the Python environments extension may touch Python activation variables (as upstream). */
 const PYTHON_ACTIVATION_VARS_PATTERN = /^VSCODE_PYTHON_(PWSH|ZSH|BASH|FISH)_ACTIVATE/;
 const PYTHON_ENV_EXTENSION_ID = "ms-python.vscode-python-envs";
@@ -86,8 +93,9 @@ export class MergedEnvironmentVariableCollection {
     }
 
     /**
-     * On Windows names compare case-insensitively. Process creation only: nothing reads
-     * `applyAtShellIntegration`, since there is no shell integration.
+     * On Windows names compare case-insensitively. A mutator with `applyAtShellIntegration` also goes into
+     * `VSCODE_ENV_REPLACE|PREPEND|APPEND` as `<variable>=<value>` joined by `:` (a `:` in the value is `\\x3a`): the
+     * shell integration script applies it after the user's rc files. Without injection the variables stay unused.
      */
     public applyToProcessEnvironment(
         env: Record<string, string | undefined>,
@@ -99,20 +107,40 @@ export class MergedEnvironmentVariableCollection {
         for (const [variable, mutators] of this.getVariableMap(scope)) {
             const actual = actualNames.get(variable.toLowerCase()) ?? variable;
             for (const mutator of mutators) {
-                if (!(mutator.options?.applyAtProcessCreation ?? true)) continue;
-                switch (mutator.type) {
-                    case EnvironmentVariableMutatorType.Append:
-                        env[actual] = (env[actual] ?? "") + mutator.value;
-                        break;
-                    case EnvironmentVariableMutatorType.Prepend:
-                        env[actual] = mutator.value + (env[actual] ?? "");
-                        break;
-                    case EnvironmentVariableMutatorType.Replace:
-                        env[actual] = mutator.value;
-                        break;
+                if (mutator.options?.applyAtProcessCreation ?? true) {
+                    switch (mutator.type) {
+                        case EnvironmentVariableMutatorType.Append:
+                            env[actual] = (env[actual] ?? "") + mutator.value;
+                            break;
+                        case EnvironmentVariableMutatorType.Prepend:
+                            env[actual] = mutator.value + (env[actual] ?? "");
+                            break;
+                        case EnvironmentVariableMutatorType.Replace:
+                            env[actual] = mutator.value;
+                            break;
+                    }
+                }
+                if (mutator.options?.applyAtShellIntegration ?? false) {
+                    const key = `VSCODE_ENV_${MUTATOR_TYPE_LABELS[mutator.type]}`;
+                    const current = env[key];
+                    const entry = `${variable}=${mutator.value.replaceAll(":", "\\x3a")}`;
+                    env[key] = current === undefined || current === "" ? entry : `${current}:${entry}`;
                 }
             }
         }
+    }
+
+    /**
+     * Upstream `addEnvMixinPathPrefix`: every `Prepend` to `PATH` in effect for `scope`, joined — the script re-applies
+     * it after a profile that rebuilds `PATH` (fish's `fish_user_paths`, macOS `path_helper`).
+     */
+    public getPathPrefix(scope: IEnvironmentVariableScope | undefined): string | undefined {
+        const prefix = this.getVariableMap(scope)
+            .get("PATH")
+            ?.filter((m) => m.type === EnvironmentVariableMutatorType.Prepend)
+            .map((m) => m.value)
+            .join("");
+        return prefix === "" ? undefined : prefix;
     }
 }
 

@@ -41,12 +41,24 @@ export const MenuRegistryDIToken = token<MenuRegistry>("MenuRegistry");
 /** `enabled` is read by the view title (dimmed button), the engine's `disabled` by the popup. */
 export interface IResolvedMenuItemEntry extends MenuItemEntry {
     readonly enabled: boolean;
+    /** The item's {@link IMenuContribution.iconColor}. */
+    readonly iconColor?: string;
 }
 
 export type ResolvedMenuEntry = IResolvedMenuItemEntry | MenuSeparatorEntry | IResolvedSubmenuEntry;
 
 export interface IResolvedSubmenuEntry extends MenuSubmenuEntry {
     readonly isSelection?: boolean;
+    readonly splitButton?: IResolvedSplitButton;
+}
+
+/** {@link ISubmenuContribution.isSplitButton} as the title bar renders it. */
+export interface IResolvedSplitButton {
+    /** The submenu's `MenuId.id`: the key of the remembered item. */
+    readonly submenu: string;
+    readonly togglePrimaryAction: boolean;
+    /** Already a glyph, like an item's `icon`. */
+    readonly icon?: string;
 }
 
 export interface IMenuEntryGroup {
@@ -70,10 +82,12 @@ export function joinMenuGroups(groups: readonly IMenuEntryGroup[]): MenuEntry[] 
 export type SubmenuResolver = (submenu: ISubmenuEntry) => MenuSubmenuEntry | null;
 
 /**
- * `navigation` always comes first, as in VS Code `_compareMenuItems`. Keys are unique
- * within a menu, so there is no equality branch.
+ * As in VS Code `_compareMenuItems`: the unnamed group (`""`) comes last, `navigation`
+ * first. Keys are unique within a menu, so there is no equality branch.
  */
 function compareGroups(a: string, b: string): number {
+    if (a === "") return 1;
+    if (b === "") return -1;
     if (a === "navigation") return -1;
     if (b === "navigation") return 1;
     return a < b ? -1 : 1;
@@ -172,8 +186,7 @@ export class MenuRegistry {
                 if (isSubmenuContribution(item)) {
                     // The resolver is always present here: without it the filter above drops submenu entries.
                     const entry = resolveSubmenu?.(this.toSubmenuEntry(item)) ?? null;
-                    if (entry !== null)
-                        groupEntries.push(item.isSelection === true ? { ...entry, isSelection: true } : entry);
+                    if (entry !== null) groupEntries.push(this.decorateSubmenu(item, entry));
                 } else {
                     groupEntries.push(this.toEntry(item, context, keys));
                 }
@@ -203,10 +216,10 @@ export class MenuRegistry {
             (item): item is IMenuContribution =>
                 item.menuId === MenuId.CommandPalette && !isSubmenuContribution(item) && item.command === command,
         );
-        return (
-            items.length === 0 ||
-            items.some((item) => item.when === undefined || this.contextKeys.evaluate(item.when, keys))
-        );
+        // Upstream's commands quick access leaves out a disabled item: its `precondition` is our `enablement`.
+        const holds = (expression: string | undefined): boolean =>
+            expression === undefined || this.contextKeys.evaluate(expression, keys);
+        return items.length === 0 || items.some((item) => holds(item.when) && holds(item.enablement));
     }
 
     public getMenuItems(
@@ -216,6 +229,11 @@ export class MenuRegistry {
         keys?: MenuContextKeys,
     ): MenuEntry[] {
         return joinMenuGroups(this.getMenuItemGroups(menuId, context, resolveSubmenu, keys));
+    }
+
+    /** Upstream `MenuRegistry.getMenuItems`: the items of the menu as registered, `when` not evaluated. */
+    public getContributions(menuId: MenuId): readonly MenuContribution[] {
+        return this.items.filter((item) => item.menuId === menuId);
     }
 
     /**
@@ -248,6 +266,17 @@ export class MenuRegistry {
             .map((item) => this.toSubmenuEntry(item));
     }
 
+    private decorateSubmenu(item: ISubmenuContribution, entry: MenuSubmenuEntry): IResolvedSubmenuEntry {
+        if (item.isSelection === true) return { ...entry, isSelection: true };
+        if (item.isSplitButton === undefined || item.isSplitButton === false) return entry;
+        const splitButton: IResolvedSplitButton = {
+            submenu: item.submenu.id,
+            togglePrimaryAction: item.isSplitButton !== true && item.isSplitButton.togglePrimaryAction,
+            ...(item.icon === undefined ? {} : { icon: this.icons.glyph(item.icon) }),
+        };
+        return { ...entry, splitButton };
+    }
+
     private toSubmenuEntry(item: ISubmenuContribution): ISubmenuEntry {
         return {
             title: item.title,
@@ -276,6 +305,7 @@ export class MenuRegistry {
             disabled: !enabled,
             shortcut: this.resolveShortcut(item),
             icon: toggled ? CHECKED_ICON : this.iconOf(item),
+            iconColor: item.iconColor,
             onSelect: () => {
                 // A contribution may point to an extension command that has no guard of its own.
                 if (!enabled) return;

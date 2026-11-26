@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { OperatingSystem } from "../../../../../base/common/platform.ts";
 
-import { detectLinks, getLinkSuffix, removeLinkQueryString } from "./terminalLinkParsing.ts";
+import { detectLinks, getLinkSuffix, removeLinkQueryString, toLinkSuffix } from "./terminalLinkParsing.ts";
 
 // Cases the upstream suite (terminalLinkParsing.test.ts) leaves out.
 
@@ -21,6 +21,18 @@ describe("terminalLinkParsing — beyond the upstream suite", () => {
         });
         expect(getLinkSuffix("foo:339:12")).toMatchObject({ row: 339, col: 12 });
         expect(getLinkSuffix("foo")).toBeNull();
+    });
+
+    it("a match without named groups is a suffix without numbers", () => {
+        const match = /x/.exec("ax");
+        expect(match).not.toBeNull();
+        expect(toLinkSuffix(match!)).toStrictEqual({
+            row: undefined,
+            col: undefined,
+            rowEnd: undefined,
+            colEnd: undefined,
+            suffix: { index: 1, text: "x" },
+        });
     });
 
     it("the suffix must end the link; a non-breaking space works as a space", () => {

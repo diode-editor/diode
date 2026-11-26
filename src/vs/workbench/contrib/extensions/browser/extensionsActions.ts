@@ -6,9 +6,11 @@ import { ProgressServiceDIToken } from "../../../../platform/progress/common/pro
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
+import { EXTENSION_FILTER_ACTIONS } from "./extensionFilterActions.ts";
 import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "./extensionsComponent.ts";
 import { checkForUpdatesAction, updateAllExtensionsAction } from "./extensionUpdateActions.ts";
 import { installSpecificVersionOfExtensionAction } from "./extensionVersionActions.ts";
+import { installVsixAction } from "./extensionVsixActions.ts";
 
 const REFRESH_ICON = codicon("refresh");
 
@@ -55,4 +57,7 @@ export const EXTENSIONS_ACTIONS: readonly CommandAction[] = [
     installSpecificVersionOfExtensionAction,
     checkForUpdatesAction,
     updateAllExtensionsAction,
+    // Upstream order: after Update All, before the search filters.
+    installVsixAction,
+    ...EXTENSION_FILTER_ACTIONS,
 ];

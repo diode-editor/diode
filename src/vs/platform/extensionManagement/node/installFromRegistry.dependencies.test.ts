@@ -15,6 +15,7 @@ import {
     describeDependencyInstall,
     installDependenciesFromRegistry,
     installFromRegistry,
+    installVsixWithDependencies,
     sha256File,
 } from "./installFromRegistry.ts";
 
@@ -168,6 +169,99 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(result.missingDependencies).toEqual([]);
         expect(asked).toEqual(["acme.plugin", "acme.base"]);
         expect(installed()).toEqual(["acme.base@1.0.0", "acme.plugin@1.0.0"]);
+    });
+
+    describe("download progress", () => {
+        /** The file source with a download that reports `chunks` of `total` bytes, or nothing without a total. */
+        function downloading(chunks: readonly number[], total?: number): IExtensionRegistrySource {
+            const files = source();
+            return {
+                getIndex: () => files.getIndex(),
+                getMeta: (id) => files.getMeta(id),
+                fetchArtifact: (version, tempDir, onProgress) => {
+                    let received = 0;
+                    for (const chunk of chunks) {
+                        received += chunk;
+                        if (total !== undefined) onProgress?.(received, total);
+                    }
+                    return files.fetchArtifact(version, tempDir);
+                },
+            };
+        }
+
+        it("each file counts from its own start, only new whole percents, and clears after its download", async () => {
+            await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base"] } });
+            await seed("acme.base");
+            const reports: (number | null)[] = [];
+
+            await installFromRegistry(downloading([10, 1, 1, 488, 500], 1000), "acme.plugin", {
+                extensionsDir,
+                host: HOST,
+                onDownloadProgress: (percent) => reports.push(percent),
+            });
+
+            // 10 → 1%, 11 and 12 → still 1%, 500 → 50%, 1000 → 100%; then the dependency from its own start.
+            const one = [1, 50, 100, null];
+            expect(reports).toEqual([...one, ...one]);
+        });
+
+        it("more bytes than declared stop at 100%", async () => {
+            await seed("acme.plugin");
+            const reports: (number | null)[] = [];
+
+            await installFromRegistry(downloading([50, 50, 50], 100), "acme.plugin", {
+                extensionsDir,
+                host: HOST,
+                onDownloadProgress: (percent) => reports.push(percent),
+            });
+
+            expect(reports).toEqual([50, 100, null]);
+        });
+
+        it("a download without a known size reports nothing, not even the end", async () => {
+            await seed("acme.plugin");
+            const reports: (number | null)[] = [];
+
+            await installFromRegistry(downloading([50, 50]), "acme.plugin", {
+                extensionsDir,
+                host: HOST,
+                onDownloadProgress: (percent) => reports.push(percent),
+            });
+
+            expect(reports).toEqual([]);
+        });
+
+        it("nobody listening: a measured download installs all the same (the CLI's install)", async () => {
+            await seed("acme.plugin");
+
+            await installFromRegistry(downloading([500, 500], 1000), "acme.plugin", { extensionsDir, host: HOST });
+
+            expect(installed()).toEqual(["acme.plugin@1.0.0"]);
+        });
+
+        it("a failed download clears its percent too", async () => {
+            await seed("acme.plugin");
+            const files = source();
+            const reports: (number | null)[] = [];
+            const failing: IExtensionRegistrySource = {
+                getIndex: () => files.getIndex(),
+                getMeta: (id) => files.getMeta(id),
+                fetchArtifact: (_version, _tempDir, onProgress) => {
+                    onProgress?.(30, 100);
+                    return Promise.reject(new Error("connection reset"));
+                },
+            };
+
+            await expect(
+                installFromRegistry(failing, "acme.plugin", {
+                    extensionsDir,
+                    host: HOST,
+                    onDownloadProgress: (percent) => reports.push(percent),
+                }),
+            ).rejects.toThrow("connection reset");
+
+            expect(reports).toEqual([30, null]);
+        });
     });
 
     it("artifacts download into a recognizably named temp directory under os.tmpdir(), one per extension", async () => {
@@ -373,5 +467,86 @@ describe("installDependenciesFromRegistry (extension installed from a .vsix)", (
             installDependenciesFromRegistry(source(), "acme.local", manifest, { extensionsDir, host: HOST }),
         ).rejects.toThrow('Cannot install acme.local: its dependency "acme.base" cannot be installed');
         expect(installed()).toEqual([]);
+    });
+});
+
+describe("installVsixWithDependencies", () => {
+    async function writeVsix(manifest: object): Promise<string> {
+        const vsixPath = path.join(tempRoot, "local.vsix");
+        await fs.promises.writeFile(vsixPath, await buildVsixBuffer(manifest));
+        return vsixPath;
+    }
+    const unreachable = (): IExtensionRegistrySource => {
+        throw new Error("the registry was asked for");
+    };
+
+    it("without dependencies installs offline: the registry is never asked for", async () => {
+        const vsixPath = await writeVsix({ publisher: "acme", name: "local", version: "2.0.0" });
+
+        const result = await installVsixWithDependencies(unreachable, vsixPath, { extensionsDir, host: HOST });
+
+        expect(result).toEqual({
+            id: "acme.local",
+            version: "2.0.0",
+            dir: path.join(extensionsDir, "acme.local-2.0.0"),
+            dependencies: [],
+            missingDependencies: [],
+        });
+        expect(installed()).toEqual(["acme.local@2.0.0"]);
+    });
+
+    it("installs the dependencies from the registry and names the missing ones", async () => {
+        await seed("acme.base");
+        const vsixPath = await writeVsix({
+            publisher: "acme",
+            name: "local",
+            version: "1.0.0",
+            extensionDependencies: ["acme.base", "x.y"],
+        });
+
+        const result = await installVsixWithDependencies(source, vsixPath, { extensionsDir, host: HOST });
+
+        expect(result.dependencies.map((d) => d.id)).toEqual(["acme.base"]);
+        expect(result.missingDependencies).toEqual(["x.y"]);
+        expect(result.dependencyError).toBeUndefined();
+        expect(installed()).toEqual(["acme.base@1.0.0", "acme.local@1.0.0"]);
+    });
+
+    it("a failed dependency install keeps the extension and reports the reason", async () => {
+        const vsixPath = await writeVsix({
+            publisher: "acme",
+            name: "local",
+            version: "1.0.0",
+            extensionDependencies: ["acme.base"],
+        });
+
+        const result = await installVsixWithDependencies(unreachable, vsixPath, { extensionsDir, host: HOST });
+
+        expect(result).toEqual({
+            id: "acme.local",
+            version: "1.0.0",
+            dir: path.join(extensionsDir, "acme.local-1.0.0"),
+            dependencies: [],
+            missingDependencies: [],
+            dependencyError: "the registry was asked for",
+        });
+        expect(installed()).toEqual(["acme.local@1.0.0"]);
+    });
+
+    it("a registry that throws something other than an Error is reported as text", async () => {
+        const vsixPath = await writeVsix({
+            publisher: "acme",
+            name: "local",
+            version: "1.0.0",
+            extensionDependencies: ["a.b"],
+        });
+        const throwsText = (): IExtensionRegistrySource => {
+            // eslint-disable-next-line @typescript-eslint/only-throw-error -- the point: a source that throws a non-Error
+            throw "registry is down";
+        };
+
+        const result = await installVsixWithDependencies(throwsText, vsixPath, { extensionsDir, host: HOST });
+
+        expect(result.dependencyError).toBe("registry is down");
     });
 });

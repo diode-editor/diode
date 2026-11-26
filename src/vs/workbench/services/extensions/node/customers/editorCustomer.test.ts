@@ -10,7 +10,7 @@ import type {
 } from "../../../../api/common/iEditorOptionsService.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
-import type { IWireEditorLayout } from "../../../../api/common/wireTypes.ts";
+import type { IWireEditorLayout, IWireEditorPropertiesChanged } from "../../../../api/common/wireTypes.ts";
 
 import { EditorCustomer } from "./editorCustomer.ts";
 
@@ -31,15 +31,16 @@ function setup() {
     const activeEditor = new Emitter<IActiveEditorMeta>();
     const selection = new Emitter<IActiveEditorSelections>();
     const layout = new Emitter<IWireEditorLayout>();
+    const properties = new Emitter<IWireEditorPropertiesChanged>();
     const editorOptions = {
-        getActiveEditorOptions: () => ({ tabSize: 4, insertSpaces: true }),
-        setActiveEditorOptions: vi.fn(),
-        setEditorCursorStyle: vi.fn(),
+        setEditorOptions: vi.fn(),
+        revealEditorRange: vi.fn(),
         getActiveEditorMeta: () => META,
         onActiveEditorChanged: (cb: (meta: IActiveEditorMeta) => void) => activeEditor.event(cb),
         onActiveEditorSelectionChanged: (cb: (s: IActiveEditorSelections) => void) => selection.event(cb),
         setActiveEditorSelections: vi.fn(),
         applyActiveEditorEdits: vi.fn(() => true),
+        insertSnippet: vi.fn(() => Promise.resolve(true)),
         applyWorkspaceEdit: vi.fn(() => Promise.resolve(true)),
         saveAll: vi.fn(() => Promise.resolve(true)),
         save: vi.fn((uri: string) => Promise.resolve(uri === "file:///open.go" ? uri : null)),
@@ -48,7 +49,11 @@ function setup() {
         getLayoutSnapshot: () => LAYOUT,
         onDidChangeLayout: (cb) => layout.event(cb),
         flushPendingLayout: () => log.push("flush"),
-        openTextDocument: () => Promise.resolve(null),
+        onDidChangeEditorProperties: (cb) => properties.event(cb),
+        openTextDocument: (params) => {
+            log.push(["openTextDocument", params]);
+            return Promise.resolve(null);
+        },
         showTextDocument: (params) => {
             log.push(["show", params]);
             return Promise.resolve({ viewColumn: 1 } as never);
@@ -62,7 +67,7 @@ function setup() {
             return Promise.resolve({ uri: "untitled:Untitled-1" });
         },
         getLanguages: () => [],
-        getLanguageOfDocument: () => null,
+        openDocumentWithoutModel: () => null,
         changeDocumentLanguage: () => ({ applied: false }),
         closeGroups: (params) => {
             log.push(["closeGroups", params]);
@@ -72,14 +77,28 @@ function setup() {
     const customer = new EditorCustomer(editorOptions, editorLayout);
     const [a, b] = createInProcessChannelPair();
     const peer = new RpcEndpoint(b);
-    for (const method of ["editor.layoutChanged", "editor.activeEditorChanged", "editor.selectionChanged"]) {
+    for (const method of [
+        "editor.layoutChanged",
+        "editor.activeEditorChanged",
+        "editor.selectionChanged",
+        "editor.propertiesChanged",
+    ]) {
         peer.handleNotification(method, (params) => log.push([method, params]));
     }
     const attachTo = () => customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
-    return { customer, editorOptions, log, peer, attachTo, activeEditor, selection, layout };
+    return { customer, editorOptions, log, peer, attachTo, activeEditor, selection, layout, properties };
 }
 
 describe("EditorCustomer — editor seeds and events", () => {
+    it("editor properties go out after the layout flush: the extension knows the editor by its tab", async () => {
+        const h = setup();
+        h.attachTo();
+        const changed: IWireEditorPropertiesChanged = { uri: "file:///a.ts", groupId: 1, visibleRanges: [RANGE] };
+        h.properties.fire(changed);
+        await flushMicrotasks();
+        expect(h.log).toEqual(["flush", ["editor.propertiesChanged", changed]]);
+    });
+
     it("seeds: the group strip, then the active editor — only to a live spawn", async () => {
         const h = setup();
         h.customer.pushInitialState();
@@ -124,62 +143,79 @@ describe("EditorCustomer — editor seeds and events", () => {
 
 describe("EditorCustomer — subprocess requests", () => {
     // No it.each: the mutation runner can't find names with `{}`/`"` by the name filter.
-    it("editor.setOptions sanitizes the patch: positive integer sizes, indentSize is an alias, junk is dropped", async () => {
-        const cases: readonly (readonly [unknown, object])[] = [
+    it("editor.setOptions sanitizes the patch: positive integer sizes, a style of 1..6, junk is dropped", async () => {
+        const cases: readonly (readonly [object, object])[] = [
             [
                 { tabSize: 4.7, insertSpaces: false },
                 { tabSize: 4, insertSpaces: false },
             ],
-            [{ indentSize: 2.5 }, { tabSize: 2 }],
-            [{ tabSize: 3, indentSize: 8 }, { tabSize: 3 }],
-            [{ tabSize: 0, indentSize: 0, insertSpaces: "yes" }, {}],
-            [{ tabSize: -1, indentSize: -1 }, {}],
+            [{ tabSize: 0, insertSpaces: "yes" }, {}],
+            [{ tabSize: -1 }, {}],
             [{ tabSize: Infinity }, {}],
-            [{ tabSize: Infinity, indentSize: 6 }, { tabSize: 6 }],
-            [{ indentSize: Infinity }, {}],
-            [{ tabSize: "4", indentSize: "2" }, {}],
-            [null, {}],
-            [undefined, {}],
-            ["4", {}],
+            [{ tabSize: "4", indentSize: 2 }, {}],
+            [{ cursorStyle: 2 }, { cursorStyle: "block" }],
+            [
+                { cursorStyle: 6, tabSize: 2 },
+                { tabSize: 2, cursorStyle: "underline-thin" },
+            ],
+            [{ cursorStyle: 7 }, {}],
+            [{ cursorStyle: "2" }, {}],
         ];
         const h = setup();
         h.attachTo();
         // Infinity wouldn't survive a JSON channel; the in-process channel passes values as is.
         for (const [params] of cases) {
-            await expect(h.peer.request("editor.setOptions", params)).resolves.toBeNull();
+            await expect(
+                h.peer.request("editor.setOptions", { ...params, uri: "file:///a.ts", groupId: 7 }),
+            ).resolves.toBeNull();
         }
-        expect(vi.mocked(h.editorOptions.setActiveEditorOptions).mock.calls).toEqual(cases.map(([, patch]) => [patch]));
+        expect(vi.mocked(h.editorOptions.setEditorOptions).mock.calls).toStrictEqual(
+            cases.map(([, patch]) => ["file:///a.ts", 7, patch]),
+        );
     });
 
-    it("editor.setOptions: a cursorStyle of 1..6 goes to the editor at uri + groupId; junk is dropped", async () => {
+    it("editor.setOptions goes to the editor at uri + groupId; without that address it is dropped (#1231)", async () => {
         const h = setup();
         h.attachTo();
         const cases: readonly unknown[] = [
-            { cursorStyle: 2, uri: "file:///a.ts", groupId: 7 },
-            { cursorStyle: 6, uri: "file:///b.ts", groupId: 1, tabSize: 2 },
-            { cursorStyle: 7, uri: "file:///a.ts", groupId: 7 },
-            { cursorStyle: "2", uri: "file:///a.ts", groupId: 7 },
-            { cursorStyle: 2, groupId: 7 },
-            { cursorStyle: 2, uri: "file:///a.ts", groupId: "7" },
-            { cursorStyle: 2, uri: "file:///a.ts" },
+            { tabSize: 2, uri: "file:///b.ts", groupId: 2 },
+            { tabSize: 2, groupId: 7 },
+            { tabSize: 2, uri: "file:///a.ts", groupId: "7" },
+            { tabSize: 2, uri: "file:///a.ts" },
             null,
+            "4",
         ];
         for (const params of cases) {
             await expect(h.peer.request("editor.setOptions", params)).resolves.toBeNull();
         }
-        expect(vi.mocked(h.editorOptions.setEditorCursorStyle).mock.calls).toEqual([
-            ["file:///a.ts", 7, "block"],
-            ["file:///b.ts", 1, "underline-thin"],
+        expect(vi.mocked(h.editorOptions.setEditorOptions).mock.calls).toStrictEqual([
+            ["file:///b.ts", 2, { tabSize: 2 }],
         ]);
     });
 
-    it("editor.getOptions returns the active editor's options", async () => {
+    it("editor.revealRange maps the enum to a strategy for the editor at uri + group; junk is dropped", async () => {
         const h = setup();
         h.attachTo();
-        await expect(h.peer.request("editor.getOptions", undefined)).resolves.toEqual({
-            tabSize: 4,
-            insertSpaces: true,
-        });
+        const uri = "file:///a.ts";
+        const cases: readonly unknown[] = [
+            { uri, groupId: 7, range: RANGE, revealType: 0 },
+            { uri, groupId: 7, range: RANGE, revealType: 1 },
+            { uri, groupId: 7, range: RANGE, revealType: 2 },
+            { uri, groupId: 7, range: RANGE, revealType: 3 },
+            { uri, groupId: 7, range: RANGE, revealType: 4 },
+            { uri, groupId: 7, range: RANGE, revealType: "1" },
+            { uri, groupId: 7, range: null, revealType: 0 },
+            { uri, groupId: "7", range: RANGE, revealType: 0 },
+            { groupId: 7, range: RANGE, revealType: 0 },
+        ];
+        for (const params of cases) h.peer.notify("editor.revealRange", params);
+        await flushMicrotasks();
+        expect(vi.mocked(h.editorOptions.revealEditorRange).mock.calls).toEqual([
+            [uri, 7, RANGE, "default"],
+            [uri, 7, RANGE, "center"],
+            [uri, 7, RANGE, "centerIfOutsideViewport"],
+            [uri, 7, RANGE, "top"],
+        ]);
     });
 
     it("editor.setSelection: selections and group get through; without a string uri — ignored", async () => {
@@ -226,6 +262,55 @@ describe("EditorCustomer — subprocess requests", () => {
         await expect(options({ setEndOfLine: 3 })).resolves.toStrictEqual({});
         await expect(options({ setEndOfLine: 1 })).resolves.toStrictEqual({ setEndOfLine: 1 });
         await expect(options({ setEndOfLine: 2 })).resolves.toStrictEqual({ setEndOfLine: 2 });
+    });
+
+    it("editor.insertSnippet: the template, the ranges and the options reach the core, its verdict comes back", async () => {
+        const h = setup();
+        h.attachTo();
+        const params = { uri: "file:///a.ts", groupId: 2, version: 4, template: "${1:x}", ranges: [RANGE] };
+        await expect(h.peer.request("editor.insertSnippet", params)).resolves.toBe(true);
+        expect(h.editorOptions.insertSnippet).toHaveBeenLastCalledWith("file:///a.ts", 2, "${1:x}", [RANGE], {
+            version: 4,
+        });
+        await h.peer.request("editor.insertSnippet", {
+            ...params,
+            undoStopBefore: false,
+            undoStopAfter: false,
+            keepWhitespace: true,
+        });
+        expect(vi.mocked(h.editorOptions.insertSnippet).mock.lastCall?.[4]).toStrictEqual({
+            version: 4,
+            undoStopBefore: false,
+            undoStopAfter: false,
+            keepWhitespace: true,
+        });
+        // Only a switch away from the default goes through; no group is the active editor.
+        await h.peer.request("editor.insertSnippet", {
+            ...params,
+            groupId: "2",
+            undoStopBefore: true,
+            undoStopAfter: "no",
+            keepWhitespace: false,
+        });
+        expect(vi.mocked(h.editorOptions.insertSnippet).mock.lastCall).toStrictEqual([
+            "file:///a.ts",
+            undefined,
+            "${1:x}",
+            [RANGE],
+            { version: 4 },
+        ]);
+        vi.mocked(h.editorOptions.insertSnippet).mockResolvedValueOnce(false);
+        await expect(h.peer.request("editor.insertSnippet", params)).resolves.toBe(false);
+    });
+
+    it("editor.insertSnippet: junk is false without reaching the core", async () => {
+        const h = setup();
+        h.attachTo();
+        const params = { uri: "file:///a.ts", groupId: 2, version: 4, template: "x", ranges: [RANGE] };
+        for (const junk of [{ uri: 1 }, { template: 1 }, { version: "4" }, { ranges: "x" }, { ranges: [RANGE, "x"] }]) {
+            await expect(h.peer.request("editor.insertSnippet", { ...params, ...junk } as never)).resolves.toBe(false);
+        }
+        expect(h.editorOptions.insertSnippet).not.toHaveBeenCalled();
     });
 
     it("workspace.applyEdit: junk — false without the port; a valid set — the port verdict", async () => {
@@ -313,15 +398,30 @@ describe("EditorCustomer — subprocess requests", () => {
             ["createUntitled", {}],
         ]);
     });
+
+    it("workspace.openTextDocument: the encoding reaches the port; junk is rejected", async () => {
+        const h = setup();
+        h.attachTo();
+        await h.peer.request("workspace.openTextDocument", { uri: "file:///a", encoding: "cp1252" });
+        await h.peer.request("workspace.openTextDocument", { uri: "file:///a", encoding: 1 } as never);
+        await expect(h.peer.request("workspace.openTextDocument", null as never)).rejects.toThrow(
+            "workspace.openTextDocument: malformed params",
+        );
+        expect(h.log).toEqual([
+            ["openTextDocument", { uri: "file:///a", encoding: "cp1252" }],
+            ["openTextDocument", { uri: "file:///a" }],
+        ]);
+    });
 });
 
 describe("EditorCustomer — languages", () => {
     function attach() {
         const layout = {
             getLanguages: () => ["plaintext", "json"],
-            getLanguageOfDocument: vi.fn(() => "json"),
+            openDocumentWithoutModel: vi.fn(() => "json"),
             changeDocumentLanguage: vi.fn(() => ({ applied: true })),
             onDidChangeLayout: () => ({ dispose: () => undefined }),
+            onDidChangeEditorProperties: () => ({ dispose: () => undefined }),
         };
         const options = {
             onActiveEditorChanged: () => ({ dispose: () => undefined }),
@@ -350,7 +450,7 @@ describe("EditorCustomer — languages", () => {
         await expect(peer.request("languages.getLanguageOfDocument", { uri: "file:///a" })).resolves.toEqual({
             languageId: "json",
         });
-        expect(layout.getLanguageOfDocument).toHaveBeenCalledWith("file:///a");
+        expect(layout.openDocumentWithoutModel).toHaveBeenCalledWith("file:///a");
     });
 
     it("languages.changeLanguage passes uri and language on and returns the result", async () => {

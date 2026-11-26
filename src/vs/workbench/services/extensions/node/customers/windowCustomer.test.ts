@@ -60,7 +60,11 @@ describe("WindowCustomer — window sinks", () => {
         for (const [method, params] of WINDOW_NOTIFICATIONS) peer.notify(method, params);
         await flushMicrotasks();
 
-        expect(sinks.progressSink.start).toHaveBeenCalledWith(1, "Indexing");
+        expect(sinks.progressSink.start).toHaveBeenCalledWith(
+            1,
+            { title: "Indexing", location: "window", cancellable: false },
+            expect.any(Function),
+        );
         expect(sinks.progressSink.report).toHaveBeenCalledWith(1, "half", 50);
         expect(sinks.progressSink.end).toHaveBeenCalledWith(1);
         expect(sinks.outputSink.append).toHaveBeenCalledWith("ext.log", "Ext", "info", "line");

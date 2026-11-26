@@ -1,0 +1,20 @@
+{
+    "name": "editor-options-demo",
+    "displayName": "Editor Options Demo",
+    "description": "Demo: window.onDidChangeTextEditorOptions and TextEditor.options, shown in the status bar per view column.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            {
+                "command": "editorOptionsDemo.tabSize8InColumn1",
+                "title": "Editor Options Demo: Tab Size 8 in Column 1"
+            }
+        ]
+    }
+}

@@ -17,16 +17,20 @@ import {
     PROFILE_ASSOCIATIONS_STATE,
     profileIdFromName,
     type ProfileWorkspaceKey,
-    type StoredProfileAssociations,
+    REMOVED_PROFILE_FOLDERS_STATE,
     type StoredUserDataProfile,
     toUserDataProfile,
     USER_DATA_PROFILES_STATE,
 } from "../common/userDataProfile.ts";
 
+/** Default first, as {@link UserDataProfilesService.load} builds it. */
+type LoadedProfiles = readonly [IUserDataProfile, ...IUserDataProfile[]];
+
 /**
  * The profile directory is removed immediately on removal, not on the next start as upstream:
  * {@link migrateProfileDirectories} registers directories without an entry, so a leftover directory
- * would come back as a profile.
+ * would come back as a profile. A late write can still recreate it (the window of the removed profile), so the
+ * removed ones are also listed and deleted again on the next start, before the migration.
  */
 export class UserDataProfilesService extends Disposable implements IUserDataProfilesService {
     public readonly profilesHome: string;
@@ -34,7 +38,7 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     private readonly defaultProfileExtensionsResource: string | undefined;
     private readonly state: IStateStore;
     private readonly logger: ILogger;
-    private cache: IUserDataProfile[] | undefined;
+    private cache: LoadedProfiles | undefined;
     private readonly onDidChangeProfilesEmitter = this.register(new Emitter<DidChangeProfilesEvent>());
     public readonly onDidChangeProfiles = this.onDidChangeProfilesEmitter.event;
 
@@ -55,11 +59,14 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     }
 
     public get defaultProfile(): IUserDataProfile {
-        // Stryker disable next-line OptionalChaining,ConditionalExpression: the first element is always Default (load builds it so), `?? ` is only for the type
-        return this.profiles[0] ?? createDefaultProfile(this.defaultProfileHome, this.defaultProfileExtensionsResource);
+        return this.loaded[0];
     }
 
     public get profiles(): readonly IUserDataProfile[] {
+        return this.loaded;
+    }
+
+    private get loaded(): LoadedProfiles {
         this.cache ??= this.load();
         return this.cache;
     }
@@ -115,13 +122,17 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         this.saveProfiles(this.namedProfiles().filter((p) => p.id !== existing.id));
         // Associations with the removed profile go away with it.
         const associations = this.state.get(PROFILE_ASSOCIATIONS_STATE);
-        const workspaces = Object.fromEntries(
-            Object.entries(associations.workspaces ?? {}).filter(([, id]) => id !== existing.id),
+        this.saveAssociations(
+            Object.fromEntries(Object.entries(associations.workspaces ?? {}).filter(([, id]) => id !== existing.id)),
         );
-        this.saveAssociations({ ...associations, workspaces });
         // Only our own directory, a direct child of `profiles/`, is removed. An entry with
         // a foreign path (absolute, hand-written) leaves the registry but the directory stays.
         if (path.dirname(existing.location) === this.profilesHome) {
+            // The window of the current profile writes its state into the directory until it closes, and so may an
+            // extension host: a late write recreates it, and the next start deletes it again.
+            const removed = this.state.get(REMOVED_PROFILE_FOLDERS_STATE);
+            if (!removed.includes(existing.id))
+                this.state.store(REMOVED_PROFILE_FOLDERS_STATE, [...removed, existing.id]);
             try {
                 await fs.promises.rm(existing.location, { recursive: true, force: true });
             } catch (err) {
@@ -146,6 +157,7 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
      * Returns the added profiles.
      */
     public migrateProfileDirectories(): readonly IUserDataProfile[] {
+        const pending = this.deleteRemovedProfileFolders();
         let entries: fs.Dirent[];
         try {
             entries = fs.readdirSync(this.profilesHome, { withFileTypes: true });
@@ -156,7 +168,7 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         const known = new Set(this.namedProfiles().map((p) => path.basename(p.location)));
         const added: IUserDataProfile[] = [];
         for (const entry of entries) {
-            if (!entry.isDirectory() || known.has(entry.name)) continue;
+            if (!entry.isDirectory() || known.has(entry.name) || pending.has(entry.name)) continue;
             // A directory whose name is outside the id alphabet isn't a profile (neither
             // `--profile` nor the registry created it); it stays put and isn't listed.
             // Same for `default`: user data paths use that id for the Default profile.
@@ -177,8 +189,29 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         return added;
     }
 
-    private load(): IUserDataProfile[] {
-        const profiles: IUserDataProfile[] = [
+    /**
+     * Deletes the directories of removed profiles once more, unless a profile with that id was created since. A
+     * directory that fails to delete stays listed (and is not registered), for the next start. Returns those.
+     */
+    private deleteRemovedProfileFolders(): ReadonlySet<string> {
+        const known = new Set(this.namedProfiles().map((p) => p.id));
+        const failed = this.state.get(REMOVED_PROFILE_FOLDERS_STATE).filter((id) => {
+            if (known.has(id) || !isValidProfileId(id)) return false;
+            try {
+                fs.rmSync(path.join(this.profilesHome, id), { recursive: true, force: true });
+                return false;
+            } catch (err) {
+                this.logger.error(`Failed to delete profile folder ${id}`, err);
+                return true;
+            }
+        });
+        if (failed.length === 0) this.state.remove(REMOVED_PROFILE_FOLDERS_STATE);
+        else this.state.store(REMOVED_PROFILE_FOLDERS_STATE, failed);
+        return new Set(failed);
+    }
+
+    private load(): LoadedProfiles {
+        const profiles: [IUserDataProfile, ...IUserDataProfile[]] = [
             createDefaultProfile(this.defaultProfileHome, this.defaultProfileExtensionsResource),
         ];
         for (const stored of this.state.get(USER_DATA_PROFILES_STATE)) {
@@ -227,17 +260,15 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     }
 
     private saveAssociation(workspace: ProfileWorkspaceKey, profile: IUserDataProfile): void {
-        const associations = this.state.get(PROFILE_ASSOCIATIONS_STATE);
-        const workspaces = { ...associations.workspaces };
+        const workspaces = { ...this.state.get(PROFILE_ASSOCIATIONS_STATE).workspaces };
         // An association with Default is the absence of an entry (upstream writes Default's id;
         // resolution is the same and the file is shorter, see docs/arch/Configuration.md, profile deviations).
         if (profile.isDefault) Reflect.deleteProperty(workspaces, workspace);
         else workspaces[workspace] = profile.id;
-        this.saveAssociations({ ...associations, workspaces });
+        this.saveAssociations(workspaces);
     }
 
-    private saveAssociations(associations: StoredProfileAssociations): void {
-        const workspaces = associations.workspaces ?? {};
+    private saveAssociations(workspaces: Readonly<Record<string, string>>): void {
         if (Object.keys(workspaces).length === 0) {
             this.state.remove(PROFILE_ASSOCIATIONS_STATE);
         } else {

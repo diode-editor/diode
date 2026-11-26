@@ -27,6 +27,10 @@ import {
     ExtensionVersionContribution,
     ExtensionVersionContributionDIToken,
 } from "../../workbench/contrib/extensions/browser/extensionVersionActions.ts";
+import {
+    ExtensionVsixContribution,
+    ExtensionVsixContributionDIToken,
+} from "../../workbench/contrib/extensions/browser/extensionVsixActions.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
 import { ExtensionUpdateSchedulerDIToken } from "../../workbench/contrib/extensions/common/extensionUpdateScheduler.ts";
 import { ExtensionsWorkbenchService } from "../../workbench/contrib/extensions/node/extensionsWorkbenchService.ts";
@@ -54,6 +58,7 @@ export const extensionsModule: ContainerModule<ExtensionsModuleContext> = (conta
     container.bind(ExtensionsComponentDIToken, ExtensionsComponent);
     container.bind(ExtensionVersionContributionDIToken, ExtensionVersionContribution);
     container.bind(ExtensionUpdateContributionDIToken, ExtensionUpdateContribution);
+    container.bind(ExtensionVsixContributionDIToken, ExtensionVsixContribution);
     container.bind(ExtensionUpdateSchedulerDIToken, WorkbenchExtensionUpdateScheduler);
     container.bind(ExtensionAutoUpdateContributionDIToken, ExtensionAutoUpdateContribution);
     container.bind(ExtensionsEditorTargetDIToken, () => container.get(EditorServiceDIToken));

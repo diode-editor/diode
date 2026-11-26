@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import {
     CallHierarchyItem,
     CancellationError,
@@ -15,6 +16,7 @@ import {
     DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DiagnosticTag,
+    DocumentHighlight,
     DocumentHighlightKind,
     DocumentLink,
     DocumentSymbol,
@@ -114,7 +116,7 @@ describe("vscodeTypes — LSP value classes", () => {
 
     it("CodeLens: isResolved by presence of command", () => {
         expect(new CodeLens(RANGE).isResolved).toBe(false);
-        expect(new CodeLens(RANGE, { command: "x" }).isResolved).toBe(true);
+        expect(new CodeLens(RANGE, { command: "x", title: "X" }).isResolved).toBe(true);
     });
 
     it("CodeAction/DocumentLink/InlayHint/SymbolInformation/hierarchies — constructors store fields", () => {
@@ -135,6 +137,12 @@ describe("vscodeTypes — LSP value classes", () => {
 
         const call = new CallHierarchyItem(SymbolKind.Method, "m", "detail", URI, RANGE, RANGE);
         expect(call.name).toBe("m");
+        const incoming = new CallHierarchyIncomingCall(call, [RANGE]);
+        expect(incoming.from).toBe(call);
+        expect(incoming.fromRanges).toEqual([RANGE]);
+        const outgoing = new CallHierarchyOutgoingCall(call, [RANGE]);
+        expect(outgoing.to).toBe(call);
+        expect(outgoing.fromRanges).toEqual([RANGE]);
         const type = new TypeHierarchyItem(SymbolKind.Class, "C", "detail", URI, RANGE, RANGE);
         expect(type.kind).toBe(SymbolKind.Class);
     });
@@ -318,13 +326,6 @@ describe("vscodeTypes — LSP value classes", () => {
         expect(empty.isIncomplete).toBe(false);
     });
 
-    it("SnippetString: stores the value, appendText concatenates and returns this", () => {
-        const snippet = new SnippetString("foo(");
-        expect(snippet.appendText("$1)")).toBe(snippet);
-        expect(snippet.value).toBe("foo($1)");
-        expect(new SnippetString().value).toBe("");
-    });
-
     it("enums match VS Code numeric values", () => {
         expect(CompletionTriggerKind.Invoke).toBe(0);
         expect(CompletionTriggerKind.TriggerCharacter).toBe(1);
@@ -333,6 +334,12 @@ describe("vscodeTypes — LSP value classes", () => {
         expect(DiagnosticTag.Deprecated).toBe(2);
         expect(CompletionItemTag.Deprecated).toBe(1);
         expect(DocumentHighlightKind.Write).toBe(2);
+        const range = new Range(0, 0, 0, 1);
+        expect(new DocumentHighlight(range).kind).toBe(DocumentHighlightKind.Text);
+        expect(new DocumentHighlight(range).range).toBe(range);
+        const write = new DocumentHighlight(range, DocumentHighlightKind.Write);
+        expect(write.kind).toBe(DocumentHighlightKind.Write);
+        expect(write.toJSON()).toEqual({ range, kind: "Write" });
         expect(SymbolTag.Deprecated).toBe(1);
         expect(SymbolKind.TypeParameter).toBe(25);
         expect(LogLevel.Error).toBe(5);

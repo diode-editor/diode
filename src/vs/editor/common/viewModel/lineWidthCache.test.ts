@@ -285,6 +285,30 @@ describe("LineWidthCache", () => {
         });
     });
 
+    // #1098: unlike the breaks cache nothing memoizes the width by revision, and the cache's own handler
+    // invalidates what an older subscriber measured during the event. Its subscription order is safe.
+    describe("a subscriber older than the cache measures during the change", () => {
+        it.each([
+            ["inserts lines in the middle", "a\nb\nlongerline\nlongerline\nc\nd"],
+            ["rewrites a line in place", "a\nlongerline\nc\nd"],
+            ["drops the widest line", "a\nc\nd"],
+        ])("a reload that %s leaves the width of the new text", (_name, text) => {
+            const doc = new TextDocument("a\nbbb\nc\nd");
+            let cache: LineWidthCache | null = null;
+            doc.onDidChangeContent(() => {
+                cache?.measureLines([0, 1, 2]);
+                cache?.getMaxWidth();
+            });
+            cache = new LineWidthCache(doc, 4);
+            measureAll(cache);
+            expect(cache.getMaxWidth()).toBe(3);
+
+            doc.setText(text);
+            measureAll(cache);
+            expect(cache.getMaxWidth()).toBe(Math.max(...text.split("\n").map((line) => line.length)));
+        });
+    });
+
     describe("lifecycle", () => {
         it("stops listening after dispose", () => {
             const doc = new TextDocument("a\nb");

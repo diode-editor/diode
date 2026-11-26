@@ -6,14 +6,17 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
+import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
+    DecorationRangeBehavior,
     EventEmitter,
     FileDecoration,
     OverviewRulerLane,
     Position,
     Range,
     Selection,
+    SnippetString,
     ThemeColor,
     Uri,
 } from "./vscodeTypes.ts";
@@ -35,6 +38,30 @@ function makeCtx() {
 }
 
 describe("WindowNamespace", () => {
+    it("registerTerminalLinkProvider is an inert no-op: a disposable, nothing sent to the host", () => {
+        const { stub, window } = makeCtx();
+        const register = (window as unknown as { registerTerminalLinkProvider: (p: unknown) => vscode.Disposable })
+            .registerTerminalLinkProvider;
+        const registration = register({ provideTerminalLinks: () => [] });
+        expect(() => {
+            registration.dispose();
+        }).not.toThrow();
+        expect(stub.notifies).toStrictEqual([]);
+        expect(stub.requests).toStrictEqual([]);
+    });
+
+    // On Windows the profile of an extension whose identity the subprocess did not resolve was never found.
+    it("registerTerminalProfileProvider addresses the provider by the profile id, with or without a known extension", () => {
+        const { stub, ctx, window } = makeCtx();
+        const provider: vscode.TerminalProfileProvider = { provideTerminalProfile: () => undefined };
+        ctx.owner.runAs("ms-vscode.js-debug", () => window.registerTerminalProfileProvider("debug", provider));
+        window.registerTerminalProfileProvider("anonymous", provider);
+        expect(stub.notifies.filter((n) => n.method === "terminal.registerProfileProvider")).toStrictEqual([
+            { method: "terminal.registerProfileProvider", params: { id: "debug" } },
+            { method: "terminal.registerProfileProvider", params: { id: "anonymous" } },
+        ]);
+    });
+
     it("terminals: createTerminal, terminals, activeTerminal and events are shared on window", () => {
         const { stub, window } = makeCtx();
         const opened: vscode.Terminal[] = [];
@@ -112,14 +139,15 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("indentSize is forwarded to editor.setOptions", () => {
+    it("indentSize goes to editor.setOptions as the tab size; an explicit tabSize wins", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         window.activeTextEditor!.options = { indentSize: 3 } as never;
-        expect(stub.requests).toContainEqual({
-            method: "editor.setOptions",
-            params: { indentSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
-        });
+        window.activeTextEditor!.options = { tabSize: 4, indentSize: 8 } as never;
+        expect(stub.requests.map((request) => request.params)).toEqual([
+            { tabSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+            { tabSize: 4, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+        ]);
     });
 
     it('indentSize="tabSize" is not forwarded (same as tabSize)', () => {
@@ -246,6 +274,14 @@ describe("WindowNamespace", () => {
         expect(stub.notifies[0]?.params).toMatchObject({ title: "Pick", visible: true });
     });
 
+    it("createInputBox returns a live box: show() sends its state to the host", () => {
+        const { stub, window } = makeCtx();
+        const box = window.createInputBox();
+        box.prompt = "Group";
+        box.show();
+        expect(stub.notifies[0]?.params).toMatchObject({ inputBox: true, prompt: "Group", visible: true });
+    });
+
     it("showInputBox is sent to the host as a request and resolves with the input", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ value: "Ada" });
@@ -310,19 +346,25 @@ describe("WindowNamespace", () => {
         window.activeTextEditor!.options = { indentSize: "3" } as never;
         expect(stub.requests.at(-1)).toEqual({
             method: "editor.setOptions",
-            params: { indentSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+            params: { tabSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
         });
     });
 
     it("options with junk strings degrades safely", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
-        // invalid tabSize → 4; invalid indentSize → not forwarded
-        window.activeTextEditor!.options = { tabSize: "bad", indentSize: "bad" } as never;
-        expect(stub.requests.at(-1)).toEqual({
-            method: "editor.setOptions",
-            params: { tabSize: 4, uri: Uri.file("/a.ts").toString(), groupId: 1 },
-        });
+        // As upstream: a tabSize or indentSize that is not a number is no change, nothing is forwarded or kept.
+        const editor = window.activeTextEditor!;
+        editor.options = { tabSize: 3 };
+        editor.options = { tabSize: "bad", indentSize: "bad" } as never;
+        editor.options.tabSize = "auto";
+        expect(stub.requests).toEqual([
+            {
+                method: "editor.setOptions",
+                params: { tabSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+            },
+        ]);
+        expect(editor.options.tabSize).toBe(3);
     });
 
     it("assigning a non-object to options and other properties is rejected", () => {
@@ -385,6 +427,105 @@ describe("WindowNamespace", () => {
         });
     });
 
+    it("[api:window.createTextEditorDecorationType] options carry the light and dark branches with their colors, and nothing else", () => {
+        const { stub, window } = makeCtx();
+        window.createTextEditorDecorationType({
+            backgroundColor: "rgba(255,0,0,0.3)",
+            color: new ThemeColor("editor.foreground"),
+            borderColor: "rgba(255,100,100,0.15)",
+            borderStyle: "solid",
+            light: { backgroundColor: "#ffffff", overviewRulerColor: new ThemeColor("merge.border"), border: "1px" },
+            dark: { color: "#000000" },
+        });
+        expect(stub.notifies.at(-1)?.params).toStrictEqual({
+            key: 1,
+            options: {
+                backgroundColor: "rgba(255,0,0,0.3)",
+                color: { $themeColor: "editor.foreground" },
+                light: { backgroundColor: "#ffffff", overviewRulerColor: { $themeColor: "merge.border" } },
+                dark: { color: "#000000" },
+            },
+        });
+        window.createTextEditorDecorationType({ light: null, dark: "nope" } as never);
+        expect(stub.notifies.at(-1)?.params).toStrictEqual({ key: 2, options: {} });
+    });
+
+    it("[api:window.createTextEditorDecorationType] before/after carry their text, colors and font style, also in the branches; rangeBehavior goes along", () => {
+        const { stub, window } = makeCtx();
+        // The shape Tailwind CSS IntelliSense creates, plus a GitLens-like `after`.
+        window.createTextEditorDecorationType({
+            rangeBehavior: DecorationRangeBehavior.ClosedClosed,
+            before: {
+                width: "0.8em",
+                height: "0.8em",
+                contentText: " ",
+                border: "0.1em solid",
+                margin: "0.1em 0.2em 0",
+            },
+            after: {
+                contentText: "  You, 2 days ago",
+                color: new ThemeColor("editorCodeLens.foreground"),
+                backgroundColor: "#102030",
+                fontStyle: "italic",
+                fontWeight: "bold",
+                textDecoration: "underline",
+            },
+            dark: { before: { borderColor: "#eeeeee" } },
+            light: { before: { borderColor: "#000000" }, after: "nope" as never },
+        });
+        expect(stub.notifies.at(-1)?.params).toStrictEqual({
+            key: 1,
+            options: {
+                rangeBehavior: DecorationRangeBehavior.ClosedClosed,
+                before: { contentText: " ", margin: "0.1em 0.2em 0", width: "0.8em" },
+                after: {
+                    contentText: "  You, 2 days ago",
+                    color: { $themeColor: "editorCodeLens.foreground" },
+                    backgroundColor: "#102030",
+                    fontStyle: "italic",
+                    fontWeight: "bold",
+                    textDecoration: "underline",
+                },
+                dark: { before: { borderColor: "#eeeeee" } },
+                light: { before: { borderColor: "#000000" } },
+            },
+        });
+    });
+
+    it("[api:TextEditor.setDecorations] renderOptions of a range carry before/after and their branches, hoverMessage its markdown; a bare Range goes without", () => {
+        const { stub, window } = makeCtx();
+        stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
+        const type = window.createTextEditorDecorationType({});
+        window.activeTextEditor!.setDecorations(type, [
+            {
+                range: new Range(0, 7, 0, 17),
+                hoverMessage: "**commit**",
+                renderOptions: {
+                    before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)", width: "1em" },
+                    after: { contentText: "!", color: new ThemeColor("errorForeground") },
+                    dark: { after: { fontStyle: "normal" } },
+                    light: { before: { borderColor: "#000000" } },
+                },
+            },
+            { range: new Range(1, 0, 1, 1), renderOptions: "nope" as never },
+            { range: new Range(2, 0, 2, 1) },
+        ]);
+        expect((stub.notifies.at(-1)!.params as { ranges: unknown }).ranges).toStrictEqual([
+            {
+                range: { start: { line: 0, character: 7 }, end: { line: 0, character: 17 } },
+                renderOptions: {
+                    before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)", width: "1em" },
+                    after: { contentText: "!", color: { $themeColor: "errorForeground" } },
+                    dark: { after: { fontStyle: "normal" } },
+                    light: { before: { borderColor: "#000000" } },
+                },
+                hoverMessage: ["**commit**"],
+            },
+            { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 1 } } },
+            { range: { start: { line: 2, character: 0 }, end: { line: 2, character: 1 } } },
+        ]);
+    });
+
     it("editor.setDecorations sends notify with the active editor fileName and nested ranges", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
@@ -398,8 +539,8 @@ describe("WindowNamespace", () => {
                 key: 1,
                 uri: Uri.file("/proj/a.ts").toString(),
                 ranges: [
-                    { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } },
-                    { start: { line: 4, character: 2 }, end: { line: 4, character: 5 } },
+                    { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } } },
+                    { range: { start: { line: 4, character: 2 }, end: { line: 4, character: 5 } } },
                 ],
                 groupId: 1,
             },
@@ -412,7 +553,7 @@ describe("WindowNamespace", () => {
         const type = window.createTextEditorDecorationType({});
         window.activeTextEditor!.setDecorations(type, [{ range: new Range(2, 0, 2, 3) }] as never);
         expect((stub.notifies.at(-1)!.params as { ranges: unknown }).ranges).toEqual([
-            { start: { line: 2, character: 0 }, end: { line: 2, character: 3 } },
+            { range: { start: { line: 2, character: 0 }, end: { line: 2, character: 3 } } },
         ]);
     });
 
@@ -426,7 +567,7 @@ describe("WindowNamespace", () => {
             { start: { line: 3, character: 1 }, end: { line: 2, character: 0 } },
         ] as never);
         expect((stub.notifies.at(-1)!.params as { ranges: unknown }).ranges).toEqual([
-            { start: { line: 2, character: 0 }, end: { line: 3, character: 1 } },
+            { range: { start: { line: 2, character: 0 }, end: { line: 3, character: 1 } } },
         ]);
     });
 
@@ -718,6 +859,114 @@ describe("WindowNamespace — editor write (#194)", () => {
 
         expect(editor.document.isClosed).toBe(false);
         await expect(editor.edit(() => undefined)).rejects.toThrow("TextEditor#edit not possible on closed editors");
+    });
+
+    it("[api:TextEditor.revealRange] sends the range and type; no type means Default", () => {
+        const { stub, editor } = activeEditor();
+        const range = new Range(1, 2, 3, 4);
+        editor.revealRange(range, TextEditorRevealType.AtTop);
+        editor.revealRange(range);
+        const sent = stub.notifies.filter((n) => n.method === "editor.revealRange").map((n) => n.params);
+        const wire = { start: { line: 1, character: 2 }, end: { line: 3, character: 4 } };
+        expect(sent).toEqual([
+            { uri: URI, groupId: 1, range: wire, revealType: 3 },
+            { uri: URI, groupId: 1, range: wire, revealType: 0 },
+        ]);
+    });
+
+    it("[api:TextEditor.revealRange] on a closed editor or with a broken range sends nothing and does not throw", () => {
+        const { stub, editor } = activeEditor();
+        editor.revealRange(undefined as unknown as Range);
+        stub.fire("editor.layoutChanged", { groups: [] });
+        editor.revealRange(new Range(1, 0, 1, 0));
+        expect(stub.notifies.filter((n) => n.method === "editor.revealRange")).toEqual([]);
+    });
+
+    describe("[api:TextEditor.insertSnippet]", () => {
+        /** Our class has no `append*` builders yet (#991); the method only reads `value`. */
+        const snippet = (value: string) => new SnippetString(value) as unknown as vscode.SnippetString;
+        const range = (startLine: number, startCharacter: number, endLine: number, endCharacter: number) => ({
+            start: { line: startLine, character: startCharacter },
+            end: { line: endLine, character: endCharacter },
+        });
+        function sent(stub: ReturnType<typeof makeStubRpc>): Record<string, unknown> {
+            return stub.requests.find((r) => r.method === "editor.insertSnippet")?.params as Record<string, unknown>;
+        }
+
+        it("sends the template as it is with the version and the editor, and answers with the core's reply", async () => {
+            const { stub, editor } = editorWithText("    foo()");
+            const ok = await editor.insertSnippet(snippet("\n\t${1:x} $TM_FILENAME\n"), new Position(0, 8));
+            expect(ok).toBeUndefined();
+            expect(sent(stub)).toEqual({
+                uri: URI,
+                groupId: 1,
+                version: 7,
+                template: "\n\t${1:x} $TM_FILENAME\n",
+                ranges: [range(0, 8, 0, 8)],
+            });
+            // The core reveals the caret itself, after the edit.
+            expect(stub.notifies.find((n) => n.method === "editor.revealRange")).toBeUndefined();
+            expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();
+        });
+
+        it("without a location or with an empty list it takes the selections", () => {
+            const first = editorWithText("abcd\nefgh\nijkl");
+            void first.editor.insertSnippet(snippet("X"));
+            expect(sent(first.stub).ranges).toEqual([range(0, 1, 2, 3)]);
+
+            const second = editorWithText("abcd\nefgh\nijkl");
+            void second.editor.insertSnippet(snippet("X"), []);
+            expect(sent(second.stub).ranges).toEqual([range(0, 1, 2, 3)]);
+        });
+
+        it("takes a range clamped to the document, and a list in its order", () => {
+            const { stub, editor } = editorWithText("abcd\nefgh");
+            void editor.insertSnippet(snippet("X"), new Range(0, 1, 9, 9));
+            expect(sent(stub).ranges).toEqual([range(0, 1, 1, 4)]);
+
+            const list = editorWithText("abcd\nefgh");
+            void list.editor.insertSnippet(snippet("X"), [new Position(1, 2), new Position(0, 1)]);
+            expect(sent(list.stub).ranges).toEqual([range(1, 2, 1, 2), range(0, 1, 0, 1)]);
+        });
+
+        it("keepWhitespace and undo stops go through only when they change the default", () => {
+            const kept = editorWithText("    abcd");
+            void kept.editor.insertSnippet(snippet("x"), new Position(0, 4), {
+                undoStopBefore: true,
+                undoStopAfter: true,
+                keepWhitespace: true,
+            });
+            expect(sent(kept.stub)).toMatchObject({ keepWhitespace: true });
+            expect(sent(kept.stub)).not.toHaveProperty("undoStopBefore");
+            expect(sent(kept.stub)).not.toHaveProperty("undoStopAfter");
+
+            const before = editorWithText("abcd");
+            void before.editor.insertSnippet(snippet("x"), new Position(0, 0), {
+                undoStopBefore: false,
+                undoStopAfter: true,
+                keepWhitespace: false,
+            });
+            expect(sent(before.stub)).toMatchObject({ undoStopBefore: false });
+            expect(sent(before.stub)).not.toHaveProperty("undoStopAfter");
+            expect(sent(before.stub)).not.toHaveProperty("keepWhitespace");
+
+            const after = editorWithText("abcd");
+            void after.editor.insertSnippet(snippet("x"), new Position(0, 0), {
+                undoStopBefore: true,
+                undoStopAfter: false,
+            });
+            expect(sent(after.stub)).toMatchObject({ undoStopAfter: false });
+            expect(sent(after.stub)).not.toHaveProperty("undoStopBefore");
+        });
+
+        it("a closed editor rejects with upstream's message and sends nothing", async () => {
+            const { stub, editor } = editorWithText("abcd");
+            stub.fire("editor.layoutChanged", { groups: [] });
+            await expect(editor.insertSnippet(snippet("x"))).rejects.toThrow(
+                "TextEditor#insertSnippet not possible on closed editors",
+            );
+            expect(sent(stub)).toBeUndefined();
+        });
     });
 
     it("editor.edit without edits resolves true without RPC", async () => {

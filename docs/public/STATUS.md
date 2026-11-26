@@ -6,11 +6,19 @@ differently is on [Differences from VS Code](DIFFERENCES.md).
 
 ## Known gaps
 
-- **Debugging.** There is no debugger yet: no Run and Debug view, no breakpoints, `launch.json` is
-  ignored. Extensions that bring a debugger still load, but a debug session never starts.
+- **Debugging** works through debugger extensions; none is bundled, so F5 with none installed opens Run and Debug,
+  whose button offers to find one in the store. The JavaScript Debugger (js-debug) from the store debugs Node.js —
+  F5 on a `.js` file, `launch` and `attach` configurations, child processes, the JavaScript Debug Terminal, npm
+  scripts and auto attach. CodeLLDB from the store debugs C and C++ —
+  `.diode/launch.json` with its `preLaunchTask` (with completion of the debuggers' attributes and configuration
+  snippets, no validation yet), breakpoints in the gutter (F9) with conditions, hit counts, log messages and
+  triggers, function, exception and data breakpoints, inline breakpoints (Shift+F9), stepping, Run to Cursor, Jump
+  to Cursor, Step Into Target, the exception shown after its line, the debug hover and inline values, Variables,
+  Watch, Call Stack, Loaded Scripts, Breakpoints, the Debug Console and the debug toolbar; every `debug.*` setting
+  of VS Code is there. Conditions are edited in a quick input, not in place. Not there: the debug visualizers of
+  extensions, the font settings of the Debug Console (it is the terminal's), and the disassembly and memory views,
+  which are not planned.
 - **Snippets** from extensions are not read; **file icon themes** are not applied.
-- **Tree views from extensions** register and get a section in the sidebar, but the tree itself
-  is not drawn yet.
 - **Source control extensions.** Built-in git works (diffs, commit graph, staging); an extension
   that brings another version control system has no API to plug into yet.
 - **Notebooks, chat and language model APIs** are not exposed to extensions.
@@ -19,8 +27,6 @@ differently is on [Differences from VS Code](DIFFERENCES.md).
   file that does not fit in memory stays read-only.
 - **Very long lines.** A line of hundreds of thousands of characters is rendered in full and slows
   the editor down.
-- **Extensions don't update themselves.** An update is a button on the extension's page
-  ([extensions](EXTENSIONS.md)).
 
 For the status of each member of the extension API, see the
 [readiness matrix](API-COVERAGE.md).
@@ -31,10 +37,9 @@ No dates promised, in the order that seems right today.
 
 - Long lines without the slowdown.
 - `.gitignore` honoured in the file tree, as it already is in search and Quick Open.
-- Snippets, file icon themes and tree views from extensions.
-- Automatic extension updates.
+- Snippets and file icon themes from extensions.
 - More languages in the store: Rust and C# next, then on demand.
-- Debugging through the Debug Adapter Protocol, so VS Code debugger extensions work.
+- The rest of debugging: debugging in a browser.
 
 ## Won't happen
 

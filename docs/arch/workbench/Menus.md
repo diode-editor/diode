@@ -30,7 +30,9 @@ shortTitle → title» фиксируется при деривации). Явн
 
 **Реестр (данные).** `MenuRegistry.getMenuItems(menuId, context?)`: фильтр по
 `when` (`ContextKeyService.evaluate`) и по `visible(context)`, сортировка групп —
-**`navigation` первой** (спец-группа vscode), дальше по строке; внутри — order;
+**`navigation` первой** (спец-группа vscode), дальше по строке, **безымянная
+группа (`""`, пункт без `group`) — последней**, как «falsy groups come last» в
+`_compareMenuItems`; внутри — order, при равенстве — порядок регистрации;
 авто-разделители **между непустыми группами** (скрытый пункт схлопывает группу
 без лишнего сепаратора), маппинг в `MenuEntry`:
 - **label** — `title` пункта, иначе `CommandRegistry.getTitle(command)`, иначе id;
@@ -63,7 +65,7 @@ Format Selection, Refactor…, Source Action…) → `1_quickfix` (Quick Fix) �
 **Пункты расширений (`contributes.menus`/`submenus`).** Мост
 `registerExtensionMenus` (`services/extensions/common/extensionMenuContributor.ts`,
 аналог upstream `menusExtensionPoint.ts`) переводит строковые id точек VS Code
-(`editor/context`, `editor/title`, `explorer/context`, `scm/resourceState/context`,
+(`editor/context`, `editor/title`, `editor/title/run`, `explorer/context`, `scm/resourceState/context`,
 `view/title`, `view/item/context`, …) в наши `MenuId` и кладёт пункты в реестр через
 `appendMenuItem`. Разбор — как в эталоне: `group@order` → группа и порядок,
 `when` → when-выражение, `title` пункта перебивает титул команды, ключом
@@ -80,11 +82,44 @@ Format Selection, Refactor…, Source Action…) → `1_quickfix` (Quick Fix) �
 контексте активного редактора, а не фокуса: палитра забирает фокус, и наш `editorLangId` от
 фокуса был бы пуст, поэтому палитра подставляет язык активного редактора.
 `when` расширений смотрят на upstream-имена ключей, поэтому рядом с нашими
-выставляются `editorTextFocus` и `editorLangId`. Иконка пункта — иконка его
+выставляются `editorTextFocus` и `editorLangId`, а семейство `resource*` эталонного `ResourceContextKey`
+(`resource`, `resourceScheme`, `resourceFilename`, `resourceDirname`, `resourcePath`, `resourceLangId`,
+`resourceExtname`, `resourceSet`) — `ResourceContextKeys` (`workbench/browser/resourceContextKeys.ts`): ресурс
+активного редактора, пока фокус в области редакторов, вне её ключи сняты. У эталона они живут в контексте группы
+редакторов и видны так же — изнутри группы; `isFileSystemResource` не выставляется. Без них `Alt+O` и
+`Shift+Alt+T` стокового clangd (`resourceLangId == cpp && editorTextFocus`) молчали. Иконка пункта — иконка его
 команды из `contributes.commands` любого расширения (как `MenuItemAction`
 эталона): строка ровно `"$(имя)"` или `"$(имя~модификатор)"` известного
 codicon'а (`ThemeIcon.fromString`) становится глифом, модификатор не рисуется;
 SVG (путь или `{ light, dark }`) в терминале не нарисовать — у пункта иконки нет.
+
+**`DebugToolBar` — тулбар отладки** (VS Code `debug/toolBar`). Кнопки — пункты `navigation` с иконкой
+(`views/titleMenuEntries.ts`, тот же разбор, что у заголовков view), размещения — на командах
+(`debugCommands.ts`, `toolBarItem`, `when`/`enablement` эталона) с `iconColor` — цветом глифа
+(`debugIcon.*Foreground`; у эталона — CSS-правила по codicon в `debugColors.ts`). `iconColor` — общее поле пункта:
+его рисуют и кнопки заголовков view (`titleMenuEntries.ts` → `ViewTitleRowElement`). У каждого пункта тулбара —
+встроенного и расширения (`contributes.menus["debug/toolBar"]`) — есть двойник в `ViewContainerTitle` вьюлета Run and
+Debug с `config.debug.toolBarLocation == 'docked' && debugState != 'inactive'`: его держит `DockedDebugToolbarItems`
+(`debugToolbar.ts`, как `debugViewTitleItems` эталона) и пересобирает при каждой смене меню тулбара
+(`MenuRegistry.getContributions`). Рисует меню `DebugToolbar` (`contrib/debug/browser/`) —
+в углу активной группы редакторов (см. [EditorWidgets.md](EditorWidgets.md#угол-группы-тулбар-отладки-и-find)),
+пере-резолв — по `ContextKeyService.onDidChange`, смене меню, состояния отладки и настроек; ряд пересобирается,
+только когда меняется показанное.
+
+**Контекстные меню строк видов отладки** — `DebugVariablesContext`, `DebugWatchContext`,
+`DebugCallStackContext`, `DebugBreakpointsContext`, `DebugConsoleContext` (точки расширений эталона —
+`debug/variables/context`, `debug/watch/context`, `debug/callstack/context`; у остальных точки нет). Правый клик и
+Shift+F10 по строке `LazyTreeControl` (`onContextMenu`) открывают меню без группы `inline`
+(`contrib/debug/browser/debugContextMenus.ts`, `showDebugContextMenu`): `when`/`enablement` пунктов считаются с
+ключами строки поверх глобальных (оверлей эталона: `callStackItemType`, `watchItemType`, `breakpointItemType`,
+`variableEvaluateNamePresent`, `variableIsReadonly`, `breakWhenValue*Supported` по ответу `dataBreakpointInfo`), а
+команда любого пункта — встроенного и расширения — получает аргументы эталона: у переменной `{ sessionId, container,
+variable }`, у строки WATCH и консоли — сам элемент, у брейкпоинта — брейкпоинт, у стека — «контекст для расширений»
+(URI источника кадра, id потока или сессии) и вторым — `{ sessionId, threadId?, frameId?, frameName?, frameLocation? }`.
+Пункты встроенных команд — размещения на самих командах (`debugCommands.ts` `callStackItem`, `rowMenuItem`).
+`inline`-кнопки строк (Remove Expression, View Binary Data) пока не рисуются. `DebugCreateConfiguration`
+(`debug/createConfiguration`, proposed) принимается мостом; показывает его выбор отладчика при создании launch.json
+(#1156).
 
 **`EditorTitle` — панель действий группы** (VS Code `editor/title`,
 `EditorTabsControl.editorActionsToolbar`). У каждой группы своя:
@@ -101,6 +136,22 @@ SVG (путь или `{ light, dark }`) в терминале не нарисо�
 (у эталона — ресурс активного редактора группы). Встроенных пунктов эталона
 (Split Editor, «⋯» с Close All/Close Saved/…) пока нет — панель наполняют
 расширения (Claude Code: accept/reject предложенного диффа, Open in Terminal).
+
+**`EditorTitleRun` — кнопка Run or Debug** (VS Code `editor/title/run`). Как в
+эталоне (`debug.contribution.ts`), это подменю `EditorTitle` в группе
+`navigation` с `order: -1` (левее прочих кнопок) и `isSplitButton:
+{ togglePrimaryAction: true }` (`contrib/debug/browser/debugMenus.ts`); пункты кладут
+расширения (Python, Java, Code Runner, JBang). Split-кнопка — общий механизм
+заголовков (`ISubmenuContribution.isSplitButton`, разбор в `views/titleMenuEntries.ts`,
+аналог `DropdownWithDefaultActionViewItem`): основная кнопка ` ▷ ` запускает
+последний выбранный из стрелки пункт, пока он виден, иначе первый; приклеенная
+стрелка `▾ ` (без черты-разделителя, 2 колонки) открывает попап со всеми видимыми
+пунктами подменю по группам. Выбор запоминается ключом эталона
+`<submenu>_lastActionId` в `workspace`-скоупе `IStateService` — переживает
+перезапуск. Глиф кнопки — иконка выбранного пункта, а если её нет (у JBang иконки
+PNG) — иконка самого подменю (`play`, эталонный `Codicon.run`); отступление: эталон
+нарисовал бы картинку или подпись пункта. Без глифа вообще подменю уходит в «⋯».
+Нет ни одного видимого пункта — нет и кнопки.
 
 **`EditorTitleContext` — меню вкладки** (VS Code `editor/title/context`).
 Открывает `EditorGroupComponent` по `EditorTabStripElement.onTabContextMenu`;

@@ -74,6 +74,31 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Do Thing"]);
     });
 
+    it("`editor/title/run` lands in the Run or Debug submenu, groups and order kept, and logs nothing", () => {
+        const { menus, commands } = makeRegistry();
+        commands.register("ext.run", () => undefined, "Run Script");
+        commands.register("ext.debug", () => undefined, "Debug Script");
+        const { logger, lines } = collectLog();
+
+        registerExtensionMenus(
+            [
+                extension("test.ext", {
+                    menus: {
+                        "editor/title/run": [
+                            { command: "ext.debug", group: "1_execute@2" },
+                            { command: "ext.run", group: "1_execute@1" },
+                        ],
+                    },
+                }),
+            ],
+            menus,
+            logger,
+        );
+
+        expect(labels(menus, MenuId.EditorTitleRun)).toEqual(["Run Script", "Debug Script"]);
+        expect(lines).toEqual([]);
+    });
+
     it("item's own title overrides the command title", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.organize", () => undefined, "Organize Imports");
@@ -129,6 +154,24 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["First", "Second"]);
     });
 
+    it("an item without `group` goes to the last section, after `navigation` (as VS Code)", () => {
+        const { menus, commands } = makeRegistry();
+        commands.register("ext.ungrouped", () => undefined, "Ungrouped");
+        commands.register("ext.nav", () => undefined, "Nav");
+        registerExtensionMenus(
+            [
+                extension("test.ext", {
+                    menus: {
+                        "editor/context": [{ command: "ext.ungrouped" }, { command: "ext.nav", group: "navigation" }],
+                    },
+                }),
+            ],
+            menus,
+        );
+
+        expect(labels(menus, MenuId.EditorContext)).toEqual(["Nav", "─", "Ungrouped"]);
+    });
+
     it("different menu points go to their own registries", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.editor", () => undefined, "In Editor");
@@ -140,6 +183,7 @@ describe("registerExtensionMenus", () => {
                         "editor/context": [{ command: "ext.editor" }],
                         "explorer/context": [{ command: "ext.explorer" }],
                         "view/item/context": [{ command: "ext.row", group: "inline" }],
+                        "testing/item/context": [{ command: "ext.test", group: "1_snapshot" }],
                     },
                 }),
             ],
@@ -149,6 +193,30 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["In Editor"]);
         expect(labels(menus, MenuId.ExplorerContext)).toEqual(["In Explorer"]);
         expect(menus.getMenuItemGroups(MenuId.ViewItemContext).map((group) => group.group)).toEqual(["inline"]);
+        expect(menus.getMenuItemGroups(MenuId.TestItem).map((group) => group.group)).toEqual(["1_snapshot"]);
+    });
+
+    it("the debug points: the rows of the debug views, the debug toolbar and the debugger choice", () => {
+        const { menus } = makeRegistry();
+        const points = {
+            "debug/callstack/context": MenuId.DebugCallStackContext,
+            "debug/variables/context": MenuId.DebugVariablesContext,
+            "debug/watch/context": MenuId.DebugWatchContext,
+            "debug/toolBar": MenuId.DebugToolBar,
+            "debug/createConfiguration": MenuId.DebugCreateConfiguration,
+        };
+        registerExtensionMenus(
+            [
+                extension("test.ext", {
+                    menus: Object.fromEntries(
+                        Object.keys(points).map((point) => [point, [{ command: `ext.${point}`, title: point }]]),
+                    ),
+                }),
+            ],
+            menus,
+        );
+
+        for (const [point, menuId] of Object.entries(points)) expect(labels(menus, menuId)).toEqual([point]);
     });
 
     it("unknown point — a log line, the extension's other items survive", () => {
@@ -232,6 +300,62 @@ describe("registerExtensionMenus", () => {
 
         expect(lines).toEqual(['editorconfig.editorconfig: "commandPalette" items are not applied yet']);
         expect(menus.isInCommandPalette("EditorConfig.generate")).toBe(true);
+    });
+
+    it("a stock extension's constantly false commandPalette items hide the command; a real condition keeps it", () => {
+        const { menus, commands } = makeRegistry();
+        const { logger, lines } = collectLog();
+        for (const id of ["maven.goal.clean", "maven.profile.select", "maven.history", "ext.mixed", "ext.free"]) {
+            commands.register(id, () => undefined, id);
+        }
+
+        registerExtensionMenus(
+            [
+                {
+                    ...extension("vscjava.vscode-maven", {
+                        menus: {
+                            commandPalette: [
+                                { command: "maven.goal.clean", when: "never" },
+                                { command: "maven.profile.select", when: "false" },
+                                { command: "maven.history", when: "someUpstreamKey" },
+                                { command: "ext.mixed", when: "false" },
+                                { command: "ext.mixed", when: "someUpstreamKey" },
+                            ],
+                        },
+                    }),
+                    isBuiltin: false,
+                },
+            ],
+            menus,
+            logger,
+        );
+
+        expect(menus.isInCommandPalette("maven.goal.clean")).toBe(false);
+        expect(menus.isInCommandPalette("maven.profile.select")).toBe(false);
+        expect(menus.isInCommandPalette("maven.history")).toBe(true);
+        expect(menus.isInCommandPalette("ext.mixed")).toBe(true);
+        expect(menus.isInCommandPalette("ext.free")).toBe(true);
+        expect(lines).toEqual(['vscjava.vscode-maven: "commandPalette" items are not applied yet']);
+    });
+
+    it("a stock extension with only constantly false commandPalette items logs nothing", () => {
+        const { menus, commands } = makeRegistry();
+        const { logger, lines } = collectLog();
+        commands.register("ext.hidden", () => undefined, "Hidden");
+
+        registerExtensionMenus(
+            [
+                {
+                    ...extension("test.ext", { menus: { commandPalette: [{ command: "ext.hidden", when: "never" }] } }),
+                    isBuiltin: false,
+                },
+            ],
+            menus,
+            logger,
+        );
+
+        expect(menus.isInCommandPalette("ext.hidden")).toBe(false);
+        expect(lines).toEqual([]);
     });
 
     it("item without command and submenu is skipped with an explanation", () => {

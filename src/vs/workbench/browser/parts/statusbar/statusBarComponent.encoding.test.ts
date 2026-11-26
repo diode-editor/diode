@@ -20,10 +20,6 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         delete process.env.SSH_CLIENT;
         delete process.env.SSH_TTY;
         delete process.env.COLORTERM;
-        delete process.env.KITTY_WINDOW_ID;
-        delete process.env.GHOSTTY_RESOURCES_DIR;
-        delete process.env.WEZTERM_PANE;
-        delete process.env.ALACRITTY_WINDOW_ID;
         delete process.env.TERM_PROGRAM;
         process.env.TERM = "xterm-256color";
     });
@@ -51,6 +47,15 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         editor.setEncoding("windows1251");
 
         expect(itemTexts(component)).toContain("Windows 1251");
+    });
+
+    it("a name outside the table (cp1252 from an extension) is shown as is, as upstream", () => {
+        const { component, source } = createStatusBarHarness();
+        const editor = source.openEditor();
+
+        editor.setEncoding("cp1252");
+
+        expect(itemTexts(component)).toContain("cp1252");
     });
 
     it("the EOL segment tracks setEol without a manual update", () => {

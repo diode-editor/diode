@@ -1,6 +1,5 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
-import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
@@ -53,6 +52,7 @@ import type { IPaneContentBounds } from "./paneViewElement.ts";
 import { PaneViewElement } from "./paneViewElement.ts";
 import { inlineActions, isSelectionSubmenu, NAVIGATION_GROUP, overflowEntries, runAction } from "./titleMenuEntries.ts";
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
+import { ViewContainerStackElement } from "./viewContainerStackElement.ts";
 import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 import type { IViewWelcomeBlock } from "./viewWelcomeElement.ts";
 import { ViewWelcomeElement } from "./viewWelcomeElement.ts";
@@ -222,11 +222,13 @@ interface ContainerEntry {
      * Sidebar "header + sections". Stable: merged mode changes the SET of children, otherwise the
      * location would hold a stale root. The panel has no stack — the header lives in the tab bar.
      */
-    stack: VFlexElement | null;
+    stack: ViewContainerStackElement | null;
     /** What the location holds (the stack in the sidebar, the PaneView itself in the panel); null — not attached. */
     view: TUIElement | null;
     /** Title buttons were not recomputed while the container was hidden; showing it catches up. */
     titleActionsStale: boolean;
+    /** A control of the container's own in its sidebar header, before the buttons (Run and Debug's launcher). */
+    titleWidget: TUIElement | null;
 }
 
 /**
@@ -482,6 +484,17 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
+     * Upstream's action view item in a view container's title toolbar (`getActionViewItem`): a control that cannot
+     * be a menu item, in the header of a sidebar container with several sections. The panel's header is a section's.
+     */
+    public setContainerTitleWidget(containerId: string, widget: TUIElement | null): void {
+        const entry = this.containerOrThrow(containerId);
+        entry.titleWidget = widget;
+        if (entry.paneView === null) return;
+        this.refreshContainerTitleActions(entry);
+    }
+
+    /**
      * The frame tick (10 Hz) takes this short path instead of `refreshContainerTitleActions`
      * (which resolves every section's menu). An unregistered view is a silent no-op.
      */
@@ -583,6 +596,8 @@ export class ViewsService implements IContextKeyContributor {
             this.attachContainer(descriptor.id);
         }
         this.showDefaultViewlet();
+        // The restored moves are location changes too: a view created before this (the terminal's) learns where it is.
+        this.onDidChangeLocationsEmitter.fire();
     }
 
     /**
@@ -676,7 +691,7 @@ export class ViewsService implements IContextKeyContributor {
                 this.fireContainerEvent(containerId, this.onDidShowViewEmitter);
             return;
         }
-        const stack = new VFlexElement();
+        const stack = new ViewContainerStackElement();
         // Stable location selector for e2e/inspector (`#explorer`, `#scm`).
         stack.id = domId;
         stack.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
@@ -1121,10 +1136,11 @@ export class ViewsService implements IContextKeyContributor {
         );
     }
 
-    /** Only the differences from defaults — like upstream `saveViewCustomizations`. */
+    /**
+     * Only the differences from defaults — like upstream `saveViewCustomizations`. Restoring and resetting
+     * moves don't come here (they skip didChangeLocations).
+     */
     private saveCustomizations(): void {
-        // Stryker disable next-line ConditionalExpression: restoring and resetting moves don't come here (they skip didChangeLocations) — a guard against a subscriber that moves a view from onDidChangeLocations
-        if (this.applyingCustomizations) return;
         const viewContainerLocations: Record<string, string> = {};
         const viewLocations: Record<string, string> = {};
         for (const [id, entry] of this.containers) {
@@ -1190,9 +1206,9 @@ export class ViewsService implements IContextKeyContributor {
         const entry = this.containerOrThrow(containerId);
         const paneView = entry.paneView;
         if (paneView === null) return;
+        // A built container always has a visible section (ensureVisibleView).
         const visible = this.visibleViews(entry);
-        const target = visible.find((v) => !paneView.isCollapsed(v.id)) ?? visible.at(0);
-        if (target === undefined) return;
+        const target = visible.find((v) => !paneView.isCollapsed(v.id)) ?? visible[0];
         // If the empty state is on screen, focus goes there: the way out of "no folder opened"
         // is a single Enter on the welcome button, not Tabbing out of an invisible input.
         const body = this.bodyOf(target);
@@ -1377,8 +1393,10 @@ export class ViewsService implements IContextKeyContributor {
         const header = attached(entry).header;
         const actions = inlineActions(this.titleGroups(entry));
         header.setActions(actions);
-        // Stryker disable next-line ConditionalExpression: a sidebar viewlet has no tab bar — its widget is null (headerTargetView), the header menu with 2+ sections is visible anyway, and partOf returns panelService, which skips an unknown id
-        if (!this.isTabbed(entry)) return;
+        if (!this.isTabbed(entry)) {
+            header.setTitleWidget(entry.titleWidget);
+            return;
+        }
         const headerRecord = headerViewId === null ? null : this.recordOrThrow(headerViewId).record;
         const widget = headerRecord?.titleWidget ?? null;
         header.setTitleWidget(widget);
@@ -1418,10 +1436,7 @@ export class ViewsService implements IContextKeyContributor {
         const stack = entry.stack;
         if (stack === null) return;
         const paneView = attached(entry).paneView;
-        const header = attached(entry).header;
-        header.layoutStyle = { height: vflexFixed(1), width: "fill" };
-        paneView.layoutStyle = { height: vflexFill(), width: "fill" };
-        stack.replaceChildren(this.isMerged(entry) ? [paneView] : [header, paneView]);
+        stack.setParts(this.isMerged(entry) ? null : attached(entry).header, paneView);
     }
 
     private containerOrThrow(id: string): ContainerEntry {
@@ -1461,6 +1476,7 @@ export class ViewsService implements IContextKeyContributor {
                 view: null,
                 // Stryker disable next-line BooleanLiteral: equivalent — before attachContainer showing stops at `paneView === null`, and attach always rebuilds the sections and rewrites the flag
                 titleActionsStale: false,
+                titleWidget: null,
             };
             this.containers.set(containerId, entry);
         }
@@ -1617,8 +1633,8 @@ function isLegacyCollapsedList(stored: StoredCollapsed): stored is readonly stri
  * Container" stub), so it carries its first view's title.
  */
 function containerTitle(entry: ContainerEntry): string {
-    // Stryker disable next-line OptionalChaining,StringLiteral: an emptied generated container is removed right away (syncPresence) — its title is never asked for without views
-    if (entry.generated) return entry.views.at(0)?.title ?? "";
+    // An emptied generated container is removed right away (syncPresence): its title is never asked for without views.
+    if (entry.generated) return entry.views[0].title;
     return attached(entry).descriptor.title;
 }
 

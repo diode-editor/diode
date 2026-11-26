@@ -1,8 +1,46 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { RunOnceScheduler, runWhenGlobalIdle } from "./async.ts";
+import { DeferredPromise, disposableTimeout, RunOnceScheduler, runWhenGlobalIdle, timeout } from "./async.ts";
 import { setUnexpectedErrorHandler } from "./errors.ts";
 import { setTimeout0 } from "./platform.ts";
+
+describe("timeout and disposableTimeout", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it("timeout resolves after the delay, not before", async () => {
+        let done = false;
+        void timeout(200).then(() => {
+            done = true;
+        });
+
+        await vi.advanceTimersByTimeAsync(199);
+        expect(done).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(done).toBe(true);
+    });
+
+    it("disposableTimeout runs the handler after the delay, or never once disposed", () => {
+        const fired = vi.fn();
+        disposableTimeout(fired, 100);
+        const cancelled = vi.fn();
+        disposableTimeout(cancelled, 100).dispose();
+        const immediate = vi.fn();
+        disposableTimeout(immediate);
+
+        vi.advanceTimersByTime(0);
+        expect(immediate).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(99);
+        expect(fired).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(1);
+        expect(fired).toHaveBeenCalledTimes(1);
+        expect(cancelled).not.toHaveBeenCalled();
+    });
+});
 
 describe("RunOnceScheduler", () => {
     beforeEach(() => {
@@ -141,5 +179,14 @@ describe("setTimeout0", () => {
         order.push("sync");
         await new Promise<void>((resolve) => setImmediate(resolve));
         expect(order).toEqual(["sync", "microtask", "macrotask"]);
+    });
+});
+
+describe("DeferredPromise", () => {
+    it("resolves its promise from outside", async () => {
+        const deferred = new DeferredPromise<number>();
+        deferred.complete(1);
+        deferred.complete(2);
+        await expect(deferred.p).resolves.toBe(1);
     });
 });

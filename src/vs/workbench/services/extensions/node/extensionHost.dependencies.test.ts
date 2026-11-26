@@ -209,7 +209,11 @@ describe("ExtensionHost — extensionDependencies activate first", () => {
 
     it("a declarative dependency (installed, but without code) is satisfied immediately", async () => {
         const { harness, logger, toasts } = await start([dependent(["Test.Grammar"], "noopExtension.cjs")]);
-        harness.host.registerDeclarativeExtension("test.grammar");
+        harness.host.registerDeclarativeExtension({
+            id: "test.grammar",
+            manifest: { name: "grammar", publisher: "test", version: "1.0.0" },
+            extensionPath: "/extensions/grammar",
+        });
 
         await harness.host.activateByEvent("onLanguage:java");
 

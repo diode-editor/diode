@@ -6,28 +6,51 @@ import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerEl
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Emitter } from "../../../../base/common/event.ts";
-import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { combinedDisposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
+import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { ITokenizationSupport } from "../../../../editor/common/languages.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
+import type { CodeLensCommand, CodeLensProvider } from "../../../../editor/common/languages/iCodeLensSource.ts";
 import type { DocumentColorProvider } from "../../../../editor/common/languages/iColorSource.ts";
+import type { DocumentHighlightProvider } from "../../../../editor/common/languages/iDocumentHighlightSource.ts";
 import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
+import type { InlayHintsProvider } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import type { ILink, LinkProvider } from "../../../../editor/common/languages/iLinkSource.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
+import type { IExtensionTextDecorationSet } from "../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
+import type {
+    IGlyphMarginClick,
+    IGlyphMarginDecoration,
+    ILineHighlightDecoration,
+} from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
+import type {
+    ILineMessageClick,
+    ILineMessageDecoration,
+} from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../../editor/common/model/iOverviewRulerDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { FeatureDebounce } from "../../../../editor/common/services/languageFeatureDebounce.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
 import type { IIndentDefaults, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import {
+    CodeLensController,
+    DEFAULT_CODE_LENS_OPTIONS,
+    type ICodeLensOptions,
+    type ICodeLensPick,
+    type ICodeLensViewport,
+} from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
 import {
     ColorDetector,
     DEFAULT_COLOR_DECORATORS_OPTIONS,
@@ -40,11 +63,19 @@ import {
 } from "../../../../editor/contrib/folding/foldingRegionsLimit.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import { provideFoldingRanges } from "../../../../editor/contrib/folding/syntaxRangeProvider.ts";
+import {
+    DEFAULT_INLAY_HINTS_OPTIONS,
+    type IInlayHintsOptions,
+    InlayHintsController,
+} from "../../../../editor/contrib/inlayHints/browser/inlayHintsController.ts";
+import { LinkDetector } from "../../../../editor/contrib/links/browser/linkDetector.ts";
 import type { DocumentSemanticTokensFeature } from "../../../../editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { BaseTextEditorModel, ITextEditTarget } from "../../../common/editor/textEditorModel.ts";
 import { Component } from "../../component.ts";
+
+import { ExtensionTextDecorations } from "./extensionTextDecorations.ts";
 
 // On a shared start line the provider region wins (it is more precise); sorted by
 // startLine because the folding model and the gutter expect that.
@@ -70,6 +101,12 @@ export function sameIndentConfiguration(a: IIndentConfiguration, b: IIndentConfi
 
 /** Values of `editor.scrollbarMarkers`. */
 export type ScrollbarMarkersSetting = "off" | "auto" | "inside" | "outside";
+
+/** What the file editor needs for code lens: the providers, and who runs a clicked title. */
+export interface ICodeLensFeature {
+    readonly providers: LanguageFeatureRegistry<CodeLensProvider>;
+    runCommand(command: CodeLensCommand): Promise<void>;
+}
 
 export class EditorComponent extends Component {
     public readonly view: ScrollBarDecorator;
@@ -110,13 +147,6 @@ export class EditorComponent extends Component {
     public foldingOwnedExternally = false;
     /** Guards the sync-indentation ↔ async-provider race: a late reply to a superseded request is dropped. */
     private readonly foldingRequest = new LatestRequest();
-    /**
-     * Two independent producers: quick diff (git) and extension decoration types. Each one replaces only
-     * its own set — otherwise an extension clearing its bars on every keystroke wipes the git bars until the
-     * next quick diff recompute (flicker while typing).
-     */
-    private quickDiffGutterChanges: readonly IGutterChangeDecoration[] = [];
-    private extensionGutterChanges: readonly IGutterChangeDecoration[] = [];
     private readonly editTargetValue: ITextEditTarget;
     /**
      * What the configuration asked for; the large-file mode overrides both with "off" until
@@ -129,11 +159,49 @@ export class EditorComponent extends Component {
     /** `null` without providers and in the large-file mode (upstream's detector is cut off by the worker's size limit). */
     private colorDetector: ColorDetector | null = null;
     private colorDecoratorsOptions: IColorDecoratorsOptions = DEFAULT_COLOR_DECORATORS_OPTIONS;
+    /** Absent everywhere but the file editor (`TextEditorPaneBuilder`): diff sides and panels ask nobody. */
+    private readonly inlayHintsProviders: LanguageFeatureRegistry<InlayHintsProvider> | undefined;
+    /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
+    private inlayHintsController: InlayHintsController | null = null;
+    private inlayHintsOptions: IInlayHintsOptions = DEFAULT_INLAY_HINTS_OPTIONS;
+    /** Absent everywhere but the file editor, like {@link inlayHintsProviders}. */
+    private readonly codeLens: ICodeLensFeature | undefined;
+    /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
+    private codeLensController: CodeLensController | null = null;
+    private codeLensOptions: ICodeLensOptions = DEFAULT_CODE_LENS_OPTIONS;
+    /** Absent everywhere but the file editor, like {@link inlayHintsProviders}. */
+    private readonly linkProviders: LanguageFeatureRegistry<LinkProvider> | undefined;
+    /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
+    private linkDetector: LinkDetector | null = null;
+    private linksEnabled = true;
+    private readonly onDidClickLinkEmitter = new Emitter<ILink>();
+    /** Ctrl+click on a link. */
+    public readonly onDidClickLink = this.onDidClickLinkEmitter.event;
+    /**
+     * Three owners, each replacing only its own set; at one offset the squares go first, then inlay hints, then
+     * extension decorations (upstream: the order of the decorations).
+     */
+    private colorInsertions: readonly IInlineInsertion[] = [];
+    // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
+    private inlayHintInsertions: readonly IInlineInsertion[] = [];
+    // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
+    private extensionInsertions: readonly IInlineInsertion[] = [];
+    /** A workbench contribution's insertions by its owner (the inline breakpoints), first at their offsets. */
+    private readonly ownedInsertions = new Map<string, readonly IInlineInsertion[]>();
+    /**
+     * Created on the first set: most editors never get one. Unlike the providers' features, it is not switched off
+     * in the large-file mode — the extension has already computed the ranges, and upstream draws them.
+     */
+    private extensionTextDecorations: ExtensionTextDecorations | null = null;
     /** Not on the view state: it is recreated on reload from disk, and the extension host subscriber must survive that. */
     private readonly onDidChangeSelectionEmitter = new Emitter<void>();
     /** On the component for the same reason. */
     private readonly onDidChangeIndentOptionsEmitter = new Emitter<void>();
+    private readonly onWillTypeEmitter = new Emitter<string>();
     private readonly onDidTypeEmitter = new Emitter<string>();
+    private readonly onDidTypeNewLineEmitter = new Emitter<void>();
+    /** `wordWrap` is a plain field of the view state: turning wrap on or off moves the rows without a scroll. */
+    private readonly onDidChangeWrappingEmitter = new Emitter<void>();
 
     public get editTarget(): ITextEditTarget {
         return this.editTargetValue;
@@ -156,11 +224,19 @@ export class EditorComponent extends Component {
     }
 
     /** Survives `EditorElement` recreation when the file is reloaded. */
+    public readonly onWillType = this.onWillTypeEmitter.event;
     public readonly onDidType = this.onDidTypeEmitter.event;
+    public readonly onDidTypeNewLine = this.onDidTypeNewLineEmitter.event;
 
     private attachTypeForwarding(): void {
+        this.editor.onWillType((text) => {
+            this.onWillTypeEmitter.fire(text);
+        });
         this.editor.onDidType((text) => {
             this.onDidTypeEmitter.fire(text);
+        });
+        this.editor.onDidTypeNewLine(() => {
+            this.onDidTypeNewLineEmitter.fire();
         });
     }
 
@@ -180,6 +256,10 @@ export class EditorComponent extends Component {
         semanticTokens?: DocumentSemanticTokensFeature,
         indentConfiguration: IIndentConfiguration = {},
         colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>,
+        inlayHintsProviders?: LanguageFeatureRegistry<InlayHintsProvider>,
+        codeLens?: ICodeLensFeature,
+        documentHighlightProviders?: LanguageFeatureRegistry<DocumentHighlightProvider>,
+        linkProviders?: LanguageFeatureRegistry<LinkProvider>,
     ) {
         super();
         this.foldingProviders = foldingProviders;
@@ -194,7 +274,14 @@ export class EditorComponent extends Component {
         this.editorViewState.isTooLargeForTokenization = this.tooLarge;
         this.semanticTokensFeature = semanticTokens;
         this.colorProviders = colorProviders;
+        this.inlayHintsProviders = inlayHintsProviders;
+        this.codeLens = codeLens;
+        this.linkProviders = linkProviders;
         this.editor = new EditorElement(this.editorViewState);
+        if (documentHighlightProviders !== undefined) {
+            this.editor.wordHighlighter.setProviders(documentHighlightProviders, model);
+        }
+        this.register(this.editor.wordHighlighter);
         this.applyTokenizer();
         this.editor.tokenStyleResolver = tokenStyleResolver;
         this.attachLanguageConfiguration();
@@ -209,6 +296,9 @@ export class EditorComponent extends Component {
         this.view.markerPlacement = "auto";
         this.attachSemanticTokensUnlessTooLarge();
         this.attachColorDetectorUnlessTooLarge();
+        this.attachInlayHintsUnlessTooLarge();
+        this.attachCodeLensUnlessTooLarge();
+        this.attachLinkDetectorUnlessTooLarge();
         this.applyOccurrenceHighlight();
 
         // The closures read component fields, so they survive EditorElement
@@ -256,6 +346,9 @@ export class EditorComponent extends Component {
                 this.applyTokenizer();
                 this.attachSemanticTokensUnlessTooLarge();
                 this.attachColorDetectorUnlessTooLarge();
+                this.attachInlayHintsUnlessTooLarge();
+                this.attachCodeLensUnlessTooLarge();
+                this.attachLinkDetectorUnlessTooLarge();
                 this.applyOccurrenceHighlight();
                 this.applyWordWrap();
                 this.scheduleFoldingRecompute();
@@ -308,15 +401,7 @@ export class EditorComponent extends Component {
         );
         this.register(
             reference.attachViewport({
-                getVisibleLineRange: () => {
-                    const viewState = this.editorViewState;
-                    // docLineForViewLine itself clamps lines past the end of the view to the last one.
-                    const top = viewState.scrollTop;
-                    return {
-                        startLine: viewState.docLineForViewLine(top),
-                        endLine: viewState.docLineForViewLine(top + Math.max(viewState.viewportHeight, 1) - 1),
-                    };
-                },
+                getVisibleLineRange: () => this.getVisibleLineRange(),
                 onDidChangeVisibleRange: this.editorViewState.onDidChangeView,
             }),
         );
@@ -327,9 +412,129 @@ export class EditorComponent extends Component {
         if (this.colorProviders === undefined || this.tooLarge) return;
         this.colorDetector = this.register(
             new ColorDetector(this.model, this.colorProviders, this.colorDecoratorsOptions, (insertions) => {
-                this.editor.setInlineInsertions(insertions);
+                this.setInlineInsertions(insertions);
             }),
         );
+    }
+
+    private attachInlayHintsUnlessTooLarge(): void {
+        if (this.inlayHintsProviders === undefined || this.tooLarge) return;
+        this.inlayHintsController = this.register(
+            new InlayHintsController(
+                this.model,
+                this.visibleRangeViewport(),
+                this.inlayHintsProviders,
+                this.inlayHintsOptions,
+                (insertions) => {
+                    this.inlayHintInsertions = insertions;
+                    this.publishInsertions();
+                },
+            ),
+        );
+    }
+
+    private attachCodeLensUnlessTooLarge(): void {
+        const feature = this.codeLens;
+        if (feature === undefined || this.tooLarge) return;
+        this.codeLensController = this.register(
+            new CodeLensController(
+                this.model,
+                this.visibleRangeViewport(),
+                feature.providers,
+                this.codeLensOptions,
+                (zones) => {
+                    this.editor.setCodeLensZones(zones);
+                },
+            ),
+        );
+        this.register(
+            this.editor.onDidClickCodeLens((command) => {
+                void feature.runCommand(command);
+            }),
+        );
+    }
+
+    private attachLinkDetectorUnlessTooLarge(): void {
+        if (this.linkProviders === undefined || this.tooLarge) return;
+        const detector = this.register(
+            new LinkDetector(this.model, this.linkProviders, this.linksEnabled, (ranges) => {
+                this.editor.setDocumentLinks(ranges);
+            }),
+        );
+        this.linkDetector = detector;
+        this.register(
+            this.editor.onDidClickDocumentLink((position) => {
+                const link = detector.getLinkAt(position);
+                if (link !== null) this.onDidClickLinkEmitter.fire(link);
+            }),
+        );
+    }
+
+    /** `editor.links`. */
+    public setLinksEnabled(enabled: boolean): void {
+        this.linksEnabled = enabled;
+        this.linkDetector?.setEnabled(enabled);
+    }
+
+    /** Upstream `OpenLinkAction`: the link at the end of each selection, where there is one. */
+    public getLinksAtSelections(): readonly ILink[] {
+        const detector = this.linkDetector;
+        if (detector === null) return [];
+        return this.editorViewState.selections
+            .map((selection) => detector.getLinkAt(selection.active))
+            .filter((link) => link !== null);
+    }
+
+    private visibleRangeViewport(): ICodeLensViewport {
+        return {
+            getVisibleLineRange: () => this.getVisibleLineRange(),
+            onDidChangeVisibleRange: (listener) => this.onDidChangeVisibleRange(listener),
+        };
+    }
+
+    /** Fires on a scroll, a fold, a change of the editor's size and of wrapping. */
+    public onDidChangeVisibleRange(listener: () => void): IDisposable {
+        return combinedDisposable(
+            this.editorViewState.onDidChangeView(listener),
+            this.editor.onDidChangeViewportSize(listener),
+            this.onDidChangeWrappingEmitter.event(listener),
+        );
+    }
+
+    /** The document lines the editor shows, inclusive. */
+    public getVisibleLineRange(): { startLine: number; endLine: number } {
+        const viewState = this.editorViewState;
+        // docLineForViewLine itself clamps lines past the end of the view to the last one.
+        const top = viewState.scrollTop;
+        return {
+            startLine: viewState.docLineForViewLine(top),
+            endLine: viewState.docLineForViewLine(top + Math.max(viewState.viewportHeight, 1) - 1),
+        };
+    }
+
+    /** `editor.inlayHints.*`, `diode.editor.inlayHints.fontStyle` and the session toggle. */
+    public setInlayHints(options: IInlayHintsOptions): void {
+        this.inlayHintsOptions = options;
+        this.inlayHintsController?.setOptions(options);
+    }
+
+    /** `editor.codeLens` and the glyph set of `$(icon)` in the titles. */
+    public setCodeLens(options: ICodeLensOptions): void {
+        this.codeLensOptions = options;
+        this.codeLensController?.setOptions(options);
+    }
+
+    public getCodeLensPicksAtLine(line: number): Promise<readonly ICodeLensPick[]> {
+        return this.codeLensController?.getPicksAtLine(line) ?? Promise.resolve([]);
+    }
+
+    private publishInsertions(): void {
+        this.editor.setInlineInsertions([
+            ...[...this.ownedInsertions.values()].flat(),
+            ...this.colorInsertions,
+            ...this.inlayHintInsertions,
+            ...this.extensionInsertions,
+        ]);
     }
 
     /** `editor.colorDecorators`, `editor.defaultColorDecorators`, `editor.colorDecoratorsLimit`. */
@@ -394,6 +599,14 @@ export class EditorComponent extends Component {
 
     public focus(): void {
         this.editor.focus();
+    }
+
+    public insertLineBreak(): void {
+        this.editor.insertLineBreak();
+    }
+
+    public typeText(text: string): void {
+        this.editor.typeText(text);
     }
 
     public pushUndo(element: IUndoElement | undefined): void {
@@ -465,6 +678,14 @@ export class EditorComponent extends Component {
         this.applyOccurrenceHighlight();
     }
 
+    public setOccurrenceHighlightDelay(delay: number): void {
+        this.editor.wordHighlighter.delay = delay;
+    }
+
+    public triggerWordHighlight(): void {
+        this.editor.wordHighlighter.trigger();
+    }
+
     private applyOccurrenceHighlight(): void {
         const enabled = this.occurrenceHighlightRequested && !this.tooLarge;
         if (this.editor.occurrenceHighlightEnabled === enabled) return;
@@ -508,6 +729,7 @@ export class EditorComponent extends Component {
         if (mode !== "off") viewState.scrollLeft = 0;
         viewState.ensurePrimaryCursorVisible();
         this.editor.markDirty();
+        this.onDidChangeWrappingEmitter.fire();
     }
 
     /** `currentIndex` is the active match, or -1. */
@@ -524,19 +746,69 @@ export class EditorComponent extends Component {
 
     /** Colors arrive already resolved — the theme is not consulted. */
     public setGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
-        this.quickDiffGutterChanges = decorations;
-        this.applyGutterChanges();
-    }
-
-    /** Bars of extension decoration types (`overviewRulerColor`); they don't touch the quick diff set. */
-    public setExtensionGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
-        this.extensionGutterChanges = decorations;
-        this.applyGutterChanges();
-    }
-
-    private applyGutterChanges(): void {
-        this.editor.gutterChangeDecorations = [...this.quickDiffGutterChanges, ...this.extensionGutterChanges];
+        this.editor.gutterChangeDecorations = decorations;
         this.editor.markDirty();
+    }
+
+    /** Scrollbar marks of extension decoration types (`overviewRulerColor`); the gutter's quick diff bars stay. */
+    public setOverviewRulerDecorations(decorations: readonly IOverviewRulerDecoration[]): void {
+        this.editor.overviewRulerDecorations = decorations;
+        this.editor.markDirty();
+    }
+
+    /** Backgrounds, text colors and `before`/`after` cells of an extension decoration type (`createTextEditorDecorationType`). */
+    public setExtensionTextDecorations(set: IExtensionTextDecorationSet): void {
+        this.extensionTextDecorations ??= this.register(
+            new ExtensionTextDecorations(this.model.document, (paint, insertions) => {
+                this.editor.extensionTextDecorations = paint;
+                // A paint-only type (no before/after) would otherwise regroup every insertion of the editor per keystroke.
+                // Stryker disable next-line ConditionalExpression,BlockStatement: performance only — publishing no insertions again draws the same frame
+                if (insertions.length === 0 && this.extensionInsertions.length === 0) {
+                    this.editor.markDirty();
+                    return;
+                }
+                this.extensionInsertions = insertions;
+                this.publishInsertions();
+            }),
+        );
+        this.extensionTextDecorations.set(set);
+    }
+
+    /** The `hoverMessage` of each extension decoration at the position, in upstream's hover order. */
+    public getDecorationHoverMessages(position: IPosition): (readonly string[])[] {
+        return this.extensionTextDecorations?.hoverMessagesAt(position) ?? [];
+    }
+
+    /** An owner's glyphs left of the line numbers (tests, breakpoints): they ride their lines through edits. */
+    public setGlyphMarginDecorations(owner: string, decorations: readonly IGlyphMarginDecoration[]): void {
+        this.editor.setGlyphMarginDecorations(owner, decorations);
+    }
+
+    /** Keeps the glyph lane without glyphs: a press on a line's empty lane is a click (adding a breakpoint). */
+    public setGlyphMarginReserved(reserved: boolean): void {
+        this.editor.glyphMarginReserved = reserved;
+    }
+
+    /** Whole lines' backgrounds by theme tokens (the debugger's stack frames): they ride their lines through edits. */
+    public setLineHighlightDecorations(decorations: readonly ILineHighlightDecoration[]): void {
+        this.editor.setLineHighlightDecorations(decorations);
+    }
+
+    public onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable {
+        return this.editor.onDidClickGlyphMargin(listener);
+    }
+
+    /** An owner's messages after the lines' ends (test failures, inline values): they ride their lines through edits. */
+    public setLineMessageDecorations(owner: string, decorations: readonly ILineMessageDecoration[]): void {
+        this.editor.setLineMessageDecorations(owner, decorations);
+    }
+
+    public getLineMessageDecorations(owner: string): ReadonlyMap<number, ILineMessageDecoration> {
+        return this.editor.getLineMessageDecorations(owner);
+    }
+
+    public onDidClickLineMessage(listener: (click: ILineMessageClick) => void): IDisposable {
+        return this.editor.onDidClickLineMessage(listener);
     }
 
     public setDecorations(decorations: IExternalDecorations): void {
@@ -549,9 +821,16 @@ export class EditorComponent extends Component {
         this.editor.setGhostText(ghost);
     }
 
-    /** Cells absent from the document (color decorators); the ghost text keeps its own. */
+    /** The owner's cells absent from the document; the other owners', color decorators' and inlay hints' stay. */
+    public setOwnedInlineInsertions(owner: string, insertions: readonly IInlineInsertion[]): void {
+        this.ownedInsertions.set(owner, insertions);
+        this.publishInsertions();
+    }
+
+    /** Cells absent from the document (color decorators); ghost text and inlay hints keep their own. */
     public setInlineInsertions(insertions: readonly IInlineInsertion[]): void {
-        this.editor.setInlineInsertions(insertions);
+        this.colorInsertions = insertions;
+        this.publishInsertions();
     }
 
     public revealRange(range: IRange): void {
@@ -722,10 +1001,8 @@ export class EditorComponent extends Component {
         for (const region of regions) {
             if (collapsedStarts.has(region.startLine)) region.isCollapsed = true;
         }
-        this.editorViewState.setFoldingRegions(regions);
-        // The recompute may have folded a region around the edited line (Tab moved it into a
-        // collapsed block) — keep the cursor visible, as upstream does.
-        this.editorViewState.ensurePrimaryCursorVisible();
+        // The recompute may have folded a region around the edited line (Tab moved it into a collapsed block).
+        this.editorViewState.applyRecomputedFoldingRegions(regions);
         this.editor.markDirty();
     }
 

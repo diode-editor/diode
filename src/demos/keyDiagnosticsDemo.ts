@@ -22,7 +22,6 @@ import { findAction } from "../vs/workbench/contrib/find/browser/findActions.ts"
 import { quickOpenAction, showCommandsAction } from "../vs/workbench/contrib/quickaccess/browser/quickOpenActions.ts";
 import {
     detectBaseModes,
-    detectExtendedKeysHint,
     detectKittyGraphicsHint,
     detectTruecolor,
     emptyCapabilities,
@@ -131,7 +130,7 @@ function describeToken(t: ReturnType<typeof tokenize>[number]): string {
 
 function printEnv(): void {
     const caps = emptyCapabilities();
-    caps["extended-keys"] = detectExtendedKeysHint();
+    caps["extended-keys"] = true; // the demo turns the protocols on itself
     caps["kitty-graphics"] = detectKittyGraphicsHint();
     caps.truecolor = detectTruecolor();
     const tier = resolveTier(caps);

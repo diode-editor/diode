@@ -27,12 +27,14 @@
 - [~] [SourceControl](SourceControl.md) — Source Control и GRAPH сделаны ([arch](../arch/workbench/SourceControl.md)); открыты `diode.scm.publishBusy`, UI-e2e для sync/branch/stash и follow-up'ы графа (пикер ref'ов, дифф коммита, действия на бейджах)
 - [~] [Search](Search.md) — поиск по файлам: базовый срез готов; дальше — кросс-платформенный rg, replace, `search.exclude`, история запросов
 - [~] [MultiCursor](MultiCursor.md) — мульти-курсор готов; дальше — распределяющая вставка, колоночное выделение, связка `matchCase` с find-виджетом
+- [ ] [InlayHintsCodeLens](InlayHintsCodeLens.md) — что не вошло в ядро inlay hints (#934): tooltip, Ctrl+клик, `textEdits`, `resolveInlayHint`, кэш, дифф и OUTPUT; code lens
 - [~] [WordWrap](WordWrap.md) — перенос строк по словам (`editor.wordWrap`, Alt+Z): v1 готова; открыты follow-up'ы (wrappingIndent, wrap в диффе, affinity, персист toggle)
 - [~] [VscodeModel](VscodeModel.md) — перенос модели документа и токенизации из VS Code: B1 (фоновая и вьюпортная токенизация), A1+A2 (вендор PieceTree с upstream-тестами), A3 (`TextDocument` на PieceTree), A4 (полный текст с горячих путей) и B2 (бинарные токены VS Code, colorMap темы) сделаны; воркер (B3) замерен прототипом и отложен до этапа 2 OpenPerformance
 - [~] [Extensions](Extensions.md) — VS Code-совместимые расширения и магазин (сделанное — в [arch/Extensions](../arch/Extensions.md), [arch/Marketplace](../arch/Marketplace.md)); открыто: иконки, сниппеты, on-enter rules, dispose-цепочка и горячий reload, `extensionPack`, ESM и перезапуск extension host'а, рендер деревьев расширений (TreeView) и `viewsWelcome`, id магазина без учёта регистра, `yanked`
 - [~] [Suggest](Suggest.md) — автодополнение работает, авто-открытие по эталону (`editor.quickSuggestions`, уступает призраку); дальше — сниппет-сессия с табстопами, markdown в описании, скролл панели
 - [~] [InlineCompletions](InlineCompletions.md) — призрачные подсказки (ghost text) v1 сделаны end-to-end (`registerInlineCompletionItemProvider`, Tab/Esc, view zones); открыты люфты (mid-line, partial accept, lifecycle-хуки, `selectedCompletionInfo`/augmentation под попапом) и часть 2 — реальный LLM-провайдер
 - [~] [E2E](E2E.md) — инфраструктура готова; открыто — кросс-платформенность Phase 1.x и найденный дефект фокуса (find + вторая вкладка)
+- [~] [Debugger](Debugger.md) — отладчик через DAP: эпик #1132 (веха 1 — C/C++ через CodeLLDB и minor-релиз, веха 2 — полнота по эталону, веха 3 — Node через js-debug), исследование и спайк видов (`spike/debug-views`)
 - [ ] [TestFlakes](TestFlakes.md) — живой список флаков (пополняется прямо в `main`) и открытые ходы по цене полного прогона гейтов: таймауты `vi.waitFor`, сужение dry run, шардинг мутаций, `vitest.related: false`; плюс остаток мутационного долга после линт-прогона #333
 - [~] [ReadonlyEditor](ReadonlyEditor.md) — read-only редактор готов; далее — конфиг-слой `files.readonly*`, сообщение при попытке правки
 - [~] [Logging](Logging.md) — ILogService + Output UI и CLI-флаги уровней (`--log`, `--verbose`) готовы; далее — inner tracing extension host, `--log-file`, фильтры/Clear в Output
@@ -42,7 +44,7 @@
 - [~] [OpenPerformance](OpenPerformance.md) — красивые бенчи открытия: линейка, кухня старта и жадные проходы сделаны (CJS-ядро в V8-снапшоте SEA, ленивые куски, кухня воркбенча; `small` ≈100 наших на CI, гейт 200; `xlarge` 13 МБ — `small` + 100 мс, клавиша после затишья 5–8 мс, гейт 350 / 20 мс); гигантские файлы (этап 4) сделаны — `log500m` 497 МБ открывается за `small`, только чтение с диска, поиск фоном, follow, стриминговое «Enable Editing», гейт `test:perf:huge`; открыты хвосты кухни (ленивые тела вьюшек, ASCII-бандл, снапшот для self-extract), 5a (IPC на `v8.serialize`), токенизация от вьюпорта (этап 3)
 - [~] [LongLinePerformance](LongLinePerformance.md) — фриз длинных строк снят порогом рендера, межредакторная связь — damage-tracking'ом; открыто: пер-строчный кеш `DisplayLine`, reveal-по-клику, конфиг порога
 - [~] [FileTreePerformance](FileTreePerformance.md) — производительность больших файловых деревьев (главные блокеры сняты; остались точечные фиксы)
-- [~] [MacKeybindings](MacKeybindings.md) — мак-раскладка: ОС клавиатуры по лестнице сигналов (с XTVERSION), мак-рунги `legacy < extended < cmd` с `cap_super`, токен `mod`, полный паритет с мак-раскладкой VS Code 1.138 (сверка тестом со срезом эталона), Keyboard Doctor для фидбека сделаны; дальше — фидбек с живого мака, мост Cmd для tmux, найденные сверкой дыры pc-паритета
+- [~] [MacKeybindings](MacKeybindings.md) — мак-раскладка: ОС клавиатуры по лестнице сигналов (с XTVERSION), мак-рунги `legacy < extended < cmd` с `cap_super`, токен `mod`, полный паритет с мак-раскладкой VS Code 1.138 (сверка тестом со срезом эталона) сделаны (доктор удалён в #1047, мастер настройки клавиатуры — будущая задача); дальше — фидбек с живого мака, мост Cmd для tmux, найденные сверкой дыры pc-паритета
 - [~] [EnvironmentTuning](EnvironmentTuning.md) — подсказки пользователю по тюнингу окружения (терминал/tmux/ssh): как доносить до пользователя (открытый вопрос), лимит inotify (ENOSPC) с уведомлением как в VS Code, детект tmux без extended-keys, подсказки маководу
 - [~] [DocsSite](DocsSite.md) — сайт документации diode-editor.github.io/docs (Starlight, репозиторий `diode-editor/docs`): каркас, перевод `docs/public` на английский и Settings с поиском сделаны; открыто — `DOCS_PAT`, пересмотр контента человеком, новые страницы
 - [~] [Distribution](Distribution.md) — каналы дистрибуции (`install.sh`, apt, npm, Homebrew cask, winget) работают с v0.4.0, устройство — [packaging/README.md](../../packaging/README.md); открыто — `SITE_PAT`, первая подача в winget, ручная проверка Windows-SEA, quick install на сайте, новые каналы и подпись
@@ -97,7 +99,10 @@
 ### [ ] `files.encoding` — дефолтная кодировка из настроек
 
 Ось encoding в ядре и пикеры Reopen/Save with Encoding готовы (#106); детект — BOM-only,
-без BOM всегда utf-8. Follow-up как в VS Code:
+без BOM всегда utf-8. Ключи `files.encoding`/`autoGuessEncoding`/`candidateGuessEncodings`
+зарегистрированы, выбор кодировки эталона (`encodingOracle.ts`), детект UTF-16 по нулям и угадывание
+jschardet (`encodingDetection.ts`) есть, но их читает только `workspace.decode`/`encode` (#1102).
+Follow-up как в VS Code:
 
 - **`files.encoding`** — кодировка по умолчанию для открытия/сохранения (вместо
   захардкоженного utf-8), применять в `TextEditorConfiguration.apply` (`src/vs/workbench/services/editor/browser/textEditorConfiguration.ts`).

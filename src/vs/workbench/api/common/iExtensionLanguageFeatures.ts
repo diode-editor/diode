@@ -3,10 +3,17 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchyRequest,
+    ICallHierarchySession,
+} from "../../../editor/common/languages/iCallHierarchySource.ts";
+import type {
     IApplyCodeActionOptions,
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../editor/common/languages/iCodeActionSource.ts";
+import type { ICodeLensRequest } from "../../../editor/common/languages/iCodeLensSource.ts";
 import type { IColorInformation, IDocumentColorRequest } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
@@ -17,13 +24,35 @@ import type {
     ICoreDefinitionLocation,
     IDefinitionRequest,
 } from "../../../editor/common/languages/iDefinitionSource.ts";
+import type {
+    IDocumentHighlight,
+    IDocumentHighlightRequest,
+} from "../../../editor/common/languages/iDocumentHighlightSource.ts";
+import type {
+    ICoreDocumentSymbol,
+    IDocumentSymbolRequest,
+} from "../../../editor/common/languages/iDocumentSymbolSource.ts";
+import type {
+    IEvaluatableExpression,
+    IEvaluatableExpressionRequest,
+} from "../../../editor/common/languages/iEvaluatableExpressionSource.ts";
 import type { IFoldingRequest } from "../../../editor/common/languages/iFoldingSource.ts";
-import type { IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
+import type {
+    IFormattingRequest,
+    IOnTypeFormattingRequest,
+} from "../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
+import type { IInlayHintsRequest, InlayHint } from "../../../editor/common/languages/iInlayHintsSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { IInlineValuesRequest, InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
+import type {
+    ILinkedEditingRangeRequest,
+    ILinkedEditingRanges,
+} from "../../../editor/common/languages/iLinkedEditingSource.ts";
+import type { ILinkRequest } from "../../../editor/common/languages/iLinkSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -41,9 +70,23 @@ import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchyRequest,
+    ITypeHierarchySession,
+} from "../../../editor/common/languages/iTypeHierarchySource.ts";
+import type { ICoreWorkspaceSymbolLocation } from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import type { IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 
-import type { IWireLanguageProviderRegistration } from "./wireTypes.ts";
+import type {
+    IWireCodeLens,
+    IWireCodeLensList,
+    IWireDocumentLinkList,
+    IWireLanguageProviderRegistration,
+    IWireWorkspaceSymbolProviderRegistration,
+    IWireWorkspaceSymbols,
+    WireCodeLensCacheId,
+} from "./wireTypes.ts";
 
 /**
  * `ExtensionHost` implements it structurally; `LanguageFeaturesAdapter` registers the proxies
@@ -51,10 +94,26 @@ import type { IWireLanguageProviderRegistration } from "./wireTypes.ts";
  */
 export interface IExtensionLanguageFeaturesBridge {
     getLanguageProviders(): readonly IWireLanguageProviderRegistration[];
+    getWorkspaceSymbolProviders(): readonly IWireWorkspaceSymbolProviderRegistration[];
     /** Including when the subprocess dies. */
     onLanguageProvidersChanged(cb: () => void): IDisposable;
     provideHover(handle: number, request: IHoverRequest, token: ICancellationToken): Promise<ICoreHover | undefined>;
     provideDefinition(
+        handle: number,
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+    provideImplementation(
+        handle: number,
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+    provideTypeDefinition(
+        handle: number,
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+    provideDeclaration(
         handle: number,
         request: IDefinitionRequest,
         token: ICancellationToken,
@@ -76,6 +135,11 @@ export interface IExtensionLanguageFeaturesBridge {
     ): Promise<ICoreCompletionResult>;
     resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null>;
     /** With `request.range`, the range provider `handle`; without it, the document one. */
+    provideOnTypeFormattingEdits(
+        handle: number,
+        request: IOnTypeFormattingRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ITextEdit[]>;
     provideFormattingEdits(
         handle: number,
         request: IFormattingRequest,
@@ -87,6 +151,18 @@ export interface IExtensionLanguageFeaturesBridge {
         token: ICancellationToken,
     ): Promise<readonly ICoreCodeAction[]>;
     applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean>;
+    provideDocumentSymbols(
+        handle: number,
+        request: IDocumentSymbolRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDocumentSymbol[]>;
+    provideWorkspaceSymbols(handle: number, query: string, token: ICancellationToken): Promise<IWireWorkspaceSymbols>;
+    resolveWorkspaceSymbol(
+        handle: number,
+        cacheId: number,
+        id: number,
+        token: ICancellationToken,
+    ): Promise<ICoreWorkspaceSymbolLocation | null>;
     provideFoldingRanges(
         handle: number,
         request: IFoldingRequest,
@@ -105,6 +181,68 @@ export interface IExtensionLanguageFeaturesBridge {
         request: ISelectionRangeRequest,
         token: ICancellationToken,
     ): Promise<readonly (readonly IRange[])[]>;
+    prepareCallHierarchy(
+        handle: number,
+        request: ICallHierarchyRequest,
+        token: ICancellationToken,
+    ): Promise<ICallHierarchySession | null>;
+    provideCallHierarchyIncomingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token: ICancellationToken,
+    ): Promise<readonly ICallHierarchyIncomingCall[]>;
+    provideCallHierarchyOutgoingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token: ICancellationToken,
+    ): Promise<readonly ICallHierarchyOutgoingCall[]>;
+    /** The tree is gone: the subprocess forgets the session's original items. */
+    releaseCallHierarchy(handle: number, sessionId: number): void;
+    prepareTypeHierarchy(
+        handle: number,
+        request: ITypeHierarchyRequest,
+        token: ICancellationToken,
+    ): Promise<ITypeHierarchySession | null>;
+    provideTypeHierarchySupertypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]>;
+    provideTypeHierarchySubtypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]>;
+    /** The tree is gone: the subprocess forgets the session's original items. */
+    releaseTypeHierarchy(handle: number, sessionId: number): void;
+    /** `null`: the provider declined, the next one or the textual search takes over. */
+    provideDocumentHighlights(
+        handle: number,
+        request: IDocumentHighlightRequest,
+        token: ICancellationToken,
+    ): Promise<readonly IDocumentHighlight[] | null>;
+    /** `null`: the provider has nothing at the position, the next one is asked. */
+    provideEvaluatableExpression(
+        handle: number,
+        request: IEvaluatableExpressionRequest,
+        token: ICancellationToken,
+    ): Promise<IEvaluatableExpression | null>;
+    /** `null`: the provider declined, the next one is asked. */
+    provideLinkedEditingRanges(
+        handle: number,
+        request: ILinkedEditingRangeRequest,
+        token: ICancellationToken,
+    ): Promise<ILinkedEditingRanges | null>;
+    provideDocumentLinks(
+        handle: number,
+        request: ILinkRequest,
+        token: ICancellationToken,
+    ): Promise<IWireDocumentLinkList | null>;
+    resolveDocumentLink(handle: number, cacheId: number, id: number, token: ICancellationToken): Promise<string | null>;
     /** `null`: the provider gave no colors, the default detector may take over. */
     provideDocumentColors(
         handle: number,
@@ -115,6 +253,32 @@ export interface IExtensionLanguageFeaturesBridge {
      * Document tokens; `previousResultId` is the numeric id of this provider's previous
      * response (0 if none). The response's `resultId` is the same id as a string.
      */
+    provideInlayHints(
+        handle: number,
+        request: IInlayHintsRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlayHint[] | null>;
+    onDidChangeInlayHints(cb: (handle: number) => void): IDisposable;
+    provideInlineValues(
+        handle: number,
+        request: IInlineValuesRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlineValue[] | null>;
+    provideCodeLenses(
+        handle: number,
+        request: ICodeLensRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLensList | null>;
+    resolveCodeLens(
+        handle: number,
+        cacheId: WireCodeLensCacheId,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLens | null>;
+    /** The core no longer shows the answer `cacheId`. */
+    releaseCodeLenses(handle: number, cacheId: number): void;
+    /** Rejects with the failure of the command. No timeout: a command may run as long as it likes. */
+    executeCodeLensCommand(handle: number, cacheId: WireCodeLensCacheId): Promise<void>;
+    onDidChangeCodeLenses(cb: (handle: number) => void): IDisposable;
     provideDocumentSemanticTokens(
         handle: number,
         request: ISemanticTokensRequest,

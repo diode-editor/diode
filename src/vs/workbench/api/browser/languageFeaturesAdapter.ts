@@ -1,17 +1,34 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { Event } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
+import type { CodeLens } from "../../../editor/common/languages/iCodeLensSource.ts";
+import type { ICoreWorkspaceSymbol } from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import type { ILanguageFeaturesService } from "../../../editor/common/services/languageFeatures.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
 import type {
+    IWireCodeLens,
     IWireLanguageProviderRegistration,
     IWireSemanticTokensLegend,
+    IWireWorkspaceSymbol,
+    IWireWorkspaceSymbolProviderRegistration,
+    WireCodeLensCacheId,
     WireLanguageFeatureKind,
 } from "../common/wireTypes.ts";
 
 const EMPTY_LEGEND: IWireSemanticTokensLegend = { tokenTypes: [], tokenModifiers: [] };
 
-interface ILiveRegistration {
-    readonly source: IWireLanguageProviderRegistration;
+/** Upstream `ICodeLensDto`: the core hands the lens back to resolve it, with the address on it. */
+interface IExtensionCodeLens extends CodeLens {
+    readonly cacheId: WireCodeLensCacheId;
+}
+
+/** The core hands the symbol back to resolve it, with the address on it. */
+interface IExtensionWorkspaceSymbol extends IWireWorkspaceSymbol {
+    readonly cacheId: number;
+}
+
+interface ILiveRegistration<T> {
+    readonly source: T;
     readonly disposable: IDisposable;
 }
 
@@ -20,7 +37,11 @@ interface ILiveRegistration {
  * deltas: the adapter may appear after the first registrations, and subprocess death is one event.
  */
 export class LanguageFeaturesAdapter extends Disposable {
-    private readonly registrations = new Map<number, ILiveRegistration>();
+    private readonly registrations = new Map<number, ILiveRegistration<IWireLanguageProviderRegistration>>();
+    private readonly workspaceSymbolRegistrations = new Map<
+        number,
+        ILiveRegistration<IWireWorkspaceSymbolProviderRegistration>
+    >();
 
     public constructor(
         private readonly bridge: IExtensionLanguageFeaturesBridge,
@@ -35,6 +56,7 @@ export class LanguageFeaturesAdapter extends Disposable {
         this.register({
             dispose: () => {
                 for (const live of this.registrations.values()) live.disposable.dispose();
+                for (const live of this.workspaceSymbolRegistrations.values()) live.disposable.dispose();
             },
         });
         // The subprocess may have declared providers before the adapter was created.
@@ -42,20 +64,30 @@ export class LanguageFeaturesAdapter extends Disposable {
     }
 
     private sync(): void {
-        const wanted = new Map(this.bridge.getLanguageProviders().map((reg) => [reg.handle, reg]));
+        syncRegistrations(this.registrations, this.bridge.getLanguageProviders(), (reg) => this.registerProxy(reg));
+        syncRegistrations(this.workspaceSymbolRegistrations, this.bridge.getWorkspaceSymbolProviders(), (reg) =>
+            this.registerWorkspaceSymbolProxy(reg),
+        );
+    }
 
-        for (const [handle, live] of this.registrations) {
-            // The same handle with a different registration (the subprocess restarted and
-            // hands out handles anew): drop the old proxy and install a new one.
-            if (wanted.get(handle) === live.source) continue;
-            live.disposable.dispose();
-            this.registrations.delete(handle);
-        }
-
-        for (const [handle, reg] of wanted) {
-            if (this.registrations.has(handle)) continue;
-            this.registrations.set(handle, { source: reg, disposable: this.registerProxy(reg) });
-        }
+    private registerWorkspaceSymbolProxy({
+        handle,
+        supportsResolve,
+    }: IWireWorkspaceSymbolProviderRegistration): IDisposable {
+        return this.languageFeatures.workspaceSymbolProvider.register({
+            provideWorkspaceSymbols: async (query, token) => {
+                const { cacheId, symbols } = await this.bridge.provideWorkspaceSymbols(handle, query, token);
+                return symbols.map((symbol): IExtensionWorkspaceSymbol => ({ ...symbol, cacheId }));
+            },
+            ...(supportsResolve
+                ? {
+                      resolveWorkspaceSymbol: (symbol: ICoreWorkspaceSymbol, token: ICancellationToken) => {
+                          const { cacheId, id } = symbol as IExtensionWorkspaceSymbol;
+                          return this.bridge.resolveWorkspaceSymbol(handle, cacheId, id, token);
+                      },
+                  }
+                : {}),
+        });
     }
 
     private readonly proxyFactories: Readonly<
@@ -68,6 +100,18 @@ export class LanguageFeaturesAdapter extends Disposable {
         definition: ({ handle, selector }) =>
             this.languageFeatures.definitionProvider.register(selector, {
                 provideDefinition: (request, token) => this.bridge.provideDefinition(handle, request, token),
+            }),
+        implementation: ({ handle, selector }) =>
+            this.languageFeatures.implementationProvider.register(selector, {
+                provideImplementation: (request, token) => this.bridge.provideImplementation(handle, request, token),
+            }),
+        typeDefinition: ({ handle, selector }) =>
+            this.languageFeatures.typeDefinitionProvider.register(selector, {
+                provideTypeDefinition: (request, token) => this.bridge.provideTypeDefinition(handle, request, token),
+            }),
+        declaration: ({ handle, selector }) =>
+            this.languageFeatures.declarationProvider.register(selector, {
+                provideDeclaration: (request, token) => this.bridge.provideDeclaration(handle, request, token),
             }),
         references: ({ handle, selector }) =>
             this.languageFeatures.referenceProvider.register(selector, {
@@ -85,15 +129,23 @@ export class LanguageFeaturesAdapter extends Disposable {
                 provideCompletionItems: (request, token) => this.bridge.provideCompletionItems(handle, request, token),
                 resolveCompletionItem: (id) => this.bridge.resolveCompletionItem(id),
             }),
-        formatting: ({ handle, selector }) =>
+        formatting: ({ handle, selector, extensionId }) =>
             this.languageFeatures.documentFormattingEditProvider.register(selector, {
+                extensionId,
                 provideDocumentFormattingEdits: (request, token) =>
                     this.bridge.provideFormattingEdits(handle, request, token),
             }),
-        rangeFormatting: ({ handle, selector }) =>
+        rangeFormatting: ({ handle, selector, extensionId }) =>
             this.languageFeatures.documentRangeFormattingEditProvider.register(selector, {
+                extensionId,
                 provideDocumentRangeFormattingEdits: (request, token) =>
                     this.bridge.provideFormattingEdits(handle, request, token),
+            }),
+        onTypeFormatting: ({ handle, selector, triggerCharacters = [] }) =>
+            this.languageFeatures.onTypeFormattingEditProvider.register(selector, {
+                triggerCharacters,
+                provideOnTypeFormattingEdits: (request, token) =>
+                    this.bridge.provideOnTypeFormattingEdits(handle, request, token),
             }),
         codeActions: ({ handle, selector, providedCodeActionKinds = [] }) =>
             this.languageFeatures.codeActionProvider.register(selector, {
@@ -104,6 +156,10 @@ export class LanguageFeaturesAdapter extends Disposable {
         folding: ({ handle, selector }) =>
             this.languageFeatures.foldingRangeProvider.register(selector, {
                 provideFoldingRanges: (request, token) => this.bridge.provideFoldingRanges(handle, request, token),
+            }),
+        documentSymbol: ({ handle, selector }) =>
+            this.languageFeatures.documentSymbolProvider.register(selector, {
+                provideDocumentSymbols: (request, token) => this.bridge.provideDocumentSymbols(handle, request, token),
             }),
         inlineCompletions: ({ handle, selector }) =>
             this.languageFeatures.inlineCompletionsProvider.register(selector, {
@@ -119,9 +175,106 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.selectionRangeProvider.register(selector, {
                 provideSelectionRanges: (request, token) => this.bridge.provideSelectionRanges(handle, request, token),
             }),
+        documentHighlight: ({ handle, selector }) =>
+            this.languageFeatures.documentHighlightProvider.register(selector, {
+                provideDocumentHighlights: (request, token) =>
+                    this.bridge.provideDocumentHighlights(handle, request, token),
+            }),
+        evaluatableExpression: ({ handle, selector }) =>
+            this.languageFeatures.evaluatableExpressionProvider.register(selector, {
+                provideEvaluatableExpression: (request, token) =>
+                    this.bridge.provideEvaluatableExpression(handle, request, token),
+            }),
+        linkedEditingRange: ({ handle, selector }) =>
+            this.languageFeatures.linkedEditingRangeProvider.register(selector, {
+                provideLinkedEditingRanges: (request, token) =>
+                    this.bridge.provideLinkedEditingRanges(handle, request, token),
+            }),
+        documentLink: ({ handle, selector, hasResolve }) =>
+            this.languageFeatures.documentLinkProvider.register(selector, {
+                provideLinks: async (request, token) => {
+                    const list = await this.bridge.provideDocumentLinks(handle, request, token);
+                    return list?.links.map(({ id, range, target, tooltip }) => ({
+                        range,
+                        url: target,
+                        tooltip,
+                        resolve:
+                            hasResolve === true
+                                ? (resolveToken) =>
+                                      this.bridge.resolveDocumentLink(handle, list.cacheId, id, resolveToken)
+                                : undefined,
+                    }));
+                },
+            }),
         color: ({ handle, selector }) =>
             this.languageFeatures.colorProvider.register(selector, {
                 provideDocumentColors: (request, token) => this.bridge.provideDocumentColors(handle, request, token),
+            }),
+        callHierarchy: ({ handle, selector }) =>
+            this.languageFeatures.callHierarchyProvider.register(selector, {
+                prepareCallHierarchy: (request, token) => this.bridge.prepareCallHierarchy(handle, request, token),
+                provideIncomingCalls: (sessionId, itemId, token) =>
+                    this.bridge.provideCallHierarchyIncomingCalls(handle, sessionId, itemId, token),
+                provideOutgoingCalls: (sessionId, itemId, token) =>
+                    this.bridge.provideCallHierarchyOutgoingCalls(handle, sessionId, itemId, token),
+                releaseCallHierarchy: (sessionId) => {
+                    this.bridge.releaseCallHierarchy(handle, sessionId);
+                },
+            }),
+        typeHierarchy: ({ handle, selector }) =>
+            this.languageFeatures.typeHierarchyProvider.register(selector, {
+                prepareTypeHierarchy: (request, token) => this.bridge.prepareTypeHierarchy(handle, request, token),
+                provideSupertypes: (sessionId, itemId, token) =>
+                    this.bridge.provideTypeHierarchySupertypes(handle, sessionId, itemId, token),
+                provideSubtypes: (sessionId, itemId, token) =>
+                    this.bridge.provideTypeHierarchySubtypes(handle, sessionId, itemId, token),
+                releaseTypeHierarchy: (sessionId) => {
+                    this.bridge.releaseTypeHierarchy(handle, sessionId);
+                },
+            }),
+        // The hints die with their answer: there is no resolve cache in the subprocess to release.
+        inlineValues: ({ handle, selector }) =>
+            this.languageFeatures.inlineValuesProvider.register(selector, {
+                provideInlineValues: (request, token) => this.bridge.provideInlineValues(handle, request, token),
+            }),
+        inlayHints: ({ handle, selector, hasOnDidChange }) =>
+            this.languageFeatures.inlayHintsProvider.register(selector, {
+                ...(hasOnDidChange === true ? { onDidChangeInlayHints: this.inlayHintsChangeEvent(handle) } : {}),
+                provideInlayHints: async (model, range, token) => {
+                    const request = {
+                        uri: model.uri.toString(),
+                        languageId: model.languageId,
+                        versionId: model.document.versionId,
+                        range,
+                    };
+                    const hints = await this.bridge.provideInlayHints(handle, request, token);
+                    return hints === null ? null : { hints, dispose: () => undefined };
+                },
+            }),
+        // Upstream `MainThreadCodeLensProvider`, always able to resolve: the subprocess knows whether the provider can.
+        codeLens: ({ handle, selector, hasOnDidChange }) =>
+            this.languageFeatures.codeLensProvider.register(selector, {
+                ...(hasOnDidChange === true ? { onDidChange: this.codeLensChangeEvent(handle) } : {}),
+                provideCodeLenses: async (model, token) => {
+                    const request = {
+                        uri: model.uri.toString(),
+                        languageId: model.languageId,
+                        versionId: model.document.versionId,
+                    };
+                    const list = await this.bridge.provideCodeLenses(handle, request, token);
+                    if (list === null) return null;
+                    return {
+                        lenses: list.lenses.map((lens) => this.toCoreCodeLens(handle, lens)),
+                        dispose: () => {
+                            this.bridge.releaseCodeLenses(handle, list.cacheId);
+                        },
+                    };
+                },
+                resolveCodeLens: async (_model, lens, token) => {
+                    const { cacheId } = lens as IExtensionCodeLens;
+                    const resolved = await this.bridge.resolveCodeLens(handle, cacheId, token);
+                    return resolved === null ? null : this.toCoreCodeLens(handle, resolved);
+                },
             }),
         // Upstream `MainThreadDocumentSemanticTokensProvider`: the result id is a
         // string in the core and a number on the wire; "no previous" is 0.
@@ -158,7 +311,52 @@ export class LanguageFeaturesAdapter extends Disposable {
             });
     }
 
+    private inlayHintsChangeEvent(handle: number): Event<void> {
+        return (listener) =>
+            this.bridge.onDidChangeInlayHints((changed) => {
+                if (changed === handle) listener();
+            });
+    }
+
+    private codeLensChangeEvent(handle: number): Event<void> {
+        return (listener) =>
+            this.bridge.onDidChangeCodeLenses((changed) => {
+                if (changed === handle) listener();
+            });
+    }
+
+    private toCoreCodeLens(handle: number, { cacheId, range, command }: IWireCodeLens): IExtensionCodeLens {
+        return {
+            cacheId,
+            range,
+            ...(command === undefined
+                ? {}
+                : { command: { ...command, run: () => this.bridge.executeCodeLensCommand(handle, cacheId) } }),
+        };
+    }
+
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {
         return this.proxyFactories[reg.kind](reg);
+    }
+}
+
+function syncRegistrations<T extends { readonly handle: number }>(
+    registrations: Map<number, ILiveRegistration<T>>,
+    providers: readonly T[],
+    register: (registration: T) => IDisposable,
+): void {
+    const wanted = new Map(providers.map((reg) => [reg.handle, reg]));
+
+    for (const [handle, live] of registrations) {
+        // The same handle with a different registration (the subprocess restarted and
+        // hands out handles anew): drop the old proxy and install a new one.
+        if (wanted.get(handle) === live.source) continue;
+        live.disposable.dispose();
+        registrations.delete(handle);
+    }
+
+    for (const [handle, reg] of wanted) {
+        if (registrations.has(handle)) continue;
+        registrations.set(handle, { source: reg, disposable: register(reg) });
     }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { DocumentRegistry, type ExtHostTextDocument } from "./extHostDocuments.ts";
-import { Position, Range, Uri } from "./vscodeTypes.ts";
+import { DocumentRegistry, ExtHostTextDocument } from "./extHostDocuments.ts";
+import { EndOfLine, Position, Range, Uri } from "./vscodeTypes.ts";
 
 function docWith(text: string): ExtHostTextDocument {
     const registry = new DocumentRegistry();
@@ -34,6 +34,12 @@ describe("ExtHostTextDocument — getWordRangeAtPosition", () => {
     it("a signed number with an exponent is one word of the default definition", () => {
         const doc = docWith(TEXT);
         expect(doc.getWordRangeAtPosition(new Position(0, 18))).toEqual(new Range(0, 16, 0, 22));
+    });
+
+    it("a document built on its own, without a registry, has the default definition", () => {
+        const doc = new ExtHostTextDocument(Uri.file("/a.txt"));
+        doc.applyFull({ uri: doc.uri.toString(), text: "foo bar", eol: EndOfLine.LF, version: 1 });
+        expect(doc.getWordRangeAtPosition(new Position(0, 5))).toEqual(new Range(0, 4, 0, 7));
     });
 
     it("a position outside the document is clamped to it", () => {

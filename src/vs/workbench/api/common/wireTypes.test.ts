@@ -1,8 +1,25 @@
+import "./rangeJsonShape.ts";
 import { describe, expect, it } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 
-import { parseWireEditorLayout, parseWireSelections, reviveWireUri } from "./wireTypes.ts";
+import { Range } from "./vscodeTypes.ts";
+import { parseRange, parseWireEditorLayout, parseWireSelections, reviveWireUri } from "./wireTypes.ts";
+
+describe("WireTypes — parseRange", () => {
+    const expected = { start: { line: 1, character: 2 }, end: { line: 3, character: 4 } };
+
+    it("reads a vscode.Range both as a structured clone and as the JSON fallback of the transport", () => {
+        const range = new Range(1, 2, 3, 4);
+        expect(parseRange(structuredClone({ start: range.start, end: range.end }))).toMatchObject(expected);
+        expect(parseRange(JSON.parse(JSON.stringify(range)))).toMatchObject(expected);
+    });
+
+    it("rejects a pair that is not two positions", () => {
+        expect(parseRange([{ line: 1, character: 2 }])).toBeNull();
+        expect(parseRange([])).toBeNull();
+    });
+});
 
 describe("WireTypes — parseWireSelections", () => {
     it("keeps valid entries, drops broken ones", () => {
@@ -71,6 +88,19 @@ describe("WireTypes — parseWireEditorLayout", () => {
             layoutOf(layoutTab({ original: 5, modified: null, languageId: 42, selections: "junk" })),
         );
         expect(parsed?.groups[0].tabs[0]).toEqual(layoutTab());
+    });
+
+    it("picks up the resolved indentation of a text tab", () => {
+        const tab = parseWireEditorLayout(layoutOf(layoutTab({ tabSize: 2, insertSpaces: false })))?.groups[0].tabs[0];
+        expect(tab?.tabSize).toBe(2);
+        expect(tab?.insertSpaces).toBe(false);
+    });
+
+    it("a broken indentation is omitted", () => {
+        const tab = parseWireEditorLayout(layoutOf(layoutTab({ tabSize: "2", insertSpaces: 1 })))?.groups[0].tabs[0];
+        expect(tab).toBeDefined();
+        expect(tab).not.toHaveProperty("tabSize");
+        expect(tab).not.toHaveProperty("insertSpaces");
     });
 
     it("broken selections inside selections are dropped one by one (drop+skip)", () => {

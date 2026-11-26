@@ -1,17 +1,16 @@
 import { vi } from "vitest";
 
 import { MarkerService } from "../vs/platform/markers/common/markerService.ts";
-import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
+import { makeViewsHarness, testView } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
 import { PROBLEMS_VIEW_ID } from "../vs/workbench/contrib/markers/browser/problemsComponent.ts";
 import { type ITaskEvent, TerminalTaskSystem } from "../vs/workbench/contrib/tasks/browser/terminalTaskSystem.ts";
 import { getBuiltinProblemMatcher } from "../vs/workbench/contrib/tasks/common/problemMatcher.ts";
-import type { ITaskVariableContext } from "../vs/workbench/contrib/tasks/common/taskVariables.ts";
 import { TerminalService } from "../vs/workbench/contrib/terminal/browser/terminalService.ts";
 import type { ITerminalSessionOptions } from "../vs/workbench/contrib/terminal/common/terminalSessionFactory.ts";
 
 import { FakeEditorTerminals } from "./FakeEditorTerminals.ts";
 import { FakeTerminalSurface } from "./FakeTerminalSurface.ts";
-import { taskVariables } from "./taskFixtures.ts";
+import { taskRunContext } from "./taskFixtures.ts";
 import { createTestConfigurationService } from "./testConfigurationService.ts";
 
 export function buildTerminalTaskSystemHarness() {
@@ -27,26 +26,10 @@ export function buildTerminalTaskSystemHarness() {
     });
     // A neighbor panel tab, for "panel visible, but not on the terminal".
     views.service.registerContainer({ id: "other", title: "OTHER", location: "panel", order: 1 });
-    views.service.registerView({
-        id: "other",
-        containerId: "other",
-        title: "OTHER",
-        order: 1,
-        body: null,
-        placeholder: "",
-        focus: () => undefined,
-    });
+    views.service.registerView(testView("other", "other", 1, { body: null, placeholder: "" }));
     // Stands in for the Problems panel that `revealProblems` opens.
     views.service.registerContainer({ id: PROBLEMS_VIEW_ID, title: "PROBLEMS", location: "panel", order: 3 });
-    views.service.registerView({
-        id: PROBLEMS_VIEW_ID,
-        containerId: PROBLEMS_VIEW_ID,
-        title: "PROBLEMS",
-        order: 1,
-        body: null,
-        placeholder: "",
-        focus: () => undefined,
-    });
+    views.service.registerView(testView(PROBLEMS_VIEW_ID, PROBLEMS_VIEW_ID, 1, { body: null, placeholder: "" }));
     views.service.attachRegisteredContainers();
     const editorTerminals = new FakeEditorTerminals(terminals);
     const markers = new MarkerService();
@@ -74,10 +57,9 @@ export function buildTerminalTaskSystemHarness() {
     });
     const focus = vi.fn();
     terminals.onDidRequestFocus(focus);
-    let variables = taskVariables();
-    const context = () => ({ variables, platform: "linux" as const });
-    const setVariables = (overrides: Partial<ITaskVariableContext>): void => {
-        variables = taskVariables(overrides);
+    let context = taskRunContext();
+    const setVariables = (overrides: Parameters<typeof taskRunContext>[0]): void => {
+        context = taskRunContext(overrides);
     };
     const dispose = (): void => {
         system.dispose();
@@ -97,7 +79,7 @@ export function buildTerminalTaskSystemHarness() {
         events,
         raw,
         focus,
-        context,
+        context: () => context,
         setVariables,
         dispose,
     };

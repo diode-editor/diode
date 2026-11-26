@@ -60,6 +60,11 @@ describe("javaFixture — maven project", () => {
         expect(fs.readFileSync(project.appPath, "utf-8")).toContain("int broken = message;");
     });
 
+    it("extra sources land next to App.java, in its package", () => {
+        project = createMavenProject({ "Shape.java": "package demo;\n" });
+        expect(fs.readFileSync(project.sourcePath("Shape.java"), "utf-8")).toBe("package demo;\n");
+    });
+
     it("the project directory is its OWN, not shared with anything else", () => {
         project = createMavenProject();
         const other = createMavenProject();

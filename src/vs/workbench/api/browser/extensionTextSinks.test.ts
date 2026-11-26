@@ -232,6 +232,7 @@ function statusBarSetup(): { bar: StatusBarService; adapter: ExtensionStatusBarA
     const bar = new StatusBarService(NULL_STATE_SERVICE);
     const commands: ICommandService = {
         execute: () => undefined,
+        holdInputUntil: () => undefined,
         listCommandIds: () => [],
         registerProxy: () => ({ dispose: () => undefined }),
     };
@@ -282,8 +283,7 @@ function channelLabel(registry: OutputChannelRegistry, id: string): string {
 }
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),
@@ -340,7 +340,7 @@ const CASES: readonly ISinkCase[] = [
             const bar = new StatusBarService(NULL_STATE_SERVICE);
             const adapter = new ProgressStatusBarAdapter(bar);
             try {
-                adapter.start(1, FEED);
+                adapter.start(1, { title: FEED });
                 // The spinner is ours, not the extension's: compare the tail of the entry.
                 return bar.entries()[0].text.split(" ").slice(1).join(" ");
             } finally {
@@ -355,7 +355,7 @@ const CASES: readonly ISinkCase[] = [
             const bar = new StatusBarService(NULL_STATE_SERVICE);
             const adapter = new ProgressStatusBarAdapter(bar);
             try {
-                adapter.start(1, "Build");
+                adapter.start(1, { title: "Build" });
                 adapter.report(1, FEED);
                 const [, tail] = bar.entries()[0].text.split(" Build · ");
                 return tail;

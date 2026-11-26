@@ -19,6 +19,9 @@ function setup(workspaceFile?: string) {
         getWorkspaceFolders: () => [{ uri: "file:///ws", name: "ws", index: 0 }],
         getWorkspaceFile: () => workspaceFile,
         onDidChange: (cb: (keys: readonly string[]) => void) => changes.event(cb),
+        // Registered settings at the moment of the push: an extension registered later is in the next one.
+        getConfigurationScopes: () =>
+            new Map(Array.from({ length: version + 1 }, (_, i) => [`s.id${String(i)}`, "window"])),
     } as unknown as IExtensionHostConfigProvider;
     const customer = new ConfigurationCustomer(provider);
     const [a, b] = createInProcessChannelPair();
@@ -40,7 +43,7 @@ function setup(workspaceFile?: string) {
 }
 
 describe("ConfigurationCustomer", () => {
-    it("workspace.initialize seed — snapshot and folders, only to a live spawn", async () => {
+    it("workspace.initialize seed — snapshot, registered setting ids and folders, only to a live spawn", async () => {
         const h = setup();
         h.customer.pushInitialState();
         const attached = h.attachTo();
@@ -50,7 +53,11 @@ describe("ConfigurationCustomer", () => {
         expect(h.log).toStrictEqual([
             [
                 "workspace.initialize",
-                { configuration: { version: 0 }, workspaceFolders: [{ uri: "file:///ws", name: "ws", index: 0 }] },
+                {
+                    configuration: { version: 0 },
+                    settingIds: ["s.id0"],
+                    workspaceFolders: [{ uri: "file:///ws", name: "ws", index: 0 }],
+                },
             ],
         ]);
 
@@ -70,6 +77,7 @@ describe("ConfigurationCustomer", () => {
                 "workspace.initialize",
                 {
                     configuration: { version: 0 },
+                    settingIds: ["s.id0"],
                     workspaceFolders: [{ uri: "file:///ws", name: "ws", index: 0 }],
                     workspaceFile: "file:///ws/web.code-workspace",
                 },
@@ -77,14 +85,17 @@ describe("ConfigurationCustomer", () => {
         ]);
     });
 
-    it("a settings change goes out as a fresh snapshot with keys; after the spawn exits — to no one", async () => {
+    it("a settings change goes out as a fresh snapshot with fresh ids and keys; after the spawn exits — to no one", async () => {
         const h = setup();
         const attached = h.attachTo();
         h.bump();
         h.changes.fire(["editor.tabSize"]);
         await flushMicrotasks();
         expect(h.log).toEqual([
-            ["workspace.configurationChanged", { configuration: { version: 1 }, affectedKeys: ["editor.tabSize"] }],
+            [
+                "workspace.configurationChanged",
+                { configuration: { version: 1 }, settingIds: ["s.id0", "s.id1"], affectedKeys: ["editor.tabSize"] },
+            ],
         ]);
 
         attached.dispose();
@@ -166,6 +177,32 @@ describe("ConfigurationCustomer — configuration.update", () => {
         await h.update({ key: "t.nope", target: "user" });
         await h.update({ key: "[go]", value: { "editor.tabSize": 8 }, target: "user" });
         expect(h.service.getConfigurationData().user).toMatchObject({ "[go]": { editor: { tabSize: 8 } } });
+    });
+
+    it("the standalone tasks section is writable without registration in every target, as upstream", async () => {
+        const h = setupWrite();
+        await h.update({ key: "tasks.version", value: "2.0.0" });
+        await h.update({ key: "tasks", value: { version: "2.0.0" }, target: "user" });
+        await h.update({
+            key: "tasks.tasks",
+            value: [],
+            target: "workspaceFolder",
+            resource: Uri.file("/ws").toString(),
+        });
+        expect(h.targets).toEqual(["workspace", "user", "workspaceFolder"]);
+        await expect(h.update({ key: "tasksX", value: 1 })).rejects.toThrow(
+            "tasksX is not a registered configuration.",
+        );
+    });
+
+    it("so is the standalone launch section", async () => {
+        const h = setupWrite();
+        await h.update({ key: "launch.configurations", value: [] });
+        await h.update({ key: "launch", value: { version: "0.2.0" }, target: "workspace" });
+        expect(h.targets).toEqual(["workspace", "workspace"]);
+        await expect(h.update({ key: "launchX", value: 1 })).rejects.toThrow(
+            "launchX is not a registered configuration.",
+        );
     });
 
     it("application/machine to the workspace — the service rejection arrives with the upstream text", async () => {

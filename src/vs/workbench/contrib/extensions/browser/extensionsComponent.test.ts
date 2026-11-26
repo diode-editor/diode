@@ -1,41 +1,65 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
+import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import {
     type IRegistryExtensionMeta,
     REGISTRY_SCHEMA_VERSION,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
-import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import type { IViewDescriptor, ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../common/extensionsWorkbench.ts";
 
 import { ExtensionEditorPane } from "./extensionEditorPane.ts";
 import type { IExtensionPageActions } from "./extensionPageActions.ts";
-import { ExtensionsComponent, type IExtensionsEditorTarget } from "./extensionsComponent.ts";
+import {
+    EXTENSIONS_INSTALLED_VIEW_ID,
+    EXTENSIONS_VIEW_ID,
+    ExtensionsComponent,
+    type IExtensionsEditorTarget,
+} from "./extensionsComponent.ts";
 
 const NULL_VIEWS_SERVICE = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
 
-function recordingViewsService(): { service: ViewsService; descriptor: () => { focus: () => void; title: string } } {
-    let captured: { focus: () => void; title: string } | undefined;
+function recordingViewsService(): { service: ViewsService; views: IViewDescriptor[] } {
+    const views: IViewDescriptor[] = [];
     const service = {
         registerContainer: () => {},
-        registerView: (d: { focus: () => void; title: string }) => {
-            captured = d;
-        },
+        registerView: (d: IViewDescriptor) => views.push(d),
     } as unknown as ViewsService;
+    return { service, views };
+}
+
+function viewById(views: readonly IViewDescriptor[], id: string): IViewDescriptor {
+    const view = views.find((v) => v.id === id);
+    expect(view, `view ${id} is not registered`).toBeDefined();
+    return view!;
+}
+
+/** `workbench.list.openMode` only; the component reads nothing else. */
+function fakeConfiguration(openMode: "singleClick" | "doubleClick" = "singleClick"): {
+    service: IConfigurationService;
+    set: (mode: "singleClick" | "doubleClick") => void;
+} {
+    let current = openMode;
+    const service = {
+        get: (key: string) => (key === "workbench.list.openMode" ? current : undefined),
+    } as unknown as IConfigurationService;
     return {
         service,
-        descriptor: () => {
-            expect(captured, "view is not registered").toBeDefined();
-            return captured!;
+        set: (mode) => {
+            current = mode;
         },
     };
 }
@@ -53,7 +77,10 @@ function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExten
         installedVersion: null,
         availability: "available",
         pinned: false,
+        categories: [],
+        tags: [],
         needsReload: false,
+        operation: null,
         ...overrides,
     };
 }
@@ -115,6 +142,10 @@ class FakeService implements IExtensionsWorkbenchService {
         return { dispose: () => undefined };
     }
 
+    public installVsix(): Promise<never> {
+        return Promise.reject(new Error("not used"));
+    }
+
     public getCatalogError(): string | null {
         return this.error;
     }
@@ -135,6 +166,18 @@ class FakeService implements IExtensionsWorkbenchService {
 
     public getCompatibleVersions(): Promise<readonly []> {
         return Promise.resolve([]);
+    }
+
+    public getDownloadProgress(): number | null {
+        return null;
+    }
+
+    public getOperationError(): string | null {
+        return null;
+    }
+
+    public onDidChangeDownloadProgress(): { dispose: () => void } {
+        return { dispose: () => undefined };
     }
 
     public onDidChange(listener: () => void): { dispose: () => void } {
@@ -162,17 +205,30 @@ const PAGE_ACTIONS: IExtensionPageActions = {
     setAutoUpdate: () => Promise.resolve({ ok: true }),
     isAutoUpdateEnabled: () => true,
     onDidChangeAutoUpdate: () => ({ dispose: () => {} }),
+    spinner: () => "⠋",
+    onDidChangeSpinner: () => ({ dispose: () => {} }),
 };
 
 function make(
     service: IExtensionsWorkbenchService,
     target: IExtensionsEditorTarget = fakeTarget().target,
+    configuration: IConfigurationService = fakeConfiguration().service,
 ): ExtensionsComponent {
-    return new ExtensionsComponent(service, NULL_VIEWS_SERVICE, target, PAGE_ACTIONS);
+    return new ExtensionsComponent(service, NULL_VIEWS_SERVICE, target, PAGE_ACTIONS, configuration);
 }
 
+/** The MARKETPLACE section: the search box and the catalog. */
 function render(component: ExtensionsComponent, w = 44, h = 16): MockTerminalBackend {
     return renderElement(component.view, w, h, { themeVars: true });
+}
+
+function renderInstalled(component: ExtensionsComponent, w = 44, h = 16): MockTerminalBackend {
+    return renderElement(component.installedSectionView, w, h, { themeVars: true });
+}
+
+/** Both sections' text, MARKETPLACE first. */
+function screenOfBoth(component: ExtensionsComponent, w = 44): string {
+    return render(component, w).screenToString() + "\n" + renderInstalled(component, w).screenToString();
 }
 
 function typeQuery(component: ExtensionsComponent, text: string): void {
@@ -181,10 +237,19 @@ function typeQuery(component: ExtensionsComponent, text: string): void {
     input.onChange?.(text);
 }
 
-function activate(component: ExtensionsComponent, rowId: string): void {
-    const row = component.view.querySelector(`#${rowId}`);
+function activate(list: ListViewElement, rowId: string): void {
+    const row = list.querySelector(`#${rowId}`);
     expect(row, `row #${rowId} not found`).not.toBeNull();
-    component.list.onActivate?.(row!);
+    list.onActivate?.(row!);
+}
+
+function mouse(list: ListViewElement, type: "click" | "dblclick", localY: number): void {
+    list.dispatchEvent(new TUIMouseEvent(type, { button: "left", screenX: 3, screenY: localY, localX: 3, localY }));
+}
+
+async function settle(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
 }
 
 describe("ExtensionsComponent", () => {
@@ -194,20 +259,48 @@ describe("ExtensionsComponent", () => {
             registerContainer: (d: { id: string; rejectAddedViews?: boolean }) => containers.push(d),
             registerView: () => {},
         } as unknown as ViewsService;
-        new ExtensionsComponent(new FakeService([]), views, fakeTarget().target, PAGE_ACTIONS);
+        new ExtensionsComponent(
+            new FakeService([]),
+            views,
+            fakeTarget().target,
+            PAGE_ACTIONS,
+            fakeConfiguration().service,
+        );
         expect(containers).toHaveLength(1);
         expect(containers[0].rejectAddedViews).toBe(true);
     });
 
-    it("the list and the root carry their ids and sidebar colors", () => {
+    it("registers two sections: MARKETPLACE with the search box above INSTALLED", () => {
+        const { service, views } = recordingViewsService();
+        const component = new ExtensionsComponent(
+            new FakeService([]),
+            service,
+            fakeTarget().target,
+            PAGE_ACTIONS,
+            fakeConfiguration().service,
+        );
+
+        const marketplace = viewById(views, EXTENSIONS_VIEW_ID);
+        const installed = viewById(views, EXTENSIONS_INSTALLED_VIEW_ID);
+        expect(marketplace.title).toBe("MARKETPLACE");
+        expect(marketplace.body).toBe(component.view);
+        expect(installed.title).toBe("INSTALLED");
+        expect(installed.body).toBe(component.installedSectionView);
+        expect(marketplace.containerId).toBe(installed.containerId);
+        expect(marketplace.order).toBeLessThan(installed.order);
+    });
+
+    it("the lists and the roots carry their ids and sidebar colors", () => {
         const component = make(new FakeService([entry({ id: "acme.tools" })]));
         expect(component.view.id).toBe("extensionsView");
         expect(component.list.id).toBe("extensionsList");
+        expect(component.installedSectionView.id).toBe("extensionsInstalledView");
+        expect(component.installedList.id).toBe("extensionsInstalledList");
 
         // The viewlet background is the sidebar token, not the inherited editor background.
-        const screen = render(component);
         const sideBar = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("sideBar.background");
-        expect(screen.getBgAt(new Point(0, 0))).toBe(sideBar);
+        expect(render(component).getBgAt(new Point(0, 0))).toBe(sideBar);
+        expect(renderInstalled(component).getBgAt(new Point(0, 0))).toBe(sideBar);
     });
 
     it("the search box is not flush with the panel edges", () => {
@@ -215,6 +308,37 @@ describe("ExtensionsComponent", () => {
         const line = render(component).screenToString().split("\n")[0];
         expect(line.startsWith(" ")).toBe(true);
         expect(line.endsWith(" ")).toBe(true);
+    });
+
+    it("an entry is three lines — name, description, publisher — with a line under it", () => {
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Acme Tools", description: "Tools for acme" }),
+            entry({ id: "other.thing", displayName: "Other Thing" }),
+        ]);
+        const lines = render(make(service)).screenToString().split("\n");
+
+        // Line 0 is the search box; the entries keep a one-column gutter.
+        expect(lines.slice(1, 4).map((l) => l.trimEnd())).toEqual([" Acme Tools  1.0.0", " Tools for acme", " acme"]);
+        expect(lines[4]).toMatch(/^─{10}/);
+        expect(lines[5].trimEnd()).toBe(" Other Thing  1.0.0");
+    });
+
+    it("the separator is dimmer than the entries", () => {
+        const screen = render(make(new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })])));
+        expect(screen.getFgAt(new Point(5, 4))).not.toBe(screen.getFgAt(new Point(1, 1)));
+    });
+
+    it("a click on a lower line of an entry selects the whole entry", () => {
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Acme Tools" }),
+            entry({ id: "other.thing", displayName: "Other Thing" }),
+        ]);
+        const component = make(service, fakeTarget().target, fakeConfiguration("doubleClick").service);
+        render(component);
+
+        mouse(component.list, "click", 6);
+
+        expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-other-thing");
     });
 
     it("letters in the list are not typeahead: the cursor stays put", () => {
@@ -230,13 +354,39 @@ describe("ExtensionsComponent", () => {
         expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-tools");
     });
 
-    it("entries sit under their groups — a collapsed group hides them", () => {
-        const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
+    it("letters in the INSTALLED list are not typeahead either", () => {
+        const installed = { installedVersion: "1.0.0", availability: "installed" } as const;
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Acme Tools", ...installed }),
+            entry({ id: "other.thing", displayName: "Other Thing", ...installed }),
+        ]);
         const component = make(service);
-        expect(render(component).screenToString()).toContain("Acme Tools");
+        renderInstalled(component);
+        component.installedList.setCursorTo("extensionsGroup-installed-acme-tools");
 
-        component.list.setCollapsed("extensionsGroup-marketplace", true);
-        expect(render(component).screenToString()).not.toContain("Acme Tools");
+        component.installedList.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "o" }));
+        expect(component.installedList.getCursorElement()?.id).toBe("extensionsGroup-installed-acme-tools");
+    });
+
+    it("INSTALLED with entries has no empty-state row", () => {
+        const component = make(
+            new FakeService([entry({ id: "acme.tools", installedVersion: "1.0.0", availability: "installed" })]),
+        );
+        expect(component.installedList.querySelector("#extensionsInstalledEmpty")).toBeNull();
+        expect(renderInstalled(component).screenToString()).not.toContain("No extensions found");
+    });
+
+    it("a state row keeps the entries' one-column gutter", () => {
+        const lines = render(make(new FakeService([])))
+            .screenToString()
+            .split("\n");
+        expect(lines[1].startsWith(" No extensions found")).toBe(true);
+    });
+
+    it("an entry's first line carries its own id for the inspector", () => {
+        const component = make(new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]));
+        const title = component.list.querySelector("#extensionsGroup-marketplace-acme-tools--title");
+        expect((title as TextLabelElement | null)?.getText()).toBe("Acme Tools  1.0.0");
     });
 
     it("installed extensions outside the registry do not go into the catalog, and uninstalled registry ones do not go into INSTALLED", () => {
@@ -251,17 +401,25 @@ describe("ExtensionsComponent", () => {
             }),
         ]);
         const component = make(service);
-        render(component);
 
-        expect(component.view.querySelector("#extensionsGroup-marketplace-acme-tools")).not.toBeNull();
-        expect(component.view.querySelector("#extensionsGroup-marketplace-local-helper")).toBeNull();
-        expect(component.view.querySelector("#extensionsGroup-installed-local-helper")).not.toBeNull();
-        expect(component.view.querySelector("#extensionsGroup-installed-acme-tools")).toBeNull();
+        expect(component.list.querySelector("#extensionsGroup-marketplace-acme-tools")).not.toBeNull();
+        expect(component.list.querySelector("#extensionsGroup-marketplace-local-helper")).toBeNull();
+        expect(component.installedList.querySelector("#extensionsGroup-installed-local-helper")).not.toBeNull();
+        expect(component.installedList.querySelector("#extensionsGroup-installed-acme-tools")).toBeNull();
     });
 
     it("the empty state is shown only when the list is really empty", () => {
         const component = make(new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]));
         expect(render(component).screenToString()).not.toContain("No extensions found");
+    });
+
+    it("a state row carries no cursor", () => {
+        const component = make(new FakeService([]));
+        render(component);
+        renderInstalled(component);
+
+        expect(component.list.getCursorElement()).toBeNull();
+        expect(component.installedList.getCursorElement()).toBeNull();
     });
 
     it("rows of the previous contents leave no actions behind", async () => {
@@ -277,25 +435,32 @@ describe("ExtensionsComponent", () => {
         // the row's action must disappear together with it.
         typeQuery(component, "other");
         component.list.onActivate?.({ id: staleRowId } as TUIElement);
-        await Promise.resolve();
-        await Promise.resolve();
+        await settle();
         expect(opened).toHaveLength(0);
         // And there is no reason to reload the catalog: a row that doesn't exist has no action.
         expect(service.refreshCalls).toBe(0);
     });
 
-    it("shows the search box, the catalog and the installed section", () => {
+    it("shows the search box and the catalog in MARKETPLACE, installed ones in INSTALLED", () => {
         const service = new FakeService([
             entry({ id: "acme.tools", displayName: "Acme Tools" }),
-            entry({ id: "local.helper", displayName: "Helper", installedVersion: "0.1.0", availability: "installed" }),
+            entry({
+                id: "local.helper",
+                displayName: "Helper",
+                latestVersion: null,
+                installedVersion: "0.1.0",
+                availability: "installed",
+            }),
         ]);
-        const screen = render(make(service)).screenToString();
+        const component = make(service);
+        const marketplace = render(component).screenToString();
+        const installed = renderInstalled(component).screenToString();
 
-        expect(screen).toContain("Search Extensions");
-        expect(screen).toContain("MARKETPLACE");
-        expect(screen).toContain("Acme Tools");
-        expect(screen).toContain("INSTALLED");
-        expect(screen).toContain("Helper");
+        expect(marketplace).toContain("Search Extensions");
+        expect(marketplace).toContain("Acme Tools");
+        expect(marketplace).not.toContain("Helper");
+        expect(installed).toContain("Helper");
+        expect(installed).not.toContain("Acme Tools");
     });
 
     it("an extension installed from the marketplace shows both in the catalog with a badge and in its own section", () => {
@@ -307,8 +472,7 @@ describe("ExtensionsComponent", () => {
                 availability: "installed",
             }),
         ]);
-        const component = make(service);
-        const screen = render(component).screenToString();
+        const screen = screenOfBoth(make(service));
 
         expect(screen.match(/Acme Tools/g)).toHaveLength(2);
         expect(screen).toContain("Installed");
@@ -331,36 +495,47 @@ describe("ExtensionsComponent", () => {
         expect(screen).toContain("Incompatible");
     });
 
-    it("filters as you type", () => {
+    it("filters both sections as you type", () => {
         const service = new FakeService([
-            entry({ id: "acme.tools", displayName: "Acme Tools" }),
-            entry({ id: "other.thing", displayName: "Other Thing" }),
+            entry({
+                id: "acme.tools",
+                displayName: "Acme Tools",
+                installedVersion: "1.0.0",
+                availability: "installed",
+            }),
+            entry({
+                id: "other.thing",
+                displayName: "Other Thing",
+                installedVersion: "1.0.0",
+                availability: "installed",
+            }),
         ]);
         const component = make(service);
 
         typeQuery(component, "acme");
-        const screen = render(component).screenToString();
-        expect(screen).toContain("Acme Tools");
+        const screen = screenOfBoth(component);
+        expect(screen.match(/Acme Tools/g)).toHaveLength(2);
         expect(screen).not.toContain("Other Thing");
     });
 
-    it("nothing found — says so", () => {
-        const component = make(new FakeService([entry({ id: "acme.tools" })]));
+    it("nothing found — says so in both sections", () => {
+        const component = make(
+            new FakeService([entry({ id: "acme.tools", installedVersion: "1.0.0", availability: "installed" })]),
+        );
 
         typeQuery(component, "zzz");
         expect(render(component).screenToString()).toContain("No extensions found");
+        expect(renderInstalled(component).screenToString()).toContain("No extensions found");
     });
 
     it("an empty catalog with nothing installed is the empty state too", () => {
-        expect(render(make(new FakeService([]))).screenToString()).toContain("No extensions found");
+        expect(screenOfBoth(make(new FakeService([]))).match(/No extensions found/g)).toHaveLength(2);
     });
 
     it("a catalog error is shown with its reason and offers a retry", () => {
         const service = new FakeService([], "getaddrinfo ENOTFOUND example.invalid");
         const screen = render(make(service), 70).screenToString();
 
-        // The section title stays: the error is a catalog state, not its replacement.
-        expect(screen).toContain("MARKETPLACE");
         expect(screen).toContain("Retry");
         expect(screen).toContain("ENOTFOUND");
     });
@@ -378,26 +553,17 @@ describe("ExtensionsComponent", () => {
             ],
             "offline",
         );
-        const screen = render(make(service)).screenToString();
+        const component = make(service);
 
-        expect(screen).toContain("INSTALLED");
-        expect(screen).toContain("Helper");
-    });
-
-    it("the error row sits under the catalog header", () => {
-        const component = make(new FakeService([], "offline"));
-        expect(render(component, 70).screenToString()).toContain("Retry");
-
-        // A collapsed catalog hides the failure reason too: the row belongs to the section.
-        component.list.setCollapsed("extensionsGroup-marketplace", true);
-        expect(render(component, 70).screenToString()).not.toContain("Retry");
+        expect(render(component).screenToString()).toContain("Retry");
+        expect(renderInstalled(component).screenToString()).toContain("Helper");
     });
 
     it("activating the error row rereads the catalog", () => {
         const service = new FakeService([], "offline");
         const component = make(service);
 
-        activate(component, "extensionsRetry");
+        activate(component.list, "extensionsRetry");
         expect(service.refreshCalls).toBe(1);
     });
 
@@ -438,20 +604,33 @@ describe("ExtensionsComponent", () => {
         expect(render(component).screenToString()).toContain("Loading extensions");
 
         release();
-        await Promise.resolve();
-        await Promise.resolve();
+        await settle();
         expect(render(component).screenToString()).toContain("No extensions found");
     });
 
-    it("showing the section moves to the search box and reads the catalog", () => {
+    it("showing the MARKETPLACE section moves to the search box and reads the catalog", () => {
         const service = new FakeService([entry({ id: "acme.tools" })]);
-        const views = recordingViewsService();
-        const component = new ExtensionsComponent(service, views.service, fakeTarget().target, PAGE_ACTIONS);
+        const { service: views, views: registered } = recordingViewsService();
+        new ExtensionsComponent(service, views, fakeTarget().target, PAGE_ACTIONS, fakeConfiguration().service);
 
         // The same path ViewsService uses to show the section (command, reveal).
-        views.descriptor().focus();
+        viewById(registered, EXTENSIONS_VIEW_ID).focus();
         expect(service.ensureLoadedCalls).toBe(1);
-        expect(views.descriptor().title).toBe("EXTENSIONS");
+    });
+
+    it("showing the INSTALLED section focuses its list", () => {
+        const { service: views, views: registered } = recordingViewsService();
+        const component = new ExtensionsComponent(
+            new FakeService([entry({ id: "acme.tools", installedVersion: "1.0.0", availability: "installed" })]),
+            views,
+            fakeTarget().target,
+            PAGE_ACTIONS,
+            fakeConfiguration().service,
+        );
+        TestApp.createWithContent(component.installedSectionView).render();
+
+        viewById(registered, EXTENSIONS_INSTALLED_VIEW_ID).focus();
+        expect(component.installedList.isFocused).toBe(true);
     });
 
     it("focus reads the catalog: no network until the viewlet is shown", () => {
@@ -487,7 +666,7 @@ describe("ExtensionsComponent", () => {
         expect(render(component).screenToString()).toContain("No extensions found");
     });
 
-    it("US-2.4/US-2.5: setQuery puts @outdated in the search box and the list shows outdated ones once", () => {
+    it("US-2.4/US-2.5: setQuery puts @outdated in the search box and the outdated ones show once, in INSTALLED", () => {
         const service = new FakeService([
             entry({ id: "acme.tools", displayName: "Tools", installedVersion: "0.9.0", availability: "outdated" }),
             entry({ id: "acme.current", displayName: "Current", installedVersion: "1.0.0", availability: "installed" }),
@@ -498,13 +677,58 @@ describe("ExtensionsComponent", () => {
         component.setQuery("@outdated ");
 
         expect(component.getQuery()).toBe("@outdated ");
-        const screen = render(component, 60).screenToString();
-        expect(screen).toContain("@outdated");
-        // Outdated ones are installed by definition: one INSTALLED section, not each twice.
-        expect(screen).not.toContain("MARKETPLACE");
+        const marketplace = render(component, 60).screenToString();
+        expect(marketplace).toContain("@outdated");
+        // Outdated ones are installed by definition: the catalog stays empty, and that is not "nothing found".
+        expect(marketplace).not.toContain("Tools");
+        expect(marketplace).not.toContain("No extensions found");
+        const screen = screenOfBoth(component, 60);
         expect(screen.match(/Tools/g)).toHaveLength(1);
         expect(screen).not.toContain("Current");
         expect(screen).not.toContain("Fresh");
+    });
+
+    it("@installed is one INSTALLED list, with the rest of the query applied", () => {
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Tools", installedVersion: "0.9.0", availability: "outdated" }),
+            entry({ id: "acme.dark", displayName: "Dark", installedVersion: "1.0.0", availability: "installed" }),
+            entry({ id: "acme.fresh", displayName: "Fresh" }),
+        ]);
+        const component = make(service);
+
+        typeQuery(component, "@installed dark");
+
+        // The catalog is empty by design, not "nothing found".
+        const marketplace = render(component, 60).screenToString();
+        expect(marketplace).not.toContain("Dark");
+        expect(marketplace).not.toContain("No extensions found");
+        const screen = screenOfBoth(component, 60);
+        expect(screen.match(/Dark/g)).toHaveLength(1);
+        expect(screen).not.toContain("Tools");
+        expect(screen).not.toContain("Fresh");
+    });
+
+    it("@category:themes keeps both sections, each narrowed to themes", () => {
+        const service = new FakeService([
+            entry({ id: "acme.night", displayName: "Night", categories: ["Themes"] }),
+            entry({
+                id: "acme.dawn",
+                displayName: "Dawn",
+                categories: ["Themes"],
+                installedVersion: "1.0.0",
+                availability: "installed",
+            }),
+            entry({ id: "acme.lint", displayName: "Linter", categories: ["Linters"] }),
+        ]);
+        const component = make(service);
+
+        component.setQuery('@category:"themes"');
+
+        expect(render(component, 60).screenToString()).toContain("Night");
+        const screen = screenOfBoth(component, 60);
+        // In the catalog and in INSTALLED.
+        expect(screen.match(/Dawn/g)).toHaveLength(2);
+        expect(screen).not.toContain("Linter");
     });
 
     it("US-2.4: under @outdated the catalog error row stays visible", () => {
@@ -534,14 +758,79 @@ describe("ExtensionsComponent", () => {
             const { target, opened } = fakeTarget();
             const component = make(service, target);
 
-            activate(component, "extensionsGroup-marketplace-acme-tools");
-            await Promise.resolve();
-            await Promise.resolve();
+            activate(component.list, "extensionsGroup-marketplace-acme-tools");
+            await settle();
 
             expect(opened).toHaveLength(1);
             expect(opened[0]).toBeInstanceOf(ExtensionEditorPane);
             expect(opened[0]?.uri.toString()).toBe("extension:acme.tools");
             expect(opened[0]?.label).toBe("Acme Tools");
+        });
+
+        it("a single click on any line of an entry opens it", async () => {
+            const service = new FakeService([
+                entry({ id: "acme.tools", displayName: "Acme Tools" }),
+                entry({ id: "other.thing", displayName: "Other Thing" }),
+            ]);
+            const { target, opened } = fakeTarget();
+            const component = make(service, target);
+            render(component);
+
+            // List line 6 is the second entry's publisher: the first entry and the separator take lines 0..3.
+            mouse(component.list, "click", 6);
+            await settle();
+
+            expect(opened.map((p) => p.uri.toString())).toEqual(["extension:other.thing"]);
+        });
+
+        it("a single click on an INSTALLED entry opens it too", async () => {
+            const service = new FakeService([
+                entry({
+                    id: "acme.tools",
+                    displayName: "Acme Tools",
+                    installedVersion: "1.0.0",
+                    availability: "installed",
+                }),
+            ]);
+            const { target, opened } = fakeTarget();
+            const component = make(service, target);
+            renderInstalled(component);
+
+            mouse(component.installedList, "click", 1);
+            await settle();
+
+            expect(opened.map((p) => p.uri.toString())).toEqual(["extension:acme.tools"]);
+        });
+
+        it("with workbench.list.openMode = doubleClick a single click only selects, a double click opens", async () => {
+            const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
+            const { target, opened } = fakeTarget();
+            const configuration = fakeConfiguration("doubleClick");
+            const component = make(service, target, configuration.service);
+            render(component);
+
+            mouse(component.list, "click", 0);
+            await settle();
+            expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-tools");
+            expect(opened).toHaveLength(0);
+
+            mouse(component.list, "dblclick", 0);
+            await settle();
+            expect(opened).toHaveLength(1);
+        });
+
+        it("the open mode is read on every click", async () => {
+            const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
+            const { target, opened } = fakeTarget();
+            const configuration = fakeConfiguration("doubleClick");
+            const component = make(service, target, configuration.service);
+            render(component);
+
+            configuration.set("singleClick");
+            mouse(component.list, "click", 0);
+            await settle();
+
+            expect(opened).toHaveLength(1);
         });
 
         it("the page carries the readme from the metadata", async () => {
@@ -579,19 +868,18 @@ describe("ExtensionsComponent", () => {
             const { target, opened } = fakeTarget();
             const component = make(service, target);
 
-            activate(component, "extensionsGroup-installed-acme-tools");
-            await Promise.resolve();
-            await Promise.resolve();
+            activate(component.installedList, "extensionsGroup-installed-acme-tools");
+            await settle();
             expect(opened[0]?.uri.toString()).toBe("extension:acme.tools");
         });
 
-        it("Enter on a group header opens nothing", async () => {
-            const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
+        it("a state row opens nothing", async () => {
             const { target, opened } = fakeTarget();
-            const component = make(service, target);
+            const component = make(new FakeService([]), target);
 
-            activate(component, "extensionsGroup-marketplace");
-            await Promise.resolve();
+            activate(component.list, "extensionsEmpty");
+            activate(component.installedList, "extensionsInstalledEmpty");
+            await settle();
             expect(opened).toHaveLength(0);
         });
 
@@ -616,6 +904,128 @@ describe("ExtensionsComponent", () => {
             // An id miss must be a miss, not "the first entry that comes along".
             await component.openExtensionPage("acme.gone");
             expect(opened).toHaveLength(0);
+        });
+    });
+
+    describe("Enter and Ctrl+Down in the search box focus the results", () => {
+        const TOOLS = entry({ id: "acme.tools", displayName: "Tools" });
+        const LINT = entry({ id: "acme.lint", displayName: "Lint" });
+
+        /** The viewlet shown and the catalog read: the focus is in the search box. */
+        async function shown(
+            service: FakeService,
+            target = fakeTarget().target,
+        ): Promise<{
+            app: TestApp;
+            component: ExtensionsComponent;
+            input: InputElement;
+        }> {
+            const component = make(service, target);
+            const app = TestApp.createWithContent(component.view, { width: 44, height: 16 });
+            app.render();
+            component.focus();
+            await settle();
+            app.render();
+            const input = component.view.querySelectorAll("InputElement")[0] as InputElement;
+            expect(input.isFocused).toBe(true);
+            return { app, component, input };
+        }
+
+        it.each(["Enter", "Ctrl+ArrowDown"])("%s moves the focus to the first MARKETPLACE row", async (key) => {
+            const { app, component } = await shown(new FakeService([TOOLS, LINT]));
+            typeQuery(component, "acme");
+
+            app.sendKey(key);
+            app.render();
+
+            expect(component.list.isFocused).toBe(true);
+            expect(component.list.id).toBe("extensionsList");
+            expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-tools");
+            expect(component.getQuery()).toBe("acme");
+        });
+
+        it("the cursor goes to the first row even if it was lower before", async () => {
+            const { app, component, input } = await shown(new FakeService([TOOLS, LINT]));
+            app.sendKey("Enter");
+            app.sendKey("ArrowDown");
+            expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-lint");
+            input.focus();
+
+            app.sendKey("Enter");
+
+            expect(component.list.isFocused).toBe(true);
+            expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-tools");
+        });
+
+        it("then Enter in the list opens the extension page", async () => {
+            const { target, opened } = fakeTarget();
+            const { app } = await shown(new FakeService([TOOLS, LINT]), target);
+
+            app.sendKey("Enter");
+            app.sendKey("ArrowDown");
+            app.sendKey("Enter");
+            await settle();
+
+            expect(opened).toHaveLength(1);
+            expect(renderElement(opened[0].view, 40, 20, { themeVars: true }).screenToString()).toContain("Lint");
+        });
+
+        it("nothing found: the focus stays in the search box", async () => {
+            const { app, component, input } = await shown(new FakeService([TOOLS]));
+            typeQuery(component, "zzz");
+            app.render();
+            expect(app.backend.screenToString()).toContain("No extensions found");
+
+            app.sendKey("Enter");
+            app.sendKey("Ctrl+ArrowDown");
+
+            expect(input.isFocused).toBe(true);
+        });
+
+        it("@installed: the focus stays in the search box and does not go to INSTALLED", async () => {
+            const installed = entry({ id: "acme.tools", installedVersion: "1.0.0", availability: "installed" });
+            const { app, component, input } = await shown(new FakeService([installed]));
+            typeQuery(component, "@installed");
+
+            app.sendKey("Enter");
+
+            expect(input.isFocused).toBe(true);
+            expect(component.installedList.isFocused).toBe(false);
+        });
+
+        it("while the catalog is loading the focus stays in the search box", () => {
+            const component = make(new FakeService([]));
+            const app = TestApp.createWithContent(component.view, { width: 44, height: 16 });
+            // focus() starts the read; the "Loading…" row is up until it settles.
+            component.focus();
+            app.render();
+            expect(app.backend.screenToString()).toContain("Loading extensions…");
+
+            app.sendKey("Enter");
+
+            expect((component.view.querySelectorAll("InputElement")[0] as InputElement).isFocused).toBe(true);
+        });
+
+        it("a catalog error: the focus goes to Retry, and Enter there retries", async () => {
+            const service = new FakeService([], "ENOTFOUND");
+            const { app, component } = await shown(service);
+            const before = service.refreshCalls;
+
+            app.sendKey("Enter");
+            expect(component.list.isFocused).toBe(true);
+            expect(component.list.getCursorElement()?.id).toBe("extensionsRetry");
+
+            app.sendKey("Enter");
+            expect(service.refreshCalls).toBe(before + 1);
+        });
+
+        it("plain Down and modified Enter keep the focus in the search box", async () => {
+            const { app, input } = await shown(new FakeService([TOOLS, LINT]));
+
+            for (const key of ["ArrowDown", "Shift+Enter", "Alt+Enter", "Ctrl+Enter", "Shift+ArrowDown"]) {
+                app.sendKey(key);
+                expect(input.isFocused, key).toBe(true);
+            }
         });
     });
 });

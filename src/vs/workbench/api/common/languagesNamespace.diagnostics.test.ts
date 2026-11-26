@@ -263,12 +263,7 @@ describe("LanguagesNamespace — no-op surface for vscode-languageclient", () =>
         const { languages } = makeLanguages();
         const ns = languages as unknown as Record<string, (...args: unknown[]) => { dispose(): void }>;
         for (const name of [
-            "registerDeclarationProvider",
-            "registerImplementationProvider",
-            "registerTypeDefinitionProvider",
             "registerDocumentHighlightProvider",
-            "registerDocumentSymbolProvider",
-            "registerWorkspaceSymbolProvider",
             "registerCodeActionsProvider",
             "registerCodeLensProvider",
             "registerDocumentLinkProvider",
@@ -281,8 +276,6 @@ describe("LanguagesNamespace — no-op surface for vscode-languageclient", () =>
             "registerInlayHintsProvider",
             "registerInlineValuesProvider",
             "registerLinkedEditingRangeProvider",
-            "registerCallHierarchyProvider",
-            "registerTypeHierarchyProvider",
         ]) {
             const disposable = ns[name]({}, {});
             expect(disposable, name).toBeDefined();

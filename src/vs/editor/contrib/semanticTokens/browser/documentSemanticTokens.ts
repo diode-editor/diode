@@ -1,3 +1,4 @@
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -304,13 +305,13 @@ export class ModelSemanticColoring extends Disposable {
         );
         request
             .then(
-                (res) => {
+                (response) => {
                     this.debounce.update(this.model.uri.toString(), Date.now() - started);
                     this.currentRequest = null;
                     contentChangeListener.dispose();
                     // null only when there are no providers, and fetchNow doesn't ask without them (registry.has above).
-                    // Stryker disable next-line ConditionalExpression: equivalent — see above
-                    if (res !== null) this.setDocumentSemanticTokens(res.provider, res.tokens, pendingChanges);
+                    const res = assertReturnsDefined(response);
+                    this.setDocumentSemanticTokens(res.provider, res.tokens, pendingChanges);
                 },
                 (err: unknown) => {
                     // getDocumentSemanticTokens rejects only with Error (it wraps a provider's non-Error).

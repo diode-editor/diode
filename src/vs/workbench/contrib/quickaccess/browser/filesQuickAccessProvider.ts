@@ -2,7 +2,6 @@ import * as nodePath from "node:path";
 
 import type { PreparedQuery } from "../../../../base/common/fuzzySearch.ts";
 import { fuzzyMatchPrepared, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
-import { MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import type { ParsedGoto } from "../../../../base/common/lineColumnQuery.ts";
 import { splitFileQuery } from "../../../../base/common/lineColumnQuery.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
@@ -22,13 +21,45 @@ import type { EditorHistoryService } from "../../../services/history/browser/edi
 import { EditorHistoryServiceDIToken } from "../../../services/history/browser/editorHistoryService.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
-import type { FileSearchResult, IFileSearchService } from "../../../services/search/common/fileSearch.ts";
+import type {
+    FileSearchResult,
+    IFileSearchService,
+    IFileSearchSession,
+} from "../../../services/search/common/fileSearch.ts";
 import { FileSearchServiceDIToken } from "../../../services/search/common/fileSearch.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 
 import type { IGotoLineEditorSource } from "./gotoLineQuickAccessProvider.ts";
 import { GotoLineEditorSourceDIToken, navigateActiveEditor } from "./gotoLineQuickAccessProvider.ts";
 import { splitPathMatchRanges } from "./pathMatchRanges.ts";
+import type { WorkspaceSymbolsQuickAccessProvider } from "./workspaceSymbolsQuickAccessProvider.ts";
+import { WorkspaceSymbolsQuickAccessProviderDIToken } from "./workspaceSymbolsQuickAccessProvider.ts";
+
+const FILE_AND_SYMBOL_RESULTS = "file and symbol results";
+
+const MAX_FILE_RESULTS = 50;
+
+/** File search state of one showing of the picker. */
+interface IFileQueries {
+    readonly session: IFileSearchSession;
+    /** What the rows should answer; `undefined` — nothing asked yet, or the index changed under the answer. */
+    filter: string | undefined;
+    /** Kept until the next answer arrives: an empty frame on every keystroke would flicker. */
+    results: readonly FileSearchResult[];
+    /**
+     * The typed text {@link results} answer and whether more may come for it (its index walk goes on);
+     * `undefined` until the first answer.
+     */
+    answered: { readonly text: string; readonly final: boolean } | undefined;
+    /** The text in the box now; `undefined` — only the history shows. */
+    wanted: string | undefined;
+    /**
+     * One query at a time: on a big folder a query costs the provider up to seconds, and asking on every
+     * keystroke and every index growth stacked them up (#1179). The latest filter goes once the answer lands.
+     */
+    inFlight: boolean;
+    queued: boolean;
+}
 
 export const FilesQuickAccessProviderDIToken = token<FilesQuickAccessProvider>("FilesQuickAccessProvider");
 
@@ -59,12 +90,17 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         EditorHistoryServiceDIToken,
         IConfigurationServiceDIToken,
         IWorkspaceContextServiceDIToken,
+        WorkspaceSymbolsQuickAccessProviderDIToken,
         ProductIconServiceDIToken,
     ] as const;
 
     public readonly debounceQuery = true;
 
-    private readonly indexSubscription = new MutableDisposable();
+    private refresh!: (preserveSelection: boolean) => void;
+    private symbolFilter = "";
+    private symbolRows: readonly QuickAccessItem[] = [];
+    /** Lives from show to hide: an answer for an earlier showing finds another object and is dropped. */
+    private files: IFileQueries | undefined;
 
     public constructor(
         private readonly fileSearch: IFileSearchService,
@@ -74,27 +110,59 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         private readonly history: IEditorHistory,
         private readonly configuration: Pick<IConfigurationService, "get">,
         private readonly workspace: Pick<IWorkspaceContextService, "getWorkspaceFolder">,
+        private readonly symbols: Pick<WorkspaceSymbolsQuickAccessProvider, "search" | "cancelSearch">,
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
+
+    /**
+     * No answer for the typed text yet, or an empty one while the walk goes on: the file may simply not be
+     * indexed yet. A non-empty partial answer counts — Enter takes the best match so far, as upstream.
+     */
+    public get isLoading(): boolean {
+        const files = this.files;
+        if (files?.wanted === undefined) return false;
+        const answered = files.answered;
+        if (answered?.text !== files.wanted) return true;
+        return files.results.length === 0 && !answered.final;
+    }
 
     public getPlaceholder(): string {
         return "Go to File...";
     }
 
     public onShow(refresh: (preserveSelection: boolean) => void): void {
+        this.refresh = refresh;
         // The list is shown at once; a file found gone a moment later drops out of it.
         void this.history.removeMissing().then((removed) => {
             if (removed) refresh(true);
         });
-        this.fileSearch.refreshIfStale();
-        this.indexSubscription.value = this.fileSearch.onIndexChanged(() => {
-            // The list grew in the background for the same query — keep the cursor.
+        // Like upstream `pickState.set`: every showing walks the folder afresh; until the walk ends,
+        // the previous showing's index answers.
+        this.files?.session.dispose();
+        const files: IFileQueries = {
+            session: this.fileSearch.createSession(),
+            filter: undefined,
+            results: [],
+            answered: undefined,
+            wanted: undefined,
+            inFlight: false,
+            queued: false,
+        };
+        this.files = files;
+        files.session.onDidChange(() => {
+            // The index grew or completed: the answer for the current query is stale. Forget the filter so
+            // the refresh asks again — keeping the rows (no flicker) and the cursor.
+            files.filter = undefined;
             refresh(true);
         });
     }
 
     public onHide(): void {
-        this.indexSubscription.clear();
+        this.files?.session.dispose();
+        this.files = undefined;
+        this.symbols.cancelSearch();
+        this.symbolFilter = "";
+        this.symbolRows = [];
     }
 
     /**
@@ -104,7 +172,9 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
     public getItems(query: string): QuickAccessItem[] {
         const { filePart, goto } = splitFileQuery(query);
         const filter = prepareQuery(filePart);
+        if (this.files !== undefined) this.files.wanted = filter.terms.length === 0 ? undefined : filePart;
         if (filter.terms.length === 0) {
+            this.requestSymbols("");
             return this.historyEntries().map((entry) =>
                 this.buildHistoryItem({ entry, score: 0, matchedIndices: [] }, goto),
             );
@@ -114,8 +184,65 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
             ? this.matchHistory(filter, /[\\/]/.test(filePart))
             : [];
         const shown = new Set(history.map((match) => match.entry.absolutePath));
-        const results = this.fileSearch.search(filePart, 50).filter((r) => !shown.has(r.entry.absolutePath));
-        return [...history.map((match) => this.buildHistoryItem(match, goto)), ...this.buildFileItems(results, goto)];
+        this.requestFiles(filePart);
+        const results = (this.files?.results ?? []).filter((r) => !shown.has(r.absolutePath));
+        const historyItems = history.map((match) => this.buildHistoryItem(match, goto));
+        const fileItems = this.buildFileItems(results, goto);
+        if (!this.configuration.get("search.quickOpen.includeSymbols")) return [...historyItems, ...fileItems];
+        // A `:line` says the query is about files, as upstream.
+        this.requestSymbols(goto === null ? filePart : "");
+        // Upstream's separator above the files and symbols; the widget has none, a group name is a `hint`.
+        // Files first, not merged by score: two scorers, and rows arriving late would move the ones already shown.
+        const group = [...fileItems, ...this.symbolRows];
+        return [
+            ...historyItems,
+            ...group.map((item, index) => (index === 0 ? { ...item, hint: FILE_AND_SYMBOL_RESULTS } : item)),
+        ];
+    }
+
+    /** The answer for the same filter stands; another filter asks the index (outside this process). */
+    private requestFiles(filter: string): void {
+        const files = this.files;
+        if (files === undefined || filter === files.filter) return;
+        files.filter = filter;
+        this.queryFiles(files, filter);
+    }
+
+    /** Only an answer to the current filter lands; while one query runs, the next waits for it. */
+    private queryFiles(files: IFileQueries, filter: string): void {
+        if (files.inFlight) {
+            files.queued = true;
+            return;
+        }
+        files.inFlight = true;
+        void files.session.search(filter, MAX_FILE_RESULTS).then(({ results, complete }) => {
+            if (this.files !== files) return;
+            files.inFlight = false;
+            if (files.queued) {
+                files.queued = false;
+                // Without a filter the box went empty meanwhile: the history needs no query.
+                if (files.filter !== undefined) this.queryFiles(files, files.filter);
+            }
+            if (filter !== files.filter) return;
+            files.results = results;
+            files.answered = { text: filter, final: complete };
+            this.refresh(true);
+        });
+    }
+
+    /** The answer for the same filter stands; rows for another one go at once. */
+    private requestSymbols(filter: string): void {
+        if (filter === this.symbolFilter) return;
+        this.symbolFilter = filter;
+        this.symbolRows = [];
+        if (filter === "") {
+            this.symbols.cancelSearch();
+            return;
+        }
+        this.symbols.search(filter, { skipLocal: true }, (rows) => {
+            this.symbolRows = rows;
+            this.refresh(true);
+        });
     }
 
     /** By name only unless the query has a path separator, as upstream (`labelOnlyEditorHistoryPickAccessor`). */
@@ -167,17 +294,17 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         };
     }
 
-    private buildFileItems(results: FileSearchResult[], goto: ParsedGoto | null): QuickAccessItem[] {
+    private buildFileItems(results: readonly FileSearchResult[], goto: ParsedGoto | null): QuickAccessItem[] {
         return results.map((r) => {
-            const basename = nodePath.basename(r.entry.relativePath);
-            const dir = nodePath.dirname(r.entry.relativePath);
+            const basename = r.basename;
+            const dir = nodePath.posix.dirname(r.relativePath);
 
             const { labelRanges, descriptionRanges } = splitPathMatchRanges(
                 r.matchedIndices,
-                r.entry.relativePath.length - basename.length,
+                r.relativePath.length - basename.length,
             );
 
-            const absolutePath = r.entry.absolutePath;
+            const absolutePath = r.absolutePath;
             return {
                 icon: this.icons.fileIcon(basename)?.icon,
                 label: basename,

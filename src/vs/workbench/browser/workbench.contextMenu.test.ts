@@ -79,6 +79,9 @@ describe("Workbench — Shift+F10 context menu", () => {
         const withoutProviders = h.testApp.backend.screenToString();
         expect(withoutProviders).not.toContain("Rename Symbol");
         expect(withoutProviders).not.toContain("Go to Definition");
+        expect(withoutProviders).not.toContain("Go to Implementations");
+        expect(withoutProviders).not.toContain("Go to Type Definition");
+        expect(withoutProviders).not.toContain("Go to Declaration");
         h.testApp.sendKey("Escape");
         h.testApp.render();
 
@@ -88,6 +91,9 @@ describe("Workbench — Shift+F10 context menu", () => {
             provideRenameEdits: () => Promise.resolve({ applied: false }),
         });
         languageFeatures.definitionProvider.register("*", { provideDefinition: () => Promise.resolve([]) });
+        languageFeatures.implementationProvider.register("*", { provideImplementation: () => Promise.resolve([]) });
+        languageFeatures.typeDefinitionProvider.register("*", { provideTypeDefinition: () => Promise.resolve([]) });
+        languageFeatures.declarationProvider.register("*", { provideDeclaration: () => Promise.resolve([]) });
 
         h.workbench.focusEditor();
         h.testApp.render();
@@ -96,6 +102,9 @@ describe("Workbench — Shift+F10 context menu", () => {
         const withProviders = h.testApp.backend.screenToString();
         expect(withProviders).toContain("Rename Symbol");
         expect(withProviders).toContain("Go to Definition");
+        expect(withProviders).toContain("Go to Implementations");
+        expect(withProviders).toContain("Go to Type Definition");
+        expect(withProviders).toContain("Go to Declaration");
     });
 
     it("anchors the editor menu at the caret", () => {

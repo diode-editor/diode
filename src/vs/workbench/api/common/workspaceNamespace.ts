@@ -2,16 +2,29 @@ import * as nodePath from "node:path";
 
 import type * as vscode from "vscode";
 
+import { toDisposable } from "../../../base/common/lifecycle.ts";
 import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { workspaceFileLabel } from "../../../platform/workspace/common/workspaceFile.ts";
-import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
+import { filesExcludeGlobs, watcherExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
+import {
+    decodeForResource,
+    defaultUtf8Directories,
+    encodeForResource,
+    type IEncodingContext,
+} from "../../services/textfile/common/encodingOracle.ts";
 
 import { implementsApi } from "./apiSurface.ts";
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { ExtHostFileOperations } from "./extHostFileOperations.ts";
 import { serializeWillSaveTextEdit, serializeWorkspaceEdit } from "./extHostTypeConverters.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
-import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
+import {
+    providerWatchTarget,
+    resolveGlobPattern,
+    SubprocessFileSystemWatchers,
+    watchProviderFiles,
+} from "./fileWatcherNamespace.ts";
 import { findFiles as walkForFiles } from "./findFiles.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -140,20 +153,40 @@ function parseConfigurationTarget(arg: unknown): WireConfigurationTarget | undef
     return undefined;
 }
 
+/** Upstream `IReference<ITextModel>` of `createModelReference`, on the extension host's side. */
+export interface IDocumentReference {
+    readonly document: vscode.TextDocument;
+    dispose(): void;
+}
+
 /**
  * `registerTaskProvider` comes from outside: `tasks` is built after `workspace`
  * and waits for its folders.
  */
 export function createWorkspaceNamespace(
     ctx: IVscodeHostContext,
+    registerTaskProvider?: (type: string, provider: vscode.TaskProvider) => vscode.Disposable,
+): typeof vscode.workspace {
+    return createWorkspace(ctx, registerTaskProvider).workspace;
+}
+
+/**
+ * The namespace and, kept off it, upstream's `createModelReference` for the API commands
+ * (`vscode.executeCompletionItemProvider`, ...): the document is opened for the command. A content provider's document
+ * that nobody had open closes when its last reference goes, as upstream disposes a model nobody holds, and the next
+ * command reads the provider again: Angular's embedded templates rely on it, their provider has no `onDidChange`.
+ */
+export function createWorkspace(
+    ctx: IVscodeHostContext,
     registerTaskProvider: (type: string, provider: vscode.TaskProvider) => vscode.Disposable = () =>
         new DisposableImpl(() => undefined),
-): typeof vscode.workspace {
+): { workspace: typeof vscode.workspace; referenceDocument: (uri: vscode.Uri) => Promise<IDocumentReference> } {
     const { rpc, registry, documentSync, configStore } = ctx;
     registry.saver = async (uri) => (await rpc.request("workspace.save", { uri: uri.toString() })) !== null;
 
     let workspaceFolders: IWorkspaceFolder[] = [];
     let workspaceFile: vscode.Uri | undefined;
+    let userRoamingDataHome: string | undefined;
 
     const fsProviders = new SubprocessFileSystemProviders();
 
@@ -220,10 +253,12 @@ export function createWorkspaceNamespace(
 
     /**
      * Virtual documents opened by an extension but shown in no tab, so the core re-reads nothing for them.
-     * Deviation: upstream closes such a model after a while, here it lives until the tab that shows it closes.
+     * Deviation: upstream closes such a model after a while, here one an extension opened lives until the tab that
+     * shows it closes; one an API command opened closes with the command ({@link referenceDocument}).
      */
     const documentsWithoutModel = new Set<string>();
-    const virtualDocumentsLoading = new Map<string, Promise<vscode.TextDocument>>();
+    /** Upstream `_documentLoader`: one load per uri in flight, a virtual document's or a model's. */
+    const documentLoads = new Map<string, Promise<vscode.TextDocument>>();
     let virtualDocumentRefresh = Promise.resolve();
 
     /** One at a time, as upstream's `lastEvent`: a slow answer must not overwrite a newer one. */
@@ -252,7 +287,7 @@ export function createWorkspaceNamespace(
 
     function openVirtualDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
         const key = uri.toString();
-        const loading = virtualDocumentsLoading.get(key);
+        const loading = documentLoads.get(key);
         if (loading !== undefined) return loading;
         const opened = contentProviders
             .provide(uri)
@@ -264,10 +299,39 @@ export function createWorkspaceNamespace(
                 return documentSync.open({ uri: key, text, ...(languageId !== undefined ? { languageId } : {}) });
             })
             .finally(() => {
-                virtualDocumentsLoading.delete(key);
+                documentLoads.delete(key);
             });
-        virtualDocumentsLoading.set(key, opened);
+        documentLoads.set(key, opened);
         return opened;
+    }
+
+    /** Live references of the content providers' documents that the references opened. */
+    const commandReferences = new Map<string, { count: number }>();
+
+    async function referenceDocument(uri: vscode.Uri): Promise<IDocumentReference> {
+        const key = uri.toString();
+        const open = registry.get(uri);
+        const owned = commandReferences.has(key) || open === undefined || open.isClosed;
+        const document = await openTextDocument(uri);
+        if (!owned || !documentsWithoutModel.has(key)) return { document, dispose: () => undefined };
+        const references = commandReferences.get(key) ?? { count: 0 };
+        commandReferences.set(key, references);
+        references.count++;
+        const release = toDisposable(() => {
+            references.count--;
+            // The extension opened it meanwhile (`openTextDocumentOfExtension`): the document is its own now.
+            if (references.count > 0 || commandReferences.get(key) !== references) return;
+            // Stryker disable next-line CallExpression: equivalent: frees memory; a zero entry is reused by the next reference, and an extension's open drops it
+            commandReferences.delete(key);
+            // A tab that showed it meanwhile owns the document now.
+            if (documentsWithoutModel.delete(key)) documentSync.close(uri);
+        });
+        return {
+            document,
+            dispose: () => {
+                release.dispose();
+            },
+        };
     }
 
     rpc.handleRequest(
@@ -299,6 +363,7 @@ export function createWorkspaceNamespace(
         if (events !== null) fsWatchers.dispatch(events);
     });
 
+    const fileOperations = new ExtHostFileOperations(rpc);
     const onDidChangeConfigurationEmitter = new EventEmitter<vscode.ConfigurationChangeEvent>();
     const onDidOpenTextDocumentEmitter = documentSync.onDidOpenEmitter;
     const onDidCloseTextDocumentEmitter = documentSync.onDidCloseEmitter;
@@ -357,11 +422,14 @@ export function createWorkspaceNamespace(
     rpc.handleNotification("workspace.initialize", (params) => {
         const p: {
             configuration?: unknown;
+            settingIds?: unknown;
             workspaceFolders?: readonly IWireWorkspaceFolder[];
             workspaceFile?: unknown;
+            userRoamingDataHome?: unknown;
         } = params;
-        configStore.setData(p.configuration);
+        configStore.setData(p.configuration, p.settingIds);
         workspaceFile = typeof p.workspaceFile === "string" ? Uri.parse(p.workspaceFile) : undefined;
+        userRoamingDataHome = typeof p.userRoamingDataHome === "string" ? p.userRoamingDataHome : undefined;
         workspaceFolders = (p.workspaceFolders ?? []).map((f) => ({
             uri: Uri.parse(f.uri),
             name: f.name,
@@ -370,9 +438,9 @@ export function createWorkspaceNamespace(
     });
 
     rpc.handleNotification("workspace.configurationChanged", (params) => {
-        const p: { configuration?: unknown; affectedKeys?: readonly string[] } = params;
-        configStore.setData(p.configuration);
-        const affectedKeys = p.affectedKeys ?? [];
+        const p: { configuration?: unknown; settingIds?: unknown; affectedKeys?: readonly string[] } = params;
+        const affectedKeys = configStore.setData(p.configuration, p.settingIds);
+        if (p.affectedKeys !== undefined) affectedKeys.push(...p.affectedKeys);
         onDidChangeConfigurationEmitter.fire({
             affectsConfiguration: (section: string): boolean =>
                 affectedKeys.some((key) => key === section || key.startsWith(section + ".")),
@@ -458,7 +526,8 @@ export function createWorkspaceNamespace(
             if (key in config) continue; // do not overwrite get/has/inspect/update
             config[key] = configStore.get(prefix + key, undefined, languageId);
         }
-        return config;
+        // As upstream: assigning a field (`config.tabSize = 4`) throws in strict code instead of pretending to write.
+        return Object.freeze(config);
     }
 
     /**
@@ -507,6 +576,16 @@ export function createWorkspaceNamespace(
         return p;
     }
 
+    /** As upstream, the extension's own `$tryOpenDocument` holds the document: a command's reference no longer closes it. */
+    async function openTextDocumentOfExtension(
+        uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
+        options?: { encoding?: string },
+    ): Promise<vscode.TextDocument> {
+        const document = await openTextDocument(uriOrPathOrOptions, options);
+        commandReferences.delete(document.uri.toString());
+        return document;
+    }
+
     async function openTextDocument(
         uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
         options?: { encoding?: string },
@@ -522,22 +601,14 @@ export function createWorkspaceNamespace(
         const requestedEncoding = options?.encoding;
         // A closed document stays in the registry for the references extensions keep; it is not open.
         if (open !== undefined && !open.isClosed) {
-            // Upstream `ensureDocumentData`: another encoding goes to the main side. Files are a later cluster.
-            const changesEncoding =
-                uri.scheme === "untitled" && requestedEncoding !== undefined && open.encoding !== requestedEncoding;
-            if (!changesEncoding) return open;
+            // Upstream `ensureDocumentData`: another encoding goes to the main side.
+            if (requestedEncoding === undefined || open.encoding === requestedEncoding) return open;
         } else if (uri.scheme === "untitled" || uri.scheme === "file") {
             // As upstream's document map: what opens now is a new document, a held closed one stays closed.
             registry.forget(uri);
         }
 
-        if (uri.scheme === "untitled") {
-            const { uri: opened } = await rpc.request("workspace.createUntitledDocument", {
-                uri: uri.toString(),
-                ...(requestedEncoding === undefined ? {} : { encoding: requestedEncoding }),
-            });
-            return registry.get(Uri.parse(opened)) ?? makeEphemeralDocument(uri, "", "utf8");
-        }
+        if (uri.scheme === "untitled") return loadDocument(uri, requestedEncoding);
 
         const isVirtual = contentProviders.has(uri.scheme);
 
@@ -545,27 +616,56 @@ export function createWorkspaceNamespace(
 
         const fsProvider = fsProviders.get(uri.scheme);
         if (fsProvider !== undefined) {
-            const { text, encoding } = await decodeBuffer(
-                Buffer.from(await fsProvider.readFile(uri)),
-                options?.encoding,
-            );
-            return makeEphemeralDocument(uri, text, encoding, await languageOfDocumentWithoutModel(uri));
+            return ephemeralDocumentOfBytes(uri, Buffer.from(await fsProvider.readFile(uri)), requestedEncoding);
         }
 
         // For non-file schemes `fsPath` is not a path; do not pass it to node:fs.
         if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
 
-        // The live model: edits reach this very object, a save writes the file. An explicit encoding decodes
-        // this read only, as before: the model has one encoding, and opening with another is a separate feature.
-        if (options?.encoding === undefined) {
-            await rpc.request("workspace.openTextDocument", { uri: uri.toString() });
-            const live = registry.get(uri);
-            if (live !== undefined && !live.isClosed) return live;
-        }
+        return loadDocument(uri, requestedEncoding);
+    }
 
-        const buffer = await ctx.disk.readFile(uri.fsPath);
-        const { text, encoding } = await decodeBuffer(buffer, options?.encoding);
-        return makeEphemeralDocument(uri, text, encoding, await languageOfDocumentWithoutModel(uri));
+    /**
+     * A request that finds a load in flight is asked again after it: the open document answers it, or a reread when
+     * it asked for another encoding (upstream `ensureDocumentData`).
+     */
+    function loadDocument(uri: Uri, encoding: string | undefined): Promise<vscode.TextDocument> {
+        const key = uri.toString();
+        const pending = documentLoads.get(key);
+        if (pending !== undefined) return pending.then(() => openTextDocument(uri, { encoding }));
+        const load = requestDocument(uri, encoding).finally(() => documentLoads.delete(key));
+        documentLoads.set(key, load);
+        return load;
+    }
+
+    /**
+     * The live model: edits reach this very object, a save writes the file. `editor.didOpen` (and the state after
+     * a reread in another encoding) arrives before the response.
+     */
+    async function requestDocument(uri: Uri, encoding: string | undefined): Promise<vscode.TextDocument> {
+        const withEncoding = encoding === undefined ? {} : { encoding };
+        if (uri.scheme === "untitled") {
+            const { uri: opened } = await rpc.request("workspace.createUntitledDocument", {
+                uri: uri.toString(),
+                ...withEncoding,
+            });
+            return registry.get(Uri.parse(opened)) ?? makeEphemeralDocument(uri, "", "utf8");
+        }
+        await rpc.request("workspace.openTextDocument", { uri: uri.toString(), ...withEncoding });
+        const live = registry.get(uri);
+        if (live !== undefined && !live.isClosed) return live;
+
+        // No live document: not a readable file (the read reports why) or above the sync limit.
+        return ephemeralDocumentOfBytes(uri, await ctx.disk.readFile(uri.fsPath), encoding);
+    }
+
+    async function ephemeralDocumentOfBytes(
+        uri: Uri,
+        bytes: Buffer,
+        encoding: string | undefined,
+    ): Promise<ExtHostTextDocument> {
+        const { text, encoding: read } = await decodeBuffer(bytes, encoding);
+        return makeEphemeralDocument(uri, text, read, await languageOfDocumentWithoutModel(uri));
     }
 
     /**
@@ -600,6 +700,46 @@ export function createWorkspaceNamespace(
             eol: detectEndOfLine(text) === CoreEndOfLine.CRLF ? EndOfLine.CRLF : EndOfLine.LF,
         });
         return doc;
+    }
+
+    /**
+     * Upstream computes it on the main side (`$resolveDecoding`, `$resolveEncoding`); here the raw layers are
+     * local, so no round trip but the language of the resource.
+     */
+    async function encodingContext(uri: vscode.Uri | undefined): Promise<IEncodingContext> {
+        const languageId = uri === undefined ? undefined : await languageOfDocumentWithoutModel(uri);
+        return {
+            resource: uri,
+            utf8Directories: defaultUtf8Directories(
+                userRoamingDataHome,
+                workspaceFolders.filter((folder) => folder.uri.scheme === "file").map((folder) => folder.uri.fsPath),
+            ),
+            setting: (key) => configStore.get(key, undefined, languageId),
+        };
+    }
+
+    /** Upstream `toEncodeDecodeParameters`: anything else in the options is ignored. */
+    function encodingParameters(options: unknown): { uri: vscode.Uri | undefined; encoding: string | undefined } {
+        const { uri, encoding } = (typeof options === "object" && options !== null ? options : {}) as {
+            uri?: unknown;
+            encoding?: unknown;
+        };
+        return {
+            uri: uri instanceof Uri ? uri : undefined,
+            encoding: typeof encoding === "string" && encoding !== "" ? encoding : undefined,
+        };
+    }
+
+    async function decode(content: Uint8Array, options?: { uri?: vscode.Uri; encoding?: string }): Promise<string> {
+        const { uri, encoding } = encodingParameters(options);
+        const buffer = Buffer.from(content.buffer, content.byteOffset, content.byteLength);
+        return decodeForResource(buffer, await encodingContext(uri), encoding);
+    }
+
+    /** A Node `Buffer`, as upstream's `VSBuffer.buffer`: extensions call `.toString()` on it. */
+    async function encode(content: string, options?: { uri?: vscode.Uri; encoding?: string }): Promise<Uint8Array> {
+        const { uri, encoding } = encodingParameters(options);
+        return encodeForResource(content, await encodingContext(uri), encoding);
     }
 
     const workspaceNs = {
@@ -647,14 +787,19 @@ export function createWorkspaceNamespace(
         getConfiguration,
         asRelativePath,
         // Cast to the three d.ts overloads: the implementation tells the shape apart at runtime.
-        openTextDocument: openTextDocument as unknown as typeof vscode.workspace.openTextDocument,
+        openTextDocument: openTextDocumentOfExtension as unknown as typeof vscode.workspace.openTextDocument,
+        decode,
+        encode,
 
         onDidChangeConfiguration: onDidChangeConfigurationEmitter.event,
         onDidOpenTextDocument: onDidOpenTextDocumentEmitter.event,
         onDidChangeTextDocument: onDidChangeTextDocumentEmitter.event,
         onDidCloseTextDocument: onDidCloseTextDocumentEmitter.event,
 
-        // Silent events: vscode-languageclient touches this surface.
+        // Silent by design, as upstream outside a multi-root workspace: there it fires only on in-place changes of
+        // a WORKSPACE state (mainThreadWorkspace.ts → extHostWorkspace.ts); from EMPTY/FOLDER a change re-enters the
+        // workspace and restarts the extension host (abstractWorkspaceEditingService.ts). Single-root Diode restarts the
+        // subprocess on every folder change, so the new process reads the new `workspaceFolders` in `activate()`.
         onDidChangeWorkspaceFolders: naiveEvent(),
         // No multi-root (docs/TODO/MultiRoot.md): only a change that leaves a single folder is
         // possible — the host opens it like Open Folder; anything else is `false` plus a toast (owner's decision).
@@ -676,12 +821,12 @@ export function createWorkspaceNamespace(
             });
             return next.length === 1;
         },
-        onDidCreateFiles: naiveEvent(),
-        onDidDeleteFiles: naiveEvent(),
-        onDidRenameFiles: naiveEvent(),
-        onWillCreateFiles: naiveEvent(),
-        onWillDeleteFiles: naiveEvent(),
-        onWillRenameFiles: naiveEvent(),
+        onDidCreateFiles: fileOperations.onDidCreateFiles,
+        onDidDeleteFiles: fileOperations.onDidDeleteFiles,
+        onDidRenameFiles: fileOperations.onDidRenameFiles,
+        onWillCreateFiles: fileOperations.onWillCreateFiles,
+        onWillDeleteFiles: fileOperations.onWillDeleteFiles,
+        onWillRenameFiles: fileOperations.onWillRenameFiles,
         onDidOpenNotebookDocument: naiveEvent(),
         onDidCloseNotebookDocument: naiveEvent(),
         onDidChangeNotebookDocument: naiveEvent(),
@@ -719,6 +864,18 @@ export function createWorkspaceNamespace(
             ignoreChangeEvents = false,
             ignoreDeleteEvents = false,
         ): vscode.FileSystemWatcher => {
+            const provided = providerWatchTarget(globPattern, (scheme) => fsProviders.get(scheme));
+            if (provided !== null) {
+                // As upstream: a watcher that ignores every kind of event does not ask the provider to watch.
+                if (ignoreCreateEvents && ignoreChangeEvents && ignoreDeleteEvents) {
+                    return fsWatchers.createInert(ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
+                }
+                return watchProviderFiles(
+                    provided,
+                    { ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents },
+                    watcherExcludeGlobs(configStore),
+                );
+            }
             const resolved = resolveGlobPattern(globPattern, workspaceFolders[0]?.uri.fsPath);
             // Empty window or a garbage pattern gives a silent watcher: the extension does not have to check for this.
             if (resolved === null) {
@@ -768,6 +925,9 @@ export function createWorkspaceNamespace(
         // would push Ruff into the forced bundled path with a warning in the log.
         isTrusted: true,
         onDidGrantWorkspaceTrust: naiveVoidEvent(),
+        // Proposed `workspaceTrust`, not declared: js-debug asks before attaching to every process of its JavaScript
+        // Debug Terminal, and without the member the terminal's `node app.js` hung unattached.
+        requestWorkspaceTrust: (): Promise<boolean> => Promise.resolve(true),
 
         onWillSaveTextDocument: (
             listener: (e: vscode.TextDocumentWillSaveEvent) => unknown,
@@ -805,5 +965,5 @@ export function createWorkspaceNamespace(
         },
     };
 
-    return implementsApi<typeof vscode.workspace>()(workspaceNs);
+    return { workspace: implementsApi<typeof vscode.workspace>()(workspaceNs), referenceDocument };
 }

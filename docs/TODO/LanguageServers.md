@@ -29,17 +29,16 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
 
 Дыры ядра, найденные на `golang.go` (общие для любых серверов):
 
-- [ ] **Completion: перезапрос неполного списка, пришедшего под устаревший префикс.** vscode-go при
-  `isIncomplete: true` ставит всем пунктам `filterText` первого. Набрал `strings.ToL` быстрее, чем
-  пришёл ответ на `strings.`, — попап показывает весь пакет и стоит так до следующего символа.
-  `completionService.ts` перезапрашивает только на ввод **после** ответа; эталон (`SuggestModel`) по
-  приходу результата для устаревшего контекста сразу перезапрашивает.
 - [ ] **Hover: thematic break (`---`) печатается как есть** — `stripMarkdown` (`hoverService.ts`) его
   не знает; gopls разделяет им подпись, doc и ссылку на pkg.go.dev. Рисовать линией-разделителем, как
   между блоками провайдеров.
 
 ## Java
 
+- [ ] **Остальные дедлайны на проводе.** В эталоне у запросов к провайдерам дедлайнов нет, у нас остались 5 с в
+  `DEFAULT_REQUEST_TIMEOUTS` (definition, references, type definition, declaration, hover и другие). У Implementations
+  и иерархий их сняли в #956: на занятом jdt.ls истёкший дедлайн давал пустой результат. Для остальных эффект не
+  замерялся: замерить на занятом сервере и снять там, где он теряет ответ.
 - [ ] **Снять курируемый дефолт `java.jdt.ls.lombokSupport.enabled: false`** из
   `curatedConfigInjection`, как только связка lombok/JDT перестанет ломать компиляцию
   ([arch/StockExtensions.md](../arch/StockExtensions.md#java-redhatjava-eclipse-jdt-ls)).
@@ -50,8 +49,9 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
   TreeView-API ([Extensions](Extensions.md#ui-вклады-viewscontainers--views)).
 - [ ] **HCP Terraform.** Настоящий `vscode.authentication` (провайдеры расширений, `getSession` через
   провайдер, `onAuthenticationRequest:<id>`), вход по токену в quick input; панели workspaces/runs
-  поверх деревьев. Code lens (счётчики ссылок `terraform-ls`) — когда `registerCodeLensProvider`
-  перестанет быть no-op.
+  поверх деревьев.
+- [x] **Code lens.** Счётчики ссылок `terraform-ls` работают на стоковом расширении (#942,
+  [arch/StockExtensions.md](../arch/StockExtensions.md#terraform-hashicorpterraform)).
 - [ ] Не разобрано: при наборе на машинной скорости (строка за ~200 мс) попап автодополнения не
   открылся — каждая клавиша отменяет предыдущий запрос (`-32800 RequestCancelled`), а на последнюю
   запрос до сервера не дошёл. При человеческом темпе открывается. Может быть свойством
@@ -59,13 +59,12 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
 
 ## Форматирование
 
-- [ ] **Выбор форматтера — когда укусит** (решение человека: сейчас не делать; на `.ts` при
-  установленном prettier выигрывает prettier, и это то, чего хочет пользователь):
-  `editor.defaultFormatter` (глобальная и `[language]`); «Format Document With…»
-  (`editor.action.formatDocument.multiple`) — пикер провайдеров, выбор пишется в
-  `editor.defaultFormatter` языка; в проводе — личность провайдера (сейчас ядро видит только правки).
-- [ ] **Остальная система (отложено):** `editor.formatOnType` (отдельный шов: правка → запрос по
-  строке), `editor.formatOnPaste`, `editor.formatOnSaveMode` (`file`/`modifications` — дифф против
+- [x] `editor.defaultFormatter` (глобальная и `[language]`), в проводе — личность провайдера (#973). Без настройки
+  по-прежнему форматирует первый провайдер: на `.ts` при установленном prettier выигрывает prettier (решение человека);
+  эталон в этом случае спрашивает.
+- [ ] **Пикер форматтера — когда укусит:** «Format Document With…» (`editor.action.formatDocument.multiple`), выбор
+  пишется в `editor.defaultFormatter` языка.
+- [ ] **Остальная система (отложено):** `editor.formatOnPaste`, `editor.formatOnSaveMode` (`file`/`modifications` — дифф против
   git-версии в ядре есть).
 - [ ] `Prettier: Create Configuration File` и `eslint.createConfig` упирались в отсутствие
   `showOpenDialog` и `createTerminal` — оба теперь есть: проверить живьём и снять пункт из

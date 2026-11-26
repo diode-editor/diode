@@ -14,6 +14,7 @@ import { TokenizationRegistryDIToken } from "../../editor/common/languages/token
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../editor/common/services/languageFeaturesService.ts";
 import { registerDefaultDocumentColorProvider } from "../../editor/contrib/colorPicker/browser/defaultDocumentColorProvider.ts";
+import { registerDefaultLinkProvider } from "../../editor/contrib/links/browser/defaultLinkProvider.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 
 export interface TokenizationModuleContext {
@@ -45,6 +46,7 @@ export const tokenizationModule: ContainerModule<TokenizationModuleContext> = (
         const languageFeatures = new LanguageFeaturesService();
         // Lives as long as the registry: never unregistered.
         registerDefaultDocumentColorProvider(languageFeatures);
+        registerDefaultLinkProvider(languageFeatures);
         return languageFeatures;
     });
 };

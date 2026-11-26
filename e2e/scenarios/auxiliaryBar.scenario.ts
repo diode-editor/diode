@@ -15,17 +15,19 @@ export default defineScenario({
 
         await editor.sendKey("Ctrl+Alt+B");
         let part = await editor.waitForNode("#auxiliarybar");
-        if (part.box.width !== 30) throw new Error(`secondary side bar width ${part.box.width}, expected 30`);
+        // A 30-column slot: the part is 28 columns inside its frame lines.
+        if (part.box.width !== 28) throw new Error(`secondary side bar width ${part.box.width}, expected 28`);
         await editor.capture("shown");
 
-        // The sash is on the part's first column: drag the border 10 columns left.
-        const sashX = part.box.x;
+        // The sash lies on the two frame lines at the border (the editor's right line and the part's left line):
+        // drag the part's left frame line 10 columns left.
+        const sashX = part.box.x - 1;
         const midY = part.box.y + Math.floor(part.box.height / 2);
         await editor.sendMouse({ action: "press", button: "left", x: sashX, y: midY });
         await editor.sendMouse({ action: "move", button: "left", x: sashX - 10, y: midY });
         await editor.sendMouse({ action: "release", button: "left", x: sashX - 10, y: midY });
         part = await editor.waitForNode("#auxiliarybar");
-        if (part.box.width !== 40) throw new Error(`width after drag ${part.box.width}, expected 40`);
+        if (part.box.width !== 38) throw new Error(`width after drag ${part.box.width}, expected 38`);
         await editor.capture("resized");
 
         // Narrow terminal: the part shrinks first, the editor stays at least 20 columns wide.
@@ -38,7 +40,8 @@ export default defineScenario({
         const tabRow = part.state?.tabRow as number;
         if (close == null) throw new Error(`part has no close button: ${JSON.stringify(part.state)}`);
         await editor.click(close.centerX, tabRow);
-        await editor.waitForText((t) => !t.split("\n")[1].endsWith(" × "));
+        // The part's columns of the tab row lose its × (the editor's own tab keeps one to the left).
+        await editor.waitForText((t) => !(t.split("\n")[tabRow] ?? "").slice(part.box.x).includes("×"));
         await editor.capture("closed");
     },
 });

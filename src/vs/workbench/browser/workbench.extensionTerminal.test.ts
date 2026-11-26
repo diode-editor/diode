@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
+import { IGNORED_SHELL_INTEGRATION_EVENTS } from "../../../TestUtils/shellIntegrationEvents.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ExtensionTerminalAdapter } from "../contrib/terminal/browser/extensionTerminalAdapter.ts";
@@ -41,6 +42,9 @@ describe("Workbench — extension terminal", () => {
         return h.testApp.backend.screenToString();
     };
 
+    /** The rightmost cell of a row inside the panel's frame: the tab list, at the panel's right edge. */
+    const tabListCell = (line: string): string => (line.trimEnd().split("│").at(-2) ?? "").trimEnd();
+
     afterEach(() => {
         h.dispose();
         ws.dispose();
@@ -73,8 +77,47 @@ describe("Workbench — extension terminal", () => {
             .filter((line) => line.includes("│ "));
         // The tab list is narrow — the long name is truncated to fit.
         expect(tabs.some((line) => line.includes("Bazel Build Statu"))).toBe(true);
-        expect(tabs.some((line) => line.trimEnd().endsWith(" bash"))).toBe(true);
+        expect(tabs.some((line) => tabListCell(line).endsWith(" bash"))).toBe(true);
         expect(h.container.get(PanelServiceDIToken).getActiveViewId()).toBe(TERMINAL_VIEW_ID);
+    });
+
+    it("[api:Pseudoterminal.onDidChangeName] the pty renames itself — the tab list shows the new name", () => {
+        boot();
+        h.commands.execute("workbench.action.terminal.new");
+        adapter.create({ extHostId: 1, pty: true, name: "foo" });
+        adapter.show({ extHostId: 1 }, true);
+        const tabs = (): string[] =>
+            screen()
+                .split("\n")
+                .filter((line) => line.includes("│ "));
+        expect(tabs().some((line) => tabListCell(line).endsWith(" foo"))).toBe(true);
+        adapter.ptyName({ extHostId: 1 }, "bar");
+        expect(tabs().some((line) => tabListCell(line).endsWith(" bar"))).toBe(true);
+        expect(tabs().some((line) => tabListCell(line).endsWith(" foo"))).toBe(false);
+    });
+
+    it("[api:Terminal.state] a key typed into the focused terminal is reported as the interaction to the extension host", () => {
+        boot();
+        const inputs: number[] = [];
+        adapter.subscribe({
+            opened: () => undefined,
+            closed: () => undefined,
+            activeChanged: () => undefined,
+            ptyStart: () => undefined,
+            ptyInput: () => undefined,
+            ptyResize: () => undefined,
+            interaction: (id) => inputs.push(id),
+            titleChanged: () => undefined,
+            ...IGNORED_SHELL_INTEGRATION_EVENTS,
+        });
+        h.commands.execute("workbench.action.terminal.new");
+        const [shell] = terminal.getInstances();
+        h.testApp.render();
+        expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
+        expect(inputs).toStrictEqual([]);
+        h.testApp.sendKey("x");
+        expect((shell.session as FakeTerminalSurface).writes).toStrictEqual(["x"]);
+        expect(inputs).toStrictEqual([shell.id]);
     });
 
     // The stock Claude Code extension runs `claude` in a terminal tab beside the file and, after a diff
@@ -92,6 +135,9 @@ describe("Workbench — extension terminal", () => {
             ptyStart: () => undefined,
             ptyInput: () => undefined,
             ptyResize: () => undefined,
+            interaction: () => undefined,
+            titleChanged: () => undefined,
+            ...IGNORED_SHELL_INTEGRATION_EVENTS,
         });
         adapter.create({ extHostId: 1, name: "Claude Code", location: { viewColumn: -2 } });
         const claude = terminal.getEditorInstances()[0];

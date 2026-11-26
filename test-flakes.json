@@ -2,10 +2,130 @@
     "$comment": "Known flaky tests, unit and e2e: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. A screenshot scenario is keyed by its *.scenario.ts file and name (e2e/scenarios/suite.ts); optional platforms limits an entry to those process.platform values. Process and details: docs/TODO/TestFlakes.md.",
     "flakes": [
         {
+            "file": "e2e/scenarios/quickOpenHistory.scenario.ts",
+            "test": "quick-open-history",
+            "action": "retry",
+            "platforms": [
+                "win32"
+            ],
+            "note": "waitUntil(screen text predicate) timed out after 10000ms waiting for the sample.ts tab after Ctrl+P, both e2e attempts on windows (run 44478670132, PR #1239, whose diff is TextEditor.visibleRanges; the scenario opens no extension); the job's rerun is green, as is main"
+        },
+        {
+            "file": "src/vs/workbench/contrib/terminal/node/embeddedTerminalSession.shellIntegrationEdges.test.ts",
+            "test": "shell integration — zsh edges > two zsh terminals started at once — both injected",
+            "action": "retry",
+            "note": "no OSC 633;A in the output after 10 s, only the zsh prompt-sp marker, under coverage on CI (run 44461762533, PR #1239, whose diff is TextEditor.visibleRanges; this suite does not touch the editor); main green on the same base"
+        },
+        {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.javaLsp.features.test.ts",
+            "test": "ExtensionHost — stock redhat.java: language features > references finds the declaration and the call",
+            "action": "retry",
+            "note": "until(references for greet) timed out after 60 s in Stryker's initial test run of the mutation gate (run 44455464286, PR #1243, whose diff is CompletionItem fields and the completion list, which this suite does not touch); green in the unit job"
+        },
+        {
+            "file": "src/vs/platform/extensionManagement/node/httpRegistrySource.test.ts",
+            "test": "HttpExtensionRegistrySource > download progress > the registry's size beats Content-Length",
+            "action": "retry",
+            "note": "two progress reports instead of three (expected [128, 128] to deeply equal [128, 128, 128]) under coverage on CI (run 44424532677, PR #1238, whose diff is the terminal developer commands; this suite does not touch the terminal); main green on the same base"
+        },
+        {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.settingsCompletion.test.ts",
+            "test": "diode-settings — quotes and values (e2e via subprocess) > the range covers both quotes when the key is already closed",
+            "action": "retry",
+            "note": "the completion item had no range (expected undefined to deeply equal the quotes range) under coverage on CI (run 44214863415, PR #1209, whose diff is vscode.executeHoverProvider and the tie order of the execute*Provider commands, which this suite does not call); green locally 12/12"
+        },
+        {
+            "file": "src/vs/workbench/contrib/debug/browser/debugContextMenus.app.test.ts",
+            "test": "Run and Debug: the context menus of the rows > a frame: Restart Frame and Copy Call Stack, which copies every frame of the thread",
+            "action": "retry",
+            "note": "Copy Call Stack copied a single line (expected more than 2) in Stryker's initial test run of the mutation gate (run 44155048648, PR #1195, whose diff is the editor's inline values); green in the unit job and locally"
+        },
+        {
+            "file": "src/vs/workbench/contrib/testing/browser/testResultsOutput.test.ts",
+            "test": "TestResultsOutput > a live test's output takes only its own appends; typing into it goes nowhere",
+            "action": "retry",
+            "note": "the output terminal was still empty (only newlines, no 'mine') in Stryker's initial test run of the mutation gate (run 43948216044, PR #1184, whose diff is the debug toolbar and the status bar colors); green in the unit job and locally"
+        },
+        {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.onDidChangeWorkspaceFolders.test.ts",
+            "test": "ExtensionHost — workspace.onDidChangeWorkspaceFolders in single-root Diode > [api:workspace.onDidChangeWorkspaceFolders] updateWorkspaceFolders onto one folder: true, no event, the restarted extension sees the new folder",
+            "action": "retry",
+            "note": "expect.poll (1 s) saw only the first subprocess's two journal lines: the restart did not finish under a full local load, twice (check:diff and Stryker's initial test run, PR #1178, whose diff is the debug adapters of extensions); green alone"
+        },
+        {
+            "file": "src/vs/workbench/contrib/testing/browser/testingDecorations.test.ts",
+            "test": "TestingDecorations > the progress clock redraws only the editors with a running test; a batch of states redraws once",
+            "action": "retry",
+            "note": "vi.waitFor (1 s) saw only 2 distinct spinner frames of the real 100 ms ProgressService ticker under coverage on CI (run 42780424813, PR #1124, whose diff adds passive view progress and leaves non-passive ticking as is); green on the previous run of the same code and locally"
+        },
+        {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.vitestExplorer.test.ts",
+            "test": "ExtensionHost — stock vitest.explorer (#1068) > [api:tests.createTestController] the controller, its profiles and its lazily resolved tree reach the core; a row's Update Snapshot gets its TestItem; the failure's diff, stack and Copy Error; refresh calls the extension",
+            "action": "retry",
+            "note": "the stock extension's vitest run printed DEV output without FAIL in Stryker's initial test run of the mutation gate (run 42741891573, PR #1117, whose diff is the terminal tabs sash); the unit job of the same run is green"
+        },
+        {
+            "file": "e2e/scenarios/java-lens-hints.scenario.ts",
+            "test": "java-lens-hints",
+            "action": "retry",
+            "note": "waitUntil(screen text predicate) timed out after 180000ms waiting for the code lens counts after the settings change, both e2e attempts on ubuntu (run 41990980003, main 5dc77f229, whose diff is the 0.14.3 version bump); green on the neighbouring main runs"
+        },
+        {
+            "file": "e2e/scenarios/linkedEditing.scenario.ts",
+            "test": "linked-editing",
+            "action": "retry",
+            "note": "waitUntil(screen text predicate) timed out after 10000ms on ubuntu (run 41933177040, PR #1065, whose diff is chord matching in the keybinding registry); green on the --failed rerun"
+        },
+        {
+            "file": "e2e/todoTreeStock.test.ts",
+            "test": "SEA binary — stock Todo Tree > a click on a tag line moves the keyboard to the editor: typing lands on the tag's line",
+            "action": "retry",
+            "note": "waitUntil(screen text predicate) timed out after 30000ms on ubuntu, all retries (run 41933177040, PR #1065, whose diff is chord matching in the keybinding registry); green on the --failed rerun"
+        },
+        {
+            "file": "e2e/scenarios/typescript-navigation.scenario.ts",
+            "test": "typescript-navigation",
+            "action": "retry",
+            "note": "waitUntil(the linked tag ranges) timed out after 60000ms on ubuntu: main e082b0a6 (run 41632750011) and PR #1045 twice (run 41649556011 and its rerun), whose diff is snippet variables; green on PR #1045 at 29c0db1b on the same base"
+        },
+        {
+            "file": "src/vs/workbench/browser/workbench.workspaceSymbols.accept.test.ts",
+            "test": "Workbench — workspace symbols, accept and races > a large answer renders and Enter takes the first row",
+            "action": "retry",
+            "note": "Test timed out in 5000ms under coverage (run 41405396154, PR #1015; run 41408127273, PR #1017, whose diff is redhat.java and references-view); green locally in 1.1 s"
+        },
+        {
+            "file": "e2e/scenarios/quickInputValidation.scenario.ts",
+            "test": "quick-input-validation",
+            "action": "retry",
+            "platforms": [
+                "win32"
+            ],
+            "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest (run 41255028793, PR #959, whose diff is inlay hints); green on ubuntu and on the rerun"
+        },
+        {
+            "file": "e2e/scenarios/installFromVsix.scenario.ts",
+            "test": "install-from-vsix",
+            "action": "retry",
+            "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest: PR #1172 (run 43708145083, diff is debug launch.json, green on rerun) and PR #1174 (run 43751747031, diff is profile removal); on ubuntu too: PR #1183 (run 43957528110, diff is the vscode.debug session API) and PR #1187 (run 43974946894, diff is the editor title Run button; the frame stays on 'Please enter a path that exists' in Install from VSIX)"
+        },
+        {
+            "file": "e2e/scenarios/extensionUntitledUri.scenario.ts",
+            "test": "extension-untitled-uri",
+            "action": "retry",
+            "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest (run 41255028793, PR #959, whose diff is inlay hints); on ubuntu too: main fab4d676 (run 42736514194) and PR #1119 (run 42751223918)"
+        },
+        {
             "file": "src/vs/workbench/services/extensions/node/extensionHost.typescriptLsp.projectStatus.test.ts",
             "test": "ExtensionHost — JS/TS project status from the stock typescript-language-server > a .ts file and, with allowJs, a .js file under a tsconfig show the tsconfig path",
             "action": "retry",
             "note": "status not yet tsconfig.json when read (expected { …(9) } to match object { label: 'tsconfig.json' }); broke the mutation dry run on #885 (run 40405134308), diff is indent guides"
+        },
+        {
+            "file": "src/vs/workbench/browser/workbench.workspaceSymbols.accept.test.ts",
+            "test": "Workbench — workspace symbols, accept and races > a large answer renders and Enter takes the first row",
+            "action": "retry",
+            "note": "20000 symbols under coverage timed out at 5 s on #1015 (run 41405396154); 1.1 s locally with and without that PR's matchSymbol change"
         },
         {
             "file": "src/vs/workbench/browser/parts/editor/editorComponent.diskReload.test.ts",
@@ -92,6 +212,12 @@
             "note": "the provider fold did not appear in 20 attempts: maptz.regionfolder is late on a slow runner (runs 40006403681, 40093826414)"
         },
         {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.todoTree.test.ts",
+            "test": "ExtensionHost — stock Gruntfuggly.todo-tree > TODOS shows the workspace's tags, follows an edit, a click on a tag opens its line, the status bar counts them",
+            "action": "retry",
+            "note": "waitUntil: the cursor on FIXME's line did not happen within 10000 ms; job test on #984 (run 41256229694), the diff doesn't touch it, green on main"
+        },
+        {
             "file": "e2e/scenarios/todo-tree.scenario.ts",
             "test": "todo-tree",
             "action": "retry",
@@ -117,6 +243,24 @@
                 "win32"
             ],
             "note": "expected 1 to be 2: the second update check did not reach the registry after the clock moves (run 40034642872)"
+        },
+        {
+            "file": "src/vs/editor/browser/editorElement.performance.test.ts",
+            "test": "EditorElement — extremely long lines must not freeze > displayLineFor caps the visible long line",
+            "action": "retry",
+            "note": "wall clock: expected 335.9 to be less than 298.4 in Stryker's dry run, so the mutation job got no verdict (run 41260477522, PR #985)"
+        },
+        {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.typescriptLsp.projectStatus.test.ts",
+            "test": "ExtensionHost — JS/TS project status from the stock typescript-language-server > No jsconfig → Configure JSConfig → the status names jsconfig.json and the move updates an unopened importer",
+            "action": "retry",
+            "note": "the label already says jsconfig.json while the command is still _typescript.createOrOpenConfig (run 41297584473, PR #1000)"
+        },
+        {
+            "file": "src/vs/workbench/contrib/testing/browser/testResultsOutput.test.ts",
+            "test": "TestResultsOutput > a new subject starts from a clean surface: no old line on the screen or in the scrollback",
+            "action": "retry",
+            "note": "expected '\\n\\n\\n\\n\\n\\n\\n\\n\\n' to contain 'new' in the mutation gate's Stryker initial test run (run 42538740300, PR #1094, whose diff is the Extensions view); green in the same run's unit job"
         }
     ]
 }

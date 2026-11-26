@@ -79,6 +79,9 @@ const FILES = [
     "src/vs/editor/common/tokens/contiguousTokensEditing.ts",
     "src/vs/editor/common/languages/nullTokenize.ts",
 
+    // The Debug Adapter Protocol declarations, verbatim like vscode.d.ts.
+    "src/vs/workbench/contrib/debug/common/debugProtocol.d.ts",
+
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeBase.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/rbTreeBase.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.ts",
@@ -93,7 +96,103 @@ const FILES = [
     // the vendored tree. The path is upstream's (`editor/test/...`), not
     // colocated: the mirrored layout keeps relative imports verbatim.
     "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
+
+    // Snippet grammar (`snippet.md`): depends on `CharCode` alone. The session and the controller are ported
+    // (`snippetSession.ts` next to it), they need upstream's `ICodeEditor`/`ITextModel`.
+    "src/vs/editor/contrib/snippet/browser/snippetParser.ts",
+    "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
+
+    // Built-in Merge Conflict: the code of upstream's `vscode.merge-conflict` (its manifest is in MANIFESTS).
+    // `extensions/merge-conflict/main.ts` is the entry `build-extensions.mjs` compiles.
+    ...[
+        "codelensProvider",
+        "commandHandler",
+        "contentProvider",
+        "delayer",
+        "documentMergeConflict",
+        "documentTracker",
+        "interfaces",
+        "mergeConflictMain",
+        "mergeConflictParser",
+        "mergeDecorator",
+        "services",
+    ].map((name) => `extensions/merge-conflict/src/${name}.ts`),
+
+    // Built-in HTML language features: upstream's `vscode.html-language-features`, client and server (its manifest
+    // is in MANIFESTS). `extensions/html-language-features/main.ts` replaces upstream's `client/src/node/htmlClientMain.ts`
+    // (it reads its own package.json from disk and finds the server next to itself; a builtin has no files on disk);
+    // `build-extensions.mjs` bundles the server from `server/src/node/htmlServerNodeMain.ts`.
+    ...["autoInsertion", "customData", "htmlClient", "languageParticipants", "requests", "node/nodeFs"].map(
+        (name) => `extensions/html-language-features/client/src/${name}.ts`,
+    ),
+    ...[
+        "customData",
+        "htmlServer",
+        "languageModelCache",
+        "requests",
+        "modes/cssMode",
+        "modes/embeddedSupport",
+        "modes/formatting",
+        "modes/htmlFolding",
+        "modes/htmlMode",
+        "modes/javascriptLibs",
+        "modes/javascriptMode",
+        "modes/javascriptSemanticTokens",
+        "modes/languageModes",
+        "modes/selectionRanges",
+        "modes/semanticTokens",
+        "node/htmlServerMain",
+        "node/htmlServerNodeMain",
+        "node/nodeFs",
+        "utils/arrays",
+        "utils/documentContext",
+        "utils/positions",
+        "utils/runner",
+        "utils/strings",
+        "utils/validation",
+    ].map((name) => `extensions/html-language-features/server/src/${name}.ts`),
+    // Built-in Node Debug Auto-attach: upstream's `vscode.debug-auto-launch`, the status bar item and the toggle of
+    // js-debug's auto attach (its manifest is in MANIFESTS; `extensions/debug-auto-launch/main.ts` is the entry).
+    "extensions/debug-auto-launch/src/extension.ts",
+
+    // The proposed `extensions.allAcrossExtensionHosts` the HTML client reads (`enabledApiProposals` of its manifest).
+    "src/vscode-dts/vscode.proposed.extensionsAny.d.ts",
 ];
+
+/**
+ * Files copied byte for byte, without the transform: data, not TypeScript under the MIT header. The `jquery.d.ts`
+ * the server's JavaScript mode loads as a library, and the JSON schema the manifest's `jsonValidation` points at.
+ */
+const AS_IS = [
+    "extensions/html-language-features/server/lib/jquery.d.ts",
+    "extensions/html-language-features/schemas/package.schema.json",
+];
+
+/**
+ * Manifests of vendored builtin extensions with code. `package.nls.json` is copied as is, `package.json` goes through
+ * `builtinManifest`. Upstream path == our path.
+ */
+const MANIFESTS = ["extensions/merge-conflict", "extensions/html-language-features", "extensions/debug-auto-launch"];
+
+/**
+ * Upstream's manifest turned into a builtin one: `main` points at what `build-extensions.mjs` compiles, and the fields
+ * of upstream's own build (web bundle, npm scripts and dependencies, telemetry key, marketplace icon) are dropped.
+ * `type: module` makes `tsc` read the sources as ESM, like every other builtin.
+ *
+ * @param {Record<string, unknown>} manifest
+ */
+export function builtinManifest(manifest) {
+    const { browser, scripts, dependencies, devDependencies, aiKey, icon, ...rest } = manifest;
+    return { ...rest, type: "module", main: "./out/extension.cjs" };
+}
+
+/**
+ * Bare specifiers of upstream's npm dependencies, replaced by our files (repo paths). Telemetry: diode has none, the
+ * reporter is a null object.
+ */
+const IMPORT_SUBSTITUTES = {
+    "@vscode/extension-telemetry": "extensions/merge-conflict/telemetryReporter.ts",
+};
 
 /** Fixture corpus, copied as is, without the transform. */
 const FIXTURES_FROM = "src/vs/editor/test/node/diffing/fixtures";
@@ -108,6 +207,7 @@ const SPARSE_PATHS = [
     // A single file needs a leading slash in non-cone mode, otherwise git
     // treats the path as a name glob and warns (NON-CONE PROBLEMS).
     "/src/vs/base/common/charCode.ts",
+    "/src/vs/workbench/contrib/debug/common/debugProtocol.d.ts",
     "/src/vs/base/common/stopwatch.ts",
     "/src/vs/editor/common/model/textModelTokens.ts",
     "/src/vs/editor/common/model/fixedArray.ts",
@@ -121,6 +221,12 @@ const SPARSE_PATHS = [
     "/src/vs/editor/common/model/textModelSearch.ts",
     "/src/vs/base/common/uint.ts",
     "/src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
+    "/src/vs/editor/contrib/snippet/browser/snippetParser.ts",
+    "/src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
+    "extensions/merge-conflict",
+    "extensions/html-language-features",
+    "/src/vscode-dts/vscode.proposed.extensionsAny.d.ts",
+    "extensions/debug-auto-launch",
     FIXTURES_FROM,
 ];
 
@@ -130,6 +236,16 @@ const SPARSE_PATHS = [
  * Each one carries a justification; the list aims to stay short.
  */
 const EXCISIONS = {
+    "extensions/html-language-features/server/src/modes/javascriptLibs.ts": [
+        {
+            // TypeScript's `lib.*.d.ts` are looked for in `../../node_modules` of the server folder: VS Code's own
+            // `extensions/node_modules`, which diode has no counterpart of. The PRELUDE takes the folder of wherever
+            // the `typescript` package resolves from the server bundle instead: the repo's `node_modules` in dev, the
+            // unpacked `ts-server.bundle` in the binary (the same TypeScript the bundled tsserver runs).
+            from: "const TYPESCRIPT_LIB_SOURCE = join(serverFolder, '../../node_modules/typescript/lib');",
+            to: "SELF",
+        },
+    ],
     "src/vs/editor/common/diff/rangeMapping.ts": [
         {
             // The only consumer of the IChange type from legacyLinesDiffComputer.
@@ -194,9 +310,21 @@ const EXCISIONS = {
  * (it also gives the test `this.timeout()`, which the fuzzing cases call).
  */
 const PRELUDES = {
+    "extensions/html-language-features/server/src/modes/javascriptLibs.ts": [
+        "// diode: see EXCISIONS in scripts/import-vscode-editor.mjs.",
+        "import { createRequire } from 'module';",
+        "const TYPESCRIPT_LIB_SOURCE = dirname(createRequire(import.meta.url).resolve('typescript'));",
+    ],
     "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts": [
         "import { suite, test } from '../../../../../../TestUtils/mochaCompat.ts';",
     ],
+    "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts": [
+        "import { suite, test } from '../../../../../../TestUtils/mochaCompat.ts';",
+    ],
+    // Upstream builds the extension against `@types/node` 24, where a socket's `data` chunk is a `Buffer`; ours types
+    // it `string | Buffer`, and the file can't be edited. The bundle is esbuild's, which never type-checks anyway; the price
+    // is that its calls into `vscode` are not checked against our vscode.d.ts either.
+    "extensions/debug-auto-launch/src/extension.ts": ["// @ts-nocheck"],
 };
 
 /**
@@ -228,6 +356,8 @@ const TYPE_ONLY = new Set([
     "SerializedLineReplacement",
     "ITokenPresentation",
     "IViewLineTokens",
+    // snippetParser
+    "VariableResolver",
     // from our shims in base/common
     "Comparator",
     "IEquatable",
@@ -288,9 +418,28 @@ function nthIndex(lines, from, line, nth) {
     return -1;
 }
 
-/** `from './x.js'` → `from './x.ts'` — only in import/export specifiers. */
-function rewriteImportExtensions(lines) {
-    return lines.map((l) => l.replace(/(\bfrom\s+')([^']+)\.js(')/g, "$1$2.ts$3"));
+/**
+ * `from './x.js'` → `from './x.ts'` — only in import/export specifiers. Extension code imports without an extension
+ * (`from './x'`), Node16 resolution needs it written out.
+ */
+export function rewriteImportExtensions(lines) {
+    return lines.map((l) =>
+        l
+            .replace(/(\bfrom\s+')([^']+)\.js(')/g, "$1$2.ts$3")
+            .replace(/(\bfrom\s+')(\.{1,2}\/[^']+?)(?<!\.ts)(')/g, "$1$2.ts$3"),
+    );
+}
+
+/** `from '@vscode/extension-telemetry'` → `from '../telemetryReporter.ts'`, relative to the vendored file. */
+export function substituteImports(lines, upstreamPath) {
+    return lines.map((l) =>
+        l.replace(/(\bfrom\s+')([^'.][^']*)(')/g, (whole, head, specifier, tail) => {
+            const target = IMPORT_SUBSTITUTES[specifier];
+            if (target === undefined) return whole;
+            const rel = relative(dirname(upstreamPath), target);
+            return `${head}${rel.startsWith(".") ? rel : `./${rel}`}${tail}`;
+        }),
+    );
 }
 
 /**
@@ -332,6 +481,7 @@ function transform(text, upstreamPath) {
     while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
     lines = applyExcisions(lines, upstreamPath);
     lines = rewriteImportExtensions(lines);
+    lines = substituteImports(lines, upstreamPath);
     lines = splitTypeImports(lines);
     lines = insertBanner(lines, upstreamPath);
     while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
@@ -372,6 +522,17 @@ function fixtureFiles(cloneDir) {
     return out;
 }
 
+/** `[repo path, expected content]` of every vendored manifest file. */
+function manifestFiles(cloneDir) {
+    return MANIFESTS.flatMap((dir) => {
+        const manifest = JSON.parse(readFileSync(join(cloneDir, dir, "package.json"), "utf8"));
+        return [
+            [`${dir}/package.json`, `${JSON.stringify(builtinManifest(manifest), null, 2)}\n`],
+            [`${dir}/package.nls.json`, readFileSync(join(cloneDir, dir, "package.nls.json"), "utf8")],
+        ];
+    });
+}
+
 function regen() {
     withUpstream((cloneDir, sha) => {
         for (const upstreamPath of FILES) {
@@ -381,6 +542,14 @@ function regen() {
             writeFileSync(target, transform(source, upstreamPath));
         }
         console.error(`[vendor] imported files: ${FILES.length}`);
+
+        for (const path of AS_IS) {
+            mkdirSync(dirname(join(repoRoot, path)), { recursive: true });
+            cpSync(join(cloneDir, path), join(repoRoot, path));
+        }
+
+        for (const [path, content] of manifestFiles(cloneDir)) writeFileSync(join(repoRoot, path), content);
+        console.error(`[vendor] imported manifests: ${MANIFESTS.length}`);
 
         const fixtureTarget = join(repoRoot, FIXTURES_TO);
         rmSync(fixtureTarget, { recursive: true, force: true });
@@ -416,6 +585,18 @@ function check() {
             );
         }
 
+        for (const path of AS_IS) {
+            const target = join(repoRoot, path);
+            if (!existsSync(target)) problems.push(`missing: ${path}`);
+            else if (!readFileSync(target).equals(readFileSync(join(cloneDir, path)))) problems.push(`drift: ${path}`);
+        }
+
+        for (const [path, want] of manifestFiles(cloneDir)) {
+            const target = join(repoRoot, path);
+            if (!existsSync(target)) problems.push(`missing: ${path}`);
+            else if (readFileSync(target, "utf8") !== want) problems.push(`drift: ${path}`);
+        }
+
         const fixtures = fixtureFiles(cloneDir);
         for (const rel of fixtures) {
             const target = join(repoRoot, FIXTURES_TO, rel);
@@ -438,5 +619,7 @@ function check() {
     });
 }
 
-if (process.argv.includes("--check")) check();
-else regen();
+if (import.meta.url === `file://${process.argv[1]}`) {
+    if (process.argv.includes("--check")) check();
+    else regen();
+}

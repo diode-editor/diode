@@ -74,8 +74,7 @@ export abstract class BaseTextEditorModel extends Disposable {
      */
     private tooLargeForTokenization = false;
     protected uriValue: Uri;
-    protected savedVersionId = 0;
-    protected savedEol: EndOfLine;
+    protected savedAlternativeVersionId = 0;
     protected readonly languageService: ILanguageService;
     private readonly undoRedoService: UndoRedoService;
     /** The first one is the default target for programmatic paths with no acting view (a save participant). */
@@ -155,7 +154,6 @@ export abstract class BaseTextEditorModel extends Disposable {
         this.uriValue = uri;
 
         this.doc = new TextDocument("");
-        this.savedEol = this.doc.eol;
         this.bindDocumentListeners();
         this.undoManagerValue = this.createUndoManager();
 
@@ -170,7 +168,7 @@ export abstract class BaseTextEditorModel extends Disposable {
 
     public get isModified(): boolean {
         if (this.loadingFromDisk) return false;
-        return this.doc.versionId !== this.savedVersionId || this.doc.eol !== this.savedEol;
+        return this.doc.alternativeVersionId !== this.savedAlternativeVersionId;
     }
 
     /** What extensions read as `TextDocument.isDirty`; only an untitled buffer can differ from {@link isModified}. */
@@ -218,10 +216,11 @@ export abstract class BaseTextEditorModel extends Disposable {
         };
     }
 
-    /** A model without a view (`openTextDocument` without a tab) has nobody to track selections. */
-    private readonly headlessEditTarget: ITextEditTarget = {
-        // Stryker disable next-line ArrowFunction,ArrayDeclaration: selections are read from a view, and this is none
-        cloneSelections: () => [createSelection(0, 0, 0, 0)],
+    /**
+     * A model without a view (`openTextDocument` without a tab) has nobody to track selections: it only applies
+     * edits (`markDirty` is broadcast to the attached views, selections are read from them).
+     */
+    private readonly headlessEditTarget: Pick<ITextEditTarget, "applyEdits"> = {
         applyEdits: (edits, label) => {
             const versionBefore = this.doc.versionId;
             const { appliedVersion, inverseEdits } = this.doc.applyEdits(edits);
@@ -236,7 +235,6 @@ export abstract class BaseTextEditorModel extends Disposable {
                 afterSelections: selections,
             };
         },
-        markDirty: () => undefined,
     };
 
     public get undoManager(): UndoManager {
@@ -281,12 +279,12 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
-     * A streamed save passes the version and EOL its snapshot was taken at: edits typed while the bytes were being
-     * written are not in the file and keep the buffer modified.
+     * A streamed save passes the alternative version its snapshot was taken at (the snapshot serializes with the EOL of
+     * that moment): edits and EOL changes made while the bytes were being written are not in the file and keep the
+     * buffer modified.
      */
-    protected markSaved(versionId = this.doc.versionId, eol = this.doc.eol): void {
-        this.savedVersionId = versionId;
-        this.savedEol = eol;
+    protected markSaved(alternativeVersionId = this.doc.alternativeVersionId): void {
+        this.savedAlternativeVersionId = alternativeVersionId;
         this.onDidMarkSavedEmitter.fire();
     }
 
@@ -352,7 +350,7 @@ export abstract class BaseTextEditorModel extends Disposable {
         };
     }
 
-    /** EOL is a "modified" axis separate from content ({@link isModified}). */
+    /** An edit like any other, as upstream `pushEOL`: it makes the buffer modified, undo takes it back. */
     public setEol(eol: EndOfLine, target?: ITextEditTarget): void {
         const previous = this.doc.eol;
         if (previous === eol) return;
@@ -397,6 +395,17 @@ export abstract class BaseTextEditorModel extends Disposable {
             else this.undoManagerValue.pushUndoElement(element);
         }
         this.openUndoStepVersion = undoStops.undoStopAfter === false ? this.doc.versionId : null;
+        this.broadcastMarkDirty();
+    }
+
+    /**
+     * Upstream's `popUndoStop` + `executeEdits`: the edits join the top undo step, so one undo takes back both
+     * them and whatever made that step. Selections shift along with the edits.
+     */
+    public applyEditsIntoLastUndoStep(edits: readonly ITextEdit[], label: string, target?: ITextEditTarget): void {
+        const acting = target ?? this.editTargets.at(0) ?? this.headlessEditTarget;
+        const element = acting.applyEdits(edits, label);
+        if (element) this.undoManagerValue.joinUndoElement(element);
         this.broadcastMarkDirty();
     }
 
@@ -470,9 +479,6 @@ export abstract class BaseTextEditorModel extends Disposable {
         );
         this.register(
             this.doc.onDidChangeEol(() => {
-                // A version of its own, but not a text edit: "modified" has a separate EOL axis, and setting the EOL
-                // back leaves the document clean.
-                if (this.doc.versionId - 1 === this.savedVersionId) this.savedVersionId = this.doc.versionId;
                 if (!this.replacingText) this.onDidChangeEolEmitter.fire();
             }),
         );

@@ -617,6 +617,10 @@ export class CompletionItem implements vscode.CompletionItem {
     public sortText?: string;
     public filterText?: string;
     public preselect?: boolean;
+    public tags?: CompletionItemTag[];
+    public commitCharacters?: string[];
+    public keepWhitespace?: boolean;
+    public textEdit?: TextEdit;
     public additionalTextEdits?: TextEdit[];
 
     public constructor(label: string, kind?: CompletionItemKind) {
@@ -665,15 +669,80 @@ export class InlineCompletionList {
     }
 }
 
+/**
+ * The next tabstop number of each snippet, kept off the instance: a private member would make the class nominal,
+ * and the `vscode.SnippetString` an extension hands back (inside a `SnippetTextEdit`, say) would not fit it.
+ */
+const nextTabstops = new WeakMap<SnippetString, number>();
+
+function nextTabstop(snippet: SnippetString): number {
+    return nextTabstops.get(snippet) ?? 1;
+}
+
+function takeTabstop(snippet: SnippetString): number {
+    const number = nextTabstop(snippet);
+    nextTabstops.set(snippet, number + 1);
+    return number;
+}
+
+/** The nested snippet shares the outer one's tabstop counter. */
+function buildNested(outer: SnippetString, build: (snippet: SnippetString) => unknown): string {
+    const nested = new SnippetString();
+    nextTabstops.set(nested, nextTabstop(outer));
+    build(nested);
+    nextTabstops.set(outer, nextTabstop(nested));
+    return nested.value;
+}
+
+function escapeText(value: string): string {
+    return value.replace(/\$|}|\\/g, "\\$&");
+}
+
+/** Upstream's `extHostTypes/snippetString.ts`: builders escape snippet syntax and number tabstops from 1. */
 export class SnippetString {
+    public static isSnippetString(thing: unknown): thing is SnippetString {
+        if (thing === null || typeof thing !== "object") return false;
+        return typeof (thing as { value?: unknown }).value === "string";
+    }
+
     public value: string;
 
-    public constructor(value = "") {
-        this.value = value;
+    public constructor(value?: string) {
+        this.value = value ?? "";
     }
 
     public appendText(value: string): this {
-        this.value += value;
+        this.value += escapeText(value);
+        return this;
+    }
+
+    public appendTabstop(number: number = takeTabstop(this)): this {
+        this.value += `$${number}`;
+        return this;
+    }
+
+    public appendPlaceholder(
+        value: string | ((snippet: SnippetString) => unknown),
+        number: number = takeTabstop(this),
+    ): this {
+        const text = typeof value === "function" ? buildNested(this, value) : escapeText(value);
+        this.value += `\${${number}:${text}}`;
+        return this;
+    }
+
+    public appendChoice(values: readonly string[], number: number = takeTabstop(this)): this {
+        const choices = values.map((choice) => choice.replace(/[|\\,]/g, "\\$&")).join(",");
+        this.value += `\${${number}|${choices}|}`;
+        return this;
+    }
+
+    /** Unlike `appendText`, a string default escapes only `$` and `}`, as upstream does. */
+    public appendVariable(name: string, defaultValue?: string | ((snippet: SnippetString) => unknown)): this {
+        const text =
+            typeof defaultValue === "function"
+                ? buildNested(this, defaultValue)
+                : defaultValue?.replace(/\$|}/g, "\\$&");
+        this.value += text ? `\${${name}:${text}}` : `\${${name}}`;
         return this;
     }
 }
@@ -796,6 +865,12 @@ export enum TerminalLocation {
     Editor = 2,
 }
 
+export class TerminalProfile implements vscode.TerminalProfile {
+    public constructor(public options: vscode.TerminalOptions | vscode.ExtensionTerminalOptions) {
+        if (typeof options !== "object") throw new Error("Illegal argument: options");
+    }
+}
+
 /** Values match the wire (`platform/terminal/common/environmentVariable.ts`). */
 export enum EnvironmentVariableMutatorType {
     Replace = 1,
@@ -837,6 +912,13 @@ export enum TextEditorCursorStyle {
     LineThin = 4,
     BlockOutline = 5,
     UnderlineThin = 6,
+}
+
+export enum TextEditorLineNumbersStyle {
+    Off = 0,
+    On = 1,
+    Relative = 2,
+    Interval = 3,
 }
 
 export enum ProgressLocation {
@@ -906,6 +988,86 @@ export enum DocumentHighlightKind {
     Write = 2,
 }
 
+export class DocumentHighlight implements vscode.DocumentHighlight {
+    public range: Range;
+    public kind: DocumentHighlightKind;
+
+    public constructor(range: Range, kind: DocumentHighlightKind = DocumentHighlightKind.Text) {
+        this.range = range;
+        this.kind = kind;
+    }
+
+    public toJSON(): unknown {
+        return { range: this.range, kind: DocumentHighlightKind[this.kind] };
+    }
+}
+
+export class EvaluatableExpression implements vscode.EvaluatableExpression {
+    public readonly range: Range;
+    public readonly expression?: string;
+
+    public constructor(range: Range, expression?: string) {
+        this.range = range;
+        this.expression = expression;
+    }
+}
+
+export class LinkedEditingRanges implements vscode.LinkedEditingRanges {
+    public readonly ranges: Range[];
+    public readonly wordPattern: RegExp | undefined;
+
+    public constructor(ranges: Range[], wordPattern?: RegExp) {
+        this.ranges = ranges;
+        this.wordPattern = wordPattern;
+    }
+}
+
+/** Upstream `InlineValueText`. */
+export class InlineValueText implements vscode.InlineValueText {
+    public readonly range: Range;
+    public readonly text: string;
+
+    public constructor(range: Range, text: string) {
+        this.range = range;
+        this.text = text;
+    }
+}
+
+/** Upstream `InlineValueVariableLookup`: the lookup is case sensitive unless told otherwise. */
+export class InlineValueVariableLookup implements vscode.InlineValueVariableLookup {
+    public readonly range: Range;
+    public readonly variableName?: string;
+    public readonly caseSensitiveLookup: boolean;
+
+    public constructor(range: Range, variableName?: string, caseSensitiveLookup = true) {
+        this.range = range;
+        this.variableName = variableName;
+        this.caseSensitiveLookup = caseSensitiveLookup;
+    }
+}
+
+/** Upstream `InlineValueEvaluatableExpression`. */
+export class InlineValueEvaluatableExpression implements vscode.InlineValueEvaluatableExpression {
+    public readonly range: Range;
+    public readonly expression?: string;
+
+    public constructor(range: Range, expression?: string) {
+        this.range = range;
+        this.expression = expression;
+    }
+}
+
+/** Upstream `InlineValueContext`: what the provider gets; not exported to extensions, as upstream. */
+export class InlineValueContext implements vscode.InlineValueContext {
+    public readonly frameId: number;
+    public readonly stoppedLocation: Range;
+
+    public constructor(frameId: number, range: Range) {
+        this.frameId = frameId;
+        this.stoppedLocation = range;
+    }
+}
+
 export enum SymbolTag {
     Deprecated = 1,
 }
@@ -971,6 +1133,33 @@ export class CodeActionKind implements vscode.CodeActionKind {
     }
 }
 
+// Upstream extHostTypes.DocumentDropOrPasteEditKind. Diode has no paste/drop edit providers yet, but
+// extensions build kinds at module load (jbang: `Empty.append("jbang", "dependency")` in a static block),
+// so a missing class fails the whole activation.
+export class DocumentDropOrPasteEditKind implements vscode.DocumentDropOrPasteEditKind {
+    public static readonly Empty = new DocumentDropOrPasteEditKind("");
+    public static readonly Text = new DocumentDropOrPasteEditKind("text");
+    public static readonly TextUpdateImports = DocumentDropOrPasteEditKind.Text.append("updateImports");
+
+    public readonly value: string;
+
+    public constructor(value: string) {
+        this.value = value;
+    }
+
+    public append(...parts: string[]): DocumentDropOrPasteEditKind {
+        return new DocumentDropOrPasteEditKind((this.value ? [this.value, ...parts] : parts).join("."));
+    }
+
+    public intersects(other: DocumentDropOrPasteEditKind): boolean {
+        return this.contains(other) || other.contains(this);
+    }
+
+    public contains(other: DocumentDropOrPasteEditKind): boolean {
+        return this.value === other.value || other.value.startsWith(this.value + ".");
+    }
+}
+
 export enum CodeActionTriggerKind {
     Invoke = 1,
     Automatic = 2,
@@ -1003,11 +1192,11 @@ export class Diagnostic implements vscode.Diagnostic {
     }
 }
 
-export class CodeLens {
+export class CodeLens implements vscode.CodeLens {
     public range: Range;
-    public command?: unknown;
+    public command?: vscode.Command;
 
-    public constructor(range: Range, command?: unknown) {
+    public constructor(range: Range, command?: vscode.Command) {
         this.range = range;
         this.command = command;
     }
@@ -1043,12 +1232,35 @@ export class DocumentLink {
     }
 }
 
-export class InlayHint {
-    public position: Position;
-    public label: unknown;
-    public kind?: unknown;
+/** Upstream `InlayHintKind`. */
+export enum InlayHintKind {
+    Type = 1,
+    Parameter = 2,
+}
 
-    public constructor(position: Position, label: unknown, kind?: unknown) {
+/** Only `value` goes over the wire: a hint has no hover or click yet (docs/TODO/InlayHintsCodeLens.md). */
+export class InlayHintLabelPart implements vscode.InlayHintLabelPart {
+    public value: string;
+    public tooltip?: string | vscode.MarkdownString;
+    public location?: vscode.Location;
+    public command?: vscode.Command;
+
+    public constructor(value: string) {
+        this.value = value;
+    }
+}
+
+/** `tooltip` and `textEdits` stay here: a hint has no hover or double click yet (docs/TODO/InlayHintsCodeLens.md). */
+export class InlayHint implements vscode.InlayHint {
+    public position: Position;
+    public label: string | InlayHintLabelPart[];
+    public tooltip?: string | vscode.MarkdownString;
+    public kind?: vscode.InlayHintKind;
+    public textEdits?: TextEdit[];
+    public paddingLeft?: boolean;
+    public paddingRight?: boolean;
+
+    public constructor(position: Position, label: string | InlayHintLabelPart[], kind?: vscode.InlayHintKind) {
         this.position = position;
         this.label = label;
         this.kind = kind;
@@ -1056,16 +1268,27 @@ export class InlayHint {
 }
 
 export class SymbolInformation {
-    public name: string;
-    public kind: SymbolKind;
+    public tags?: SymbolTag[];
     public containerName: string;
     public location: Location;
 
-    public constructor(name: string, kind: SymbolKind, containerName: string, location: Location) {
-        this.name = name;
-        this.kind = kind;
-        this.containerName = containerName;
-        this.location = location;
+    public constructor(name: string, kind: SymbolKind, containerName: string, location: Location);
+    public constructor(name: string, kind: SymbolKind, range: Range, uri?: Uri, containerName?: string);
+    public constructor(
+        public name: string,
+        public kind: SymbolKind,
+        rangeOrContainer: string | Range,
+        locationOrUri?: Location | Uri,
+        containerName = "",
+    ) {
+        if (!name) throw new Error("name must not be falsy");
+        if (typeof rangeOrContainer === "string") {
+            this.containerName = rangeOrContainer;
+            this.location = locationOrUri as Location;
+        } else {
+            this.containerName = containerName;
+            this.location = new Location(locationOrUri as Uri, rangeOrContainer);
+        }
     }
 }
 
@@ -1096,6 +1319,8 @@ export class DocumentSymbol {
 }
 
 export class CallHierarchyItem {
+    public tags?: SymbolTag[];
+
     public constructor(
         public kind: SymbolKind,
         public name: string,
@@ -1107,6 +1332,8 @@ export class CallHierarchyItem {
 }
 
 export class TypeHierarchyItem {
+    public tags?: SymbolTag[];
+
     public constructor(
         public kind: SymbolKind,
         public name: string,
@@ -1123,6 +1350,13 @@ export class CancellationError extends Error {
         this.name = "Canceled";
     }
 }
+
+/** Upstream `CancellationToken.None`: never cancelled, and its event (`Event.None`) keeps no listeners. */
+export const NEVER_CANCELLED_TOKEN: vscode.CancellationToken = Object.freeze({
+    isCancellationRequested: false,
+    // Stryker disable next-line ArrowFunction: the dispose callback already returns undefined, its mutant is the same function
+    onCancellationRequested: () => new DisposableImpl(() => undefined),
+});
 
 export class CancellationTokenSource {
     private readonly emitter = new EventEmitter<unknown>();
@@ -1151,6 +1385,18 @@ export class CancellationTokenSource {
     }
 }
 
+/** Upstream `escapeMarkdownSyntaxTokens` (htmlContent.ts). */
+function escapeMarkdownSyntaxTokens(text: string): string {
+    return text.replace(/[\\`*_{}[\]()#+!~]/g, "\\$&").replace(/^([ \t]*)-/gm, "$1\\-");
+}
+
+/** Upstream `escapeIcons` (iconLabels.ts): `$(name)` and `$(name~spin)`; an already escaped one stays. */
+function escapeIcons(text: string): string {
+    return text.replace(/(\\)?\$\([A-Za-z0-9-]+(?:~[A-Za-z]+)?\)/g, (match, escaped: string | undefined) =>
+        escaped === undefined ? `\\${match}` : match,
+    );
+}
+
 export class MarkdownString implements vscode.MarkdownString {
     public value: string;
     public isTrusted?: boolean;
@@ -1158,12 +1404,17 @@ export class MarkdownString implements vscode.MarkdownString {
     public supportHtml?: boolean;
     public baseUri?: Uri;
 
-    public constructor(value = "") {
+    public constructor(value = "", supportThemeIcons = false) {
         this.value = value;
+        this.supportThemeIcons = supportThemeIcons;
     }
 
+    /** Upstream `htmlContent.ts`: the text shows literally, a newline starts a paragraph. */
     public appendText(value: string): this {
-        this.value += value;
+        this.value += escapeMarkdownSyntaxTokens(this.supportThemeIcons === true ? escapeIcons(value) : value)
+            .replace(/[ \t]/g, "&nbsp;")
+            .replace(/>/g, "\\>")
+            .replace(/\n/g, "\n\n");
         return this;
     }
 

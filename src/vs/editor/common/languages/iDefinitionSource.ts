@@ -26,3 +26,27 @@ export interface DefinitionProvider {
         token: ICancellationToken,
     ): Promise<readonly ICoreDefinitionLocation[]>;
 }
+
+/** upstream `languages.ImplementationProvider`: the same request and targets as a definition. */
+export interface ImplementationProvider {
+    provideImplementation(
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+}
+
+/** upstream `languages.TypeDefinitionProvider`: the same request and targets as a definition. */
+export interface TypeDefinitionProvider {
+    provideTypeDefinition(
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+}
+
+/** upstream `languages.DeclarationProvider`: the same request and targets as a definition. */
+export interface DeclarationProvider {
+    provideDeclaration(
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+}

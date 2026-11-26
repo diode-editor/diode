@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/assert.ts
 // Deviation: upstream's `debugger` is removed from `assertFn`, under an inspector it would hang the TUI.
+// Deviation: `assertReturnsDefined` is upstream's `types.ts` helper; diode does not port that file.
 
 import { BugIndicatingError, onUnexpectedError } from "./errors.ts";
 
@@ -20,6 +21,15 @@ export function assert(condition: boolean, messageOrError: string | Error = "une
 
         throw errorToThrow;
     }
+}
+
+/**
+ * The value when it is neither `null` nor `undefined`, otherwise a {@link BugIndicatingError}: for a lookup
+ * the caller knows to hit (an id only it removes, a map entry it added), where the type cannot say so.
+ */
+export function assertReturnsDefined<T>(arg: T | null | undefined): NonNullable<T> {
+    assert(arg !== null && arg !== undefined, "Argument is `undefined` or `null`.");
+    return arg;
 }
 
 /**

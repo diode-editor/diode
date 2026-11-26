@@ -1,5 +1,6 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 
+import { assertReturnsDefined } from "../../../base/common/assert.ts";
 import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IMarkerDecoration } from "../../../platform/markers/common/iMarker.ts";
@@ -16,7 +17,9 @@ import { compareTextEditsInDocumentOrder, createTextEdit } from "../core/iTextEd
 import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
 import { charClass } from "../core/wordClassification.ts";
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../core/wordHelper.ts";
-import { computeNewLinePlan } from "../languages/autoIndent.ts";
+import { computeNewLinePlan, findOnEnterAction } from "../languages/autoIndent.ts";
+import { EMPTY_WORD_HIGHLIGHT_SET, type IWordHighlightSet } from "../languages/iDocumentHighlightSource.ts";
+import type { IResolvedOnEnterRule } from "../languages/languageConfiguration.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
 import { NO_INLINE_INSERTIONS } from "../model/iInlineInsertion.ts";
@@ -29,7 +32,7 @@ import type { LineTokens } from "../tokens/lineTokens.ts";
 import type { ISemanticLineTokens } from "../tokens/semanticTokensLines.ts";
 import type { SemanticTokensStore } from "../tokens/semanticTokensStore.ts";
 
-import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
+import type { IViewZone, ViewLineKind, ViewZoneOwner } from "./iViewZone.ts";
 import { LineBreaksCache } from "./lineBreaksCache.ts";
 import type { LineInsertions } from "./lineInsertions.ts";
 import { composedCaretOffset, composedLineContent, groupLineInsertions } from "./lineInsertions.ts";
@@ -57,6 +60,9 @@ import {
 } from "./viewProjection.ts";
 
 export type WordWrapMode = "off" | "on" | "wordWrapColumn" | "bounded";
+
+/** The strategies of `vscode.TextEditorRevealType`. */
+export type RangeRevealType = "default" | "center" | "centerIfOutsideViewport" | "top";
 
 /** `editor.tabSize` / `editor.insertSpaces` / `editor.detectIndentation`: a baseline for detection, not an order. */
 export interface IIndentDefaults {
@@ -91,11 +97,15 @@ interface IProjectionCacheEntry {
     readonly docVersion: number;
     readonly foldsVersion: number;
     readonly zonesVersion: number;
+    readonly wrapInsertionsVersion: number;
     readonly wrapWidth: number;
     readonly tabSize: number;
     /** The collapsed folds the rows were built with: a fold recompute that keeps them is not a rebuild. */
     readonly hidden: readonly IHiddenRange[];
 }
+
+/** Rows left under a line revealed near the bottom of the viewport. */
+const REVEAL_NEAR_BOTTOM_CONTEXT = 2;
 
 export class EditorViewState {
     private scrollLeftValue = 0;
@@ -160,6 +170,18 @@ export class EditorViewState {
     private readonly onDidChangeFollowTailEmitter = new Emitter<void>();
     /** {@link followTail} flipped: by a cursor move, a reload or {@link setFollowTail}. */
     public readonly onDidChangeFollowTail = this.onDidChangeFollowTailEmitter.event;
+    private readonly onDidChangeWordHighlightsEmitter = new Emitter<void>();
+    /**
+     * Not {@link onDidChangeView}: the set changes with every move of the caret and inside edits, and nothing
+     * about the viewport changes with it (the listeners there re-request viewport tokens, re-sync folded lenses).
+     */
+    public readonly onDidChangeWordHighlights = this.onDidChangeWordHighlightsEmitter.event;
+    private readonly onDidChangeLinkedEditingRangesEmitter = new Emitter<void>();
+    /** Not {@link onDidChangeView}, for the reason of {@link onDidChangeWordHighlights}. */
+    public readonly onDidChangeLinkedEditingRanges = this.onDidChangeLinkedEditingRangesEmitter.event;
+    private readonly onDidChangeSnippetTabstopRangesEmitter = new Emitter<void>();
+    /** Not {@link onDidChangeView}, for the reason of {@link onDidChangeWordHighlights}. */
+    public readonly onDidChangeSnippetTabstopRanges = this.onDidChangeSnippetTabstopRangesEmitter.event;
     public get searchMatches(): IRange[] {
         return this.searchMatchesValue;
     }
@@ -167,6 +189,40 @@ export class EditorViewState {
     public set searchMatches(value: IRange[]) {
         this.searchMatchesValue = value;
         this.fireViewChange();
+    }
+
+    /** The occurrences on the frame; computed by `WordHighlighter`, an edit drops them, so they match the text. */
+    public get wordHighlights(): IWordHighlightSet {
+        return this.wordHighlightsValue;
+    }
+
+    public set wordHighlights(value: IWordHighlightSet) {
+        if (this.wordHighlightsValue === value) return;
+        this.wordHighlightsValue = value;
+        this.onDidChangeWordHighlightsEmitter.fire();
+    }
+
+    /** The linked ranges on the frame, sorted; kept by `LinkedEditingController`, which tracks them through edits. */
+    public get linkedEditingRanges(): readonly IRange[] {
+        return this.linkedEditingRangesValue;
+    }
+
+    public set linkedEditingRanges(value: readonly IRange[]) {
+        this.linkedEditingRangesValue = value;
+        this.onDidChangeLinkedEditingRangesEmitter.fire();
+    }
+
+    /**
+     * The tab stops of the snippet session on the frame, `$0` left out, sorted and not overlapping; kept by
+     * `SnippetController2`, which tracks them through edits.
+     */
+    public get snippetTabstopRanges(): readonly IRange[] {
+        return this.snippetTabstopRangesValue;
+    }
+
+    public set snippetTabstopRanges(value: readonly IRange[]) {
+        this.snippetTabstopRangesValue = value;
+        this.onDidChangeSnippetTabstopRangesEmitter.fire();
     }
 
     /** -1 means no active match. */
@@ -181,10 +237,15 @@ export class EditorViewState {
     }
 
     private searchMatchesValue: IRange[] = [];
+    private wordHighlightsValue: IWordHighlightSet = EMPTY_WORD_HIGHLIGHT_SET;
+    private linkedEditingRangesValue: readonly IRange[] = [];
+    private snippetTabstopRangesValue: readonly IRange[] = [];
     private currentSearchMatchIndexValue = -1;
     public readonly document: ITextDocument;
     public foldedRegions: IFoldingRegion[] = [];
     private viewZonesValue: readonly IViewZone[] = [];
+    /** Each owner replaces only its set; {@link viewZonesValue} is their sum by anchor. */
+    private readonly viewZoneSets = new Map<ViewZoneOwner, readonly IViewZone[]>();
     /** Render must call `tokenStore.tokenizeViewport(top, bottom)` before reading tokens. */
     public tokenStore: DocumentTokenStore | undefined;
     public semanticTokens: SemanticTokensStore | undefined;
@@ -208,6 +269,9 @@ export class EditorViewState {
     private foldsVersion = 0;
     private zonesVersion = 0;
     private lineBreaksCacheValue: LineBreaksCache | null = null;
+    private inlineInsertionsValue: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
+    /** Bumped when insertions change how a line wraps: the rows are built from them too. */
+    private wrapInsertionsVersion = 0;
 
     /**
      * Own mutators recompute selections and folds exactly; the
@@ -251,6 +315,8 @@ export class EditorViewState {
     public constructor(document: ITextDocument, selections?: ISelection[], indent: IIndentDefaults = {}) {
         this.document = document;
         this.docContentSubscription = document.onDidChangeContent((change) => {
+            // Before the revision moves (#1098): see LineBreaksCache.
+            this.lineBreaksCacheValue?.handleContentChange(change);
             // Stryker disable next-line UpdateOperator: revisions only need to differ, "--" works too
             this.contentRevision++;
             this.pendingProjectionChange =
@@ -274,7 +340,6 @@ export class EditorViewState {
     public dispose(): void {
         this.docContentSubscription.dispose();
         this.setMarkerDecorations([]);
-        this.lineBreaksCacheValue?.dispose();
         this.onDidChangeFollowTailEmitter.dispose();
     }
 
@@ -321,10 +386,9 @@ export class EditorViewState {
     public getMarkerDecorations(): IMarkerDecoration[] {
         const result: IMarkerDecoration[] = [];
         for (const { id, severity } of this.markerDecorationIds) {
-            const range = this.document.getDecorationRange(id);
-            // Only the view itself removes its decorations, so null only guards against a foreign id.
-            // Stryker disable next-line ConditionalExpression: see above, nobody outside removes its ids
-            if (range !== null) result.push({ range, severity });
+            // Only the view itself removes its decorations.
+            const range = assertReturnsDefined(this.document.getDecorationRange(id));
+            result.push({ range, severity });
         }
         return result;
     }
@@ -344,6 +408,7 @@ export class EditorViewState {
         // Stryker disable next-line ConditionalExpression: pure memoization, a cache recreated with the same params gives the same result, only slower
         this.lineBreaksCacheValue ??= new LineBreaksCache(this.document, this.tabSize, wrapWidth);
         this.lineBreaksCacheValue.setParams(this.tabSize, wrapWidth);
+        this.lineBreaksCacheValue.setInsertions(this.lineInsertions);
         return this.lineBreaksCacheValue;
     }
 
@@ -565,7 +630,15 @@ export class EditorViewState {
      * Cells of the view absent from the document (ghost text, color decorators), set by the view:
      * the cursor reveal measures the caret on the composed line, where it is drawn.
      */
-    public inlineInsertions: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
+    public get inlineInsertions(): readonly IInlineInsertion[] {
+        return this.inlineInsertionsValue;
+    }
+
+    public set inlineInsertions(insertions: readonly IInlineInsertion[]) {
+        this.inlineInsertionsValue = insertions;
+        // Stryker disable next-line ConditionalExpression,UpdateOperator: any version other than the one the rows were built with means a rebuild, and an extra rebuild gives the same rows; a lost bump is covered by "an insertion that overflows the line adds a row"
+        if (this.lineBreaksCacheValue?.setInsertions(this.lineInsertions) === true) this.wrapInsertionsVersion++;
+    }
 
     /** {@link inlineInsertions} clamped into the current document, by line. */
     public get lineInsertions(): LineInsertions {
@@ -573,20 +646,22 @@ export class EditorViewState {
     }
 
     /**
-     * Normalizes: drops empty view zones, clamps anchors to `[-1, lineCount-1]`, merges equal
-     * anchors. The same set is a no-op without an event: the setter is called on every diff recompute.
+     * Replaces the set of `owner`, the other owners' zones stay. Normalizes: drops empty view zones, clamps anchors
+     * to `[-1, lineCount-1]`, merges equal anchors. The same result is a no-op without an event: the setter is called
+     * on every diff recompute.
      */
-    public setViewZones(zones: readonly IViewZone[]): void {
-        const byAnchor = new Map<number, number>();
-        for (const zone of zones) {
-            if (zone.size <= 0) continue;
-            const anchor = Math.min(Math.max(-1, zone.afterLine), this.document.lineCount - 1);
-            byAnchor.set(anchor, (byAnchor.get(anchor) ?? 0) + zone.size);
-        }
-        const normalized: IViewZone[] = [...byAnchor.entries()]
-            .sort((a, b) => a[0] - b[0])
-            .map(([afterLine, size]) => ({ afterLine, size }));
-
+    // Stryker disable next-line StringLiteral: the owner is only a distinct key
+    public setViewZones(zones: readonly IViewZone[], owner: ViewZoneOwner = "view"): void {
+        this.viewZoneSets.set(
+            owner,
+            zones
+                .filter((zone) => zone.size > 0)
+                .map((zone) => ({
+                    afterLine: Math.min(Math.max(-1, zone.afterLine), this.document.lineCount - 1),
+                    size: zone.size,
+                })),
+        );
+        const normalized = this.mergedViewZones();
         const same =
             normalized.length === this.viewZonesValue.length &&
             normalized.every(
@@ -598,6 +673,60 @@ export class EditorViewState {
         this.viewZonesValue = normalized;
         this.zonesVersion++;
         this.fireViewChange();
+    }
+
+    private mergedViewZones(): IViewZone[] {
+        const byAnchor = new Map<number, number>();
+        for (const zones of this.viewZoneSets.values()) {
+            for (const zone of zones) byAnchor.set(zone.afterLine, (byAnchor.get(zone.afterLine) ?? 0) + zone.size);
+        }
+        return [...byAnchor.entries()].sort((a, b) => a[0] - b[0]).map(([afterLine, size]) => ({ afterLine, size }));
+    }
+
+    /** `false` for a line hidden by a collapsed fold. */
+    public isLineVisible(line: number): boolean {
+        return this.buildProjection().firstRowOfDocLine(line) >= 0;
+    }
+
+    /**
+     * Upstream `getVisibleRanges`: the document lines whose every row is on screen, from the start of the first to the
+     * end of the last, split around collapsed folds. A wrapped line cut by the viewport edge is left out; when no line
+     * fits whole (one line taller than the viewport), the line at the top stands in, so the result is never empty.
+     */
+    public getVisibleRanges(): IRange[] {
+        const projection = this.buildProjection();
+        const top = this.scrollTop;
+        const bottom = top + Math.max(this.viewportHeight, 1);
+        // A line's rows are contiguous: the one that still owns the row under the bottom edge is cut.
+        const cut = projection.docLineOfRow(bottom);
+        const ranges: IRange[] = [];
+        let first = -1;
+        // Set together with `first`: read only once `first` is.
+        let last = 0;
+        // No counter loop: a mutant of its bound or step would spin forever (docs/MUTATION.md).
+        for (const row of Array.from({ length: bottom - top }, (_, i) => top + i)) {
+            const line = projection.docLineOfRow(row);
+            // Each fully visible line once, at its first row; a line that starts above the top is cut. A row past the
+            // end of the document is line -1, whose first row is -1 too.
+            if (projection.firstRowOfDocLine(line) !== row || line === cut) continue;
+            if (first < 0) first = line;
+            else if (line !== last + 1) {
+                // A collapsed fold hides the lines in between.
+                ranges.push(this.linesRange(first, last));
+                first = line;
+            }
+            last = line;
+        }
+        if (first < 0) {
+            const line = this.docLineForViewLine(top);
+            return [this.linesRange(line, line)];
+        }
+        ranges.push(this.linesRange(first, last));
+        return ranges;
+    }
+
+    private linesRange(first: number, last: number): IRange {
+        return createRange(first, 0, last, this.document.getLineLength(last));
     }
 
     public viewLineKind(viewLine: number): ViewLineKind {
@@ -639,6 +768,22 @@ export class EditorViewState {
     public setFoldingRegions(regions: IFoldingRegion[]): void {
         this.foldedRegions = regions;
         this.bumpFoldsVersion();
+    }
+
+    /**
+     * For a recompute, which arrives after a delay: the cursor is brought back only if the new regions hid it
+     * or pushed it off the screen. A view scrolled away from the cursor (the wheel, `revealRange`) stays.
+     */
+    public applyRecomputedFoldingRegions(regions: IFoldingRegion[]): void {
+        const wasOnScreen = this.isPrimaryCursorOnScreen();
+        this.setFoldingRegions(regions);
+        const isHidden = this.logicalToVisualLine(this.primaryCursorLine) < 0;
+        if (isHidden || (wasOnScreen && !this.isPrimaryCursorOnScreen())) this.ensurePrimaryCursorVisible();
+    }
+
+    private isPrimaryCursorOnScreen(): boolean {
+        const row = this.viewLineForPosition(this.primaryCursorLine, this.primaryCursorColumn);
+        return row >= this.scrollTop && row < this.scrollTop + this.viewportHeight;
     }
 
     public toggleFold(line: number): void {
@@ -1055,18 +1200,26 @@ export class EditorViewState {
         };
     }
 
-    public insertNewLine(): IUndoElement | undefined {
+    // Stryker disable next-line ArrayDeclaration: a junk rule has no action, the same as no rules
+    public insertNewLine(onEnterRules: readonly IResolvedOnEnterRule[] = []): IUndoElement | undefined {
         if (this.readOnly) return undefined;
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
         const sorted = this.sortedSelections();
         const plans = sorted.map((sel) => {
             const range = selectionToRange(sel);
+            const lineContent = this.document.getLineContent(range.start.line);
             return computeNewLinePlan({
-                lineContent: this.document.getLineContent(range.start.line),
+                lineContent,
                 column: range.start.character,
                 tabSize: this.tabSize,
                 insertSpaces: this.insertSpaces,
+                enterAction: findOnEnterAction(
+                    onEnterRules,
+                    range.start.line > 0 ? this.document.getLineContent(range.start.line - 1) : "",
+                    lineContent.slice(0, range.start.character),
+                    this.document.getLineContent(range.end.line).slice(range.end.character),
+                ),
             });
         });
         const edits = sorted.map((sel, i) => createTextEdit(selectionToRange(sel), plans[i].editText));
@@ -1660,6 +1813,11 @@ export class EditorViewState {
         return this.shiftIndent(1);
     }
 
+    /** Upstream `editor.action.indentLines`: a level on every touched line, wherever the caret stands. */
+    public indentSelectedLines(): IUndoElement | undefined {
+        return this.shiftIndent(1);
+    }
+
     public outdentLines(): IUndoElement | undefined {
         return this.shiftIndent(-1);
     }
@@ -1881,6 +2039,78 @@ export class EditorViewState {
         this.revealPosition(range.start);
     }
 
+    /**
+     * Instead of upstream's `revealRangeInCenter`: a terminal picker covers the top and the middle of the
+     * editor, up to row 17 of 24, so a live preview goes to the free rows below it, with some context under it.
+     */
+    public revealRangeNearBottom(range: IRange): void {
+        this.revealRange(range);
+        const visualLine = this.viewLineForPosition(range.start.line, range.start.character);
+        const below = Math.min(REVEAL_NEAR_BOTTOM_CONTEXT, Math.floor((this.viewportHeight - 1) / 2));
+        this.scrollTop = Math.max(0, visualLine - (this.viewportHeight - 1 - below));
+    }
+
+    /** The start lines of the collapsed regions, for {@link restoreCollapsedFolds}. */
+    public getCollapsedFolds(): readonly number[] {
+        return this.foldedRegions.filter((region) => region.isCollapsed).map((region) => region.startLine);
+    }
+
+    /** Puts back what a preview unfolded. Nothing changes, nothing is rebuilt: it runs on every arrow key. */
+    public restoreCollapsedFolds(startLines: readonly number[]): void {
+        const collapsed = new Set(startLines);
+        let changed = false;
+        for (const region of this.foldedRegions) {
+            const isCollapsed = collapsed.has(region.startLine);
+            if (region.isCollapsed === isCollapsed) continue;
+            region.isCollapsed = isCollapsed;
+            changed = true;
+        }
+        if (changed) this.bumpFoldsVersion();
+    }
+
+    /**
+     * Upstream `_computeScrollTopToRevealRange`: only scrolls, so selections and folds stay and a line hidden
+     * by a fold reveals its fold header. Upstream pads the box with `cursorSurroundingLines`, 0 by default;
+     * ours defaults to 3 for the cursor (#89), which would keep `top` off the top row, so there is no padding.
+     * The terminal has no scrollbar over the last row (upstream's extra line for `Simple`) and no scrolling
+     * past the last line, so `top` and `center` stop at the end of the document.
+     */
+    public revealRangeByType(range: IRange, revealType: RangeRevealType): void {
+        if (this.viewportWidth <= 0 || this.viewportHeight <= 0) return;
+        const boxStart = this.visibleRowOf(range.start);
+        const boxEnd = this.visibleRowOf(range.end) + 1;
+        const maxScrollTop = Math.max(0, this.getViewLineCount() - this.viewportHeight);
+        const desired = this.scrollTopToReveal(boxStart, boxEnd, revealType);
+        this.scrollTop = Math.min(maxScrollTop, Math.max(0, desired));
+
+        // Upstream `onRevealRangeRequest`: several lines scroll to the base, one reveals its columns, start first.
+        if (range.start.line !== range.end.line) {
+            this.scrollLeft = 0;
+            return;
+        }
+        this.revealColumn(range.end);
+        this.revealColumn(range.start);
+    }
+
+    private scrollTopToReveal(boxStart: number, boxEnd: number, revealType: RangeRevealType): number {
+        const height = this.viewportHeight;
+        if (revealType === "top") return boxStart;
+        const inViewport = this.scrollTop <= boxStart && boxEnd <= this.scrollTop + height;
+        const centers = revealType === "center" || (revealType === "centerIfOutsideViewport" && !inViewport);
+        const desired = centers
+            ? Math.floor((boxStart + boxEnd - height) / 2)
+            : Math.max(this.scrollTop, boxEnd - height);
+        // Capped by the start: a box larger than the viewport shows its top, whatever the type.
+        return Math.min(boxStart, desired);
+    }
+
+    /** The row of a position; a line hidden by a fold has none and answers with its fold header. */
+    private visibleRowOf(position: IPosition): number {
+        let line = position.line;
+        while (this.logicalToVisualLine(line) < 0) line--;
+        return this.viewLineForPosition(line, line === position.line ? position.character : 0);
+    }
+
     /** For commands that add a selection: after normalization the new one may end up anywhere, not in `selections[0]`. */
     public revealSelection(selection: ISelection): void {
         const range = selectionToRange(selection);
@@ -1969,6 +2199,13 @@ export class EditorViewState {
         this.revealPosition(this.selections[0].active);
     }
 
+    private firstRowWithZonesAbove(row: number): number {
+        const projection = this.buildProjection();
+        let top = row;
+        while (projection.zoneRowAt(top - 1) !== null) top--;
+        return top;
+    }
+
     private revealPosition(pos: IPosition): void {
         if (this.viewportWidth <= 0 || this.viewportHeight <= 0) return;
 
@@ -1982,12 +2219,25 @@ export class EditorViewState {
         const maxMargin = Math.floor((this.viewportHeight - 1) / 2);
         const margin = Math.max(0, Math.min(this.cursorSurroundingLines, maxMargin));
 
-        if (visualLine < this.scrollTop + margin) {
-            this.scrollTop = Math.max(0, visualLine - margin);
-        } else if (visualLine > this.scrollTop + this.viewportHeight - 1 - margin) {
-            this.scrollTop = visualLine - this.viewportHeight + 1 + margin;
+        // The scrollTop range that shows the line with its margins. The zones right above the line belong to it: a code
+        // lens stays visible over its line. A zone taller than the viewport gives way to the line itself.
+        const lowest = visualLine - this.viewportHeight + 1 + margin;
+        const highest = Math.max(this.firstRowWithZonesAbove(visualLine) - margin, lowest);
+        // At either bound the assignment changes nothing.
+        // Stryker disable next-line EqualityOperator: see above
+        if (this.scrollTop > highest) {
+            this.scrollTop = Math.max(0, highest);
+        }
+        // Not an else: Stryker does not see a disable comment in front of `else if`. After the branch above this is false.
+        // Stryker disable next-line EqualityOperator: see above
+        if (this.scrollTop < lowest) {
+            this.scrollTop = lowest;
         }
 
+        this.revealColumn(pos);
+    }
+
+    private revealColumn(pos: IPosition): void {
         // No wrap gate here: the scrollLeft setter holds "wrap ⇒ 0", so the writes below are no-ops.
         const insertions = this.lineInsertions;
         const dl = this.displayLineFor(
@@ -2012,6 +2262,7 @@ export class EditorViewState {
             cache.docVersion === this.contentRevision &&
             cache.foldsVersion === this.foldsVersion &&
             cache.zonesVersion === this.zonesVersion &&
+            cache.wrapInsertionsVersion === this.wrapInsertionsVersion &&
             cache.wrapWidth === wrapWidth &&
             cache.tabSize === this.tabSize
         ) {
@@ -2043,6 +2294,7 @@ export class EditorViewState {
             docVersion: this.contentRevision,
             foldsVersion: this.foldsVersion,
             zonesVersion: this.zonesVersion,
+            wrapInsertionsVersion: this.wrapInsertionsVersion,
             wrapWidth,
             tabSize: this.tabSize,
             hidden,
@@ -2068,6 +2320,8 @@ export class EditorViewState {
         if (this.viewZonesValue.length > 0 || cache.wrapWidth !== wrapWidth || cache.tabSize !== this.tabSize) {
             return false;
         }
+        // Stryker disable next-line ConditionalExpression: see above, a rebuild gives the same rows
+        if (cache.wrapInsertionsVersion !== this.wrapInsertionsVersion) return false;
         // Stryker disable next-line ConditionalExpression: see above
         if (pending === null) {
             // A version change without an event is a desync (as in LineBreaksCache): rebuild rather than guess.
@@ -2152,14 +2406,20 @@ export class EditorViewState {
      */
     private adjustViewZonesForLineChange(editStartLine: number, editEndLine: number, lineDelta: number): void {
         if (this.viewZonesValue.length === 0 || lineDelta === 0) return;
-        this.viewZonesValue = this.viewZonesValue.map((zone) => {
-            if (zone.afterLine > editEndLine) {
-                return { afterLine: zone.afterLine + lineDelta, size: zone.size };
-            }
-            if (zone.afterLine < editStartLine) return zone;
-            const clamped = Math.max(editStartLine - 1, Math.min(zone.afterLine, editEndLine + lineDelta));
-            return clamped === zone.afterLine ? zone : { afterLine: clamped, size: zone.size };
-        });
+        for (const [owner, zones] of this.viewZoneSets) {
+            this.viewZoneSets.set(
+                owner,
+                zones.map((zone) => {
+                    if (zone.afterLine > editEndLine) {
+                        return { afterLine: zone.afterLine + lineDelta, size: zone.size };
+                    }
+                    if (zone.afterLine < editStartLine) return zone;
+                    const clamped = Math.max(editStartLine - 1, Math.min(zone.afterLine, editEndLine + lineDelta));
+                    return clamped === zone.afterLine ? zone : { afterLine: clamped, size: zone.size };
+                }),
+            );
+        }
+        this.viewZonesValue = this.mergedViewZones();
     }
 
     private sortedSelections(): ISelection[] {

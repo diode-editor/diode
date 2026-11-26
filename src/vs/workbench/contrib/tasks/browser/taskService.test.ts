@@ -300,13 +300,15 @@ describe("TaskService — running", () => {
 
     it("run refusal — a toast with the error text, a log line, the promise is rejected", async () => {
         const h = buildTaskServiceHarness();
-        await expect(h.service.run(makeTask({ command: { name: "${input:x}" } }))).rejects.toThrow(
-            "Variable ${input:x} is not supported in tasks yet.",
+        await expect(h.service.run(makeTask({ command: { name: "${config:nope}" } }))).rejects.toThrow(
+            "Variable ${config:nope} can not be resolved because setting 'nope' not found.",
         );
         expect(h.notifications.passive().map((n) => [n.severity, n.message])).toStrictEqual([
-            ["error", "Variable ${input:x} is not supported in tasks yet."],
+            ["error", "Variable ${config:nope} can not be resolved because setting 'nope' not found."],
         ]);
-        expect(h.logger.error).toHaveBeenCalledWith("Variable ${input:x} is not supported in tasks yet.");
+        expect(h.logger.error).toHaveBeenCalledWith(
+            "Variable ${config:nope} can not be resolved because setting 'nope' not found.",
+        );
         h.dispose();
     });
 
@@ -335,6 +337,19 @@ describe("TaskService — running", () => {
         });
         vi.unstubAllEnvs();
         expect(h.terminals.getInstances()[0].launch.shellArgs).toStrictEqual(["-c", "echo /home/someone"]);
+        h.dispose();
+    });
+
+    it("without HOME, ${userHome} is USERPROFILE", async () => {
+        const h = buildTaskServiceHarness();
+        vi.stubEnv("HOME", undefined);
+        vi.stubEnv("USERPROFILE", "/Users/someone");
+        void h.service.run(makeTask({ command: { name: "echo ${userHome}" } }));
+        await vi.waitFor(() => {
+            expect(h.terminals.getInstances()).toHaveLength(1);
+        });
+        vi.unstubAllEnvs();
+        expect(h.terminals.getInstances()[0].launch.shellArgs).toStrictEqual(["-c", "echo /Users/someone"]);
         h.dispose();
     });
 
@@ -628,6 +643,26 @@ describe("TaskService — rerun and restart", () => {
             ["-c", "echo gone"],
             ["-c", "echo p"],
         ]);
+        h.dispose();
+    });
+
+    it("restart: a task whose variables no longer resolve is reported, the restart does not reject", async () => {
+        const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([{ label: "a", type: "shell", command: "old" }]) });
+        const [task] = await h.service.getWorkspaceTasks();
+        void h.service.run(task);
+        await vi.waitFor(() => {
+            expect(h.sessions).toHaveLength(1);
+        });
+        h.setTasksJson(tasksJsonOf([{ label: "a", type: "shell", command: "${config:nope}" }]));
+        await h.service.restart(task);
+        await vi.waitFor(() => {
+            expect(h.notifications.passive()).toHaveLength(1);
+        });
+        expect(h.notifications.passive()[0]).toMatchObject({
+            severity: "error",
+            message: expect.stringContaining("${config:nope}") as string,
+        });
+        expect(h.sessions).toHaveLength(1);
         h.dispose();
     });
 

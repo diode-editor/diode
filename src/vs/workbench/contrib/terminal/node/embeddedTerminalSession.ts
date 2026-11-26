@@ -1,14 +1,21 @@
 // PTY half of the embedded terminal (node-pty); the emulator half, shared with extension ptys, is `XtermSurface`.
 
+import { copyFileSync } from "node:fs";
 import { readlink } from "node:fs/promises";
 
 import type { IPty } from "node-pty";
 
+import { sanitizeProcessEnvironment } from "../../../../base/common/processes.ts";
 import { getSystemShell } from "../../../../base/node/shell.ts";
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
+import { getShellIntegrationInjection } from "../../../../platform/terminal/node/terminalEnvironment.ts";
+import { VSCODE_SHIM_VERSION } from "../../../api/common/vscodeShimVersion.ts";
 import type { ITerminalEnvironmentContributor } from "../common/extensionEnvironment.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
 
 import { loadNodePty } from "./loadNodePty.ts";
+import { loadShellIntegrationScriptsDir } from "./shellIntegrationScripts.ts";
 import { XtermSurface } from "./xtermSurface.ts";
 
 export type { CoreMouseEvent } from "./xtermSurface.ts";
@@ -30,22 +37,39 @@ export interface EmbeddedTerminalOptions {
     strictEnv?: boolean;
     message?: string;
     scrollback?: number;
+    /** `terminal.integrated.shellIntegration.enabled`; absent — no injection. */
+    shellIntegrationEnabled?: boolean;
+    /** `terminal.integrated.shellIntegration.environmentReporting`. */
+    shellIntegrationEnvironmentReporting?: boolean;
+    /** A task terminal: never injected (upstream `isFeatureTerminal`). */
+    isFeatureTerminal?: boolean;
+    /** `TerminalOptions.shellIntegrationNonce`: the shell gets it as `VSCODE_NONCE`; absent — a fresh one. */
+    shellIntegrationNonce?: string;
 }
 
 /**
- * Layers: base (empty with `strictEnv`) → terminal `env` (`null` unsets) → extension `contribute` →
- * ours: the emulator's `TERM`, no `TMUX` (inside our own tmux host it breaks detection).
+ * Layers (upstream `createTerminalEnvironment`): the inherited environment without VS Code/Electron variables
+ * (`undefined` with `strictEnv`) → terminal `env` (`null` unsets) → extension `contribute` → the keys of a VS Code
+ * terminal process (`TERM_PROGRAM=vscode`…, not with `strictEnv`) → ours: the emulator's `TERM`, no `TMUX`
+ * (inside our own tmux host it breaks detection).
  */
 export function buildEnv(
-    base: Record<string, string>,
+    inherited: Record<string, string> | undefined,
     overrides: Readonly<Record<string, string | null>> | undefined,
     contribute?: (env: Record<string, string | undefined>) => void,
 ): Record<string, string> {
-    const env: Record<string, string | undefined> = {};
-    for (const [key, value] of Object.entries({ ...base, ...overrides })) {
-        if (value !== null) env[key] = value;
+    const env: Record<string, string | undefined> = { ...inherited };
+    sanitizeProcessEnvironment(env, "VSCODE_IPC_HOOK_CLI");
+    for (const [key, value] of Object.entries(overrides ?? {})) {
+        env[key] = value ?? undefined;
     }
     contribute?.(env);
+    if (inherited !== undefined) {
+        // Upstream `addTerminalEnvironmentKeys`; the version is the one extensions see as `vscode.version`.
+        env.TERM_PROGRAM = "vscode";
+        env.TERM_PROGRAM_VERSION = VSCODE_SHIM_VERSION;
+        env.COLORTERM = "truecolor";
+    }
     env.TERM = "xterm-256color";
     delete env.TMUX;
     return Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined));
@@ -72,12 +96,21 @@ export class EmbeddedTerminalSession extends XtermSurface {
     // Stryker disable next-line StringLiteral: spawn() in the constructor overwrites it before any read.
     private initialCwd = "";
 
-    /** @param environment extension environment collections; not applied with `strictEnv`. */
+    /**
+     * @param environment extension environment collections; not applied with `strictEnv`.
+     * @param logger why shell integration was not injected (upstream logs to the pty host).
+     */
     public constructor(
         options: EmbeddedTerminalOptions,
         private readonly environment?: ITerminalEnvironmentContributor,
+        private readonly logger: ILogger = NULL_LOGGER,
     ) {
-        super({ cols: options.cols, rows: options.rows, scrollback: options.scrollback });
+        super({
+            cols: options.cols,
+            rows: options.rows,
+            scrollback: options.scrollback,
+            shellIntegrationNonce: options.shellIntegrationNonce,
+        });
 
         // `TerminalOptions.message` is `writeln` into the emulator (upstream `_writeInitialText`)
         // before the first shell output: xterm writes are queued in order.
@@ -139,7 +172,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
         const strict = options.strictEnv === true;
         const environment = strict ? undefined : this.environment;
         const env = buildEnv(
-            strict ? {} : currentEnv(),
+            strict ? undefined : currentEnv(),
             options.env,
             environment === undefined
                 ? undefined
@@ -147,8 +180,9 @@ export class EmbeddedTerminalSession extends XtermSurface {
                       environment.apply(target, cwd);
                   },
         );
+        const args = this.injectShellIntegration(shell, options, env, environment?.pathPrefix(cwd));
         const { spawn } = loadNodePty();
-        const pty = spawn(shell, options.args ?? [], {
+        const pty = spawn(shell, args, {
             // Stryker disable next-line StringLiteral: equivalent: with an empty name node-pty uses TERM from buildEnv
             name: "xterm-256color",
             cols: options.cols,
@@ -168,5 +202,39 @@ export class EmbeddedTerminalSession extends XtermSurface {
             this.queueProcessExit(exitCode);
         });
         return pty;
+    }
+
+    /**
+     * Upstream `TerminalProcess.start`: the injection's environment and files, else the shell's own arguments. The
+     * nonce is set either way — an extension's own shell integration can use it.
+     */
+    private injectShellIntegration(
+        shell: string,
+        options: EmbeddedTerminalOptions,
+        env: Record<string, string>,
+        pathPrefix: string | undefined,
+    ): string[] {
+        env.VSCODE_NONCE = this.shellIntegrationNonce;
+        const injection = getShellIntegrationInjection(
+            { executable: shell, args: options.args, isFeatureTerminal: options.isFeatureTerminal },
+            {
+                enabled: options.shellIntegrationEnabled === true,
+                environmentReporting: options.shellIntegrationEnvironmentReporting === true,
+                scriptsDir: loadShellIntegrationScriptsDir,
+                pathPrefix,
+            },
+            env,
+            this.logger,
+        );
+        if (injection.type === "failure") return options.args ?? [];
+        Object.assign(env, injection.envMixin);
+        for (const file of injection.filesToCopy) {
+            try {
+                copyFileSync(file.source, file.dest);
+            } catch {
+                // Upstream: only another user's copy of the same scripts is in the way — keep it.
+            }
+        }
+        return [...injection.newArgs];
     }
 }

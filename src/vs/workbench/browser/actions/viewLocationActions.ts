@@ -50,15 +50,14 @@ async function pickDestinationAndMove(accessor: ServiceAccessor, viewId: string)
         showError(accessor, NO_FOCUSED_VIEW);
         return;
     }
-    if (!views.canMoveView(viewId)) {
+    const containers = views.getViewContainers();
+    const currentContainer = views.getViewContainerByViewId(viewId);
+    const current = containers.find((container) => container.id === currentContainer);
+    // A view whose container is not built (never attached) has no place to move from either.
+    if (!views.canMoveView(viewId) || current === undefined) {
         showError(accessor, NOT_MOVABLE_VIEW);
         return;
     }
-    const currentContainer = views.getViewContainerByViewId(viewId);
-    const containers = views.getViewContainers();
-    const current = containers.find((container) => container.id === currentContainer);
-    // Stryker disable next-line ConditionalExpression,LogicalOperator,BlockStatement: a movable view always sits in a built container (canMoveView) — the guard is only for types
-    if (currentContainer === null || current === undefined) return;
     // A hidden section is absent from the snapshot — then its id goes into the title.
     const title = current.views.find((view) => view.id === viewId)?.title ?? viewId;
     const solo = views.getContainerViews(current.id).length === 1;
@@ -74,7 +73,7 @@ async function pickDestinationAndMove(accessor: ServiceAccessor, viewId: string)
     }
     for (const location of LOCATION_ORDER) {
         for (const container of containers) {
-            if (container.location !== location || container.id === currentContainer || container.rejectAddedViews) {
+            if (container.location !== location || container.id === current.id || container.rejectAddedViews) {
                 continue;
             }
             items.push({

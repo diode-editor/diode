@@ -6,8 +6,10 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 
 import { CommandsQuickAccessProvider } from "./commandsQuickAccessProvider.ts";
 import { GotoLineQuickAccessProvider } from "./gotoLineQuickAccessProvider.ts";
+import { GotoSymbolQuickAccessProvider } from "./gotoSymbolQuickAccessProvider.ts";
 import { OpenEditorsQuickAccessProvider } from "./openEditorsQuickAccessProvider.ts";
 import { QuickOpenServiceDIToken } from "./quickOpenService.ts";
+import { WorkspaceSymbolsQuickAccessProvider } from "./workspaceSymbolsQuickAccessProvider.ts";
 
 /** A non-string is ignored, as in VS Code. */
 function prefillOf(args: readonly unknown[]): string {
@@ -130,13 +132,13 @@ export const quickPickManyToggleAction: CommandAction = {
     },
 };
 
-/** Upstream fires the Back button; our quick input has no buttons, so nobody is there to go back to. */
+/** Upstream's keys are per platform; Alt+Left, its Windows one, lives in the widget: others don't reach a terminal. */
 export const quickInputBackAction: CommandAction = {
     id: "workbench.action.quickInputBack",
     title: "Quick Input Back",
     menus: HIDDEN_FROM_PALETTE,
-    run() {
-        // Nothing to do, see above.
+    run(accessor) {
+        accessor.get(QuickInputServiceDIToken).backOpen();
     },
 };
 
@@ -191,6 +193,28 @@ export const gotoLineAction: CommandAction = {
     },
 };
 
+/** Shift+Ctrl does not reach the editor from a legacy terminal, Ctrl+Shift+O is Ctrl+O (Open File): there it is Ctrl+P, then `@`. */
+export const gotoSymbolAction: CommandAction = {
+    id: "workbench.action.gotoSymbol",
+    title: "Go to Symbol in Editor...",
+    menus: [{ menuId: MenuId.MenubarGoMenu, group: "4_symbol_nav", order: 1 }],
+    keybinding: { keys: parseKeybinding("mod+shift+o"), when: "tier != 'legacy'" },
+    run(accessor, ...args) {
+        accessor.get(QuickOpenServiceDIToken).show(GotoSymbolQuickAccessProvider.PREFIX + prefillOf(args));
+    },
+};
+
+/** As upstream, no argument: an empty query is filled from the active editor (`getDefaultFilterValue`). */
+export const showAllSymbolsAction: CommandAction = {
+    id: "workbench.action.showAllSymbols",
+    title: "Go to Symbol in Workspace...",
+    menus: [{ menuId: MenuId.MenubarGoMenu, group: "3_global_nav", order: 2 }],
+    keybinding: parseKeybinding("mod+t"),
+    run(accessor) {
+        accessor.get(QuickOpenServiceDIToken).show(WorkspaceSymbolsQuickAccessProvider.PREFIX);
+    },
+};
+
 export const showCommandsAction: CommandAction = {
     id: "workbench.action.showCommands",
     title: "Show All Commands",
@@ -240,4 +264,6 @@ export const QUICK_ACCESS_ACTIONS: readonly CommandAction[] = [
     showCommandsAction,
     showAllEditorsAction,
     gotoLineAction,
+    gotoSymbolAction,
+    showAllSymbolsAction,
 ];

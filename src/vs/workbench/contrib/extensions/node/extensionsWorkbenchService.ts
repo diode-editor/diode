@@ -15,7 +15,10 @@ import {
     compatibleVersions,
     resolveCompatibleVersion,
 } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
-import { installFromRegistry } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
+import {
+    installFromRegistry,
+    installVsixWithDependencies,
+} from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
 import type {
     IProfileExtension,
     ProfileExtensions,
@@ -23,6 +26,7 @@ import type {
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type {
     ExtensionAvailability,
+    ExtensionOperation,
     IExtensionCheckOptions,
     IExtensionInstallOptions,
     IExtensionInstallResult,
@@ -30,6 +34,7 @@ import type {
     IExtensionOperationResult,
     IExtensionsWorkbenchService,
     IExtensionUpdateAllResult,
+    IVsixInstallResult,
 } from "../common/extensionsWorkbench.ts";
 
 /**
@@ -39,11 +44,19 @@ import type {
 export class ExtensionsWorkbenchService extends Disposable implements IExtensionsWorkbenchService {
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private readonly onDidReadCatalogEmitter = this.register(new Emitter<boolean>());
+    private readonly onDidChangeDownloadProgressEmitter = this.register(new Emitter<string>());
     private readonly metaCache = new Map<string, IRegistryExtensionMeta | undefined>();
     /** Installed/uninstalled in this session: contributions won't apply until a window reload. */
     private readonly pendingReload = new Set<string>();
-    /** Being installed (upstream: not `state === Installed`): not outdated, so a second Update All skips them. */
-    private readonly installing = new Set<string>();
+    /**
+     * Upstream `ExtensionState.Installing`/`Uninstalling`. An `Update All` batch is installing from the start, so a
+     * second one (or the page's Update) skips the queued ones too.
+     */
+    private readonly operations = new Map<string, ExtensionOperation>();
+    /** The installs in flight: a second install of the same id joins the first. */
+    private readonly running = new Map<string, Promise<IExtensionInstallResult>>();
+    private readonly downloads = new Map<string, number | null>();
+    private readonly operationErrors = new Map<string, string>();
 
     /** semver is a lazy chunk: loaded together with the index, not at startup. */
     private catalog: { readonly index: IRegistryIndex; readonly semver: Semver } | null = null;
@@ -103,7 +116,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     }
 
     public getOutdated(): readonly IExtensionListEntry[] {
-        return this.entries.filter((entry) => entry.availability === "outdated" && !this.installing.has(entry.id));
+        return this.entries.filter((entry) => entry.availability === "outdated" && entry.operation === null);
     }
 
     public updateAll(): Promise<IExtensionUpdateAllResult> {
@@ -116,13 +129,14 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         const failed: { id: string; error: string }[] = [];
         const wanted = new Set(ids);
         const targets = this.getOutdated().filter((entry) => wanted.has(entry.id));
-        for (const { id } of targets) this.installing.add(id);
+        // No redraw here: the first target's install (or its end, if handled elsewhere) redraws the whole batch.
+        for (const { id } of targets) this.operations.set(id, "installing");
         for (const { id, latestVersion } of targets) {
             if (this.isHandledElsewhere(id, String(latestVersion))) {
                 // Another window or the CLI got there first (US-3.12) — updated or uninstalled it; this window still
                 // runs the old version.
-                this.installing.delete(id);
-                this.markChanged(id);
+                this.pendingReload.add(id);
+                this.endOperation(id);
                 continue;
             }
             const result = await this.install(id);
@@ -168,14 +182,27 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
      * Also "update": the profile switches to the new version, the old one stays on disk for the running
      * host and is removed on the next start.
      */
-    public async install(id: string, options: IExtensionInstallOptions = {}): Promise<IExtensionInstallResult> {
-        this.installing.add(id);
+    public install(id: string, options: IExtensionInstallOptions = {}): Promise<IExtensionInstallResult> {
+        const running = this.running.get(id);
+        if (running !== undefined) return running;
+        const install = this.runInstall(id, options).finally(() => {
+            this.running.delete(id);
+        });
+        this.running.set(id, install);
+        return install;
+    }
+
+    private async runInstall(id: string, options: IExtensionInstallOptions): Promise<IExtensionInstallResult> {
+        this.startOperation(id, "installing");
         try {
             // Dependencies are installed without asking, as in VS Code, and also wait for a window reload.
             const installed = await installFromRegistry(this.source, id, {
                 extensionsDir: this.profile.extensionsDir,
                 host: this.host,
                 version: options.version,
+                onDownloadProgress: (percent) => {
+                    this.setDownloadProgress(id, percent);
+                },
             });
             const { version, dependencies } = installed;
             // Into the profile, including dependencies already on disk for another profile. A given version is
@@ -185,13 +212,72 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
                 dependencies,
             });
             for (const dep of dependencies) this.pendingReload.add(dep.id);
-            this.markChanged(id);
+            this.pendingReload.add(id);
             return { ok: true, version };
         } catch (error) {
-            return { ok: false, error: messageOf(error) };
+            return this.failed(id, messageOf(error));
         } finally {
-            this.installing.delete(id);
+            this.endOperation(id);
         }
+    }
+
+    public getOperationError(id: string): string | null {
+        return this.operationErrors.get(id) ?? null;
+    }
+
+    private failed(id: string, error: string): { ok: false; error: string } {
+        this.operationErrors.set(id, error);
+        return { ok: false, error };
+    }
+
+    public getDownloadProgress(id: string): number | null {
+        return this.downloads.get(id) ?? null;
+    }
+
+    public readonly onDidChangeDownloadProgress = this.onDidChangeDownloadProgressEmitter.event;
+
+    /** `installFromRegistry` reports only changes, and `null` after every download it measured, a failed one too. */
+    private setDownloadProgress(id: string, percent: number | null): void {
+        this.downloads.set(id, percent);
+        this.onDidChangeDownloadProgressEmitter.fire(id);
+    }
+
+    /** Fires right away: the page and the list switch before any progress delay. */
+    private startOperation(id: string, operation: ExtensionOperation): void {
+        this.operations.set(id, operation);
+        this.operationErrors.delete(id);
+        this.rebuildEntries();
+    }
+
+    /** One change for the end and its result: the profile is re-read, the reload mark is already set on success. */
+    private endOperation(id: string): void {
+        this.operations.delete(id);
+        this.reloadInstalled();
+    }
+
+    /**
+     * Our directory is `<id>-<version>` with no platform suffix (upstream adds it), so a platform package of the
+     * running version lands where the running extension looks: CodeLLDB finds `adapter/` with no reload, while
+     * upstream installs next to it and asks for one.
+     */
+    public async installVsix(vsixPath: string): Promise<IVsixInstallResult> {
+        const before = this.profile.list();
+        const installed = await installVsixWithDependencies(() => this.source, vsixPath, {
+            extensionsDir: this.profile.extensionsDir,
+            host: this.host,
+        });
+        const { id, dir, dependencies, dependencyError } = installed;
+        if (dependencyError !== undefined) {
+            this.logger.warn(`Could not install the dependencies of ${id}: ${dependencyError}`);
+        }
+        this.profile.add([installed], { pinned: true, dependencies });
+        for (const dep of dependencies) this.pendingReload.add(dep.id);
+        // The host runs what the profile pointed to at startup, unless this session has changed it since. The
+        // directory names the id and the version.
+        const running = !this.pendingReload.has(id) && before.some((e) => e.dir === dir);
+        if (running) this.reloadInstalled();
+        else this.markChanged(id);
+        return { needsReload: !running || dependencies.length > 0 };
     }
 
     public async getCompatibleVersions(id: string): Promise<readonly IRegistryVersion[]> {
@@ -200,17 +286,20 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     }
 
     public uninstall(id: string): Promise<IExtensionOperationResult> {
+        this.startOperation(id, "uninstalling");
         try {
             const { removed } = this.profile.remove(id);
             if (!removed) {
                 // Nothing to remove is not a success: the entry would keep an
                 // Uninstall button that does nothing.
-                return Promise.resolve({ ok: false, error: `Extension ${id} is not installed` });
+                return Promise.resolve(this.failed(id, `Extension ${id} is not installed`));
             }
-            this.markChanged(id);
+            this.pendingReload.add(id);
             return Promise.resolve({ ok: true });
         } catch (error) {
-            return Promise.resolve({ ok: false, error: messageOf(error) });
+            return Promise.resolve(this.failed(id, messageOf(error)));
+        } finally {
+            this.endOperation(id);
         }
     }
 
@@ -318,7 +407,11 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             }
         }
         for (const installed of installedById.values()) {
-            entries.push(toSideloadedEntry(installed, this.pendingReload.has(installed.id)));
+            entries.push({
+                ...toSideloadedEntry(installed),
+                needsReload: this.pendingReload.has(installed.id),
+                operation: this.operations.get(installed.id) ?? null,
+            });
         }
         return entries;
     }
@@ -337,12 +430,15 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             description: entry.description,
             kind: entry.kind,
             support: entry.support,
+            categories: entry.categories ?? installed?.categories ?? [],
+            tags: entry.tags ?? installed?.keywords ?? [],
             latestVersion: target?.version ?? entry.latest.version,
             latestPublishedAt: target?.publishedAt,
             installedVersion: installed?.version ?? null,
             availability: availabilityOf(target?.version, installed, semver),
             pinned: installed?.pinned ?? false,
             needsReload: this.pendingReload.has(entry.id),
+            operation: this.operations.get(entry.id) ?? null,
         };
     }
 
@@ -372,7 +468,7 @@ function isNewer(target: string, installed: string | undefined, semver: Semver):
 }
 
 /** Installed outside the marketplace: only the manifest is known, the entry is always `installed`. */
-function toSideloadedEntry(installed: IProfileExtension, needsReload: boolean): IExtensionListEntry {
+function toSideloadedEntry(installed: IProfileExtension): Omit<IExtensionListEntry, "needsReload" | "operation"> {
     const dot = installed.id.indexOf(".");
     return {
         id: installed.id,
@@ -382,11 +478,12 @@ function toSideloadedEntry(installed: IProfileExtension, needsReload: boolean): 
         description: installed.description ?? "",
         kind: undefined,
         support: undefined,
+        categories: installed.categories,
+        tags: installed.keywords,
         latestVersion: null,
         installedVersion: installed.version,
         availability: "installed",
         pinned: installed.pinned,
-        needsReload,
     };
 }
 

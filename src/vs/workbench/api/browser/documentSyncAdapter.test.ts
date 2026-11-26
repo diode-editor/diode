@@ -128,6 +128,22 @@ describe("documentSyncAdapter", () => {
         ]);
     });
 
+    it("bindDocumentSync: undo back to the saved text reaches the wire clean, redo dirty, the version only grows", () => {
+        const { host, deltas } = recordingHost();
+        service.openFile(ws.path("a.ts"));
+        bindDocumentSync(service, service.editorGroups, host);
+
+        const editor = service.getActiveEditor()!;
+        editor.model.undoManager.pushUndoElement(editor.viewState.type("x")!);
+        editor.model.undoManager.undo(editor.viewState);
+        editor.model.undoManager.redo(editor.viewState);
+
+        expect(deltas.map(({ isDirty }) => isDirty)).toEqual([true, false, true]);
+        const versions = deltas.map(({ version }) => version);
+        expect(versions).toEqual([...versions].sort((a, b) => a - b));
+        expect(new Set(versions).size).toBe(3);
+    });
+
     it("bindDocumentSync: didOpen per document, didChange per edit, didClose on the last tab", () => {
         const { host, opened, changed, closed } = recordingHost();
         service.openFile(ws.path("a.ts"));

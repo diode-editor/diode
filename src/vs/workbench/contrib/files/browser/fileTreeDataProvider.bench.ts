@@ -11,7 +11,7 @@ import { FileTreeDataProvider } from "./fileTreeDataProvider.ts";
 
 // Expanding one large directory: resolve by the file service (readdir + stat of symlink
 // targets) + sort + getFileIcon per entry. `npm run test:perf`.
-// NB: fixtures are built at module top level (see the comment in FileSearchService.bench.ts).
+// NB: fixtures are built at module top level (see the comment in fileSearchEngine.bench.ts).
 
 function makeDirWithEntries(count: number): string {
     const dir = createTempDir("diode-perf-readdir-");

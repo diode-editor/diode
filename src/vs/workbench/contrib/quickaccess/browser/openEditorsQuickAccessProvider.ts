@@ -128,7 +128,7 @@ function searchTextOf(entry: OpenEditorEntry): string {
     return entry.description === "" ? entry.label : `${entry.description}/${entry.label}`;
 }
 
-/** Like `FileSearchService.search`: a match in the name gets {@link BASENAME_BONUS}, otherwise match by path. */
+/** Like `FileIndex.search`: a match in the name gets {@link BASENAME_BONUS}, otherwise match by path. */
 function matchEntry(entry: OpenEditorEntry, filter: PreparedQuery): MatchedEntry | null {
     const searchText = searchTextOf(entry);
     const offset = searchText.length - entry.label.length;

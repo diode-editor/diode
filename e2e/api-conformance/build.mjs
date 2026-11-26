@@ -36,8 +36,6 @@ const MISSING_SETTINGS = {
     "terminal.integrated.shellIntegration.enabled": { type: "boolean", default: true },
     "terminal.integrated.environmentChangesRelaunch": { type: "boolean", default: true },
     "terminal.integrated.localEchoEnabled": { default: "off" },
-    "tasks.version": { default: "2.0.0" },
-    "tasks.tasks": { default: [] },
 };
 
 export function transformManifest(manifest) {
@@ -134,8 +132,10 @@ export async function buildExtension({ repoRoot, upstreamDir, extensionDir, work
         format: "cjs",
         external: ["vscode", "mocha"],
         logLevel: "error",
-        // Upstream's tsconfig extends a file outside the extracted directory.
-        tsconfigRaw: "{}",
+        // Upstream's tsconfig extends a file outside the extracted directory, so its options are restated here.
+        // `alwaysStrict` as upstream's `extensions/tsconfig.base.json`: without `"use strict"` an assignment to a
+        // frozen or getter-only member is silently ignored, and every `assert.throws` on a readonly member fails.
+        tsconfigRaw: { compilerOptions: { alwaysStrict: true } },
     };
     await build({
         ...common,

@@ -13,6 +13,8 @@ import { KeybindingRegistry, parseKeybinding } from "../../../../platform/keybin
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { ExtensionViewProgressAdapter } from "../../../api/browser/extensionViewProgressAdapter.ts";
+import { makeViewsHarness, testView } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { SCM_INPUT_MESSAGE_STATE } from "../../../common/stateKeys.ts";
 import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
@@ -469,5 +471,46 @@ describe("ScmInputComponent — button during an operation", () => {
         );
         vi.advanceTimersByTime(1000);
         expect(h.component.actionButton.inspectState()).toMatchObject({ label: "Commit", disabled: false });
+    });
+});
+
+describe("ScmInputComponent — an extension's progress in Source Control", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    // Upstream `withProgress({ location: SourceControl })` is only an indicator on the SCM view; the commit
+    // button belongs to git and keeps working. Here it turned into a disabled "⠋ Indexing" for the whole task.
+    it("[api:window.withProgress] SourceControl progress leaves Commit enabled, labeled Commit, and clickable", () => {
+        const h = make();
+        h.publishRepoState();
+        h.publishChanges(1);
+        const views = makeViewsHarness();
+        views.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
+        views.service.registerView(testView(SCM_CHANGES_VIEW_ID, "scm", 10));
+        const adapter = new ExtensionViewProgressAdapter(
+            views.service,
+            h.progress,
+            { error: () => undefined },
+            SCM_CHANGES_VIEW_ID,
+        );
+
+        adapter.start(1, "sourceControl", "Indexing");
+        vi.advanceTimersByTime(1000);
+        // The header spins (the indicator is there)…
+        expect(h.progress.viewProgress().has(SCM_CHANGES_VIEW_ID)).toBe(true);
+
+        // …but the button is still git's Commit.
+        expect(h.component.actionButton.inspectState()).toMatchObject({ label: "Commit", disabled: false });
+        h.component.actionButton.dispatchEvent(
+            new TUIMouseEvent("click", { button: "left", screenX: 1, screenY: 0, localX: 1, localY: 0 }),
+        );
+        expect(h.executed).toEqual(["git.commit"]);
+
+        adapter.end(1);
     });
 });

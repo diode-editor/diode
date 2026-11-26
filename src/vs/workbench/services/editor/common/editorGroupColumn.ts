@@ -24,15 +24,14 @@ export function columnToEditorGroup(groups: IEditorGroupsService, column: number
             // A locked neighbor: the new group goes between, as upstream `addGroup(activeGroup, right)`.
             // Any position other than "before" means right: an empty string acts as "after".
             // Stryker disable next-line StringLiteral: equivalent, see above
-            groups.newGroup("after", { focus: false }) ?? neighbor ?? groups.activeGroup
+            groups.addGroup(groups.activeGroup, "after") ?? neighbor ?? groups.activeGroup
         );
     }
     const wanted = Math.max(1, Math.floor(column));
     while (groups.groups.length < wanted) {
         const before = groups.groups.length;
-        groups.focusGroup({ index: before - 1 }, { focus: false });
         // Stryker disable next-line StringLiteral: position "" acts as "after", equivalent
-        if (groups.newGroup("after", { focus: false }) === null) break; // doesn't fit: fall back to the edge
+        if (groups.addGroup(groups.groups[before - 1], "after") === null) break; // doesn't fit: fall back to the edge
         /* v8 ignore start -- guard against looping on an unexpected no-op */
         // Stryker disable next-line ConditionalExpression,EqualityOperator: guard exit, unreachable for the same reason
         if (groups.groups.length === before) break;

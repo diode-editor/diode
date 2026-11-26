@@ -111,10 +111,15 @@ export class ContextKeyService implements IDisposable {
         this.pending.add(key);
     }
 
-    private flush(): void {
+    /**
+     * Fires the pending change now instead of on the microtask. For writes that upstream applies at once and a
+     * caller may act on right away: an extension's `setContext` followed by `reveal` of the view it shows.
+     */
+    public flush(): void {
         // Taken BEFORE iterating: a write from a listener schedules the next microtask.
-        // The set is never empty: only `markChanged` schedules a flush.
-        const changed = this.pending ?? new Set<string>();
+        const changed = this.pending;
+        // The queued microtask after an early flush, or nothing written.
+        if (changed === null) return;
         this.pending = null;
         this.onDidChangeEmitter.fire(changed);
     }

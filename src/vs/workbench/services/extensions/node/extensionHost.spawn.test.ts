@@ -9,9 +9,7 @@ import { NULL_COMMAND_SERVICE } from "../../../api/common/iCommandService.ts";
 import type {
     IActiveEditorMeta,
     IActiveEditorSelections,
-    IEditorOptionsPatch,
     IEditorOptionsService,
-    IEditorOptionsState,
 } from "../../../api/common/iEditorOptionsService.ts";
 import type { IProtocolMessage } from "../../../api/common/rpcEndpoint.ts";
 
@@ -79,13 +77,10 @@ class FakeChild extends EventEmitter {
 }
 
 class FakeEditorOptions implements IEditorOptionsService {
-    public getActiveEditorOptions(): IEditorOptionsState | null {
-        return { tabSize: 4, insertSpaces: true };
-    }
-    public setActiveEditorOptions(_patch: IEditorOptionsPatch): void {
+    public setEditorOptions(): void {
         /* no-op */
     }
-    public setEditorCursorStyle(): void {
+    public revealEditorRange(): void {
         /* no-op */
     }
     public getActiveEditorFilePath(): string | null {
@@ -103,6 +98,9 @@ class FakeEditorOptions implements IEditorOptionsService {
     public setActiveEditorSelections(): void {}
     public applyActiveEditorEdits(): boolean {
         return false;
+    }
+    public insertSnippet(): Promise<boolean> {
+        return Promise.resolve(false);
     }
     public applyWorkspaceEdit(): Promise<boolean> {
         return Promise.resolve(false);

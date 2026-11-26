@@ -90,9 +90,16 @@ describe("Workbench — group action bar (editor/title)", () => {
         new Promise((resolve) => {
             queueMicrotask(resolve);
         });
-    const tabRow = (): string => {
+    /** The tabs' label row (row 1 of the 3-row tab boxes): the title buttons sit on it too. */
+    const labelY = (): number => {
         h.testApp.render();
-        return h.testApp.backend.screenToString().split("\n")[1];
+        const strip = h.testApp.querySelector("EditorTabStripElement");
+        expect(strip).not.toBeNull();
+        return strip!.globalPosition.y + 1;
+    };
+    const tabRow = (): string => {
+        const y = labelY();
+        return h.testApp.backend.screenToString().split("\n")[y];
     };
 
     afterEach(() => {
@@ -136,8 +143,9 @@ describe("Workbench — group action bar (editor/title)", () => {
         keys().setRaw("demo.viewingProposedDiff", true);
         await flush();
         const x = tabRow().indexOf(DISCARD);
-        h.testApp.backend.simulateMouse(click(x, 1, "press"));
-        h.testApp.backend.simulateMouse(click(x, 1, "release"));
+        const y = labelY();
+        h.testApp.backend.simulateMouse(click(x, y, "press"));
+        h.testApp.backend.simulateMouse(click(x, y, "release"));
         expect(runs).toStrictEqual(["demo.reject"]);
     });
 
@@ -148,8 +156,9 @@ describe("Workbench — group action bar (editor/title)", () => {
         const row = tabRow();
         expect(row.trimEnd().endsWith("⋯")).toBe(true);
         const x = row.lastIndexOf("⋯");
-        h.testApp.backend.simulateMouse(click(x, 1, "press"));
-        h.testApp.backend.simulateMouse(click(x, 1, "release"));
+        const y = labelY();
+        h.testApp.backend.simulateMouse(click(x, y, "press"));
+        h.testApp.backend.simulateMouse(click(x, y, "release"));
         h.testApp.render();
         expect(h.testApp.backend.screenToString()).toContain("Open Agent");
         h.testApp.sendKey("Enter");

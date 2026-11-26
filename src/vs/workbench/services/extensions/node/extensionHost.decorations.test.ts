@@ -1,9 +1,14 @@
+import { packRgba } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
-import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
-import type { IEditorDecorationsService } from "../../../api/common/iEditorDecorationsService.ts";
+import type { IGlyphMarginDecoration } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../../editor/common/model/iOverviewRulerDecoration.ts";
+import {
+    type IEditorDecorationsService,
+    NULL_EDITOR_DECORATIONS_SERVICE,
+} from "../../../api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../../../api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../../api/common/iThemeColorResolver.ts";
 import { ColorThemeKind } from "../../../api/common/vscodeTypes.ts";
@@ -44,14 +49,21 @@ function makeControllableResolver(initial: Record<string, number>): {
 
 function makeEditorSpy(): {
     service: IEditorDecorationsService;
-    calls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[];
-    latestFor(suffix: string): { uri: string; decorations: readonly IGutterChangeDecoration[] } | undefined;
+    calls: { uri: string; decorations: readonly IOverviewRulerDecoration[] }[];
+    latestFor(suffix: string): { uri: string; decorations: readonly IOverviewRulerDecoration[] } | undefined;
+    glyphs: { uri: string; owner: string; decorations: readonly IGlyphMarginDecoration[] }[];
 } {
-    const calls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
+    const calls: { uri: string; decorations: readonly IOverviewRulerDecoration[] }[] = [];
+    const glyphs: { uri: string; owner: string; decorations: readonly IGlyphMarginDecoration[] }[] = [];
     return {
-        service: { setGutterChangeDecorations: (uri, decorations) => calls.push({ uri, decorations }) },
+        service: {
+            ...NULL_EDITOR_DECORATIONS_SERVICE,
+            setOverviewRulerDecorations: (uri, decorations) => calls.push({ uri, decorations }),
+            setGlyphMarginDecorations: (uri, owner, decorations) => glyphs.push({ uri, owner, decorations }),
+        },
         calls,
         latestFor: (suffix) => calls.filter((c) => c.uri.endsWith(suffix)).at(-1),
+        glyphs,
     };
 }
 
@@ -69,7 +81,7 @@ function makeFileSpy(): {
 }
 
 describe("ExtensionHost — decorations bridge (subprocess)", () => {
-    it("gutter change-bar decorations reach the editor with a resolved color; a non-gutter type is ignored", async () => {
+    it("scrollbar marks reach the editor with a resolved color; a type without overviewRulerColor marks nothing", async () => {
         const editorSpy = makeEditorSpy();
         const { resolver } = makeControllableResolver({
             "editorGutter.modifiedBackground": MODIFIED_GUTTER,
@@ -85,18 +97,17 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
             await settle();
             const call = editorSpy.latestFor("main.ts");
             expect(call).toBeDefined();
-            // A "flat" type without overviewRulerColor is not projected at all.
+            // A "flat" type without overviewRulerColor has no marks.
             expect(call!.decorations.map((d) => ({ line: d.range.start.line, color: d.color }))).toEqual([
                 { line: 1, color: MODIFIED_GUTTER },
                 { line: 3, color: MODIFIED_GUTTER },
             ]);
-            expect(call!.decorations.every((d) => d.dashed === true)).toBe(true);
         } finally {
             await harness.dispose();
         }
     });
 
-    it("a theme change re-resolves and re-pushes the held gutter decorations", async () => {
+    it("a theme change re-resolves and re-pushes the held scrollbar marks", async () => {
         const editorSpy = makeEditorSpy();
         const themeCtl = makeControllableResolver({ "editorGutter.modifiedBackground": MODIFIED_GUTTER });
         const harness = await createExtensionTestHarness({
@@ -117,7 +128,27 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
         }
     });
 
-    it("disposing a type clears its gutter decorations in the editor", async () => {
+    it("[api:ThemableDecorationRenderOptions.gutterIconPath] a data: URI icon crosses the wire and lands in the glyph lane", async () => {
+        const editorSpy = makeEditorSpy();
+        const harness = await createExtensionTestHarness({
+            initialFile: { name: "main.ts", content: "a\nb\nc\nd\ne\n" },
+            extensions: [extensionFixture("test.decorates", "decoratesEditorAndFiles.cjs")],
+            editorDecorations: editorSpy.service,
+            themeColorResolver: makeControllableResolver({}).resolver,
+        });
+        try {
+            await settle();
+            const glyphs = editorSpy.glyphs.filter((c) => c.uri.endsWith("main.ts")).at(-1);
+            expect(glyphs?.owner).toMatch(/^ext:\d+$/);
+            expect(glyphs?.decorations.map((g) => [g.line, g.glyph, g.color])).toEqual([
+                [2, "▎", packRgba(0x00, 0xbc, 0xf2, 255)],
+            ]);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
+    it("disposing a type clears its scrollbar marks in the editor", async () => {
         const editorSpy = makeEditorSpy();
         const { resolver } = makeControllableResolver({ "editorGutter.modifiedBackground": MODIFIED_GUTTER });
         const harness = await createExtensionTestHarness({

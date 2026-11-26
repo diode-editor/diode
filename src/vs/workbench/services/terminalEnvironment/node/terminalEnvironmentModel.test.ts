@@ -6,7 +6,6 @@ import {
     canUpgradeToMac,
     type CapabilitySet,
     detectBaseModes,
-    detectExtendedKeysHint,
     detectKittyGraphicsHint,
     detectTruecolor,
     emptyCapabilities,
@@ -17,7 +16,6 @@ import {
     resolveMacKeysRung,
     resolveOs,
     resolveTier,
-    tierAtLeast,
 } from "./terminalEnvironmentModel.ts";
 
 function caps(overrides: Partial<CapabilitySet>): CapabilitySet {
@@ -40,14 +38,6 @@ describe("TerminalEnvironmentModel", () => {
 
         it("stays legacy when only graphics is present (no extended-keys)", () => {
             expect(resolveTier(caps({ "kitty-graphics": true }))).toBe("legacy");
-        });
-    });
-
-    describe("tierAtLeast", () => {
-        it("orders legacy < csi-u < kitty", () => {
-            expect(tierAtLeast("kitty", "csi-u")).toBe(true);
-            expect(tierAtLeast("csi-u", "csi-u")).toBe(true);
-            expect(tierAtLeast("legacy", "csi-u")).toBe(false);
         });
     });
 
@@ -221,42 +211,6 @@ describe("TerminalEnvironmentModel", () => {
             expect(detectKittyGraphicsHint({ TERM: "xterm-kitty" })).toBe(true);
             expect(detectKittyGraphicsHint({ TERM_PROGRAM: "ghostty" })).toBe(true);
             expect(detectKittyGraphicsHint({ TERM: "xterm-256color" })).toBe(false);
-        });
-
-        it("infers extended-keys from known terminals and their env flags", () => {
-            expect(detectExtendedKeysHint({ TERM: "xterm-kitty" })).toBe(true);
-            expect(detectExtendedKeysHint({ TERM: "foot" })).toBe(true);
-            expect(detectExtendedKeysHint({ TERM_PROGRAM: "WezTerm" })).toBe(true);
-            // $TERM masked (ssh), but the terminal's env flag survived forwarding.
-            expect(detectExtendedKeysHint({ TERM: "screen-256color", KITTY_WINDOW_ID: "1" })).toBe(true);
-            expect(detectExtendedKeysHint({ TERM: "xterm-256color" })).toBe(false);
-        });
-
-        // Under a multiplexer extended keys get through only if tmux itself passes
-        // them; the host terminal's env flag says nothing about that. An overstated
-        // hint cost both the chord (Ctrl+Shift+F arrived as Ctrl+F) and the legacy fallback.
-        it("does not trust the terminal's env flags inside tmux", () => {
-            expect(
-                detectExtendedKeysHint({
-                    TERM: "tmux-256color",
-                    TERM_PROGRAM: "tmux",
-                    KITTY_WINDOW_ID: "1",
-                    TMUX: "/tmp/tmux-1000/default,1,0",
-                }),
-            ).toBe(false);
-            expect(
-                detectExtendedKeysHint({
-                    TERM: "tmux-256color",
-                    WEZTERM_PANE: "0",
-                    TMUX: "/tmp/tmux-1000/default,1,0",
-                }),
-            ).toBe(false);
-        });
-
-        // An explicit $TERM inside tmux is the user's own setting (`default-terminal`),
-        // not an inherited flag, so it is trusted.
-        it("trusts an explicit $TERM even inside tmux", () => {
-            expect(detectExtendedKeysHint({ TERM: "xterm-kitty", TMUX: "/tmp/tmux-1000/default,1,0" })).toBe(true);
         });
     });
 });

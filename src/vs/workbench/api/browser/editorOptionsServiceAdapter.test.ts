@@ -1,11 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
+import { createSelection } from "../../../editor/common/core/iSelection.ts";
+import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../../editor/common/languages/iLanguageConfigurationService.ts";
+import { EMPTY_LANGUAGE_CONFIGURATION } from "../../../editor/common/languages/languageConfiguration.ts";
+import { TextDocument } from "../../../editor/common/model/textDocument.ts";
+import { WorkspaceContextService } from "../../../platform/workspace/common/workspaceContextService.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
 
-import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
+import { EditorOptionsServiceAdapter, type ISnippetVariableServices } from "./editorOptionsServiceAdapter.ts";
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
 const GROUP_SURFACE = {
@@ -23,43 +29,17 @@ function groupWithNoActiveEditor(): IEditorService {
     } as unknown as IEditorService;
 }
 
+function workspaceOf(folder: string): WorkspaceContextService {
+    const workspace = new WorkspaceContextService();
+    workspace.setWorkspaceFolder(folder);
+    return workspace;
+}
+
 function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
     return new EditorOptionsServiceAdapter(fake, fake as unknown as IEditorGroupsService, workspaceEdits);
 }
 
 describe("EditorOptionsServiceAdapter", () => {
-    it("getActiveEditorOptions() returns null when there is no active editor (line 20)", () => {
-        const adapter = createAdapter(groupWithNoActiveEditor(), NO_BULK_EDITS);
-        expect(adapter.getActiveEditorOptions()).toBeNull();
-    });
-
-    it("getActiveEditorOptions() reads tabSize/insertSpaces from the active editor", () => {
-        const group = {
-            getActiveTabEditor: () => ({
-                viewState: { tabSize: 4, insertSpaces: true },
-            }),
-        } as unknown as IEditorService;
-        const adapter = createAdapter(group, NO_BULK_EDITS);
-        expect(adapter.getActiveEditorOptions()).toEqual({ tabSize: 4, insertSpaces: true });
-    });
-
-    it("setActiveEditorOptions() is a no-op when there is no active editor", () => {
-        const adapter = createAdapter(groupWithNoActiveEditor(), NO_BULK_EDITS);
-        expect(() => {
-            adapter.setActiveEditorOptions({ tabSize: 2 });
-        }).not.toThrow();
-    });
-
-    it("setActiveEditorOptions() forwards the patch to the active editor", () => {
-        const setIndentOptions = vi.fn();
-        const group = {
-            getActiveTabEditor: () => ({ setIndentOptions }),
-        } as unknown as IEditorService;
-        const adapter = createAdapter(group, NO_BULK_EDITS);
-        adapter.setActiveEditorOptions({ tabSize: 8 });
-        expect(setIndentOptions).toHaveBeenCalledWith({ tabSize: 8 });
-    });
-
     it("getActiveEditorFilePath() returns null when there is no active editor", () => {
         const adapter = createAdapter(groupWithNoActiveEditor(), NO_BULK_EDITS);
         expect(adapter.getActiveEditorFilePath()).toBeNull();
@@ -229,6 +209,193 @@ describe("EditorOptionsServiceAdapter", () => {
         );
     });
 
+    describe("insertSnippet()", () => {
+        const URI = Uri.file("/a/b.ts").toString();
+        const at = (line: number, character: number) => ({
+            start: { line, character },
+            end: { line, character },
+        });
+
+        function snippetEditor(
+            text: string,
+            overrides: Record<string, unknown> = {},
+            services: Partial<ISnippetVariableServices> = {},
+        ) {
+            const document = new TextDocument(text);
+            const viewState = {
+                tabSize: 4,
+                insertSpaces: true,
+                selections: [] as unknown[],
+                revealRangeByType: vi.fn(),
+                snippetTabstopRanges: [] as unknown[],
+                onDidChangeCursorPosition: () => ({ dispose: () => undefined }),
+            };
+            const applyExternalEdits = vi.fn(
+                (
+                    edits: readonly ITextEdit[],
+                    _label: string,
+                    cursor: (inverseEdits: readonly ITextEdit[]) => unknown[],
+                    _stops: unknown,
+                ) => {
+                    viewState.selections = cursor(document.applyEdits(edits).inverseEdits);
+                },
+            );
+            const editor = {
+                uri: Uri.file("/a/b.ts"),
+                readOnly: false,
+                model: { document },
+                viewState,
+                applyExternalEdits,
+                focusEditor: vi.fn(),
+                ...overrides,
+            };
+            const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
+            const adapter = new EditorOptionsServiceAdapter(
+                group,
+                group as unknown as IEditorGroupsService,
+                NO_BULK_EDITS,
+                {
+                    clipboard: undefined,
+                    languageConfigurations: NULL_LANGUAGE_CONFIGURATION_SERVICE,
+                    workspace: undefined,
+                    ...services,
+                },
+            );
+            return { adapter, editor, document, viewState };
+        }
+
+        it("parses the template with the editor's tab settings, puts the caret on the first tab stop and reveals it", async () => {
+            const { adapter, editor, document, viewState } = snippetEditor("  foo");
+            viewState.insertSpaces = false;
+            viewState.tabSize = 2;
+            await expect(
+                adapter.insertSnippet(URI, undefined, "(\n  ${1:${2:a}b}\n)", [at(0, 5)], {
+                    version: document.versionId,
+                    undoStopAfter: false,
+                }),
+            ).resolves.toBe(true);
+            expect(document.getText()).toBe("  foo(\n\t\tab\n\t)");
+            expect(viewState.selections).toEqual([createSelection(1, 2, 1, 4)]);
+            expect(editor.applyExternalEdits.mock.calls[0][1]).toBe("snippet");
+            expect(editor.applyExternalEdits.mock.calls[0][3]).toMatchObject({ undoStopAfter: false });
+            expect(editor.focusEditor).toHaveBeenCalledOnce();
+            expect(viewState.revealRangeByType).toHaveBeenCalledExactlyOnceWith(
+                { start: { line: 1, character: 4 }, end: { line: 1, character: 4 } },
+                "default",
+            );
+        });
+
+        it("keepWhitespace leaves the template's whitespace alone; ranges are clamped to the document", async () => {
+            const { adapter, document } = snippetEditor("  ab");
+            const range = { start: { line: 0, character: 3 }, end: { line: 0, character: 9 } };
+            await adapter.insertSnippet(URI, undefined, "x\n\ty", [range], { version: 0, keepWhitespace: true });
+            expect(document.getText()).toBe("  ax\n\ty");
+        });
+
+        it("another version, a read-only or missing editor, no ranges and overlapping ranges change nothing", async () => {
+            const stale = snippetEditor("ab");
+            await expect(stale.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 1 })).resolves.toBe(
+                false,
+            );
+            const readOnly = snippetEditor("ab", { readOnly: true });
+            await expect(readOnly.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 0 })).resolves.toBe(
+                false,
+            );
+            const other = snippetEditor("ab");
+            await expect(
+                other.adapter.insertSnippet("file:///c.ts", undefined, "x", [at(0, 0)], { version: 0 }),
+            ).resolves.toBe(false);
+            const none = snippetEditor("ab");
+            await expect(none.adapter.insertSnippet(URI, undefined, "x", [], { version: 0 })).resolves.toBe(false);
+            const overlapping = snippetEditor("abcd");
+            const ranges = [
+                { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+                { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } },
+            ];
+            await expect(overlapping.adapter.insertSnippet(URI, undefined, "x", ranges, { version: 0 })).resolves.toBe(
+                false,
+            );
+            for (const { editor, document } of [stale, readOnly, other, none, overlapping]) {
+                expect(editor.applyExternalEdits).not.toHaveBeenCalled();
+                expect(editor.focusEditor).not.toHaveBeenCalled();
+                expect(document.versionId).toBe(0);
+            }
+        });
+
+        it("resolves the variables of the file, its language's comments and the workspace", async () => {
+            const comments = { lineComment: "//", blockComment: ["/*", "*/"] as const };
+            const { adapter, document } = snippetEditor(
+                "",
+                {},
+                {
+                    languageConfigurations: {
+                        get: () => ({ ...EMPTY_LANGUAGE_CONFIGURATION, comments }),
+                        ensureLoaded: () => Promise.reject(new Error("loaded already")),
+                    },
+                    workspace: workspaceOf("/a"),
+                },
+            );
+            await adapter.insertSnippet(
+                URI,
+                undefined,
+                "$TM_FILENAME $RELATIVE_FILEPATH $LINE_COMMENT $BLOCK_COMMENT_START $BLOCK_COMMENT_END $WORKSPACE_NAME",
+                [at(0, 0)],
+                { version: 0 },
+            );
+            expect(document.getText()).toBe("b.ts b.ts // /* */ a");
+        });
+
+        it("waits for a language configuration that is not loaded yet", async () => {
+            const { adapter, document } = snippetEditor(
+                "",
+                {},
+                {
+                    languageConfigurations: {
+                        get: () => undefined,
+                        ensureLoaded: () =>
+                            Promise.resolve({ ...EMPTY_LANGUAGE_CONFIGURATION, comments: { lineComment: "#" } }),
+                    },
+                },
+            );
+            await expect(
+                adapter.insertSnippet(URI, undefined, "$LINE_COMMENT", [at(0, 0)], { version: 0 }),
+            ).resolves.toBe(true);
+            expect(document.getText()).toBe("#");
+        });
+
+        it("reads the clipboard only for a template that names it", async () => {
+            const readText = vi.fn(() => Promise.resolve("abc"));
+            const { adapter, document } = snippetEditor("", {}, { clipboard: { readText } });
+            await adapter.insertSnippet(URI, undefined, "<", [at(0, 0)], { version: 0 });
+            expect(readText).not.toHaveBeenCalled();
+            await adapter.insertSnippet(URI, undefined, "${CLIPBOARD}>", [at(0, 1)], { version: 1 });
+            expect(document.getText()).toBe("<abc>");
+        });
+
+        it("without a clipboard CLIPBOARD is its default", async () => {
+            const { adapter, document } = snippetEditor("");
+            await expect(
+                adapter.insertSnippet(URI, undefined, "${CLIPBOARD:none}", [at(0, 0)], { version: 0 }),
+            ).resolves.toBe(true);
+            expect(document.getText()).toBe("none");
+        });
+
+        it("an edit or a selection change while the clipboard is read is false, and nothing goes in", async () => {
+            const edited = snippetEditor("", {}, { clipboard: { readText: () => Promise.resolve("abc") } });
+            const editing = edited.adapter.insertSnippet(URI, undefined, "$CLIPBOARD", [at(0, 0)], { version: 0 });
+            edited.document.applyEdits([{ range: at(0, 0), text: "x" }]);
+            await expect(editing).resolves.toBe(false);
+            expect(edited.document.getText()).toBe("x");
+
+            const moved = snippetEditor("ab", {}, { clipboard: { readText: () => Promise.resolve("abc") } });
+            moved.viewState.selections = [createSelection(0, 0, 0, 0)];
+            const moving = moved.adapter.insertSnippet(URI, undefined, "$CLIPBOARD", [at(0, 0)], { version: 0 });
+            moved.viewState.selections = [createSelection(0, 1, 0, 1)];
+            await expect(moving).resolves.toBe(false);
+            expect(moved.editor.applyExternalEdits).not.toHaveBeenCalled();
+        });
+    });
+
     it("applyActiveEditorEdits() returns false on overlapping edits, document untouched", () => {
         const applyExternalEdits = vi.fn();
         const editor = {
@@ -245,6 +412,29 @@ describe("EditorOptionsServiceAdapter", () => {
         ];
         expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), overlapping)).toBe(false);
         expect(applyExternalEdits).not.toHaveBeenCalled();
+    });
+
+    // Markdown All in One, Enter on an empty `> ` line: `delete(1:1-1:2)`, then `insert(1:1, "\n> ")`.
+    it.each([
+        ["delete first", [0, 1]],
+        ["insert first", [1, 0]],
+    ])("applyActiveEditorEdits() applies an insertion at the start of a deletion, %s", (_name, order) => {
+        const applyExternalEdits = vi.fn();
+        const editor = {
+            uri: Uri.file("/a/b.md"),
+            model: { document: { lineCount: 3, getLineLength: () => 10 } },
+            applyExternalEdits,
+        };
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
+        const adapter = createAdapter(group, NO_BULK_EDITS);
+
+        const touching = [
+            { range: { start: { line: 1, character: 1 }, end: { line: 1, character: 2 } }, text: "" },
+            { range: { start: { line: 1, character: 1 }, end: { line: 1, character: 1 } }, text: "\n> " },
+        ];
+        const edits = order.map((index) => touching[index]);
+        expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.md").toString(), edits)).toBe(true);
+        expect(applyExternalEdits).toHaveBeenCalledTimes(1);
     });
 
     it("applyActiveEditorEdits() returns false with no active editor or an empty list", () => {

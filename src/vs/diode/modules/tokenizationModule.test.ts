@@ -18,6 +18,7 @@ import { TokenizationRegistryDIToken } from "../../editor/common/languages/token
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../editor/common/services/languageFeaturesService.ts";
 import { DefaultDocumentColorProvider } from "../../editor/contrib/colorPicker/browser/defaultDocumentColorProvider.ts";
+import { DefaultLinkProvider } from "../../editor/contrib/links/browser/defaultLinkProvider.ts";
 
 import { createTestContainer } from "./testProfile.ts";
 import { tokenizationModule } from "./tokenizationModule.ts";
@@ -80,5 +81,12 @@ describe("tokenizationModule", () => {
             expect(providers).toHaveLength(1);
             expect(providers[0]).toBeInstanceOf(DefaultDocumentColorProvider);
         }
+    });
+
+    it("the link registry starts with the built-in detector, for any document", () => {
+        const service = createTestContainer().container.get(LanguageFeaturesServiceDIToken);
+        const providers = service.documentLinkProvider.ordered({ uri: Uri.file("/a.md"), languageId: "markdown" });
+        expect(providers).toHaveLength(1);
+        expect(providers[0]).toBeInstanceOf(DefaultLinkProvider);
     });
 });

@@ -23,7 +23,10 @@ const ENTRY: IExtensionListEntry = {
     installedVersion: null,
     availability: "available",
     pinned: false,
+    categories: [],
+    tags: [],
     needsReload: false,
+    operation: null,
 };
 
 function content(overrides: Partial<IExtensionPageContent> = {}): IExtensionPageContent {

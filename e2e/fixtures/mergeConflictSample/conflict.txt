@@ -1,0 +1,13 @@
+intro
+<<<<<<< HEAD
+ours one
+=======
+theirs one
+>>>>>>> branch
+middle
+<<<<<<< HEAD
+ours two
+=======
+theirs two
+>>>>>>> branch
+end

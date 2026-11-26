@@ -1,6 +1,8 @@
-import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import type { IApiTraceRecord } from "../../src/vs/workbench/api/common/apiTrace.ts";
 
 /**
  * `<dir>/<id>.jsonl` exists only after a green check; `npm run api-matrix -- --update-confirmed`
@@ -16,6 +18,19 @@ export interface IApiJournal {
 
 /** vitest does not stop a timed-out check: its late `keep` and `stop` run during the next check. */
 let current: object | undefined;
+
+/** Call after the app's dispose: the journal flushes on a timer. Throws on a provider the entry says the extension lacks. */
+export function expectNotRegistered(extensionId: string, absent: readonly string[]): void {
+    const registered = readFileSync(process.env.DIODE_API_TRACE ?? "", "utf8")
+        .split("\n")
+        .filter((line) => line !== "")
+        .map((line) => JSON.parse(line) as Pick<IApiTraceRecord, "extension" | "kind" | "member">)
+        .filter((row) => row.extension === extensionId && row.kind === "registered")
+        .map((row) => row.member);
+    for (const member of absent) {
+        if (registered.includes(member)) throw new Error(`${extensionId} now registers ${member}: update the entry`);
+    }
+}
 
 export function startApiJournal(id: string, dir = API_JOURNAL_DIR): IApiJournal {
     mkdirSync(dir, { recursive: true });

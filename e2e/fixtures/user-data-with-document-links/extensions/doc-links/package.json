@@ -1,0 +1,14 @@
+{
+    "name": "doc-links",
+    "displayName": "Document Links",
+    "description": "E2E demo extension: a document link provider whose links get their target on resolve.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:plaintext"
+    ]
+}

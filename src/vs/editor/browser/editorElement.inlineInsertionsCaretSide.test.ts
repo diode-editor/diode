@@ -121,12 +121,12 @@ describe("EditorElement — caret next to a right-side insertion", () => {
         expect(editor.getCaretScreenCell()).toEqual(new Point(gutterW + 5, 0));
     });
 
-    it("a left-side insertion before a swatch at the same point: the caret passes both", () => {
+    it("a left-side insertion before a swatch at the same point: the caret stays left of both", () => {
         const { app, editor, gutterW } = createEditor("ab", [{ line: 0, offset: 1, text: "XY" }, swatch(0, 1)]);
         // "aXY■ b"
         editor.viewState.selections = [createCursorSelection(0, 1)];
         app.render();
-        expect(editor.getCaretScreenCell()).toEqual(new Point(gutterW + 5, 0));
+        expect(editor.getCaretScreenCell()).toEqual(new Point(gutterW + 1, 0));
     });
 
     it("a swatch before a left-side insertion at the same point: the caret stops between them", () => {

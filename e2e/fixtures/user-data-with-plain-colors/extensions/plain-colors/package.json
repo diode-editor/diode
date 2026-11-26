@@ -1,0 +1,14 @@
+{
+    "name": "plain-colors",
+    "displayName": "Plain Colors",
+    "description": "E2E fixture: a color provider that colors the word `red` in plain text files.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ]
+}

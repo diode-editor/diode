@@ -107,8 +107,8 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
         super();
         const provider: ITreeDataProvider<OpenEditorsElement> = {
             getTreeItem: (element) => this.treeItem(element),
-            // Stryker disable next-line ConditionalExpression,ArrayDeclaration: rows are not collapsible, the tree never asks for their children
-            getChildren: (element) => (element === undefined ? this.elements : []),
+            // Rows are not collapsible: the tree asks for the root's children only.
+            getChildren: () => this.elements,
             getKey: elementKey,
         };
         this.tree = new TreeViewElement(provider, {

@@ -211,7 +211,7 @@ export function fuzzyMatchPreparedLower(query: PreparedQuery, text: string, text
     if (first === null) return null;
     // A branch purely for speed: the hot path (10k index entries on every
     // keystroke) can't afford extra copying; measured by the
-    // `FileSearchService.search` bench, on the `dir2` query the merge costs ×1.6.
+    // `FileSearchEngine.query` bench, on the `dir2` query the merge costs ×1.6.
     // Stryker disable next-line ConditionalExpression: the `false` mutant is equivalent; the generic path below gives the same result on one term, only a bench can tell them apart.
     if (terms.length === 1) return first;
 

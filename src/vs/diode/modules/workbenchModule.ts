@@ -1,3 +1,4 @@
+import { onUnexpectedError } from "../../base/common/errors.ts";
 import { getSystemShell } from "../../base/node/shell.ts";
 import {
     ContextMenuController as EditorContextMenuController,
@@ -13,7 +14,9 @@ import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common
 import { MenuService, MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyContributorsDIToken } from "../../platform/contextkey/common/contextKeyContributor.ts";
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import {
     ContextMenuService,
     ContextMenuServiceDIToken,
@@ -21,6 +24,7 @@ import {
 import { type ContainerModule, ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
+import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import { URLService, URLServiceDIToken } from "../../platform/url/common/url.ts";
 import { IUserDataProfilesServiceDIToken } from "../../platform/userDataProfile/common/userDataProfile.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
@@ -58,6 +62,7 @@ import {
     EditorStatusContribution,
     EditorStatusContributionDIToken,
 } from "../../workbench/browser/parts/editor/editorStatusContribution.ts";
+import { GroupCornerStack, GroupCornerStackDIToken } from "../../workbench/browser/parts/editor/groupCornerStack.ts";
 import {
     TabSwitcherComponent,
     TabSwitcherComponentDIToken,
@@ -102,10 +107,15 @@ import {
     ViewTitleActionsContribution,
     ViewTitleActionsContributionDIToken,
 } from "../../workbench/browser/parts/views/viewTitleActionsContribution.ts";
+import { ResourceContextKeys, ResourceContextKeysDIToken } from "../../workbench/browser/resourceContextKeys.ts";
 import {
     SetContextCommandContribution,
     SetContextCommandContributionDIToken,
 } from "../../workbench/browser/setContextCommandContribution.ts";
+import {
+    TerminalRestartNotificationContribution,
+    TerminalRestartNotificationContributionDIToken,
+} from "../../workbench/browser/terminalRestartNotificationContribution.ts";
 import {
     UndoRefusalNotificationContribution,
     UndoRefusalNotificationContributionDIToken,
@@ -120,6 +130,75 @@ import {
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
 import { BulkEditBuffers } from "../../workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
+import {
+    BreakpointEditorContribution,
+    BreakpointEditorContributionDIToken,
+    BreakpointEditorSourceDIToken,
+} from "../../workbench/contrib/debug/browser/breakpointEditorContribution.ts";
+import { BreakpointInput, BreakpointInputDIToken } from "../../workbench/contrib/debug/browser/breakpointInput.ts";
+import { BreakpointSources, openStackFrame } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
+import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
+import {
+    DebugConsoleQuickAccess,
+    DebugConsoleQuickAccessDIToken,
+} from "../../workbench/contrib/debug/browser/debugConsoleQuickAccess.ts";
+import {
+    closeSessionEditors,
+    DebugContentProvider,
+    DebugContentProviderDIToken,
+} from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
+import {
+    DebugEditorContribution,
+    DebugEditorContributionDIToken,
+    DebugEditorSourceDIToken,
+} from "../../workbench/contrib/debug/browser/debugEditorContribution.ts";
+import { DebugHoverWidget, DebugHoverWidgetDIToken } from "../../workbench/contrib/debug/browser/debugHover.ts";
+import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
+import {
+    DebugQuickAccessProviderDIToken,
+    StartDebugQuickAccessProvider,
+} from "../../workbench/contrib/debug/browser/debugQuickAccess.ts";
+import {
+    DebugExtensionActivatorDIToken,
+    DebugService,
+    DebugServiceDIToken,
+    DebugServicePortsDIToken,
+    NO_DEBUG_EXTENSIONS,
+} from "../../workbench/contrib/debug/browser/debugService.ts";
+import {
+    DebugStatusContribution,
+    DebugStatusContributionDIToken,
+} from "../../workbench/contrib/debug/browser/debugStatus.ts";
+import {
+    DebugTerminalLauncher,
+    DebugTerminalLauncherDIToken,
+    HasChildProcessesDIToken,
+} from "../../workbench/contrib/debug/browser/debugTerminal.ts";
+import {
+    DebugToolbar,
+    DebugToolbarDIToken,
+    DebugToolbarSessionSelect,
+    DebugToolbarSessionSelectDIToken,
+    DockedDebugToolbarItems,
+    DockedDebugToolbarItemsDIToken,
+} from "../../workbench/contrib/debug/browser/debugToolbar.ts";
+import {
+    DebugViewletComponent,
+    DebugViewletComponentDIToken,
+} from "../../workbench/contrib/debug/browser/debugViewlet.ts";
+import {
+    InlineValuesContribution,
+    InlineValuesContributionDIToken,
+    InlineValuesEditorSourceDIToken,
+} from "../../workbench/contrib/debug/browser/inlineValuesContribution.ts";
+import { LinkDetector, LinkDetectorDIToken } from "../../workbench/contrib/debug/browser/linkDetector.ts";
+import { Repl, ReplDIToken } from "../../workbench/contrib/debug/browser/repl.ts";
+import {
+    StatusBarColorProvider,
+    StatusBarColorProviderDIToken,
+} from "../../workbench/contrib/debug/browser/statusbarColorProvider.ts";
+import { REPL_VIEW_ID, VIEWLET_ID } from "../../workbench/contrib/debug/common/debug.ts";
+import { hasChildProcesses } from "../../workbench/contrib/debug/node/terminals.ts";
 import { createDiffEditorPaneFactory } from "../../workbench/contrib/diff/browser/diffEditorPaneFactory.ts";
 import {
     DiffSnapshotRefreshContribution,
@@ -134,6 +213,7 @@ import {
     AutoRevealContributionDIToken,
 } from "../../workbench/contrib/files/browser/autoRevealContribution.ts";
 import {
+    EXPLORER_VIEWLET_ID,
     ExplorerComponent,
     ExplorerComponentDIToken,
 } from "../../workbench/contrib/files/browser/explorerComponent.ts";
@@ -154,6 +234,10 @@ import {
 } from "../../workbench/contrib/files/browser/openFileCommandContribution.ts";
 import { FindComponent, FindComponentDIToken } from "../../workbench/contrib/find/browser/findComponent.ts";
 import { FindService, FindServiceDIToken } from "../../workbench/contrib/find/browser/findService.ts";
+import {
+    FormatOnTypeService,
+    FormatOnTypeServiceDIToken,
+} from "../../workbench/contrib/format/browser/formatOnTypeService.ts";
 import {
     DefinitionService,
     DefinitionServiceDIToken,
@@ -184,6 +268,15 @@ import {
     LargeFileOptimizationsWarner,
     LargeFileOptimizationsWarnerDIToken,
 } from "../../workbench/contrib/largeFile/browser/largeFileOptimizationsWarner.ts";
+import {
+    LinkedEditingService,
+    LinkedEditingServiceDIToken,
+} from "../../workbench/contrib/linkedEditing/browser/linkedEditingService.ts";
+import {
+    ExecuteLinkProviderCommandContribution,
+    ExecuteLinkProviderCommandContributionDIToken,
+} from "../../workbench/contrib/links/browser/executeLinkProviderCommand.ts";
+import { LinksService, LinksServiceDIToken } from "../../workbench/contrib/links/browser/linksService.ts";
 import {
     DiagnosticsEditorSourceDIToken,
     DiagnosticsService,
@@ -222,6 +315,11 @@ import {
     GotoLineQuickAccessProviderDIToken,
 } from "../../workbench/contrib/quickaccess/browser/gotoLineQuickAccessProvider.ts";
 import {
+    GotoSymbolEditorSourceDIToken,
+    GotoSymbolQuickAccessProvider,
+    GotoSymbolQuickAccessProviderDIToken,
+} from "../../workbench/contrib/quickaccess/browser/gotoSymbolQuickAccessProvider.ts";
+import {
     OpenEditorsQuickAccessProvider,
     OpenEditorsQuickAccessProviderDIToken,
     OpenEditorsSourceDIToken,
@@ -232,10 +330,18 @@ import {
     QuickOpenServiceDIToken,
 } from "../../workbench/contrib/quickaccess/browser/quickOpenService.ts";
 import {
+    WorkspaceSymbolsQuickAccessProvider,
+    WorkspaceSymbolsQuickAccessProviderDIToken,
+} from "../../workbench/contrib/quickaccess/browser/workspaceSymbolsQuickAccessProvider.ts";
+import {
     QuickAccessProvidersDIToken,
     QuickAccessRegistry,
     QuickAccessRegistryDIToken,
 } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
+import {
+    CallHierarchyComponent,
+    CallHierarchyComponentDIToken,
+} from "../../workbench/contrib/references/browser/callHierarchyComponent.ts";
 import {
     ReferencesComponent,
     ReferencesComponentDIToken,
@@ -245,6 +351,10 @@ import {
     ReferencesService,
     ReferencesServiceDIToken,
 } from "../../workbench/contrib/references/browser/referencesService.ts";
+import {
+    TypeHierarchyComponent,
+    TypeHierarchyComponentDIToken,
+} from "../../workbench/contrib/references/browser/typeHierarchyComponent.ts";
 import { RenameService, RenameServiceDIToken } from "../../workbench/contrib/rename/browser/renameService.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../../workbench/contrib/scm/browser/changesComponent.ts";
 import { ScmChangesService, ScmChangesServiceDIToken } from "../../workbench/contrib/scm/browser/changesService.ts";
@@ -282,6 +392,7 @@ import {
     SmartSelectService,
     SmartSelectServiceDIToken,
 } from "../../workbench/contrib/smartSelect/browser/smartSelectService.ts";
+import { SnippetService, SnippetServiceDIToken } from "../../workbench/contrib/snippet/browser/snippetService.ts";
 import {
     CompletionService,
     CompletionServiceDIToken,
@@ -314,8 +425,15 @@ import {
     TerminalPanelComponent,
     TerminalPanelComponentDIToken,
 } from "../../workbench/contrib/terminal/browser/terminalPanelComponent.ts";
+import {
+    TerminalProfileService,
+    TerminalProfileServiceDIToken,
+} from "../../workbench/contrib/terminal/browser/terminalProfileService.ts";
 import { TerminalService, TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
-import { TerminalWidgetFactoryDIToken } from "../../workbench/contrib/terminal/browser/terminalWidgetFactory.ts";
+import {
+    createDecoratedTerminalWidget,
+    TerminalWidgetFactoryDIToken,
+} from "../../workbench/contrib/terminal/browser/terminalWidgetFactory.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import {
     EnvironmentVariableService,
@@ -339,10 +457,62 @@ import {
     TerminalLinkServiceDIToken,
 } from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkService.ts";
 import {
+    TerminalSelectionService,
+    TerminalSelectionServiceDIToken,
+} from "../../workbench/contrib/terminalContrib/selection/browser/terminalSelectionService.ts";
+import {
+    TestingDecorations,
+    TestingDecorationsDIToken,
+    TestingDecorationsEditorSourceDIToken,
+} from "../../workbench/contrib/testing/browser/testingDecorations.ts";
+import {
+    TestingActiveEditorSourceDIToken,
+    TestingEditorContextKeys,
+    TestingEditorContextKeysDIToken,
+} from "../../workbench/contrib/testing/browser/testingEditorContextKeys.ts";
+import {
+    TestingExplorerComponent,
+    TestingExplorerComponentDIToken,
+    TestingRevealTargetDIToken,
+} from "../../workbench/contrib/testing/browser/testingExplorerView.ts";
+import {
+    TestingMessageDecorations,
+    TestingMessageDecorationsDIToken,
+    TestingMessagePeekDIToken,
+    TestingMessagesEditorSourceDIToken,
+} from "../../workbench/contrib/testing/browser/testingMessageDecorations.ts";
+import {
+    TestMessageDiffFactory,
+    TestMessageDiffFactoryDIToken,
+} from "../../workbench/contrib/testing/browser/testMessageDiff.ts";
+import {
+    TestResultsComponent,
+    TestResultsComponentDIToken,
+} from "../../workbench/contrib/testing/browser/testResultsView.ts";
+import { TestRunUi } from "../../workbench/contrib/testing/browser/testRunUi.ts";
+import {
+    TestProfileService,
+    TestProfileServiceDIToken,
+} from "../../workbench/contrib/testing/common/testProfileService.ts";
+import type { IResolvedTestRunRequest } from "../../workbench/contrib/testing/common/testResult.ts";
+import {
+    TestResultService,
+    TestResultServiceDIToken,
+} from "../../workbench/contrib/testing/common/testResultService.ts";
+import {
+    TestRunUiDIToken,
+    TestService,
+    TestServiceDIToken,
+} from "../../workbench/contrib/testing/common/testService.ts";
+import {
     ThemeConfigContribution,
     ThemeConfigContributionDIToken,
 } from "../../workbench/contrib/themes/browser/themeConfigContribution.ts";
 import { UserDataProfileWorkspaceOpener } from "../../workbench/contrib/userDataProfile/browser/userDataProfileWorkspaceOpener.ts";
+import {
+    ConfigurationResolverService,
+    ConfigurationResolverServiceDIToken,
+} from "../../workbench/services/configurationResolver/browser/configurationResolverService.ts";
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import {
     FileDialogService,
@@ -397,9 +567,9 @@ import {
 import { OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputChannelRegistry } from "../../workbench/services/output/common/outputChannelRegistry.ts";
 import { OutputService, OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
+import { FileSearchService } from "../../workbench/services/search/browser/fileSearchService.ts";
 import { FileSearchServiceDIToken } from "../../workbench/services/search/common/fileSearch.ts";
 import { TextSearchServiceDIToken } from "../../workbench/services/search/common/textSearch.ts";
-import { FileSearchService } from "../../workbench/services/search/node/fileSearchService.ts";
 import { TextSearchService } from "../../workbench/services/search/node/textSearchService.ts";
 import {
     StatusBarService,
@@ -429,6 +599,14 @@ import {
     WORKBENCH_CONTRIBUTIONS,
 } from "../../workbench/workbench.common.main.ts";
 
+import {
+    configurationManagerPorts,
+    debuggerGuessPorts,
+    debugTaskRunnerPorts,
+    debugVariableResolver,
+    saveAllBeforeDebugStart,
+} from "./debugPorts.ts";
+
 const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [
     createKeybindingsEditorPaneFactory,
     createDiffEditorPaneFactory,
@@ -445,6 +623,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(NotificationServiceDIToken, NotificationService);
     container.bind(NotificationsComponentDIToken, NotificationsComponent);
     container.bind(OpenFailureNotificationContributionDIToken, OpenFailureNotificationContribution);
+    container.bind(TerminalRestartNotificationContributionDIToken, TerminalRestartNotificationContribution);
     container.bind(LargeFileOptimizationsWarnerDIToken, LargeFileOptimizationsWarner);
     container.bind(LargeFileIndexingStatusDIToken, LargeFileIndexingStatus);
     container.bind(LanguageStatusServiceDIToken, LanguageStatusService);
@@ -472,11 +651,13 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(SearchComponentDIToken, SearchComponent);
     container.bind(FileOperationsServiceDIToken, FileOperationsService);
     container.bind(LanguageFeatureContextKeysDIToken, LanguageFeatureContextKeys);
+    container.bind(ResourceContextKeysDIToken, ResourceContextKeys);
     container.bind(InputWidgetServiceDIToken, InputWidgetService);
     container.bind(QuickInputComponentDIToken, QuickInputComponent);
     container.bind(QuickInputServiceDIToken, QuickInputService);
     container.bind(FileSearchServiceDIToken, FileSearchService);
     container.bind(GotoLineEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(GotoSymbolEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(OpenEditorsSourceDIToken, () => {
         const editors = container.get(EditorServiceDIToken);
         const groups = container.get(EditorGroupsServiceDIToken);
@@ -491,8 +672,14 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(FilesQuickAccessProviderDIToken, FilesQuickAccessProvider);
     container.bind(CommandsQuickAccessProviderDIToken, CommandsQuickAccessProvider);
     container.bind(GotoLineQuickAccessProviderDIToken, GotoLineQuickAccessProvider);
+    container.bind(GotoSymbolQuickAccessProviderDIToken, GotoSymbolQuickAccessProvider);
     container.bind(OpenEditorsQuickAccessProviderDIToken, OpenEditorsQuickAccessProvider);
-    container.bind(QuickAccessProvidersDIToken, () => QUICK_ACCESS_PROVIDERS);
+    container.bind(WorkspaceSymbolsQuickAccessProviderDIToken, WorkspaceSymbolsQuickAccessProvider);
+    container.bind(QuickAccessProvidersDIToken, () => [
+        ...QUICK_ACCESS_PROVIDERS,
+        { prefix: StartDebugQuickAccessProvider.PREFIX, provider: DebugQuickAccessProviderDIToken },
+        { prefix: DebugConsoleQuickAccess.PREFIX, provider: DebugConsoleQuickAccessDIToken },
+    ]);
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);
     container.bind(QuickOpenServiceDIToken, QuickOpenService);
     // A new folder with a different profile reloads the window into it instead of switching folders: the profile is fixed per process.
@@ -520,6 +707,7 @@ export const workbenchModule: ContainerModule = (container) => {
         () => new BulkEditBuffers(container.get(EditorServiceDIToken), container.get(TextFileModelServiceDIToken)),
     );
     container.bind(EditorPartComponentDIToken, EditorPartComponent);
+    container.bind(GroupCornerStackDIToken, () => new GroupCornerStack());
     container.bind(TabSwitcherComponentDIToken, TabSwitcherComponent);
     container.bind(SuggestComponentDIToken, SuggestComponent);
     container.bind(CompletionServiceDIToken, CompletionService);
@@ -528,8 +716,16 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(GoToLocationsCommandContributionDIToken, GoToLocationsCommandContribution);
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
+    container.bind(LinkedEditingServiceDIToken, LinkedEditingService);
+    container.bind(SnippetServiceDIToken, SnippetService);
+    container.bind(LinksServiceDIToken, LinksService);
+    container.bind(FormatOnTypeServiceDIToken, FormatOnTypeService);
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
+    // Stryker disable next-line CallExpression: DI binding without a unit test; end-to-end — e2e scenario call-hierarchy
+    container.bind(CallHierarchyComponentDIToken, CallHierarchyComponent);
+    // Stryker disable next-line CallExpression: DI binding without a unit test; end-to-end — e2e scenario type-hierarchy
+    container.bind(TypeHierarchyComponentDIToken, TypeHierarchyComponent);
     container.bind(ReferencesComponentDIToken, ReferencesComponent);
     container.bind(ReferencesServiceDIToken, ReferencesService);
     container.bind(RenameServiceDIToken, RenameService);
@@ -574,33 +770,171 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(OutputComponentDIToken, OutputComponent);
     container.bind(OutputChannelActionsDIToken, OutputChannelActions);
     container.bind(EnvironmentVariableServiceDIToken, EnvironmentVariableService);
-    // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression: production module wiring — the decisions live in `createExtensionEnvironmentContributor`/`buildEnv`, covered by unit tests; end-to-end — e2e scenario extension-environment-collection
+    // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression,ObjectLiteral: production module wiring — the decisions live in `createExtensionEnvironmentContributor`/`buildEnv`/`getShellIntegrationInjection`, covered by unit tests; end-to-end — e2e scenarios extension-environment-collection, terminal-shell-integration
     container.bind(TerminalSessionFactoryDIToken, () => {
         const environment = createExtensionEnvironmentContributor(
             () => container.get(EnvironmentVariableServiceDIToken).mergedCollection,
             container.get(IWorkspaceContextServiceDIToken),
             process.platform === "win32",
         );
-        return (options) => new EmbeddedTerminalSession(options, environment);
+        const logger = container.get(ILogServiceDIToken).createLogger("terminal", { label: "Terminal" });
+        return (options) => new EmbeddedTerminalSession(options, environment, logger);
     });
-    // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression
+    // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression,ObjectLiteral
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test; end-to-end — e2e scenario extension-terminal
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new ExtensionPtySession(options));
     container.bind(TerminalServiceDIToken, TerminalService);
+    container.bind(TerminalProfileServiceDIToken, TerminalProfileService);
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test (the test profile sets its own shell); end-to-end — e2e scenario tasks
     container.bind(DefaultShellResolverDIToken, () => () => getSystemShell());
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding (the test profile binds a ready registry of its own); end-to-end — e2e scenario tsc-problem-matcher-task
     container.bind(ProblemMatcherRegistryDIToken, () => new ProblemMatcherRegistry());
+    container.bind(ConfigurationResolverServiceDIToken, ConfigurationResolverService);
     container.bind(TaskServiceDIToken, TaskService);
+    container.bind(TestResultServiceDIToken, TestResultService);
+    container.bind(TestRunUiDIToken, TestRunUi);
+    container.bind(TestServiceDIToken, TestService);
+    // The extension host module replaces it with the extension service.
+    container.bind(DebugExtensionActivatorDIToken, () => NO_DEBUG_EXTENSIONS);
+    container.bind(DebugServicePortsDIToken, () => {
+        const configuration = container.get(IConfigurationServiceDIToken);
+        const textFiles = container.get(TextFileModelServiceDIToken);
+        return {
+            contextKeys: container.get(ContextKeyServiceDIToken),
+            state: container.get(StateServiceDIToken),
+            textFiles: { isDirty: (resource) => textFiles.get(resource)?.isModified ?? false },
+            logger: container.get(ILogServiceDIToken).createLogger("debug", { label: "Debug" }),
+            notifications: container.get(NotificationServiceDIToken),
+            // Looked up when used: the extension service of the full app is built with the extension host, whose debug
+            // sink and `contributes.debuggers` need this service.
+            extensions: {
+                activateByEvent: (event) => container.get(DebugExtensionActivatorDIToken).activateByEvent(event),
+                whenInstalledExtensionsRegistered: () =>
+                    container.get(DebugExtensionActivatorDIToken).whenInstalledExtensionsRegistered(),
+            },
+            guess: debuggerGuessPorts(container),
+            activeEditorResource: () => container.get(EditorServiceDIToken).getActiveEditor()?.uri.toString(),
+            workspace: container.get(IWorkspaceContextServiceDIToken),
+            replConfiguration: () => ({
+                collapseIdenticalLines: configuration.get("debug.console.collapseIdenticalLines"),
+                maximumLines: configuration.get("debug.console.maximumLines"),
+            }),
+            configurationManager: configurationManagerPorts(container),
+            tasks: debugTaskRunnerPorts(container),
+            saveAllBeforeStart: () => saveAllBeforeDebugStart(container),
+            terminalLauncher: container.get(DebugTerminalLauncherDIToken),
+            variables: debugVariableResolver(container),
+            debugConfiguration: () => ({
+                openDebug: configuration.get("debug.openDebug"),
+                autoExpandLazyVariables: configuration.get("debug.autoExpandLazyVariables"),
+                internalConsoleOptions: configuration.get("debug.internalConsoleOptions"),
+                console: { closeOnEnd: configuration.get("debug.console.closeOnEnd") },
+                allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
+                focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
+                showSubSessionsInToolBar: configuration.get("debug.showSubSessionsInToolBar"),
+                openExplorerOnEnd: configuration.get("debug.openExplorerOnEnd"),
+                closeReadonlyTabsOnEnd: configuration.get("debug.closeReadonlyTabsOnEnd"),
+            }),
+            openStackFrame: (stackFrame, options) =>
+                openStackFrame(
+                    container.get(EditorServiceDIToken),
+                    container.get(JumpRecorderDIToken),
+                    stackFrame,
+                    options,
+                ),
+            onDidSaveTextFile: (listener) =>
+                textFiles.onDidSaveModel((model) => {
+                    listener(model.uri);
+                }),
+            openViewlet: () => {
+                container.get(ViewsServiceDIToken).openViewContainer(VIEWLET_ID);
+            },
+            openRepl: () => {
+                container.get(ViewsServiceDIToken).openView(REPL_VIEW_ID, false);
+            },
+            closeRepl: () => {
+                // Hides the panel only while the console is its active view, as upstream's visibility check.
+                container.get(ViewsServiceDIToken).closeView(REPL_VIEW_ID);
+            },
+            openExplorer: () => {
+                if (container.get(LayoutServiceDIToken).isSidebarVisible()) {
+                    container.get(SidebarServiceDIToken).showViewlet(EXPLORER_VIEWLET_ID, true, false);
+                }
+            },
+            closeSessionEditors: (sessionId) => {
+                closeSessionEditors(container.get(EditorServiceDIToken), sessionId);
+            },
+            // Looked up when used: the test service debugs tests through this service.
+            testing: {
+                getResult: (runId) => container.get(TestResultServiceDIToken).getResult(runId),
+                cancelTestRun: (runId) => {
+                    container.get(TestServiceDIToken).cancelTestRun(runId);
+                },
+                runResolvedTests: (request) => {
+                    container
+                        .get(TestServiceDIToken)
+                        .runResolvedTests(request as IResolvedTestRunRequest)
+                        .catch(onUnexpectedError);
+                },
+            },
+        };
+    });
+    container.bind(DebugQuickAccessProviderDIToken, StartDebugQuickAccessProvider);
+    container.bind(DebugConsoleQuickAccessDIToken, DebugConsoleQuickAccess);
+    container.bind(DebugLifecycleDIToken, DebugLifecycle);
+    container.bind(DebugToolbarSessionSelectDIToken, DebugToolbarSessionSelect);
+    container.bind(DebugToolbarDIToken, DebugToolbar);
+    container.bind(DockedDebugToolbarItemsDIToken, DockedDebugToolbarItems);
+    container.bind(StatusBarColorProviderDIToken, StatusBarColorProvider);
+    container.bind(DebugStatusContributionDIToken, DebugStatusContribution);
+    // Stryker disable next-line ArrowFunction: DI binding; the function itself is tested in `node/terminals.test.ts`
+    container.bind(HasChildProcessesDIToken, () => hasChildProcesses);
+    container.bind(DebugTerminalLauncherDIToken, DebugTerminalLauncher);
+    container.bind(DebugServiceDIToken, DebugService);
+    container.bind(BreakpointSourcesDIToken, BreakpointSources);
+    container.bind(BreakpointInputDIToken, BreakpointInput);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario debug-breakpoints-gutter
+    container.bind(BreakpointEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(BreakpointEditorContributionDIToken, BreakpointEditorContribution);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario debug-editor-commands
+    container.bind(DebugEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(DebugEditorContributionDIToken, DebugEditorContribution);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario debug-inline-values
+    container.bind(InlineValuesEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(InlineValuesContributionDIToken, InlineValuesContribution);
+    container.bind(DebugContentProviderDIToken, DebugContentProvider);
+    container.bind(DebugViewletComponentDIToken, DebugViewletComponent);
+    container.bind(LinkDetectorDIToken, LinkDetector);
+    container.bind(ReplDIToken, Repl);
+    container.bind(DebugHoverWidgetDIToken, DebugHoverWidget);
+    container.bind(TestProfileServiceDIToken, TestProfileService);
+    container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
+    container.bind(TestResultsComponentDIToken, TestResultsComponent);
+    container.bind(TestMessageDiffFactoryDIToken, TestMessageDiffFactory);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-explorer
+    container.bind(TestingRevealTargetDIToken, () => container.get(EditorServiceDIToken));
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-gutter
+    container.bind(TestingDecorationsEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(TestingDecorationsDIToken, TestingDecorations);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-inline-messages
+    container.bind(TestingMessagesEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-inline-messages
+    container.bind(TestingMessagePeekDIToken, () => container.get(TestResultsComponentDIToken));
+    container.bind(TestingMessageDecorationsDIToken, TestingMessageDecorations);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-inline-messages
+    container.bind(TestingActiveEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(TestingEditorContextKeysDIToken, TestingEditorContextKeys);
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);
     container.bind(TerminalLinkOpenerDIToken, TerminalLinkOpener);
     container.bind(TerminalLinkServiceDIToken, TerminalLinkService);
     container.bind(TerminalLinkQuickpickDIToken, TerminalLinkQuickpick);
+    container.bind(TerminalSelectionServiceDIToken, TerminalSelectionService);
     container.bind(TerminalWidgetFactoryDIToken, () => {
-        const links = container.get(TerminalLinkServiceDIToken);
-        return (instance) => links.createWidget(instance);
+        // The selection wraps the links: a Ctrl+drag selects, a Ctrl+click still reaches the link.
+        const decorators = [container.get(TerminalLinkServiceDIToken), container.get(TerminalSelectionServiceDIToken)];
+        return (instance) => createDecoratedTerminalWidget(instance, decorators);
     });
     container.bind(TerminalPanelComponentDIToken, TerminalPanelComponent);
     container.bind(TerminalEditorServiceDIToken, TerminalEditorService);
@@ -627,6 +961,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickDiffServiceDIToken, QuickDiffService);
     container.bind(DiffSnapshotRefreshContributionDIToken, DiffSnapshotRefreshContribution);
     container.bind(VscodeDiffCommandContributionDIToken, VscodeDiffCommandContribution);
+    container.bind(ExecuteLinkProviderCommandContributionDIToken, ExecuteLinkProviderCommandContribution);
     container.bind(ScmChangesServiceDIToken, ScmChangesService);
     container.bind(ChangesComponentDIToken, ChangesComponent);
     container.bind(ScmGraphServiceDIToken, ScmGraphService);

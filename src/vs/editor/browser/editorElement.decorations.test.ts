@@ -55,6 +55,16 @@ describe("EditorElement — external decorations", () => {
         expect(app.backend.getBgAt(new Point(0, 0))).not.toBe(REMOVED_BG);
     });
 
+    it("an insertion without a background of its own keeps the line background", () => {
+        const { app, editor } = createEditor("alpha\nremoved\ncharlie", {
+            lineBackgrounds: [{ startLine: 1, endLine: 1, colorToken: "diffEditor.removedLineBackground" }],
+        });
+        editor.setInlineInsertions([{ line: 1, offset: 0, text: " " }]);
+        app.render();
+
+        expect(app.backend.getBgAt(new Point(editor.gutterWidth, 1))).toBe(REMOVED_BG);
+    });
+
     it("range background (intra-line) over the line background", () => {
         const { app, editor } = createEditor("alpha\nremoved line\ncharlie", {
             lineBackgrounds: [{ startLine: 1, endLine: 1, colorToken: "diffEditor.removedLineBackground" }],

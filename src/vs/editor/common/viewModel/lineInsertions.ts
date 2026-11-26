@@ -4,8 +4,8 @@ import type { ITextDocument } from "../model/iTextDocument.ts";
 // Counterpart of upstream `modelLineProjectionData.ts` injection math (`injectionOffsets`,
 // `translateToInputOffset`, `translateToOutputPosition`): offsets of a document line vs. offsets
 // of its COMPOSED line, the one with insertions spliced in. Deviation: upstream keeps it in the
-// line projection (so wrap sees insertions); here the view composes lines itself, and wrap is
-// computed on the document text.
+// line projection; here the view composes lines itself, and wrap measures the composed line and
+// reports document offsets (`computeComposedLineBreakOffsets`).
 
 /**
  * The frame's {@link IInlineInsertion}s by document line, built per frame by
@@ -88,20 +88,17 @@ export function composedInsertionPointOffset(insertions: LineInsertions, line: n
 }
 
 /**
- * CARET offset: like {@link composedInsertionPointOffset}, but the caret passes the insertions at
- * its point up to the last one with {@link IInlineInsertion.caretSide} `"right"`, so it is drawn on
- * the character after a color swatch rather than on the swatch.
+ * CARET offset: like {@link composedInsertionPointOffset}, but the caret passes the leading
+ * {@link IInlineInsertion.caretSide} `"right"` insertions at its point, so it is drawn on the
+ * character after a color swatch rather than on the swatch. It stops at the first left-side one:
+ * ghost text stays right of what was typed.
  */
 export function composedCaretOffset(insertions: LineInsertions, line: number, offset: number): number {
     let composed = offset;
-    let pending = 0;
     for (const insertion of insertions.get(line) ?? NO_INSERTIONS) {
         if (insertion.offset > offset) break;
-        pending += insertion.text.length;
-        if (insertion.offset < offset || insertion.caretSide === "right") {
-            composed += pending;
-            pending = 0;
-        }
+        if (insertion.offset === offset && insertion.caretSide !== "right") break;
+        composed += insertion.text.length;
     }
     return composed;
 }

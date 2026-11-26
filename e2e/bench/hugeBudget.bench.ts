@@ -68,6 +68,8 @@ import { median } from "./stats.ts";
 //    restored feature that walks the file on the key path. Calibration (CI, the same fast run): to editable
 //    1813/1860 ms, budget 3800 (1.4× the value scaled to the slower runner); keys during the load median 10 ms
 //    (2–48), budget 30; edit keys after the switch median 9 ms (3–86), budget 25 — 2.5–3× the median.
+//    Recalibration (human's decision 2026-11-05): keys during the load had a median of 15-25 ms on the green
+//    main runs of 2026-11-04/05 and went over 30 six times (30-32 ms); the budget is 40 now, 1.25x the worst.
 //
 // `log2g` (2 GB, 21.7 M lines) is not in the gate: it gives no signal of its own. Its first screen is the same
 // single chunk (locally 221 ms vs 208 for `log500m`), the index and its memory are linear in the line count and
@@ -100,7 +102,7 @@ export const FIND_KEY_BUDGET_MS = 20;
 /** Median ms from pressing Enable Editing to the editable tab. */
 export const EDITABLE_BUDGET_MS = 3800;
 /** Median ms of ArrowDown while the file streams into memory. */
-export const LOAD_KEY_BUDGET_MS = 30;
+export const LOAD_KEY_BUDGET_MS = 40;
 /** Median ms of the edit keys right after the switch, while the restored features catch up. */
 export const EDIT_KEY_BUDGET_MS = 25;
 /** Runs of each step after the to-text bench; the FS cache is warm by then. */

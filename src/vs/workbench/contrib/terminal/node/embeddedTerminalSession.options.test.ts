@@ -1,7 +1,11 @@
 import type { TerminalCell } from "@tuidom/core/common/iTerminalSurface";
 import { describe, expect, it, vi } from "vitest";
 
+import { VSCODE_SHIM_VERSION } from "../../../api/common/vscodeShimVersion.ts";
+
 import { buildEnv, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
+
+const VSCODE_KEYS = { TERM_PROGRAM: "vscode", TERM_PROGRAM_VERSION: VSCODE_SHIM_VERSION, COLORTERM: "truecolor" };
 
 // The environment is tested both as a pure function and with a real shell: what reached the process shows
 // only in its output.
@@ -32,8 +36,62 @@ describe("buildEnv", () => {
                 { KEEP: "1", DROP: "2", TERM: "dumb", TMUX: "/tmp/tmux" },
                 { ADD: "3", DROP: null, TMUX: "again" },
             ),
-        ).toEqual({ KEEP: "1", ADD: "3", TERM: "xterm-256color" });
-        expect(buildEnv({ A: "1" }, undefined)).toEqual({ A: "1", TERM: "xterm-256color" });
+        ).toEqual({ KEEP: "1", ADD: "3", TERM: "xterm-256color", ...VSCODE_KEYS });
+        expect(buildEnv({ A: "1" }, undefined)).toEqual({ A: "1", TERM: "xterm-256color", ...VSCODE_KEYS });
+    });
+
+    it("inherited VS Code/Electron variables are dropped (upstream sanitizeProcessEnvironment), the allowed ones stay", () => {
+        const inherited = {
+            VSCODE_FOO: "x",
+            VSCODE_NONCE: "x",
+            ELECTRON_RUN_AS_NODE: "1",
+            SNAP: "/snap/x",
+            SNAP_NAME: "code",
+            GDK_PIXBUF_MODULE_FILE: "x",
+            VSCODE_IPC_HOOK_CLI: "/tmp/ipc.sock",
+            VSCODE_PORTABLE: "p",
+            VSCODE_SHELL_LOGIN: "1",
+            VSCODE_ENV_REPLACE: "r",
+            VSCODE_ENV_APPEND: "a",
+            VSCODE_ENV_PREPEND: "p",
+            // Look-alikes that don't match the patterns.
+            ELECTRON_: "e",
+            SNAPSHOT: "s",
+            MY_VSCODE_FOO: "m",
+        };
+        expect(buildEnv(inherited, undefined)).toStrictEqual({
+            VSCODE_IPC_HOOK_CLI: "/tmp/ipc.sock",
+            VSCODE_PORTABLE: "p",
+            VSCODE_SHELL_LOGIN: "1",
+            VSCODE_ENV_REPLACE: "r",
+            VSCODE_ENV_APPEND: "a",
+            VSCODE_ENV_PREPEND: "p",
+            ELECTRON_: "e",
+            SNAPSHOT: "s",
+            MY_VSCODE_FOO: "m",
+            ...VSCODE_KEYS,
+            TERM: "xterm-256color",
+        });
+    });
+
+    it("the terminal `env` is applied after sanitizing: an explicit VSCODE_X stays, its TERM_PROGRAM is overridden", () => {
+        expect(
+            buildEnv(
+                { VSCODE_X: "inherited" },
+                { VSCODE_X: "1", TERM_PROGRAM: "kitty", TERM_PROGRAM_VERSION: "0.1", COLORTERM: "24bit" },
+            ),
+        ).toStrictEqual({ VSCODE_X: "1", ...VSCODE_KEYS, TERM: "xterm-256color" });
+    });
+
+    it("strictEnv (no inherited environment): exactly `env`, neither sanitized nor given the VS Code keys", () => {
+        expect(buildEnv(undefined, { VSCODE_X: "1", ELECTRON_Y: "2", TERM_PROGRAM: "kitty", TMUX: "t" })).toStrictEqual(
+            {
+                VSCODE_X: "1",
+                ELECTRON_Y: "2",
+                TERM_PROGRAM: "kitty",
+                TERM: "xterm-256color",
+            },
+        );
     });
 });
 
@@ -55,6 +113,26 @@ describe("EmbeddedTerminalSession — extension terminal options", () => {
         await vi.waitFor(
             () => {
                 expect(screen(session, 6, 60)).toContain(`[inherited||added|${String(pid)}]`);
+            },
+            { timeout: 5000, interval: 50 },
+        );
+        session.dispose();
+    }, 15000);
+
+    it("the shell sees TERM_PROGRAM=vscode and COLORTERM, not inherited VSCODE_* or the outer TERM_PROGRAM", async () => {
+        vi.stubEnv("VSCODE_DIODE_LEAK", "leak");
+        vi.stubEnv("TERM_PROGRAM", "kitty");
+        const session = new EmbeddedTerminalSession({
+            cols: 60,
+            rows: 6,
+            shell: "/bin/sh",
+            args: ["-c", 'echo "[$TERM_PROGRAM|$TERM_PROGRAM_VERSION|$COLORTERM|$VSCODE_DIODE_LEAK]"'],
+        });
+        vi.unstubAllEnvs();
+        await awaitExit(session);
+        await vi.waitFor(
+            () => {
+                expect(screen(session, 6, 60)).toContain(`[vscode|${VSCODE_SHIM_VERSION}|truecolor|]`);
             },
             { timeout: 5000, interval: 50 },
         );

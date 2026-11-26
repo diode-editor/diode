@@ -24,6 +24,10 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { type IMarkerData, MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { MarkerServiceDIToken } from "../../platform/markers/common/markerService.ts";
+import {
+    type IIndeterminateProgressService,
+    ProgressServiceDIToken,
+} from "../../platform/progress/common/progressService.ts";
 import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import { ProductIconServiceDIToken } from "../../platform/theme/common/productIconService.ts";
 import { URLServiceDIToken } from "../../platform/url/common/url.ts";
@@ -36,11 +40,14 @@ import { EditorLayoutServiceAdapter } from "../../workbench/api/browser/editorLa
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { ExtensionLanguageStatusAdapter } from "../../workbench/api/browser/extensionLanguageStatusAdapter.ts";
 import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
+import { ExtensionProgressAdapter } from "../../workbench/api/browser/extensionProgressAdapter.ts";
 import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extensionStatusBarAdapter.ts";
 import { ExtensionTreeViewsAdapter } from "../../workbench/api/browser/extensionTreeViewsAdapter.ts";
+import { ExtensionViewProgressAdapter } from "../../workbench/api/browser/extensionViewProgressAdapter.ts";
 import { ExtensionViewWelcomesDIToken } from "../../workbench/api/browser/extensionViewWelcomes.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileDialogExtensionAdapter } from "../../workbench/api/browser/fileDialogExtensionAdapter.ts";
+import { FileOperationParticipantAdapter } from "../../workbench/api/browser/fileOperationParticipantAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
 import { FileWatcherAdapter } from "../../workbench/api/browser/fileWatcherAdapter.ts";
 import { LanguageFeaturesAdapter } from "../../workbench/api/browser/languageFeaturesAdapter.ts";
@@ -55,9 +62,21 @@ import { WATCHER_INCLUDE_SETTING, watcherIncludesUnder } from "../../workbench/a
 import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
 import { ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import { watcherExcludeGlobs } from "../../workbench/common/configuration/excludeSettings.ts";
-import { WorkspaceEditServiceDIToken } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
+import {
+    type WorkspaceEditService,
+    WorkspaceEditServiceDIToken,
+} from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
+import {
+    DebugExtensionActivatorDIToken,
+    DebugServiceDIToken,
+} from "../../workbench/contrib/debug/browser/debugService.ts";
+import {
+    bindExtensionDebuggers,
+    ExtensionDebugAdapter,
+} from "../../workbench/contrib/debug/browser/extensionDebugAdapter.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { WorkspaceFolderOpenerDIToken } from "../../workbench/contrib/files/browser/fileActions.ts";
+import { SCM_CHANGES_VIEW_ID } from "../../workbench/contrib/scm/common/scmViews.ts";
 import {
     bindExtensionTasks,
     ExtensionTaskAdapter,
@@ -65,10 +84,19 @@ import {
 import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
 import { ExtensionTerminalAdapter } from "../../workbench/contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TerminalEditorServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalEditorService.ts";
+import {
+    bindExtensionTerminalProfiles,
+    TerminalProfileServiceDIToken,
+} from "../../workbench/contrib/terminal/browser/terminalProfileService.ts";
 import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import { EnvironmentVariableServiceDIToken } from "../../workbench/contrib/terminal/common/environmentVariableService.ts";
 import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
+import { ExtensionTestingAdapter } from "../../workbench/contrib/testing/browser/extensionTestingAdapter.ts";
+import { TestProfileServiceDIToken } from "../../workbench/contrib/testing/common/testProfileService.ts";
+import { TestResultServiceDIToken } from "../../workbench/contrib/testing/common/testResultService.ts";
+import { TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
+import { ConfigurationResolverServiceDIToken } from "../../workbench/services/configurationResolver/browser/configurationResolverService.ts";
 import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { FileDialogServiceDIToken } from "../../workbench/services/dialogs/browser/fileDialogService.ts";
 import {
@@ -104,6 +132,7 @@ import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/brow
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
+import { FileSearchServiceDIToken } from "../../workbench/services/search/common/fileSearch.ts";
 import { loadRipgrepAppRoot } from "../../workbench/services/search/node/loadRipgrep.ts";
 import { StatusBarServiceDIToken } from "../../workbench/services/statusbar/common/statusBarService.ts";
 import { ThemeServiceDIToken } from "../../workbench/services/themes/common/themeTokens.ts";
@@ -139,9 +168,14 @@ export function extensionHostConfigProvider(
     configService: IConfigurationService,
     configurationRegistry: ConfigurationRegistry,
     workspaceContext: IWorkspaceContextService,
+    userRoamingDataHome?: string,
 ): IExtensionHostConfigProvider {
-    return configProviderOver(configService, configurationRegistry, workspaceFoldersProvider(workspaceContext), () =>
-        workspaceContext.getWorkspace().configuration?.toString(),
+    return configProviderOver(
+        configService,
+        configurationRegistry,
+        workspaceFoldersProvider(workspaceContext),
+        () => workspaceContext.getWorkspace().configuration?.toString(),
+        userRoamingDataHome,
     );
 }
 
@@ -151,11 +185,13 @@ export function configProviderOver(
     configurationRegistry: ConfigurationRegistry,
     getWorkspaceFolders: () => readonly IWorkspaceFolderInfo[],
     getWorkspaceFile: () => string | undefined,
+    userRoamingDataHome?: string,
 ): IExtensionHostConfigProvider {
     return {
         getSnapshot: () => configService.getConfigurationData(),
         getWorkspaceFolders,
         getWorkspaceFile,
+        userRoamingDataHome,
         onDidChange: (cb) =>
             configService.onDidChangeConfiguration((event) => {
                 cb(event.affectedKeys);
@@ -187,6 +223,20 @@ export function bindExtensionHostToEditors(
     });
 }
 
+/** Shared with `ExtensionTestHarness`: its host tests exercise this very wiring. */
+export function bindFileOperationParticipant(
+    host: ExtensionHost,
+    workspaceEdits: WorkspaceEditService,
+    config: IConfigurationService,
+    progress: IIndeterminateProgressService,
+): void {
+    workspaceEdits.fileOperationParticipant = new FileOperationParticipantAdapter(
+        host.fileOperations,
+        config,
+        progress,
+    );
+}
+
 export interface IExtensionHostModuleContext {
     /** User extensions first, then built-in ones. */
     readonly extensions: readonly IExtension[];
@@ -212,6 +262,12 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             group,
             container.get(EditorGroupsServiceDIToken),
             container.get(WorkspaceEditServiceDIToken),
+            // Stryker disable next-line ObjectLiteral: production module wiring — the variables are covered by EditorOptionsServiceAdapter unit tests and the harness; end-to-end — e2e scenario extension-insert-snippet
+            {
+                clipboard: container.get(ClipboardDIToken),
+                languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
+                workspace: container.get(IWorkspaceContextServiceDIToken),
+            },
         );
         const commandAdapter = new CommandServiceAdapter(container.get(CommandRegistryDIToken));
         const logService = container.get(ILogServiceDIToken);
@@ -232,6 +288,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             configService,
             container.get(ConfigurationRegistryDIToken),
             workspaceContext,
+            environment.userRoamingDataHome,
         );
 
         const markerService = container.get(MarkerServiceDIToken);
@@ -249,6 +306,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const editorDecorations = new EditorDecorationsServiceAdapter(group);
         const fileDecorations = new FileDecorationsServiceAdapter(explorer);
         const themeColorResolver = new ThemeColorResolverAdapter(container.get(ThemeServiceDIToken));
+        const fileService = container.get(IFileServiceDIToken);
         const icons = container.get(ProductIconServiceDIToken);
 
         const editorLayout = new EditorLayoutServiceAdapter(
@@ -292,6 +350,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             editorDecorations,
             fileDecorations,
             themeColorResolver,
+            // Stryker disable next-line ArrowFunction: production module wiring — the icon decisions live in DecorationsCustomer and gutterIconGlyph, covered by unit tests; end-to-end — the gutter-icons scenario
+            gutterIconReader: async (resource) => (await fileService.readFile(resource)).value,
             icons,
             // Stryker disable next-line ArrowFunction: production module wiring — the seed is covered by DocumentsCustomer unit tests and the handshake seed test; end-to-end — the stock LanguageServers suites (vscode-languageclient reads `workspace.textDocuments` on start)
             openDocumentsProvider: () => openDocumentSyncSources(group),
@@ -305,7 +365,16 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             diagnosticsSink,
             markers: markerService,
             languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
-            progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken), undefined, icons),
+            progressSink: new ExtensionProgressAdapter(
+                new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken), undefined, icons),
+                container.get(NotificationServiceDIToken),
+                new ExtensionViewProgressAdapter(
+                    container.get(ViewsServiceDIToken),
+                    container.get(ProgressServiceDIToken),
+                    logger,
+                    SCM_CHANGES_VIEW_ID,
+                ),
+            ),
             statusBarItemSink: new ExtensionStatusBarAdapter(
                 container.get(StatusBarServiceDIToken),
                 commandAdapter,
@@ -333,6 +402,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 machineId: () => resolveMachineId(container.get(StateServiceDIToken)),
                 defaultShell: container.get(DefaultShellResolverDIToken),
                 appRoot: loadRipgrepAppRoot,
+                logLevel: () => logService.getWindowLevel(),
+                onDidChangeLogLevel: logService.onDidChangeWindowLevel,
             },
             // Stryker restore ObjectLiteral,ArrowFunction
             outputSink: new ExtensionOutputAdapter(
@@ -346,6 +417,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 icons,
             ),
             terminalSink: terminals(),
+            terminalProfileSink: container.get(TerminalProfileServiceDIToken),
             environmentVariableCollections: container.get(EnvironmentVariableServiceDIToken),
             // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration,CallExpression: production module wiring — the decisions live in ExtensionTreeViewsAdapter/ExtensionTreeView, covered by unit tests; end-to-end — e2e scenario extension-tree-view
             treeViewsSink: new ExtensionTreeViewsAdapter({
@@ -368,6 +440,15 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 logger: logService.createLogger("extensions"),
             }),
             // Stryker restore ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration,CallExpression
+            testingSink: new ExtensionTestingAdapter(
+                container.get(TestServiceDIToken),
+                container.get(TestProfileServiceDIToken),
+                container.get(TestResultServiceDIToken),
+            ),
+            // Looked up when an extension calls: the debug service is built after the host (its activation port is the
+            // extension service).
+            // Stryker disable next-line ArrowFunction: production module wiring; the adapter is covered by its unit tests and the extension host debug test, end to end by the debug-provider e2e scenario
+            debugSink: new ExtensionDebugAdapter(() => container.get(DebugServiceDIToken)),
             taskSink: new ExtensionTaskAdapter(
                 container.get(TaskServiceDIToken),
                 workspaceContext,
@@ -377,6 +458,9 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         });
 
         new FileSystemProviderAdapter(host, container.get(IFileServiceDIToken));
+        // Like upstream `$enableExtensionHostSearch`: Quick Open's file index lives in the subprocess (#1179).
+        // Stryker disable next-line CallExpression: production module wiring; end to end — e2e quick open scenarios
+        container.get(FileSearchServiceDIToken).registerProvider(host.fileSearch);
 
         bindExtensionHostToEditors(
             host,
@@ -395,9 +479,17 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             host.disposeNow();
         });
 
+        bindFileOperationParticipant(
+            host,
+            container.get(WorkspaceEditServiceDIToken),
+            configService,
+            container.get(ProgressServiceDIToken),
+        );
         return host;
     });
 
+    // `onDebug` and the other debug activation events reach the extensions.
+    container.bind(DebugExtensionActivatorDIToken, () => container.get(ExtensionServiceDIToken));
     container.bind(ExtensionServiceDIToken, () => {
         const logService = container.get(ILogServiceDIToken);
         const logger = logService.createLogger("extensions");
@@ -414,9 +506,16 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             void service.activateByEvent(`onLanguage:${languageId}`);
             void service.activateByEvent("onLanguage");
         });
+        // Upstream `AbstractExtensionService`: the first use of a scheme starts the extensions waiting for it (gitblame
+        // on `onFileSystem:file`).
+        const files = container.get(IFileServiceDIToken);
+        // Stryker disable next-line ArrowFunction,CallExpression,StringLiteral: production module wiring — the producer is covered by the FileService unit tests, end to end by the stock Git Blame e2e suite
+        files.onWillActivateFileSystemProvider((s) => void service.activateByEvent(`onFileSystem:${s}`));
         // Views shown before registration (layout restore of an extension's container) are buffered the same way.
         // Stryker disable next-line ArrowFunction,CallExpression: production module wiring — the producer is covered by the bindViewActivation unit tests, end to end by the view-container-switcher e2e scenario
         bindViewActivation(container.get(ViewsServiceDIToken).onDidShowView, (event) => service.activateByEvent(event));
+        // Stryker disable next-line ArrowFunction,CallExpression: production module wiring — the producer is covered by the terminalCustomer.shellIntegration unit tests, end to end by the shell-integration-probe e2e scenario
+        terminals().onDidRequestActivation((event) => void service.activateByEvent(event));
 
         // Stryker disable next-line CallExpression: production module wiring; behavior is covered by bindExtensionTasks unit tests and the extension-tasks e2e scenario
         bindExtensionTasks(
@@ -426,6 +525,12 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // Stryker disable next-line StringLiteral,ObjectLiteral: the task log channel name and label are wiring; the "Tasks" channel shows up in the tasks e2e scenario
             logService.createLogger("tasks", { label: "Tasks" }),
         );
+        // Stryker disable next-line CallExpression,StringLiteral,ObjectLiteral: production module wiring; behavior is covered by bindExtensionDebuggers unit tests and the extension-debug-provider e2e scenario
+        bindExtensionDebuggers(container.get(DebugServiceDIToken), service.extensions, logger);
+        // Stryker disable next-line CallExpression,StringLiteral,ObjectLiteral: production module wiring; behavior is covered by bindExtensionTerminalProfiles unit tests and the extension-terminal-profile e2e scenario
+        bindExtensionTerminalProfiles(container.get(TerminalProfileServiceDIToken), service, logger);
+        // Stryker disable next-line CallExpression,ArrowFunction: production module wiring; `${extensionInstallFolder:…}` is covered by the resolver unit tests
+        container.get(ConfigurationResolverServiceDIToken).setExtensions((id) => service.getExtension(id));
 
         // Running extensions saw the old folders and storage, so the subprocess restarts (like the upstream window reload).
         // Stryker disable CallExpression,BlockStatement,StringLiteral: production module wiring (like `storageHomes`/`secrets` above) — the decision lives in `ExtensionHost.restartForWorkspaceChange`, covered by its unit tests; end-to-end — e2e scenarios activation-workspace-contains and workspaceFile

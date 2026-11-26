@@ -5,10 +5,6 @@ import type {
     IRegistryVersion,
     RegistryExtensionKind,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
-import {
-    matchesExtensionQuery,
-    normalizeExtensionQuery,
-} from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 // Contract in `common/`, implementation in `node/`: otherwise the viewlet in `browser/` would need
@@ -21,6 +17,12 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
  */
 export type ExtensionAvailability = "available" | "installed" | "outdated" | "incompatible";
 
+/**
+ * Upstream `ExtensionState.Installing` / `Uninstalling`: an install covers an update, a given version, `Update All`
+ * (its whole batch from the start) and auto-update.
+ */
+export type ExtensionOperation = "installing" | "uninstalling";
+
 export interface IExtensionListEntry {
     /** `publisher.name`. */
     readonly id: string;
@@ -32,6 +34,12 @@ export interface IExtensionListEntry {
     readonly kind: RegistryExtensionKind | undefined;
     /** `undefined`: no registry entry, or the registry did not set the flag. */
     readonly support: IRegistrySupport | undefined;
+    /**
+     * The manifest's `categories` and `keywords` (upstream `IExtension.categories`, the gallery's tags) for the
+     * search's `category:` and `tag:`: from the registry index, else from the installed manifest.
+     */
+    readonly categories: readonly string[];
+    readonly tags: readonly string[];
     /**
      * The target version: the highest compatible one in the registry (upstream `gallery` is the compatible one too).
      * With no compatible version, the index's latest, for the reason text. `null` means no registry entry.
@@ -54,6 +62,8 @@ export interface IExtensionListEntry {
     readonly pinned: boolean;
     /** Installed/uninstalled in this session: contributions are scanned once at startup, takes effect after a window reload. */
     readonly needsReload: boolean;
+    /** Owned by the service, not a page: every tab and the list show the same, whoever started it. */
+    readonly operation: ExtensionOperation | null;
 }
 
 /** The error is a value, not an exception: the reason goes to the UI as text, like the catalog read error. */
@@ -65,6 +75,14 @@ export interface IExtensionInstallOptions {
      * profile entry gets pinned. Unset means the highest compatible one, and the entry keeps its pin.
      */
     readonly version?: string;
+}
+
+export interface IVsixInstallResult {
+    /**
+     * `false` only when the extension runs from the directory the install just refreshed (a platform package of
+     * the running version): its code finds the new files in place. Anything else waits for a window reload.
+     */
+    readonly needsReload: boolean;
 }
 
 export type IExtensionInstallResult =
@@ -137,15 +155,37 @@ export interface IExtensionsWorkbenchService {
 
     /**
      * Also "update": the profile switches to the new version; a previous one no profile uses is removed on the
-     * next start, so the running extension host keeps its files.
+     * next start, so the running extension host keeps its files. While an install of the id runs, another call
+     * gets that install's result (whatever its options) instead of writing the profile a second time.
      */
     install(id: string, options?: IExtensionInstallOptions): Promise<IExtensionInstallResult>;
+
+    /**
+     * Whole percent of the file an install of `id` is downloading right now (the extension or one of its
+     * dependencies); `null` when nothing measurable is downloading — a size unknown, or checking and unpacking.
+     */
+    getDownloadProgress(id: string): number | null;
+
+    /** The id whose {@link getDownloadProgress} changed: per whole percent, not per chunk. */
+    onDidChangeDownloadProgress(listener: (id: string) => void): IDisposable;
+
+    /**
+     * Why the last install or uninstall of `id` failed, until the next one starts: like the operation itself, it
+     * belongs to the extension, so a page opened mid-install shows it too. Set before the end's `onDidChange`.
+     */
+    getOperationError(id: string): string | null;
 
     /**
      * For the version picker (upstream `getAllCompatibleVersions`): newest first, compatible with this build.
      * Empty when the registry doesn't know the id; a network failure is thrown, like {@link getMeta}.
      */
     getCompatibleVersions(id: string): Promise<readonly IRegistryVersion[]>;
+
+    /**
+     * Upstream `install(vsix, { installGivenVersion: true })`: pinned in the profile, the same version is replaced
+     * (whatever its `targetPlatform`), dependencies come from the registry. A failure is thrown with its reason.
+     */
+    installVsix(vsixPath: string): Promise<IVsixInstallResult>;
 
     /** From this profile; the files go on the next start, when no profile needs the extension. */
     uninstall(id: string): Promise<IExtensionOperationResult>;
@@ -154,26 +194,3 @@ export interface IExtensionsWorkbenchService {
 }
 
 export const ExtensionsWorkbenchServiceDIToken = token<IExtensionsWorkbenchService>("ExtensionsWorkbenchService");
-
-/** Upstream `/@outdated/i`: anywhere in the query, any case. */
-const OUTDATED_FILTER = /@outdated/giu;
-
-export interface IExtensionQuery {
-    /** `@outdated`: only outdated entries. */
-    readonly outdated: boolean;
-    /** The rest of the query, normalized for {@link matchesExtensionQuery}. */
-    readonly text: string;
-}
-
-export function parseExtensionQuery(query: string): IExtensionQuery {
-    const text = query.replace(OUTDATED_FILTER, "");
-    return { outdated: text !== query, text: normalizeExtensionQuery(text) };
-}
-
-/** `searchRegistryIndex` semantics (shared predicate in `registryFormat.ts`) plus the `@outdated` filter. */
-export function filterExtensionEntries(entries: readonly IExtensionListEntry[], query: string): IExtensionListEntry[] {
-    const { outdated, text } = parseExtensionQuery(query);
-    return entries.filter(
-        (entry) => (!outdated || entry.availability === "outdated") && matchesExtensionQuery(entry, text),
-    );
-}

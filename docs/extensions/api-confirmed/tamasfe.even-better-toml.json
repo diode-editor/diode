@@ -1,0 +1,31 @@
+{
+    "members": [
+        "commands.registerTextEditorCommand",
+        "env.appName",
+        "env.clipboard",
+        "env.language",
+        "extensions.all",
+        "languages.createDiagnosticCollection",
+        "languages.match",
+        "languages.registerDocumentFormattingEditProvider",
+        "languages.registerDocumentLinkProvider",
+        "languages.registerDocumentSemanticTokensProvider",
+        "languages.registerDocumentSymbolProvider",
+        "languages.registerFoldingRangeProvider",
+        "window.activeTextEditor",
+        "window.createOutputChannel",
+        "window.createStatusBarItem",
+        "window.onDidChangeActiveTextEditor",
+        "window.showInformationMessage",
+        "workspace.fs",
+        "workspace.getConfiguration",
+        "workspace.onDidChangeConfiguration",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidChangeWorkspaceFolders",
+        "workspace.onDidCloseTextDocument",
+        "workspace.onDidOpenTextDocument",
+        "workspace.onDidSaveTextDocument",
+        "workspace.textDocuments",
+        "workspace.workspaceFolders"
+    ]
+}

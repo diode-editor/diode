@@ -18,7 +18,7 @@ export function modeContextKey(mode: string): string {
     return `mode_${mode}`;
 }
 
-/** The single mapping of the environment to when keys — shared by the live context and Keyboard Doctor. */
+/** The single mapping of the environment to when keys. */
 export function applyTerminalEnvContextKeys(contextKeys: ContextKeyService, env: ITerminalEnvKeys): void {
     contextKeys.set("tier", env.tier);
     contextKeys.set("os", env.os);

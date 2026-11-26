@@ -4,15 +4,25 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CancellationTokenNone, type ICancellationToken } from "../vs/base/common/cancellation.ts";
+import { Emitter } from "../vs/base/common/event.ts";
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
 import { curatedConfigInjection } from "../vs/diode/curatedConfigInjection.ts";
-import { bindExtensionHostToEditors, configProviderOver } from "../vs/diode/modules/extensionHostModule.ts";
+import {
+    bindExtensionHostToEditors,
+    bindFileOperationParticipant,
+    configProviderOver,
+    workspaceFoldersProvider,
+} from "../vs/diode/modules/extensionHostModule.ts";
 import type { ITextEdit } from "../vs/editor/common/core/iTextEdit.ts";
 import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeatureRegistry.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../vs/editor/common/languages/iCodeActionSource.ts";
 import type { ICompletionRequest, ICoreCompletionResult } from "../vs/editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../vs/editor/common/languages/iDefinitionSource.ts";
+import type {
+    ICoreDocumentSymbol,
+    IDocumentSymbolRequest,
+} from "../vs/editor/common/languages/iDocumentSymbolSource.ts";
 import type { IFoldingRequest } from "../vs/editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../vs/editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../vs/editor/common/languages/iHoverSource.ts";
@@ -20,7 +30,10 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../vs/editor/common/languages/iInlineCompletionSource.ts";
-import type { ILanguageConfigurationService } from "../vs/editor/common/languages/iLanguageConfigurationService.ts";
+import {
+    type ILanguageConfigurationService,
+    NULL_LANGUAGE_CONFIGURATION_SERVICE,
+} from "../vs/editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import type { ICoreReference, IReferenceRequest } from "../vs/editor/common/languages/iReferenceSource.ts";
@@ -34,6 +47,8 @@ import { getCodeActions } from "../vs/editor/contrib/codeAction/codeAction.ts";
 import type { IFoldingRegion } from "../vs/editor/contrib/folding/iFoldingRegion.ts";
 import { provideFoldingRanges } from "../vs/editor/contrib/folding/syntaxRangeProvider.ts";
 import { documentRange, formatDocument, formatRange } from "../vs/editor/contrib/format/format.ts";
+import type { IClipboard } from "../vs/platform/clipboard/common/iClipboard.ts";
+import { InMemoryClipboard } from "../vs/platform/clipboard/common/inMemoryClipboard.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import { ConfigurationRegistry } from "../vs/platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
@@ -45,13 +60,16 @@ import type { ILogger } from "../vs/platform/log/common/iLogger.ts";
 import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
 import type { IEnvironmentVariableCollectionStore } from "../vs/platform/terminal/common/environmentVariable.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
+import { WorkspaceContextService } from "../vs/platform/workspace/common/workspaceContextService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
 import { openDocumentSyncSources } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
 import { EditorLayoutServiceAdapter } from "../vs/workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { ThemeColorResolverAdapter } from "../vs/workbench/api/browser/themeColorResolverAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
+import type { IExtensionDebugSink } from "../vs/workbench/api/common/iExtensionDebugSink.ts";
 import type { IExtensionFileWatcher } from "../vs/workbench/api/common/iExtensionFileWatcher.ts";
+import type { IExtensionTestingSink } from "../vs/workbench/api/common/iExtensionTestingSink.ts";
 import type { IExtensionTreeViewsSink } from "../vs/workbench/api/common/iExtensionTreeViewsSink.ts";
 import type {
     DiagnosticsSink,
@@ -68,10 +86,16 @@ import type { IWorkspaceFoldersSink } from "../vs/workbench/api/common/iWorkspac
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
-import { getDefinitions } from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
+import {
+    getDeclarations,
+    getDefinitions,
+    getImplementations,
+    getTypeDefinitions,
+} from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
 import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
 import { provideInlineCompletions as provideInlineCompletionsFrom } from "../vs/workbench/contrib/inlineCompletions/browser/provideInlineCompletions.ts";
 import { provideSignatureHelp as provideSignatureHelpFrom } from "../vs/workbench/contrib/parameterHints/browser/provideSignatureHelp.ts";
+import { getDocumentSymbols } from "../vs/workbench/contrib/quickaccess/browser/gotoSymbolQuickAccessProvider.ts";
 import { getReferences } from "../vs/workbench/contrib/references/browser/getReferences.ts";
 import type { IPreparedRename } from "../vs/workbench/contrib/rename/browser/renameSymbol.ts";
 import { prepareRename, renameSymbol } from "../vs/workbench/contrib/rename/browser/renameSymbol.ts";
@@ -123,6 +147,18 @@ export function extensionFixture(id: string, file: string): IExtensionRegistrati
     };
 }
 
+/** `base` whose `requestLanguageFeatures` fires `onDidRequestLanguageFeatures`, as the app's language registry. */
+export function activatingLanguageService(base: ILanguageService): ILanguageService {
+    const requests = new Emitter<string>();
+    return {
+        ...base,
+        requestLanguageFeatures: (languageId) => {
+            requests.fire(languageId);
+        },
+        onDidRequestLanguageFeatures: requests.event,
+    };
+}
+
 /**
  * An extension without its own events is eager — a test convenience; in production empty means empty.
  * Plus the implicit `onCommand:<id>` events, as `computeActivationEvents` would compute them.
@@ -149,6 +185,7 @@ export async function registerAndActivate(host: ExtensionHost, reg: IExtensionRe
     return disposable;
 }
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
+import { attachKeyboardInputHold } from "../vs/workbench/services/keybinding/browser/keyboardInputHold.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../vs/workbench/services/themes/common/themeService.ts";
 
@@ -163,6 +200,8 @@ export interface IExtensionHarnessOptions {
     readonly workspaceConfiguration?: Readonly<Record<string, unknown>>;
     /** `uri.toString()`; absent — a folder window. */
     readonly workspaceFile?: string;
+    /** The app's `IEnvironmentService.userRoamingDataHome`; absent — none. */
+    readonly userRoamingDataHome?: string;
     /** What the host injects in the app (`builtinConfigInjection`); the harness collects manifest defaults itself. */
     readonly configurationDefaults?: Readonly<Record<string, unknown>>;
     /** CORE settings (`EditorService`, onSave participants) — not the subprocess `configuration`. */
@@ -186,6 +225,8 @@ export interface IExtensionHarnessOptions {
     readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
     readonly languageStatusSink?: ILanguageStatusSink;
     readonly treeViewsSink?: IExtensionTreeViewsSink;
+    readonly testingSink?: IExtensionTestingSink;
+    readonly debugSink?: IExtensionDebugSink;
     /** The workbench's registry, when its menus (a tree row's `view/item/context`) must see the extension's commands. */
     readonly commandRegistry?: CommandRegistry;
     readonly editorDecorations?: IEditorDecorationsService;
@@ -204,6 +245,10 @@ export interface IExtensionHarnessOptions {
     readonly environment?: IExtensionHostEnvironment;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
+    /** What the editors read pairs and `onEnterRules` from; pass the same service as {@link languageConfigurations}. */
+    readonly editorLanguageConfigurations?: ILanguageConfigurationService;
+    /** `env.clipboard` and `$CLIPBOARD` of a snippet; in-memory by default. */
+    readonly clipboard?: IClipboard;
 }
 
 export interface IExtensionHarness {
@@ -213,8 +258,13 @@ export interface IExtensionHarness {
     readonly languageFeatures: ILanguageFeaturesService;
     readonly themeService: ThemeService;
     readonly commandRegistry: CommandRegistry;
+    /** What the subprocess reads; a write here reaches a stock extension as `onDidChangeConfiguration`. */
+    readonly extensionConfiguration: IConfigurationService;
     readonly tmpDir: string;
+    readonly workspaceEditService: WorkspaceEditService;
     writeFile(name: string, content: string): string;
+    /** Open Folder as the workbench does it: the workspace switches and the subprocess restarts (extensionHostModule). */
+    openFolder(folder: string): Promise<void>;
     /** One RPC round trip over `queueMicrotask` takes two turns (request → handler → response). */
     flushRpc(turns?: number): Promise<void>;
     dispose(): Promise<void>;
@@ -241,7 +291,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
-        undefined,
+        options.editorLanguageConfigurations,
         undefined,
         [],
         languageFeatures,
@@ -254,20 +304,32 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         group.editorGroups,
     );
 
+    const harnessConfiguration =
+        options.configurationService ??
+        createTestConfigurationService({ "files.refactoring.autoSave": true, "files.participants.timeout": 60000 });
     const workspaceEditService = new WorkspaceEditService(
         undoRedoService,
         new TrashService(),
-        // The schema default: without it a refactoring would stay in dirty models instead of reaching the disk.
-        options.configurationService ?? createTestConfigurationService({ "files.refactoring.autoSave": true }),
+        // Schema defaults: without them a refactoring would stay in dirty models instead of reaching the disk.
+        harnessConfiguration,
         new BulkEditBuffers(group, group.textFileModels),
         files,
     );
-    const adapter = new EditorOptionsServiceAdapter(group, group.editorGroups, workspaceEditService);
     const commandRegistry = options.commandRegistry ?? new CommandRegistry();
     const commandAdapter = new CommandServiceAdapter(commandRegistry);
-    const folders = (options.workspaceFolders ?? [tmpDir]).map((folder, index) =>
+    const folderOptions = options.workspaceFolders ?? [tmpDir];
+    let folders: readonly IWorkspaceFolderInfo[] = folderOptions.map((folder, index) =>
         typeof folder === "string" ? { uri: Uri.file(folder).toString(), name: path.basename(folder), index } : folder,
     );
+    const workspaceContext = new WorkspaceContextService();
+    const [firstFolder] = folderOptions;
+    if (typeof firstFolder === "string") workspaceContext.setWorkspaceFolder(firstFolder);
+    const clipboard = options.clipboard ?? new InMemoryClipboard();
+    const adapter = new EditorOptionsServiceAdapter(group, group.editorGroups, workspaceEditService, {
+        clipboard,
+        languageConfigurations: options.editorLanguageConfigurations ?? NULL_LANGUAGE_CONFIGURATION_SERVICE,
+        workspace: workspaceContext,
+    });
     const configurationRegistry = new ConfigurationRegistry();
     new ExtensionConfigurationContributor(options.extensions ?? [], configurationRegistry, (ext) =>
         curatedConfigInjection(ext.id),
@@ -286,6 +348,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         configurationRegistry,
         () => folders,
         () => options.workspaceFile,
+        options.userRoamingDataHome,
     );
     const editorLayout = new EditorLayoutServiceAdapter(
         group,
@@ -303,6 +366,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const host = new ExtensionHost(adapter, commandAdapter, {
         spawnArgs: subprocessSpawnArgsForTests(),
         configuration,
+        clipboard,
         storageHomes,
         ...(options.logger !== undefined ? { logger: options.logger } : {}),
         ...(options.stderrLogger !== undefined ? { stderrLogger: options.stderrLogger } : {}),
@@ -318,6 +382,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.workspaceFoldersSink !== undefined ? { workspaceFoldersSink: options.workspaceFoldersSink } : {}),
         ...(options.languageStatusSink !== undefined ? { languageStatusSink: options.languageStatusSink } : {}),
         ...(options.treeViewsSink !== undefined ? { treeViewsSink: options.treeViewsSink } : {}),
+        ...(options.testingSink !== undefined ? { testingSink: options.testingSink } : {}),
+        ...(options.debugSink !== undefined ? { debugSink: options.debugSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         themeColorResolver: options.themeColorResolver ?? new ThemeColorResolverAdapter(themeService),
@@ -338,6 +404,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     });
 
     bindExtensionHostToEditors(host, group, group.editorGroups, languageFeatures);
+    bindFileOperationParticipant(host, workspaceEditService, harnessConfiguration, {
+        withProgress: (_options, task) => task(),
+    });
 
     const writeFile = (name: string, content: string): string => {
         const fp = path.join(tmpDir, name);
@@ -351,6 +420,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     }
 
     const app = TestApp.createWithContent(groupComponent.view);
+    // The workbench attaches it to its root; the harness has no workbench, and keys must wait here too.
+    attachKeyboardInputHold(groupComponent.view, commandRegistry);
 
     const flushRpc = async (turns = 2): Promise<void> => {
         for (let i = 0; i < turns; i++) {
@@ -363,20 +434,49 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     for (const reg of options.extensions ?? []) {
         host.registerExtension(testRegistration(reg));
     }
+    // As the app (`extensionHostModule.ts`): a model of a language, or a document the extension host opens without
+    // one, activates `onLanguage:<id>`. Only a language service from `activatingLanguageService` fires it.
+    const languageRequests = (options.languageService ?? NULL_LANGUAGE_SERVICE).onDidRequestLanguageFeatures(
+        (languageId) => {
+            void host.activateByEvent(`onLanguage:${languageId}`);
+            void host.activateByEvent("onLanguage");
+        },
+    );
     for (const event of options.activateEvents ?? ["*"]) {
         await host.activateByEvent(event);
     }
 
+    const openFolder = async (folder: string): Promise<void> => {
+        workspaceContext.setWorkspaceFolder(folder);
+        folders = workspaceFoldersProvider(workspaceContext)();
+        await host.restartForWorkspaceChange();
+    };
+
     const dispose = async (): Promise<void> => {
         // Wait for the subprocess to exit, not a fixed window: while alive it writes to `tmpDir`, and removal
         // either fails or its `mkdir` resurrects the directory — that is how gigabytes of `diode-ext-*` piled up.
+        languageRequests.dispose();
         await host.shutdown();
         groupComponent.dispose();
         group.dispose();
         removeDirLoud(tmpDir, "ExtensionTestHarness");
     };
 
-    return { app, host, group, languageFeatures, themeService, commandRegistry, tmpDir, writeFile, flushRpc, dispose };
+    return {
+        app,
+        host,
+        group,
+        languageFeatures,
+        themeService,
+        commandRegistry,
+        extensionConfiguration: extensionConfigurationService,
+        tmpDir,
+        workspaceEditService,
+        writeFile,
+        openFolder,
+        flushRpc,
+        dispose,
+    };
 }
 
 /** Requests carry no text: the subprocess reads its mirror of the document at this version. */
@@ -400,6 +500,56 @@ export async function provideDefinitions(
     token: ICancellationToken = CancellationTokenNone,
 ): Promise<readonly ICoreDefinitionLocation[]> {
     const model = await getDefinitions(harness.languageFeatures.definitionProvider, targetOf(request), request, token);
+    return model.references;
+}
+
+export async function provideImplementations(
+    harness: IExtensionHarness,
+    request: IDefinitionRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<readonly ICoreDefinitionLocation[]> {
+    const model = await getImplementations(
+        harness.languageFeatures.implementationProvider,
+        targetOf(request),
+        request,
+        token,
+    );
+    return model.references;
+}
+
+export function provideDocumentSymbols(
+    harness: IExtensionHarness,
+    request: IDocumentSymbolRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<readonly ICoreDocumentSymbol[]> {
+    return getDocumentSymbols(harness.languageFeatures.documentSymbolProvider, targetOf(request), request, token);
+}
+
+export async function provideTypeDefinitions(
+    harness: IExtensionHarness,
+    request: IDefinitionRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<readonly ICoreDefinitionLocation[]> {
+    const model = await getTypeDefinitions(
+        harness.languageFeatures.typeDefinitionProvider,
+        targetOf(request),
+        request,
+        token,
+    );
+    return model.references;
+}
+
+export async function provideDeclarations(
+    harness: IExtensionHarness,
+    request: IDefinitionRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<readonly ICoreDefinitionLocation[]> {
+    const model = await getDeclarations(
+        harness.languageFeatures.declarationProvider,
+        targetOf(request),
+        request,
+        token,
+    );
     return model.references;
 }
 

@@ -1,0 +1,15 @@
+// The vendored client and server compile as upstream compiles them (its extensions/tsconfig.base.json): type imports
+// without `import type` and `catch (e)` as `any`. The root tsconfig excludes this folder; `npm run typecheck` checks it
+// with this file.
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": false,
+    "useUnknownInCatchVariables": false,
+    "lib": ["ES2024", "WebWorker"]
+  },
+  "include": [".", "../../src/vscode-dts/vscode.d.ts", "../../src/vscode-dts/vscode.proposed.extensionsAny.d.ts"],
+  "exclude": ["out", "server/out"]
+}

@@ -22,6 +22,16 @@ interface IWrappedLines {
 }
 
 /**
+ * `wrapText` collapses whitespace, and a code block (a CSS declaration, a nested `if`) would lose its indentation:
+ * the indent is kept, and its continuation lines get it too. An indent as wide as the popup wraps as plain text.
+ */
+export function wrapIndented(line: string, width: number): string[] {
+    const indent = " ".repeat(line.length - line.replace(/^ +/, "").length);
+    if (indent.length >= width) return wrapText(line, width);
+    return wrapText(line, width - indent.length).map((wrapped) => indent + wrapped);
+}
+
+/**
  * Markdown never gets here: HoverService strips it. Lives outside tuidom: a per-char render
  * on top of drawBox can't be expressed by composing primitives (like `quickPickFrameElement.ts`).
  */
@@ -60,7 +70,7 @@ export class HoverElement extends TUIElement {
                 separators.add(lines.length);
                 lines.push("─".repeat(Math.max(0, textWidth)));
             }
-            lines.push(...wrapText(block, textWidth));
+            for (const line of block.split("\n")) lines.push(...wrapIndented(line, textWidth));
         }
         return { lines, separators };
     }
@@ -87,7 +97,14 @@ export class HoverElement extends TUIElement {
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
-        const size = constraints.constrain(this.boxSize);
+        // A narrower screen wraps the text onto more rows: the height comes from the width really given.
+        const width = Math.min(this.boxSize.width, constraints.maxWidth);
+        const wrappedSize = hoverBoxSize(
+            this.isEmpty ? null : hoverTextWidthIn(width),
+            (textWidth) => this.linesFor(textWidth).length,
+            this.maxHeight,
+        );
+        const size = constraints.constrain(wrappedSize);
         super.performLayout(BoxConstraints.tight(size));
         return size;
     }

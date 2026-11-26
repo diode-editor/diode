@@ -59,15 +59,15 @@ export class MemoryRandomAccessFile implements IRandomAccessFile {
         return this.bytes.length;
     }
 
-    /** The file grows under the open document (follow): the new bytes are readable at once. */
-    public append(more: Buffer | string): void {
-        this.bytes = Buffer.concat([this.bytes, typeof more === "string" ? Buffer.from(more) : more]);
+    /** The file grows under the open document (follow): the new text is readable at once. */
+    public append(more: string): void {
+        this.bytes = Buffer.concat([this.bytes, Buffer.from(more)]);
         this.visibleSize = this.bytes.length;
     }
 
     /** The file is truncated and rewritten in place (same inode): the old bytes are gone. */
-    public rewrite(content: Buffer | string): void {
-        this.bytes = typeof content === "string" ? Buffer.from(content) : content;
+    public rewrite(content: string): void {
+        this.bytes = Buffer.from(content);
         this.visibleSize = this.bytes.length;
     }
 

@@ -3,7 +3,8 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { defineScenario, type ScenarioDriver } from "./framework.ts";
+import { defineScenario } from "./framework.ts";
+import { changeUntilSeen } from "./untilSeen.ts";
 
 // Files and the branch change via `git`/`writeFileSync`, not the editor: changes made outside the editor must show up
 // on their own.
@@ -27,29 +28,6 @@ function makeRepo(): string {
 
 const repoDir = makeRepo();
 
-/**
- * Repeats the write until the tab reacts: the watcher arms asynchronously, and chokidar's `ignoreInitial`
- * swallows anything written before the initial scan ends — the event is lost for good (run 37195942480).
- * This is a real watching gap (docs/TODO/FileTreePerformance.md, the section on events lost in the arming
- * window); until it is closed, the scenario models a neighbouring terminal that keeps writing.
- */
-async function writeUntilSeen(
-    editor: ScenarioDriver,
-    write: () => void,
-    predicate: (text: string) => boolean,
-): Promise<void> {
-    const attempts = 5;
-    for (let attempt = 1; ; attempt++) {
-        write();
-        try {
-            await editor.waitForText(predicate, { timeoutMs: 3000 });
-            return;
-        } catch (err) {
-            if (attempt === attempts) throw err;
-        }
-    }
-}
-
 export default defineScenario({
     name: "scm-live-watch",
     title: "Source Control picks up changes made outside the editor (external git and disk writes)",
@@ -64,7 +42,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("main"));
         await editor.capture("clean");
 
-        await writeUntilSeen(
+        await changeUntilSeen(
             editor,
             () => {
                 writeFileSync(join(repoDir, "app.ts"), "export const version = 2;\n");

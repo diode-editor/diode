@@ -18,8 +18,8 @@ const BORDER = packRgb(70, 80, 90);
 const CLOSE_FG = packRgb(101, 102, 103);
 const HOVER_BG = packRgb(10, 20, 30);
 
-// Layout: row 0 = top strip (`─` across), row 1 = tabs (indent 1, pad 1 → glyphs at x 2),
-// rows 2.. = content indented by 2. "PROBLEMS" (8) → tab segment [1, 11), glyphs x 2..9;
+// Layout: row 0 = tabs (indent 1, pad 1 → glyphs at x 2), rows 1.. = content indented by 2.
+// No top strip: the part's frame separates the panel from the editor. "PROBLEMS" (8) → tab segment [1, 11), glyphs x 2..9;
 // "OUTPUT" (6) → segment [11, 19), glyphs x 12..17. The `×` button is the three
 // rightmost columns of the tab row: at width 40 that is x 37..39.
 
@@ -129,15 +129,15 @@ describe("PanelContainerElement", () => {
         markDirty.mockRestore();
     });
 
-    it("draws a flat top border strip in the border colour, with no left border", () => {
+    it("draws no border of its own: no top strip, no left border (the part's frame draws them)", () => {
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: null });
         layoutPanel(panel, new Size(40, 6));
         const backend = renderPanel(panel, new Size(40, 6));
 
-        expect(backend.getTextAt(new Point(0, 0), 1)).toBe("─");
-        expect(backend.getTextAt(new Point(20, 0), 1)).toBe("─");
-        expect(backend.getFgAt(new Point(0, 0))).toBe(BORDER);
+        expect(backend.getTextAt(new Point(0, 0), 1)).toBe(" ");
+        expect(backend.getTextAt(new Point(20, 0), 1)).toBe(" ");
+        expect(backend.getFgAt(new Point(20, 0))).not.toBe(BORDER);
         expect(backend.getBgAt(new Point(0, 0))).toBe(BG);
         expect(backend.getTextAt(new Point(0, 1), 1)).toBe(" ");
         expect(backend.getTextAt(new Point(0, 3), 1)).toBe(" ");
@@ -150,11 +150,11 @@ describe("PanelContainerElement", () => {
         layoutPanel(panel, new Size(40, 6));
         const backend = renderPanel(panel, new Size(40, 6));
 
-        expect(backend.getTextAt(new Point(2, 1), 8)).toBe("PROBLEMS");
-        expect(backend.getTextAt(new Point(12, 1), 6)).toBe("OUTPUT");
-        expect(backend.getFgAt(new Point(2, 1))).toBe(TITLE_FG);
-        expect(backend.getFgAt(new Point(12, 1))).toBe(TITLE_FG);
-        expect(backend.getBgAt(new Point(2, 1))).toBe(BG);
+        expect(backend.getTextAt(new Point(2, 0), 8)).toBe("PROBLEMS");
+        expect(backend.getTextAt(new Point(12, 0), 6)).toBe("OUTPUT");
+        expect(backend.getFgAt(new Point(2, 0))).toBe(TITLE_FG);
+        expect(backend.getFgAt(new Point(12, 0))).toBe(TITLE_FG);
+        expect(backend.getBgAt(new Point(2, 0))).toBe(BG);
     });
 
     it("renders the placeholder empty-state indented under the tab label", () => {
@@ -163,15 +163,17 @@ describe("PanelContainerElement", () => {
         layoutPanel(panel, new Size(40, 6));
         const backend = renderPanel(panel, new Size(40, 6));
         // Aligned under the tab label (x 2).
-        expect(backend.getTextAt(new Point(2, 2), 12)).toBe("No problems.");
+        expect(backend.getTextAt(new Point(2, 1), 12)).toBe("No problems.");
     });
 
     it("does not paint a placeholder when there is no room for a content row", () => {
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: null, placeholder: "hidden" });
-        layoutPanel(panel, new Size(40, 2));
+        layoutPanel(panel, new Size(40, 1));
+        // The screen is a row taller than the panel: a placeholder written past its edge would show.
         const backend = renderPanel(panel, new Size(40, 2));
-        expect(backend.getTextAt(new Point(2, 1), 1)).toBe("P");
+        expect(backend.getTextAt(new Point(2, 0), 1)).toBe("P");
+        expect(backend.getTextAt(new Point(2, 1), 6)).not.toBe("hidden");
     });
 
     it("renders and lays out the active view's content element indented below the header", () => {
@@ -179,12 +181,12 @@ describe("PanelContainerElement", () => {
         const content = new MarkerContent("X");
         panel.addView({ id: "a", title: "P", content });
         layoutPanel(panel, new Size(40, 6));
-        expect(content.layoutSize).toEqual(new Size(38, 4));
-        expect(content.globalPosition).toEqual(new Point(2, 2));
+        expect(content.layoutSize).toEqual(new Size(38, 5));
+        expect(content.globalPosition).toEqual(new Point(2, 1));
         expect(panel.getChildren()).toEqual([content]);
 
         const backend = renderPanel(panel, new Size(40, 6));
-        expect(backend.getTextAt(new Point(2, 2), 1)).toBe("X");
+        expect(backend.getTextAt(new Point(2, 1), 1)).toBe("X");
     });
 
     it("has no children and lays out nothing when the active view has no content", () => {
@@ -239,16 +241,16 @@ describe("PanelContainerElement", () => {
         it("activates the clicked tab and fires the callback", () => {
             const { root, panel, activated } = scene();
             const dispatcher = new MouseEventDispatcher();
-            // Screen x 12 (token 13), header row 1 (token y 2).
-            dispatcher.handleMouseToken(makeToken({ action: "press", x: 13, y: 2 }), root);
+            // Screen x 12 (token 13), header row 0 (token y 1).
+            dispatcher.handleMouseToken(makeToken({ action: "press", x: 13, y: 1 }), root);
             expect(panel.getActiveViewId()).toBe("b");
             expect(activated).toEqual(["b"]);
         });
 
-        it("ignores clicks off the header row (top strip or content)", () => {
+        it("ignores clicks off the header row (content)", () => {
             const { root, panel, activated } = scene();
             const dispatcher = new MouseEventDispatcher();
-            dispatcher.handleMouseToken(makeToken({ action: "press", x: 13, y: 1 }), root); // top strip row 0
+            dispatcher.handleMouseToken(makeToken({ action: "press", x: 13, y: 2 }), root); // first content row
             dispatcher.handleMouseToken(makeToken({ action: "press", x: 13, y: 4 }), root); // content area
             expect(panel.getActiveViewId()).toBe("a");
             expect(activated).toEqual([]);
@@ -257,7 +259,7 @@ describe("PanelContainerElement", () => {
         it("ignores clicks past the last tab", () => {
             const { root, panel, activated } = scene();
             const dispatcher = new MouseEventDispatcher();
-            dispatcher.handleMouseToken(makeToken({ action: "press", x: 30, y: 2 }), root); // empty header space
+            dispatcher.handleMouseToken(makeToken({ action: "press", x: 30, y: 1 }), root); // empty header space
             expect(panel.getActiveViewId()).toBe("a");
             expect(activated).toEqual([]);
         });
@@ -270,21 +272,21 @@ describe("PanelContainerElement", () => {
             const { root, panel, activated } = scene();
             const dispatcher = new MouseEventDispatcher();
 
-            dispatcher.handleMouseToken(makeToken({ action: "press", x: 1, y: 2 }), root);
+            dispatcher.handleMouseToken(makeToken({ action: "press", x: 1, y: 1 }), root);
             expect(activated).toEqual([]);
 
-            dispatcher.handleMouseToken(makeToken({ action: "press", x: 12, y: 2 }), root);
+            dispatcher.handleMouseToken(makeToken({ action: "press", x: 12, y: 1 }), root);
             expect(activated).toEqual(["b"]);
             expect(panel.getActiveViewId()).toBe("b");
 
-            dispatcher.handleMouseToken(makeToken({ action: "press", x: 20, y: 2 }), root);
+            dispatcher.handleMouseToken(makeToken({ action: "press", x: 20, y: 1 }), root);
             expect(activated).toEqual(["b"]);
         });
 
         it("ignores non-left clicks", () => {
             const { root, panel, activated } = scene();
             const dispatcher = new MouseEventDispatcher();
-            dispatcher.handleMouseToken(makeToken({ action: "press", button: "right", x: 13, y: 2 }), root);
+            dispatcher.handleMouseToken(makeToken({ action: "press", button: "right", x: 13, y: 1 }), root);
             expect(panel.getActiveViewId()).toBe("a");
             expect(activated).toEqual([]);
         });
@@ -294,7 +296,7 @@ describe("PanelContainerElement", () => {
             panel.onActivateView = undefined;
             const dispatcher = new MouseEventDispatcher();
             expect(() => {
-                dispatcher.handleMouseToken(makeToken({ action: "press", x: 13, y: 2 }), root);
+                dispatcher.handleMouseToken(makeToken({ action: "press", x: 13, y: 1 }), root);
             }).not.toThrow();
             expect(panel.getActiveViewId()).toBe("b");
         });

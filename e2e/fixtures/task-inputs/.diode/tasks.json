@@ -1,0 +1,23 @@
+{
+    // Tasks for the task-inputs e2e scenario and manual testing:
+    //   diode e2e/fixtures/task-inputs → F1 «Tasks: Run Task» → greet.
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "greet",
+            "type": "shell",
+            "command": "echo",
+            "args": ["hello ${input:name}, mode ${input:mode}, again ${input:name}"]
+        }
+    ],
+    "inputs": [
+        { "id": "name", "type": "promptString", "description": "Who to greet", "default": "world" },
+        {
+            "id": "mode",
+            "type": "pickString",
+            "description": "Build mode",
+            "options": ["debug", { "label": "Optimized", "value": "release" }],
+            "default": "debug"
+        }
+    ]
+}

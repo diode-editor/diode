@@ -291,10 +291,13 @@ describe("Workbench — menu bar wiring", () => {
             "Explorer",
             "Search",
             "Source Control",
+            "Run",
             "Extensions",
             "References",
+            "Testing",
             "Problems",
             "Output",
+            "Debug Console",
             "Terminal",
             "Toggle Primary Side Bar",
             "Toggle Secondary Side Bar",
@@ -373,6 +376,8 @@ describe("Workbench — menu bar wiring", () => {
             "Next Used Editor",
             "Alternate Editor",
             "Previous Used Editor",
+            "Go to Symbol in Workspace...",
+            "Go to Symbol in Editor...",
         ]);
     });
 

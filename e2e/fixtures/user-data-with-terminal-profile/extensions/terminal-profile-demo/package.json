@@ -1,0 +1,25 @@
+{
+    "name": "terminal-profile-demo",
+    "displayName": "Terminal Profile Demo",
+    "description": "A contributed terminal profile, like js-debug's JavaScript Debug Terminal: contributes.terminal.profiles plus window.registerTerminalProfileProvider, started only by onTerminalProfile.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onCommand:terminalProfileDemo.unused"
+    ],
+    "contributes": {
+        "terminal": {
+            "profiles": [
+                {
+                    "id": "terminalProfileDemo.echo",
+                    "title": "Echo Profile Terminal",
+                    "icon": "$(debug)"
+                }
+            ]
+        }
+    }
+}

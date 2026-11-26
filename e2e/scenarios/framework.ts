@@ -55,6 +55,8 @@ export interface ScenarioSpec {
     cols?: number;
     rows?: number;
     env?: Record<string, string>;
+    /** Terminal-identity variables (`TMUX`, `TERM_PROGRAM`, ...) that the hermetic spawn would strip from `env`. */
+    terminalIdentity?: Record<string, string>;
     /** Skips only in the CI safety net (`scenarios-<N>.test.ts`); screenshots are generated as usual. */
     skipOn?: readonly NodeJS.Platform[];
     /** A `.vsix` path or a marketplace id (told apart by suffix, as in the CLI); an id requires `network: true`. */
@@ -103,6 +105,7 @@ export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
         ...(spec.cols !== undefined ? { cols: spec.cols } : {}),
         ...(spec.rows !== undefined ? { rows: spec.rows } : {}),
         ...(spec.env !== undefined ? { env: spec.env } : {}),
+        ...(spec.terminalIdentity !== undefined ? { terminalIdentity: spec.terminalIdentity } : {}),
     });
     const { session } = app;
     const shots: CapturedShot[] = [];

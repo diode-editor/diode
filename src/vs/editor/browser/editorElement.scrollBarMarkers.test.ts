@@ -29,7 +29,7 @@ function makeEditor(content: string, occurrences = false): EditorElement {
         "editorOverviewRuler.warningForeground": WARNING,
         "editorOverviewRuler.infoForeground": INFO,
         "editorOverviewRuler.findMatchForeground": FIND,
-        "editorOverviewRuler.wordHighlightForeground": WORD,
+        "editorOverviewRuler.wordHighlightTextForeground": WORD,
     });
     return editor;
 }
@@ -185,6 +185,21 @@ describe("EditorElement — scrollbar markers", () => {
         }
     });
 
+    it("[api:ThemableDecorationRenderOptions.overviewRulerColor] marks an extension type's ranges on the scrollbar, not in the gutter", () => {
+        const RULER = packRgb(0xff, 0, 0);
+        const editor = makeEditor(lines(100));
+        editor.overviewRulerDecorations = [{ range: createRange(55, 0, 55, 2), color: RULER }];
+        const app = TestApp.createWithContent(new ScrollBarDecorator(editor), new Size(30, 10));
+        app.render();
+
+        expect(app.backend.getTextAt(new Point(29, 5), 1)).toBe("─");
+        expect(app.backend.getFgAt(new Point(29, 5))).toBe(RULER);
+        // The gutter of every row keeps its own colors: no change bar is drawn for the mark.
+        for (let x = 0; x < editor.gutterWidth; x++) {
+            for (let y = 0; y < 10; y++) expect(app.backend.getFgAt(new Point(x, y))).not.toBe(RULER);
+        }
+    });
+
     describe("built once per change of the sources, not per frame", () => {
         function occurrenceEditor(): EditorElement {
             const editor = makeEditor("a:\n  foo\n  foo\nfoo", true);
@@ -240,6 +255,10 @@ describe("EditorElement — scrollbar markers", () => {
                     (e.markerDecorations = [{ range: createRange(0, 0, 0, 1), severity: MarkerSeverity.Info }]),
             ],
             [
+                "extension decoration marks",
+                (e: EditorElement) => (e.overviewRulerDecorations = [{ range: createRange(0, 0, 0, 0), color: ADDED }]),
+            ],
+            [
                 "diagnostic severity",
                 (e: EditorElement) =>
                     (e.markerDecorations = [{ range: createRange(1, 0, 1, 1), severity: MarkerSeverity.Warning }]),
@@ -286,7 +305,7 @@ describe("EditorElement — scrollbar markers", () => {
             const editor = occurrenceEditor();
             const markers = markersOf(editor);
             const color = packRgb(1, 2, 3);
-            editor.setStyleVars({ "editorOverviewRuler.wordHighlightForeground": color });
+            editor.setStyleVars({ "editorOverviewRuler.wordHighlightTextForeground": color });
             TestApp.createWithContent(editor, new Size(40, 10)).render();
 
             expect(editor.getScrollBarMarkers()).not.toBe(markers);

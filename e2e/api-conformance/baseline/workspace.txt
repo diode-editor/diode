@@ -1,3 +1,6 @@
+vscode API - workspace MarkdownString
+vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 1/3
+vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 3/3
 vscode API - workspace SnippetString in WorkspaceEdit with keepWhitespace
 vscode API - workspace The api workspace.applyEdit failed for some case of mixing resourceChange and textEdit #80688, 1/2
 vscode API - workspace The api workspace.applyEdit failed for some case of mixing resourceChange and textEdit #80688, 2/2
@@ -18,9 +21,16 @@ vscode API - workspace applyEdit "edit A -> rename A to B -> edit B"
 vscode API - workspace applyEdit should fail when editing deleted resource
 vscode API - workspace applyEdit should fail when editing renamed from resource
 vscode API - workspace applyEdit should fail when renaming deleted resource
+vscode API - workspace encoding: decode
+vscode API - workspace encoding: encode
+vscode API - workspace encoding: openTextDocument
 vscode API - workspace encoding: openTextDocument - can change the encoding of an existing untitled document
 vscode API - workspace encoding: openTextDocument - invalid encoding falls back to default
+vscode API - workspace encoding: openTextDocument - multiple requests with different encoding work
+vscode API - workspace encoding: openTextDocument - throws for dirty documents
+vscode API - workspace encoding: save text document with a different encoding
 vscode API - workspace encoding: text document encodings
+vscode API - workspace encoding: utf8bom does not explode (https://github.com/microsoft/vscode/issues/242132)
 vscode API - workspace eol, change via applyEdit
 vscode API - workspace eol, change via editor
 vscode API - workspace eol, change via onWillSave
@@ -29,6 +39,7 @@ vscode API - workspace events: onDidOpenTextDocument, onDidChangeTextDocument, o
 vscode API - workspace events: onDidSaveTextDocument fires even for non dirty file when saved
 vscode API - workspace findFiles
 vscode API - workspace findFiles - exclude
+vscode API - workspace findFiles - null exclude
 vscode API - workspace findFiles, cancellation
 vscode API - workspace findFiles, exclude
 vscode API - workspace getWorkspaceFolder
@@ -54,6 +65,7 @@ vscode API - workspace registerTextDocumentContentProvider, simple
 vscode API - workspace rootPath
 vscode API - workspace save
 vscode API - workspace saveAll
+vscode API - workspace textDocuments
 vscode API - workspace workspace.applyEdit drops the TextEdit if there is a RenameFile later #77735 (without opened editor)
 vscode API - workspace workspaceFile
 vscode API - workspace workspaceFolders

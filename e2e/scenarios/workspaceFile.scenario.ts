@@ -8,9 +8,12 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 const fixture = resolve(repoRoot, "e2e", "fixtures", "workspaceFile");
 
-/** A chevron (one character in the frame text) and the name, nothing after; root files don't match the pattern. */
+/**
+ * A chevron (one character in the frame text) and the name, nothing after up to the sidebar frame's right line;
+ * root files don't match the pattern. The row starts with the sidebar frame's left line.
+ */
 function hasTopDir(screen: string, name: string): boolean {
-    return new RegExp(`^\\s*\\S?\\s*${name}$`, "m").test(screen);
+    return new RegExp(`^│\\s*\\S?\\s*${name}\\s*│`, "m").test(screen);
 }
 
 export default defineScenario({
@@ -38,9 +41,7 @@ export default defineScenario({
         await editor.sendText(resolve(fixture, "backend.code-workspace"));
         await editor.sendKey("Enter");
 
-        await editor.waitForText(
-            (t) => hasTopDir(t, "backend") && !hasTopDir(t, "web") && !hasTopDir(t, "generated"),
-        );
+        await editor.waitForText((t) => hasTopDir(t, "backend") && !hasTopDir(t, "web") && !hasTopDir(t, "generated"));
         await editor.capture("backend");
     },
 });

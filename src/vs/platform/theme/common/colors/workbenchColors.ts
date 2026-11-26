@@ -56,6 +56,14 @@ export const workbenchColors = {
         defaults: { dark: "#FFFFFF80", light: "#868686" },
         description: "Inactive Tab foreground color in an active group.",
     },
+    // Deviation: upstream defaults to #252526 / #F3F3F3. Our tabs are boxes on the editor frame's top
+    // line, drawn in this color; a theme without its own tab.border gets the part frames' color, so
+    // the tabs and the frame below them are one line.
+    "tab.border": {
+        defaults: { dark: "panel.border", light: "panel.border" },
+        description:
+            "Border to separate tabs from each other. Tabs are the containers for editors in the editor area. Multiple tabs can be opened in one editor group. There can be multiple editor groups.",
+    },
     "panel.background": {
         defaults: { dark: "#181818", light: "#F8F8F8" },
         description: "Panel background color.",
@@ -108,16 +116,32 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#333333" },
         description: "Title Bar foreground when the window is active.",
     },
-    // VS Code has no terminal.background default (null): the terminal in the panel uses the panel
-    // background, so a theme without terminal colors (Catppuccin) doesn't get a black rectangle in
-    // the middle of its panel.
+    // No default, as upstream: a terminal falls back to the background of where it stands, the panel's
+    // in the panel and the editor's in an editor tab (resolveTerminalColors). A theme without terminal
+    // colors (Catppuccin) gets no black rectangle, an editor-area terminal no panel-colored one.
     "terminal.background": {
-        defaults: { dark: "panel.background", light: "panel.background" },
+        defaults: null,
         description: "The background of the Integrated Terminal's viewport.",
     },
     "terminal.foreground": {
         defaults: { dark: "#CCCCCC", light: "#333333" },
         description: "The default foreground color of the Integrated Terminal.",
+    },
+    "terminal.selectionBackground": {
+        defaults: { dark: "editor.selectionBackground", light: "editor.selectionBackground" },
+        description: "The selection background color of the terminal.",
+    },
+    // Upstream `transparent(terminal.selectionBackground, 0.5)`: no color expressions here, so it is baked from
+    // the `editor.selectionBackground` default; the terminal composites the alpha over the cell's background.
+    "terminal.inactiveSelectionBackground": {
+        defaults: { dark: "#264F7880", light: "#ADD6FF80" },
+        description: "The selection background color of the terminal when it does not have focus.",
+    },
+    // Upstream defaults to `#000000` in hcDark and `#ffffff` in hcLight only; the registry has no hc slots.
+    "terminal.selectionForeground": {
+        defaults: null,
+        description:
+            "The selection foreground color of the terminal. When this is null the selection foreground will be retained and have the minimum contrast ratio feature applied.",
     },
     // Notification toasts (the stack above the status bar). In vscode these three tokens derive
     // from editorWidget.{background,foreground} and notificationCenterHeader.background; the
@@ -148,5 +172,14 @@ export const workbenchColors = {
     "notificationsErrorIcon.foreground": {
         defaults: { dark: "#F14C4C", light: "#E51400" },
         description: "The color used for the notification error icon.",
+    },
+    // Upstream `miscColors.ts`: `Color.black.lighten(0.2)` baked as hex.
+    "activityErrorBadge.foreground": {
+        defaults: { dark: "#333333", light: "#FFFFFF" },
+        description: "Foreground color of the error activity badge",
+    },
+    "activityErrorBadge.background": {
+        defaults: { dark: "#F14C4C", light: "#E51400" },
+        description: "Background color of the error activity badge",
     },
 } as const satisfies ColorContribution;

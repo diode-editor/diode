@@ -15,7 +15,8 @@ isDefault?, rejectAddedViews?}` (`label` — название в авторск�
 VS Code), строит их все `attachRegisteredContainers()` из `mount()` — по
 `order`, а не по порядку резолва компонентов: Explorer 0 (`isDefault`),
 Search 1, Source Control 2 (регистрирует `ChangesComponent`), Extensions 3,
-References 4; в панели PROBLEMS 0, OUTPUT 1, TERMINAL 2 — это порядок вкладок,
+References 4, Testing 6 (`order` эталона; есть, пока есть контроллер тестов); в панели PROBLEMS 0, OUTPUT 1, TERMINAL 2, TEST RESULTS 3 (есть, пока есть
+результат запуска тестов) — это порядок вкладок,
 первая активна. Поздний `attachContainer` вставляет вкладку в позицию по
 `order`; контейнер без `order` встаёт после упорядоченных. View — секция внутри
 него: `{id, containerId, title, order, body, placeholder?, focus,
@@ -30,7 +31,14 @@ requiresWorkspaceFolder?, canMoveView?}`. `containerId` —
 сохранённая видимость его перебивает.
 `body === null` рисует `placeholder` (аналог `viewsWelcome`); тело и виджет
 заголовка меняются на месте (`setViewBody`/`setViewTitleWidget`), поэтому
-место держит одну и ту же ссылку на корень контейнера всю жизнь.
+место держит одну и ту же ссылку на корень контейнера всю жизнь. Виджет
+самого контейнера сайдбара (аналог `getActionViewItem` композита — лаунчер
+Run and Debug) — `setContainerTitleWidget`: он стоит в заголовке контейнера
+перед кнопками. В узком заголовке виджет ужимается до своей минимальной
+ширины (`getMinIntrinsicWidth`), заголовок уступает первым, остаток —
+виджету до естественной ширины (у виджета с равными min/max ширина не
+меняется). Нажатие на виджет — его собственное: заголовок не открывает по
+нему переключатель контейнеров.
 `unregisterView` снимает вид, где бы он ни стоял (вид расширения, чей `when`
 стал ложным); опустевший контейнер уходит с места, сохранённое состояние
 секции остаётся до повторной регистрации. `focusViewHeader` — фокус для вида
@@ -49,6 +57,7 @@ requiresWorkspaceFolder?, canMoveView?}`. `containerId` —
 `onDidChangeLocations`; показ на текущем месте — `openView`/
 `openViewContainer` (вкладку части активирует как пользователь — ленивые
 фичи просыпаются).
+
 - Переносятся только виды с `canMoveView: true` (Explorer, Search, SCM,
   Problems, Output, Terminal); контейнер с `rejectAddedViews` (Extensions)
   чужие виды не принимает.
@@ -407,6 +416,261 @@ layout'а находит их.
 перечисляют оба класса руками (третий списочный контрол — сигнал завести общий
 интерфейс); трекер — [TODO/README.md](../../TODO/README.md#workbench).
 
+**`LazyTreeControl<T>`** (`browser/parts/views/lazyTreeControl.ts`) — не третий
+класс, а владелец данных поверх `ListViewElement`: эталонный `AsyncDataTree` для
+видов отладки (Variables, Watch, Debug Console; решение 2026-11-14 — контрол
+workbench, а не доработка `TreeViewElement`, у которого метка одноцветная).
+Потребитель отдаёт `ILazyTreeSource` (корни, дети sync/async, ключ, «есть ли
+дети», начальная раскрытость, строка спанами `IRowSpan`, текст typeahead), тело
+вида — `element` (отступ в колонку слева и справа + скроллбар). Фокус получает
+сам `ListViewElement`, поэтому `listFocus` и `list.*` работают без правки
+перечисления классов.
+
+- Свёрнутый узел с детьми несёт одного ребёнка-заглушку «Loading...»
+  (`descriptionForeground`) — она даёт шеврон; раскрытие показывает её до ответа
+  `getChildren`, затем детей. Свёрнутый узел детей не держит: повторное
+  раскрытие (и после Collapse All) читает их заново.
+- Любое изменение — пересборка строк одним `clear()` + `appendRow` (виды отладки
+  — сотни строк); свёрнутые узлы добавляются сразу свёрнутыми (`collapsed` у
+  `appendRow`, tuidom 0.35), так что `onCollapsedChanged` приходит только от
+  пользователя, а пересборку по нему контрол откладывает на микротаск — список
+  ещё внутри своей обработки клавиши или клика. `refresh()` читает корни и все
+  раскрытые узлы и подменяет строки разом; курсор держится по ключу (строка
+  пропала — к родителю), прокрутка сохраняется. Опоздавшее чтение (перекрытое
+  `refresh` или новым раскрытием) отбрасывается; чтения, пришедшие разом, —
+  одна пересборка.
+- `stickyTail` (консоль): хвост был виден до пересборки — после неё виден
+  снова; консоль, заполненная до первой отрисовки, открывается на хвосте.
+  Смещение пишется в `scrollTop` напрямую — кламп и привязку к строке по
+  настоящему вьюпорту делает следующий layout (tuidom 0.35: смещение,
+  выставленное до первого layout, его переживает, а `contentHeight` не запускает
+  ленивый layout).
+- Обходы недостающего API `ListViewElement` (всё публичное, но не идеальное):
+  строка-заглушка вместо флага строки «сворачиваемая, дети не загружены», ручное
+  сохранение курсора и прокрутки вместо `replaceRows` с сохранением состояния,
+  своя проверка хвоста вместо `followTail` у самого списка. Второй потребитель
+  любого из них — повод поднять API в tuidom.
+- `expand(element)` — раскрыть узел, у которого дети появились позже
+  (ленивая переменная после вычисления): читает их заново, даже если узел
+  уже был раскрыт. Спан строки может нести `style` (курсив недоступного
+  значения).
+- Части строки: `renderRowEnd(element)` — часть, прижатая к правому краю
+  (источник строки Debug Console, метка состояния потока CALL STACK, строка
+  брейкпоинта), спан с `onClick` — инлайн-контрол (чекбокс брейкпоинта; клик
+  потребляется и строку не выбирает, двойной клик её не открывает). Такая
+  строка — `HFlexElement` из подписей: последний кусок текста — `fill`-ребёнок,
+  правая часть и контролы — по ширине содержимого, перед правой частью — колонка
+  отступа. Flex отдаёт `fill` остаток после остальных, поэтому при нехватке
+  места обрезается текст, а правая часть остаётся целиком (как `flex: 1` имени у
+  эталона перед бейджем). Центрировать нечем (две `fill`-распорки flex не
+  делит) — кадр `label` у CALL STACK курсивом, но слева.
+- `onSelect` — курсор передвинул пользователь (стрелки, клик); перестройка и
+  `reveal(element)` (курсор на строку элемента, если она показана) его не зовут:
+  CALL STACK фокусирует кадр под курсором и сам же ставит курсор на кадр после
+  остановки.
+- `wrap` (опция, читается при каждой пересборке; Debug Console —
+  `debug.console.wordWrap`): строки `height: "auto"` у списка, текст — подпись
+  с `wrap` (tuidom 0.36); у строки с правой частью текст — `fill` по высоте, а
+  правая часть и контролы остаются на первой строке. Без переноса длинная
+  строка обрезается: горизонтальной прокрутки у `ListViewElement` нет (у
+  эталона консоль прокручивается вбок). Раскрытие узла внизу не прокручивает к
+  детям — как у эталона.
+- Спан с `link` — ссылка в тексте (`LinkDetector` консоли): в отличие от
+  `onClick` остаётся в одной подписи со всей строкой и переносится с ней; клик
+  по её ячейкам (`TextLabelElement.offsetAt`) потребляется и строку не
+  выбирает. Строка со ссылками — тоже `HFlexElement`: список отдаёт клик только
+  потомкам элемента строки, не ему самому. `shownItems` — элементы показанных
+  строк сверху вниз (Copy All консоли).
+
+**`ActionButtonElement`** (`browser/parts/views/actionButtonElement.ts`) —
+кнопка вида на всю ширину с подписью по центру (`button.*`, наведение и фокус —
+`button.hoverBackground`, выключенная — `button.secondary*`): Commit у Source
+Control и «Run and Debug» в welcome вьюлета отладки (решение 2026-11-14 —
+кнопка как у Commit). Не `ButtonElement` tuidom: та ширины по содержимому и с
+неизменной подписью.
+
+## Testing
+
+Контейнер `workbench.view.extension.test` («Testing», `order: 6`) и вид `workbench.view.testing` (TEST
+EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorerComponent`), эталон —
+`testingExplorerView.ts` с иерархической проекцией. Вид регистрируется, пока истинно `testing.providerCount
+
+> 0` (`when` эталона): контейнер появляется с первым контроллером и уходит с последним (`hideIfEmpty`).
+
+- **Пустое состояние** — welcome эталона («No tests have been found…», кнопка «Install Additional Test
+  Extensions...» → `testing.searchForTestExtension` с поиском `@category:"testing"`, как в эталоне), пока ни у
+  одного корня нет детей и ни один не занят.
+- **Шапка** — поле фильтра с глифом `filter` справа («More Filters...» эталона: клик — меню «Show Only
+  Failed Tests» / «Show Only Executed Tests» с галочкой, пункт дописывает или убирает `@failed`/`@executed`)
+  и сводка `ResultSummaryView`: без результатов «No test results yet.»; во время запуска — спиннер,
+  `passed/totalWillBeRun` живых запусков и время с начала старейшего, перерисовка раз в 200 мс
+  (`SUMMARY_RENDER_INTERVAL`); после — иконка доминирующего состояния последнего запуска его цветом, счёт,
+  длительность и `↻` справа (`testing.reRunLastRun`).
+  Фильтр — `common/testExplorerFilter.ts` (`setText` + `TestsFilter` эталона): термы через запятую,
+  подстрока подписи теста или предка, `!` исключает, `@ctrlId:tag` — тег, `@failed` — упавшие (вычисленное
+  состояние), `@executed` — с результатом; всё — И. Совпадение раскрывает дерево до себя. ArrowDown из
+  поля — в дерево, ArrowUp с первой строки — в поле, Escape чистит поле (на пустом — как в Search, ничего).
+- **Дерево** — `TreeViewElement` поверх зеркала `TestService`: с одним контроллером корни — его тесты,
+  с двумя и больше — сами контроллеры. Порядок — `TreeSorter` эталона: «Sort by Location» (по
+  умолчанию — так у эталона в storage: строка в одном файле, иначе `sortText ?? label`), «Sort by Status»,
+  «Sort by Duration» в «⋯» (группа `sortBy`, ключ `testing.explorerViewSorting`, выбор — в state воркспейса).
+  Строка: иконка состояния `testingStatesToIcons` своим цветом `testing.icon*` (`testingColors.ts`),
+  Running — спиннер; подпись, приглушённое `description: длительность` (`formatDuration`). Состояние —
+  последний результат теста из `TestResultService.getStateById`, у родителя поднятое детьми по
+  `statePriority`; длительность родителя — сумма детей. После запуска предки упавших раскрываются;
+  `testing.followRunningTest` ведёт курсор за запущенным тестом (до ближайшего показанного предка, а с
+  `testing.alwaysRevealTestOnStateChange` или для упавшего — раскрывая). `TestItem.error` — строка-ребёнок цветом `list.errorForeground`, тест с ней раскрыт
+  (`TestTreeErrorMessage` эталона). Занятый (`busy`) и раскрывающийся тест крутит спиннер: пока такой
+  есть, у вида открыт прогресс `ProgressService` (общий такт и спиннер в заголовке). Раскрытие
+  `Expandable`-узла (и корня контроллера при показе) зовёт `TestService.expandTest(id, 0)`, по разу на
+  состояние. Диффы перечитывают дерево целиком, раскрытие и курсор держатся по id.
+- **Меню строки** — `MenuId.TestItem` (`testing/item/context`) с ключами строки `view`, `testId`
+  (последний сегмент), `controllerId`, `testing.testItemHasUri` и возможностями теста
+  (`capabilityContextKeys` эталона: `testing.hasRunnableTests`/`testing.hasDebuggableTests` — есть ли у его
+  контроллера профиль группы, чей тег на тесте; `TestProfileService.capabilitiesForTest`); группа `inline` — глифы справа с отступом в
+  колонку (`inlineActionsRightPadding: 1`), прочее — контекстное меню. Общие помощники с деревьями
+  расширений — `browser/parts/views/treeItemMenu.ts`. Команде уходит `{ $testId }`.
+- **Go to Test** — Enter/клик по листу с `uri` открывает файл на `range.start`, фокус остаётся в дереве;
+  `testing.editFocusedTest` (`Alt+Enter` при `focusedView == 'workbench.view.testing'`, inline и в меню при
+  `testing.testItemHasUri`) уводит фокус в редактор. Inline — решение спеки (у эталона только меню).
+- **Заголовок** — Refresh Tests / Cancel Test Refresh на одном месте (`navigation`, 10), Run Tests
+  (`testing.runSelected`, видимые тесты: без фильтра — все, с ним — совпавшие без скрытых) / Cancel Test
+  Run (`testing.cancelRun`, `Ctrl+; Ctrl+X`) — на одном месте (11) по `testing.isRunning`; Collapse All
+  Tests и Clear All Results — в «⋯» (`displayAction`), там же сортировки. На строке — Run Test
+  (`testing.run`, inline и `builtin@1`, тест с видимыми потомками) перед Go to Test. Команды палитры:
+  Run All Tests (`Ctrl+; A`), Rerun Failed Tests (`Ctrl+; E`, упавшие по всем результатам), Rerun Last Run
+  (`Ctrl+; L`, те же цели и профили, если запуск той же группы и профили ещё есть, иначе дефолты группы),
+  Rerun Failed Tests from Last Run — реруны доступны при `testing.hasAnyResults`.
+- **Debug** (профиль `Debug` контроллера; отладочную сессию стартует сам `runHandler` расширения через
+  `vscode.debug.startDebugging`, как vitest/jest) — пара к каждому Run-пункту эталона: Debug Tests в
+  заголовке (`testing.debugSelected`, `navigation` 12, при `!testing.isRunning && testing.hasDebuggableTests`),
+  Debug Test на строке (`testing.debug`, inline и `builtin@1` после Run Test, по возможностям теста), Debug
+  All Tests (`Ctrl+; Ctrl+A`, в палитре при `testing.hasDebuggableTests`, без тестов — «No debuggable tests
+  found in this workspace…»), Debug Failed Tests (`Ctrl+; Ctrl+E`), Debug Last Run (`Ctrl+; Ctrl+L`),
+  Debug Failed Tests from Last Run. Alt+клик по Rerun Last Run сводки — Debug Last Run (альтернативное
+  действие `MenuItemAction` эталона). Тест без Debug-профиля не отлаживается: `runTests` его пропускает.
+- Не сделано: count badge (`testing.countBadge` — activity bar нет), View as List/Tree, Hide/Unhide Test,
+  Show in Active File Only, Coverage-пункты, Debug Tests by URI в контекстном меню Explorer (нет и Run-пары),
+  выпадающий список профилей у Run/Debug Tests в заголовке, выбор профиля («Execute Using
+  Profile...», «Select Default Profile», «Configure Test Profiles»), Fuzzy Match, печать символа из дерева
+  в фильтр. В заголовке ещё Show Output (`testing.showMostRecentOutput`, `navigation` 16) — панель
+  TEST RESULTS ниже.
+
+### TEST RESULTS
+
+Контейнер `workbench.panel.testResults` («Test Results», панель, `order: 3` — после TERMINAL) и вид
+`workbench.panel.testResults.view` — `contrib/testing/browser/testResultsView.ts` (`TestResultsComponent`),
+эталон — `TestResultsView` (`testingOutputPeek.ts`), `TestResultsViewContent`, `OutputPeekTree`. Вид
+регистрируется, пока у `TestResultService` есть результаты (`when: testing.hasAnyResults` эталона, по самому
+событию сервиса — ключ ставится в микротаске, а вид нужен до автооткрытия): вкладка появляется с первым
+запуском, «Clear All Results» её убирает (`hideIfEmpty`). `canMoveView: true`, `canToggleVisibility: false`.
+
+- **Раскладка** — `TestResultsSplitElement`: содержимое и дерево пополам (`Sizing.Distribute`), дерево справа,
+  `testing.resultsView.layout: treeLeft` — слева; Toggle Tree Position (`testing.toggleResultsViewLayout`,
+  `arrow-swap` в заголовке, `navigation` 18) переключает настройку, выбор строки остаётся. Минимумы эталона в
+  ячейках: содержимое ≥ 25, дерево ≥ 12; не влезает — первым сжимается дерево (до нуля). Границу таскает
+  `SashElement` из tuidom — колонка на первой колонке правой части (не на последней левой, где скроллбар), в
+  покое невидим, подсветка `sash.hoverBorder` через `workbench.sash.hoverDelay` (применяется на лету).
+  Протяжка запоминает **долю** содержимого (`proportionalLayout` эталона): при смене ширины панели доля
+  держится в тех же минимумах, смена стороны дерева и другое содержимое её не трогают. Доля живёт, пока жив
+  элемент, — всю сессию, в storage не пишется (`static lastSplitWidth` эталона); после перезапуска — снова
+  пополам. Нет дерева (ширина 0) — sash шириной 0, клики не ловит. Двойной клик по sash ничего не делает, как
+  в эталоне.
+- **Дерево** (`getRootChildren` эталона) — задачи последнего запуска с задачами в корне, прочие — под «1 older
+  result» / «{0} older results», каждый запуск свёрнут (подпись — «Test run at {0}» с локальным временем
+  старта, иконка — доминирующее состояние или спиннер). Задача (спиннер, пока идёт) → тесты с состоянием
+  ≥ Running или с сообщениями, по приоритету состояния, описание — цепочка родителей до корня контроллера
+  через « ‹ » → сообщения-ошибки (первая строка, «+ N more lines»). Задачи и тесты раскрываются при первом
+  появлении. Компактных строк эталона (тест с единственным сообщением одной строкой) нет.
+- **Действия строки** (`TreeActionsProvider` эталона без Coverage) — свои, не меню:
+  у задачи Show Result Output, пока идёт — Cancel Test Run (`testing.cancelRun` с `resultId`, `taskId`), иначе
+  Rerun Last Run, при падениях Rerun Failed Tests (`testing.reRunFailedFromLastRun`), Debug Last Run
+  (`testing.debugLastRun` с `resultId`) и при падениях Debug Failed Tests (`testing.debugFailedFromLastRun`); у
+  старого запуска Show Result Output (одна задача), Rerun Test, Rerun Failed Tests (Debug-пунктов нет: эталон
+  считает их по тесту, которого у строки запуска нет); у теста Go to Test (есть
+  `uri`), Show Result Output (есть вывод), Run Test и Debug Test (`testing.run`/`testing.debug` — по
+  возможностям теста, `capabilitiesForTest`), в контекстном меню после
+  разделителя — Reveal in Test Explorer (`_revealTestInExplorer` → `TestingExplorerComponent.revealTest`).
+  Клик выбирает строку, Enter на тесте — Go to Test (решение спеки; у эталона Enter открывает сообщение).
+  У сообщения — Go to Error (`debug-stackframe`, есть `location`: файл на начале диапазона, клавиатура — в
+  редактор) и пункты расширений `testing/message/context` (группа `inline` — глифы, прочие — контекстное
+  меню). Ключи меню сообщения (`testMessageMenu.ts`): `testMessage` (`contextValue`), `testResultOutdated`
+  (всегда `false` — результаты не устаревают), `testId`, `controllerId` и семейство `resource*` по месту
+  сообщения, иначе по `uri` теста (эталон видит активный редактор — при peek это файл сообщения). Аргумент
+  команды — `IWireTestMessageArg` (`{ $testMessageTestId, message }`), хост расширений превращает его в
+  `{ test, message }` (`TestMessageMenuArgs` эталона; второго аргумента-задачи эталона нет).
+- **Содержимое** — `TestResultsOutput` (`TerminalMessagePeek` эталона): терминальная поверхность без
+  процесса (`ExtensionPtySessionFactory`), свежая на каждый выбор; цвета — `TerminalColorsService`
+  (`applyTerminalColors`), курсор спрятан, ввода и фокуса нет (клавиши остаются воркбенчу), прокрутка —
+  колесом. Задача — весь её вывод, тест — его `appendOutput` в этой задаче (срезы `offset`/`length`).
+  Живой запуск дописывает вывод
+  по `LiveTestResult.onDidAppendOutput`. Пустой вывод — тексты эталона «The test run did not record any
+  output.» / «The test case did not report any output.» (`formatMessageForTerminal`); «Test output is only
+  available for new test runs.» не бывает — результаты живут в памяти. Выделения и копирования нет: их нет
+  и у терминала.
+- **Сообщение** — `TestMessageView` (`CallStackWidget` эталона с сообщением верхним кадром) встаёт на место
+  поверхности вывода (`TestResultsSplitElement.setContent`). Выбор показа — правило эталона (`messageShow`):
+  есть `expected` и `actual` — diff (`TestMessageDiffFactory`: `DiffEditorPane2` со снапшот-сторонами, только
+  чтение, подписи «Expected result» / «Actual result», всегда бок о бок — `useInlineViewWhenSpaceIsLimited:
+false`, настройки редактора — `editorConfiguration.apply`); иначе markdown (`markdown: true` на проводе) —
+  `stripMarkdown` ховера, без ссылок; иначе plain — `removeAnsiEscapeCodes` (модель эталона без ANSI; цвета
+  эталон возвращает декорациями — у нас нет). Текст — `TestMessageTextElement`: перенос по словам с отступом
+  строки, прокрутка колесом. Отступление: компактного вида однострочного diff нет — у редактора нет
+  `lineNumbers: off`. Под сообщением — кадры `stackTrace` строками (`label`, `файл:строка:колонка`; без `uri` —
+  `descriptionForeground`), Enter или клик по кадру с `uri` открывает файл на позиции, клавиатура уходит в
+  редактор; стеку — не меньше трёх строк и до половины высоты. Со стеком над сообщением шапка — шеврон и
+  метка теста, клик по ней сворачивает/разворачивает сообщение; Collapse Stack Frames
+  (`testing.collapsePeekStack`, `collapse-all` в заголовке TEST RESULTS и палитра при `testing.peekHasStack`;
+  у эталона — заголовок peek) сворачивает его. Отступление: кадр — строка без кода вокруг (эталон встраивает
+  редактор на кадр), сворачивать, кроме сообщения, нечего. Пункты `testing/message/content` — кнопки в шапке
+  (`FloatingClickMenu` эталона, видны всегда). Тулбара под стеком эталона (`MenuId.TestCallStack`: Rerun Test,
+  Debug Test) нет — ни Run-, ни Debug-кнопки. (`TestingProgressUiService` эталона, внутри компонента): на старт запуска без
+  `preserveFocus` по `testing.automaticallyOpenTestResults` — `openOnTestStart` (по умолчанию) открывает
+  вид без фокуса, `openOnTestFailure` — на первом упавшем тесте, `openExplorerOnTestStart` — Test Explorer,
+  `neverOpen` — ничего. Первая задача нового запуска выбирается сама. Show Output
+  (`testing.showMostRecentOutput`, `Ctrl+; Ctrl+O`, при `testing.hasAnyResults`) открывает вид с фокусом и
+  первой задачей последнего запуска. Clear All Results — и в заголовке TEST RESULTS (`navigation`).
+
+### Тесты в редакторе
+
+`contrib/testing/browser/testingDecorations.ts` — глифы поля (run, состояние, меню глифа). Левый клик — по
+`testing.defaultGutterClickAction`: `run` — Run-профиль, `debug` — Debug, `runWithCoverage` — Run (coverage нет),
+`contextMenu` — меню; Alt+клик — другое из Run/Debug (`RunTestDecoration.click` эталона). Меню глифа — Run Test,
+Debug Test (по возможностям теста), Peek Error, Cancel Test Run, Reveal in Test Explorer и `testing/item/gutter`;
+строки с несколькими тестами — Run All Tests, Debug All Tests и подменю по тесту. Отступление: при зажатом Alt
+глиф не меняется на альтернативный — терминал сообщает Alt только вместе с другой клавишей. Сообщения после
+строк — `testingMessageDecorations.ts` (`TestingMessageDecorations`, `applyResults` эталона) над вкладками-
+редакторами (без сторон диффа и панелей; в режиме большого файла — ничего):
+
+- **Ошибки** — сообщения-ошибки последнего результата (`testing.showAllMessages` — всех), чей `location`
+  или первый кадр стека с позицией — в этом файле; по одному на строку, порядок — тесты запуска, задачи,
+  сообщения. Бейдж `ILineMessageDecoration`: `<error-иконка> <текст>` цветами
+  `testing.message.error.badgeForeground`/`badgeBackground`. Текст — `TestErrorContentWidget` эталона:
+  `actual != expected` (оба заданы, каждое в одну строку и `truncateMiddle(…, 30)`), иначе первая строка
+  сообщения без ANSI и управляющих символов, пустое — «Test Failed».
+- **Вывод** — Toggle Inline Test Output (`testing.toggleInlineTestOutput`, `Ctrl+; Ctrl+I`, в памяти):
+  `appendOutput` с `location` в этом файле, на строках без ошибки, последний вывод строки;
+  переводы строк — пробелы, до 128 символов с «…», цвет `testing.message.info.decorationForeground`.
+  «Только у живого результата» эталона — у нас все результаты живые (в памяти).
+- **TEST RESULTS вместо peek** (отступление, решение 2026-11-04): клик по сообщению —
+  `TestResultsComponent.showMessage` без фокуса (вид открывается, строка сообщения выбрана, текст слева);
+  Peek Output (`testing.openOutputPeek`, `Ctrl+; Ctrl+M`) — ближайшая к курсору ошибка файла, иначе
+  показанная последней, иначе первая ошибка упавшего теста — с фокусом; «Peek Error» меню глифа
+  (`vscode.peekTestError`) — первая ошибка теста с `location`. `testing.automaticallyOpenPeekView*` не
+  регистрируются.
+- **Команды редактора** — `testingEditorActions.ts`: Run Test at Cursor (`testing.runAtCursor`,
+  `Ctrl+; C`, `getTestsAtCursor` эталона — самый внутренний диапазон под курсором, вне тестов — ближайший
+  выше; ничего — уведомление «No tests found here», у эталона — сообщение в редакторе) и Run Tests in Current
+  File (`testing.runCurrentFile`, `Ctrl+; F`, «No tests found in this file»); обе при `editorTextFocus`, в
+  контекстном меню редактора группа `testing` при `testing.activeEditorHasTests && testing.hasRunnableTests`.
+  Go to Next/Previous Test Failure (`Alt+F8`/`Shift+Alt+F8`, `editorTextFocus`) — отступление: без peek
+  курсор идёт по ошибкам, показанным в файле, по кругу, и выбирает сообщение в TEST RESULTS, если вид
+  показан. Ключи `testing.activeEditorHasTests`, `testing.cursorInsideTestRange` —
+  `testingEditorContextKeys.ts`. Debug-варианты — Debug Test at Cursor (`testing.debugAtCursor`, `Ctrl+; Ctrl+C`)
+  и Debug Tests in Current File (`testing.debugCurrentFile`, `Ctrl+; Ctrl+F`), в контекстном меню редактора
+  1-й и 3-й (`EditorContextOrder` эталона) при `testing.activeEditorHasTests && testing.hasDebuggableTests`.
+  Coverage-вариантов нет.
+
 ## References
 
 Find All References наполняет вьюлет сайдбара `REFERENCES` списком «файл →
@@ -429,6 +693,27 @@ Find All References наполняет вьюлет сайдбара `REFERENCES
   `references-view.clear` F4 снова ходит по результатам поиска. `workbench.view.references` (Ctrl+K R) —
   наше отступление: у эталона к панели возвращает иконка activity bar, у нас мышью — переключатель
   контейнеров, а клавиатуре нужен свой аккорд.
+- **Call hierarchy** — вторая секция контейнера, `references-view.hierarchy` (`CallHierarchyComponent`, модель —
+  `callHierarchyModel.ts`), как у расширения `references-view` эталона; peek ядра не делаем. Секция существует, только
+  пока есть дерево: регистрируется при первом показе, снимается при Dismiss и при показе списка ссылок (тот же
+  `dismiss`, сессия освобождается). Переключаем секции `setViewVisible`, а не `closeView`: `closeView` прячет весь
+  контейнер. Смена направления перекореняет на выбранной строке **в той же сессии**, без нового `prepare`: элемент уже
+  лежит в субпроцессе, а его документ может быть не открыт и не синхронизирован (`documentSync.resolve` ответил бы
+  `null`). В `legacy`-терминале Shift+Alt+H не доезжает, а `ctrl+k ctrl+h` занят Output: там команда только в палитре
+  и контекстном меню. «No results.» в секции — когда единственный корень без детей; `prepare` без ответа — тост, дерево
+  не трогаем. Нет провайдера для языка (TypeScript, plaintext) — тот же тост: палитра показывает команду всегда, как
+  эталон, а без ответа она выглядела бы несработавшей. **Отступление:** эталон в обоих случаях фокусирует панель с
+  «No results.», у нас одно поведение на «ничего не нашлось» — тост core peek.
+- **Type hierarchy** — тот же view `references-view.hierarchy`: `TypeHierarchyComponent` и `CallHierarchyComponent` —
+  наследники `HierarchyComponent`, разница описана в `IHierarchyKind`. У каждого своё дерево и сессия, но секция одна:
+  показ одного дерева снимает другое через `onWillShow` (зависимость односторонняя, типы знают о вызовах). Секция общая,
+  поэтому `when` кнопок заголовка проверяет не только режим, но и `callHierarchyVisible`/`typeHierarchyVisible`. Клавиши у
+  Show Type Hierarchy нет, как и у эталона. Enter ведёт на `selectionRange.start` в обоих направлениях; остальное
+  (перекоренение, «No results.», тост) — как у call hierarchy.
+- **Дерево расширений** — встроенное `extensions/references-view` (`vscode.references-view`): часть одноимённого расширения
+  эталона, `setInput`/`getInput` и дерево `references-view.tree` поверх `createTreeView`. Через него `redhat.java` показывает
+  свою иерархию типов. **Отступление:** в эталоне это один вид, у нас нативный список ссылок живёт рядом с id
+  `references-view.list` и уступает место, пока он пуст. Истории, подсветки в редакторе и обхода F4 у этого дерева нет.
 - **Peek-виджета (`Shift+F12`) нет осознанно**: это редактор внутри оверлея со своим
   скроллом и роутингом клавиш, в терминале панель полезнее. Нет и истории прошлых
   запросов, удаления результата и переключателя list/tree. Каретка не на слове —

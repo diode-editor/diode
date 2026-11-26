@@ -1,0 +1,65 @@
+{
+    "name": "demo-test-controller",
+    "displayName": "Demo Test Controller",
+    "description": "E2E demo extension: a test controller over *.test.js files with lazily resolved tests, a Run and a Debug profile.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.88.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "contributes": {
+        "debuggers": [
+            {
+                "type": "demo-tests",
+                "label": "Demo Tests"
+            }
+        ],
+        "commands": [
+            {
+                "command": "demoTests.discover",
+                "title": "Discover Tests",
+                "category": "Demo Tests"
+            },
+            {
+                "command": "demoTests.updateSnapshot",
+                "title": "Update Snapshot",
+                "category": "Demo Tests"
+            },
+            {
+                "command": "demoTests.copyError",
+                "title": "Copy Error",
+                "category": "Demo Tests"
+            }
+        ],
+        "menus": {
+            "testing/item/context": [
+                {
+                    "command": "demoTests.updateSnapshot",
+                    "when": "controllerId == 'demo'"
+                }
+            ],
+            "testing/item/gutter": [
+                {
+                    "command": "demoTests.updateSnapshot",
+                    "when": "controllerId == 'demo'"
+                }
+            ],
+            "testing/message/context": [
+                {
+                    "command": "demoTests.copyError",
+                    "when": "testMessage == demo"
+                }
+            ],
+            "testing/message/content": [
+                {
+                    "command": "demoTests.copyError",
+                    "when": "testMessage == demo"
+                }
+            ]
+        }
+    }
+}

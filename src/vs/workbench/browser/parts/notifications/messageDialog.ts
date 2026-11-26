@@ -15,6 +15,9 @@ export const MESSAGE_DIALOG_ELEMENT_ID = "messageDialog";
 /** A centered window has more room than a toast. */
 export const MESSAGE_DIALOG_TEXT_WIDTH = 60;
 
+const CHECKBOX_OFF = "[ ] ";
+const CHECKBOX_ON = "[x] ";
+
 /** A modal message without buttons must be closed by the user. */
 export const MESSAGE_DIALOG_CLOSE_LABEL = "OK";
 
@@ -29,12 +32,14 @@ const SEVERITY_TITLES: Readonly<Record<NotificationSeverity, string>> = {
  * when there is none; "OK" of a message without buttons also means "no choice".
  */
 export class MessageDialog extends DialogComponent {
-    /** Index into `notification.items`. */
-    public onSelect?: (index: number) => void;
+    /** Index into `notification.items`, and the state of the checkbox, if the message has one. */
+    public onSelect?: (index: number, checkboxChecked: boolean) => void;
     public onClose?: () => void;
 
     public readonly notification: IActiveNotification;
     private readonly buttons: readonly ButtonElement[];
+    private readonly checkbox: ButtonElement | undefined;
+    private checkboxChecked = false;
 
     public constructor(notification: IActiveNotification, icons: IProductIconService = NERD_FONT_ICONS) {
         super(MESSAGE_DIALOG_ELEMENT_ID);
@@ -61,11 +66,31 @@ export class MessageDialog extends DialogComponent {
             notification.items.length > 0
                 ? notification.items.map((title, index) => {
                       const button = new ButtonElement(title);
-                      button.onActivate = () => this.onSelect?.(index);
+                      button.onActivate = () => this.onSelect?.(index, this.checkboxChecked);
                       return button;
                   })
                 : [makeCloseButton(() => this.onClose?.())];
         this.buttons = buttons;
+
+        // Upstream's dialog checkbox: a toggle under the text, above the buttons; the arrows reach it after the
+        // last button.
+        if (notification.checkbox !== undefined) {
+            const mark = new TextLabelElement(CHECKBOX_OFF);
+            const checkbox = new ButtonElement(notification.checkbox.label);
+            checkbox.onActivate = () => {
+                this.checkboxChecked = !this.checkboxChecked;
+                mark.setText(this.checkboxChecked ? CHECKBOX_ON : CHECKBOX_OFF);
+                checkbox.setChecked(this.checkboxChecked);
+            };
+            this.checkbox = checkbox;
+            const row = new HFlexElement();
+            row.addChild(mark, { width: hflexFit(), height: 1 });
+            row.addChild(checkbox, { width: hflexFit(), height: 1 });
+            row.addChild(new TextLabelElement(""), { width: hflexFill(), height: 1 });
+            // Stryker disable next-line StringLiteral: same row width spec
+            stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
+            stack.addChild(row, { width: "stretch", height: 1 });
+        }
 
         // Use the ACTUAL window width, not the maximum: for a short message an offset
         // computed from the maximum would push the buttons to the right edge.
@@ -81,13 +106,13 @@ export class MessageDialog extends DialogComponent {
     }
 
     protected override rowButtons(): readonly ButtonElement[] {
-        return this.buttons;
+        return this.checkbox === undefined ? this.buttons : [...this.buttons, this.checkbox];
     }
 
     protected override onDismiss(): void {
         const closeAffordance = this.notification.closeAffordance;
         if (closeAffordance !== undefined) {
-            this.onSelect?.(closeAffordance);
+            this.onSelect?.(closeAffordance, this.checkboxChecked);
             return;
         }
         this.onClose?.();

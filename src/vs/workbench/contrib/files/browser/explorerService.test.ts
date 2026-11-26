@@ -150,6 +150,21 @@ describe("ExplorerService — view seam (IExplorerView)", () => {
         service.dispose();
     });
 
+    it("isDirectory: by the rows the tree has listed; false without a root", async () => {
+        const ws = createTempWorkspace({
+            prefix: "diode-explorer-svc-isdir-",
+            files: { "a.txt": "", "dir/x.txt": "" },
+        });
+        const service = createService();
+        expect(service.isDirectory(ws.path("dir"))).toBe(false);
+        service.setRootPath(ws.dir);
+        await service.provider!.getChildren();
+        expect(service.isDirectory(ws.path("dir"))).toBe(true);
+        expect(service.isDirectory(ws.path("a.txt"))).toBe(false);
+        service.dispose();
+        ws.dispose();
+    });
+
     it("paste target: directory node → itself, file node → its parent, none → root", () => {
         const ws = createTempWorkspace({ prefix: "diode-explorer-svc-" });
         const service = createService();

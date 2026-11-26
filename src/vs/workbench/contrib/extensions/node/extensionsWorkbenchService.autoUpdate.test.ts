@@ -238,6 +238,8 @@ describe("ExtensionsWorkbenchService — auto update (ExtensionUpdates stage 3)"
             expect(mine.getEntries().find((e) => e.id === "acme.a")).toMatchObject({
                 installedVersion: "1.1.0",
                 availability: "installed",
+                categories: [],
+                tags: [],
                 needsReload: true,
             });
         });

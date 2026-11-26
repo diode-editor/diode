@@ -1,3 +1,4 @@
+import { blendRgb, DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 import type { DisplayLine } from "@tuidom/core/common/displayLine";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
@@ -7,6 +8,8 @@ import { findFirstIdxMonotonousOrArrLen } from "../../base/common/arraysFind.ts"
 import type { IRange } from "../common/core/iRange.ts";
 import type { ISelection } from "../common/core/iSelection.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
+import type { IExtensionTextDecoration } from "../common/model/iExtensionTextDecoration.ts";
+import type { IInlineInsertion } from "../common/model/iInlineInsertion.ts";
 import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import {
@@ -116,7 +119,7 @@ export function buildViewportRows(
 export function forEachRangeCell(
     range: IRange,
     geo: ITextViewportGeometry,
-    visit: (screenX: number, screenY: number) => void,
+    visit: (screenX: number, screenY: number, column: number, row: TextViewportRow) => void,
 ): void {
     const rows = geo.rows;
     const first = findFirstIdxMonotonousOrArrLen(rows, (row) => row.logLine >= range.start.line);
@@ -142,9 +145,46 @@ export function forEachRangeCell(
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
 
         for (let screenX = screenXStart; screenX < screenXEnd; screenX++) {
-            visit(geo.gutterW + screenX, row.screenY);
+            visit(geo.gutterW + screenX, row.screenY, screenX + geo.scrollLeft + fragStartCol, row);
         }
     }
+}
+
+/** The insertion a display column of the composed line belongs to. */
+function insertionAt(geo: ITextViewportGeometry, row: TextViewportRow, column: number): IInlineInsertion | undefined {
+    let shift = 0;
+    for (const insertion of geo.insertions.get(row.logLine) ?? []) {
+        const start = insertion.offset + shift;
+        shift += insertion.text.length;
+        const end = start + insertion.text.length;
+        if (column >= row.displayLine.offsetToColumn(start) && column < row.displayLine.offsetToColumn(end)) {
+            return insertion;
+        }
+    }
+    return undefined;
+}
+
+/** Whether a display column of the composed line belongs to an insertion that keeps its own background. */
+function isOutsideRangeBackgrounds(geo: ITextViewportGeometry, row: TextViewportRow, column: number): boolean {
+    return insertionAt(geo, row, column)?.outsideRangeBackgrounds === true;
+}
+
+/** Whether a display column belongs to an insertion with a background of its own (an Error Lens message). */
+function hasOwnBackground(geo: ITextViewportGeometry, row: TextViewportRow, column: number): boolean {
+    const insertion = insertionAt(geo, row, column);
+    return insertion?.bg !== undefined || insertion?.bgToken !== undefined;
+}
+
+/** Only the patched colors (an absent one is kept): the glyph and the rest of the cell are kept too. */
+function paintRangeColors(
+    context: RenderContext,
+    range: IRange,
+    patch: { bg?: number; fg?: number },
+    geo: ITextViewportGeometry,
+): void {
+    forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
+        if (!isOutsideRangeBackgrounds(geo, row, column)) context.setCell(screenX, screenY, patch);
+    });
 }
 
 /** Only `bg`: the glyph and fg under the highlight are kept. */
@@ -154,9 +194,95 @@ export function paintRangeBackground(
     bg: number,
     geo: ITextViewportGeometry,
 ): void {
-    forEachRangeCell(range, geo, (screenX, screenY) => {
-        context.setCell(screenX, screenY, { bg });
+    paintRangeColors(context, range, { bg }, geo);
+}
+
+/**
+ * The range upstream's inline class covers: with `isWholeLine` every line of the range, from its start to its end
+ * (`ViewModelDecorations` widens it so).
+ */
+function glyphRangeOf({ range, isWholeLine }: IExtensionTextDecoration): IRange {
+    if (!isWholeLine) return range;
+    return {
+        start: { line: range.start.line, character: 0 },
+        end: { line: range.end.line, character: Number.MAX_SAFE_INTEGER },
+    };
+}
+
+/**
+ * The cells holding the glyphs of the range: the newline cell past the line end and an insertion that keeps its
+ * own look (an inlay hint) are left alone, as upstream's inline class wraps the text only.
+ */
+function forEachRangeGlyphCell(
+    range: IRange,
+    geo: ITextViewportGeometry,
+    visit: (screenX: number, screenY: number) => void,
+): void {
+    forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
+        if (column >= row.displayLine.displayWidth || isOutsideRangeBackgrounds(geo, row, column)) return;
+        visit(screenX, screenY);
     });
+}
+
+/**
+ * In set order, a later decoration over an earlier one; a range off the viewport costs a binary search over
+ * the rows, so thousands of them (Trailing Spaces on a big file) don't slow the frame. An absent color leaves
+ * the cell's own. A whole-line background covers the text area of every row of the range's lines, like
+ * upstream `_renderWholeLineDecorations`; its `fg` and `style` still paint only the glyphs. `opacity` is left to
+ * {@link paintExtensionTextDecorationOpacity}, which needs the final background.
+ */
+export function paintExtensionTextDecorations(
+    context: RenderContext,
+    decorations: readonly IExtensionTextDecoration[],
+    geo: ITextViewportGeometry,
+): void {
+    for (const decoration of decorations) {
+        const { range, bg, fg, isWholeLine, style } = decoration;
+        if (!isWholeLine) {
+            paintRangeColors(context, range, { bg, fg }, geo);
+        } else {
+            for (const row of geo.rows) {
+                if (row.logLine < range.start.line || row.logLine > range.end.line) continue;
+                // An insertion's own background lies over the line's, as upstream's `::after` box over the line layer.
+                // Stryker disable next-line EqualityOperator: equivalent — contentCols reaches the element's right edge, a cell past it is cut by the element's clip
+                for (let x = 0; x < geo.contentCols; x++) {
+                    if (hasOwnBackground(geo, row, x + geo.scrollLeft + row.fragmentStartColumn)) continue;
+                    context.setCell(geo.gutterW + x, row.screenY, { bg });
+                }
+            }
+            paintRangeColors(context, glyphRangeOf(decoration), { fg }, geo);
+        }
+        // Stryker disable next-line ConditionalExpression: performance only — OR-ing no attributes changes no cell
+        if (style !== undefined) {
+            // The attributes join what the token set (a bold keyword stays bold under a strikethrough).
+            forEachRangeGlyphCell(glyphRangeOf(decoration), geo, (screenX, screenY) => {
+                const cell = context.getCell(screenX, screenY);
+                if (cell !== null) context.setCell(screenX, screenY, { style: cell.style | style });
+            });
+        }
+    }
+}
+
+/**
+ * `opacity` of the decorations: each glyph color is blended toward the background the cell ends up with — the
+ * selection, the current find match — as CSS opacity shows whatever lies under the text. Goes after the
+ * background passes; overlapping decorations blend twice, as nested CSS opacities multiply.
+ */
+export function paintExtensionTextDecorationOpacity(
+    context: RenderContext,
+    decorations: readonly IExtensionTextDecoration[],
+    geo: ITextViewportGeometry,
+): void {
+    for (const decoration of decorations) {
+        const { opacity } = decoration;
+        if (opacity === undefined) continue;
+        forEachRangeGlyphCell(glyphRangeOf(decoration), geo, (screenX, screenY) => {
+            const cell = context.getCell(screenX, screenY);
+            // A terminal default color has no RGB to blend.
+            if (cell === null || cell.fg === DEFAULT_COLOR || cell.bg === DEFAULT_COLOR) return;
+            context.setCell(screenX, screenY, { fg: blendRgb(cell.fg, cell.bg, opacity) });
+        });
+    }
 }
 
 /**
@@ -171,15 +297,23 @@ export function paintSortedRangeBackgrounds(
     geo: ITextViewportGeometry,
     skipIndex = -1,
 ): void {
+    forEachVisibleSortedRange(ranges, geo, (range, i) => {
+        if (i !== skipIndex) paintRangeBackground(context, range, bg, geo);
+    });
+}
+
+/** Ranges sorted by position and not overlapping, cut down to the visible lines. */
+export function forEachVisibleSortedRange(
+    ranges: readonly IRange[],
+    geo: ITextViewportGeometry,
+    visit: (range: IRange, index: number) => void,
+): void {
     const rows = geo.rows;
     if (rows.length === 0) return;
     const firstLine = rows[0].logLine;
     const lastLine = rows[rows.length - 1].logLine;
     const first = findFirstIdxMonotonousOrArrLen(ranges, (range) => range.end.line >= firstLine);
-    for (let i = first; i < ranges.length && ranges[i].start.line <= lastLine; i++) {
-        if (i === skipIndex) continue;
-        paintRangeBackground(context, ranges[i], bg, geo);
-    }
+    for (let i = first; i < ranges.length && ranges[i].start.line <= lastLine; i++) visit(ranges[i], i);
 }
 
 export interface IPaintTextLineParams {
@@ -213,6 +347,8 @@ export interface IPaintTextLineInsertion {
     readonly offset: number;
     readonly length: number;
     readonly fg: number;
+    /** Already composited; absent — the line's background. */
+    readonly bg?: number;
     readonly style: number;
 }
 
@@ -275,6 +411,7 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
         const insertion = next < insertions.length ? insertions[next] : undefined;
         if (insertion !== undefined && slot.offset >= insertion.offset + shift) {
             fg = insertion.fg;
+            bg = insertion.bg ?? bg;
             style = insertion.style;
         } else {
             const offset = slot.offset - shift;
@@ -315,6 +452,8 @@ export interface IPaintPhantomTextParams {
     bg: number;
     /** Packed {@link StyleFlags}. */
     style: number;
+    /** Columns of the text cut off on the left; a wide character across the edge is not painted. */
+    scrollLeft?: number;
 }
 
 /**
@@ -322,24 +461,22 @@ export interface IPaintPhantomTextParams {
  * it is spliced into its own line as an inline insertion ({@link LineInsertions}).
  */
 export function paintPhantomText(context: RenderContext, params: IPaintPhantomTextParams): void {
-    const { displayLine, screenY, gutterW, contentCols, fg, bg, style } = params;
+    const { displayLine, screenY, gutterW, contentCols, fg, bg, style, scrollLeft = 0 } = params;
 
-    let col = 0;
+    let col = scrollLeft;
     // Cutting off past the line end is about speed: RenderContext clips to the element
     // rectangle, so boundary mutants cannot be killed.
     // Stryker disable next-line EqualityOperator: see above
     while (col < displayLine.displayWidth) {
+        const x = col - scrollLeft;
         // Stryker disable next-line ConditionalExpression,EqualityOperator: viewport clipping is about speed, setCell outside the rectangle returns silently anyway
-        if (col >= contentCols) break;
+        if (x >= contentCols) break;
         const char = displayLine.charAtColumn(col);
-        /* v8 ignore start -- defensive: col steps by slot widths from 0 and never lands on a wide character's continuation column (unlike paintTextLine, where displayCol starts at an arbitrary scrollLeft) */
-        // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator: unreachable defensive guard, see v8 ignore
+        // The continuation column of a wide character cut by the left edge.
         if (char === "") {
             col++;
             continue;
         }
-        // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator
-        /* v8 ignore stop */
         const slot = displayLine.graphemeAtColumn(col);
         /* v8 ignore start -- defensive: within displayWidth a slot always exists (see paintTextLine) */
         // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,UpdateOperator: unreachable defensive guard, see v8 ignore
@@ -355,19 +492,19 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
             // Tab spaces are indistinguishable from the tail's background spaces: the fill exists for
             // fg/style that are invisible on a space; only the col step is observable, so fill mutants cannot be killed.
             // Stryker disable ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression: see above
-            for (let i = 0; i < width && col + i < contentCols; i++) {
-                context.setCell(gutterW + col + i, screenY, { char: " ", fg, bg, style, width: 1 });
+            for (let i = 0; i < width && x + i < contentCols; i++) {
+                context.setCell(gutterW + x + i, screenY, { char: " ", fg, bg, style, width: 1 });
             }
             // Stryker restore ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression
             col += width;
-        } else if (width === 2 && col + 1 >= contentCols) {
+        } else if (width === 2 && x + 1 >= contentCols) {
             // A space at the edge is indistinguishable from background (see the tab above); only
             // the fact that the wide character is NOT painted is observable.
             // Stryker disable next-line ArithmeticOperator,ObjectLiteral,StringLiteral,CallExpression: see above
-            context.setCell(gutterW + col, screenY, { char: " ", fg, bg, style, width: 1 });
+            context.setCell(gutterW + x, screenY, { char: " ", fg, bg, style, width: 1 });
             col++;
         } else {
-            context.setCell(gutterW + col, screenY, { char, fg, bg, style, width });
+            context.setCell(gutterW + x, screenY, { char, fg, bg, style, width });
             col += width;
         }
     }

@@ -1,11 +1,8 @@
-export interface IEditorOptionsState {
-    readonly tabSize: number;
-    readonly insertSpaces: boolean;
-}
-
+/** What an extension's `TextEditor.options =` changes; `cursorStyle` is the extension's session override. */
 export interface IEditorOptionsPatch {
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
+    readonly cursorStyle?: EditorCursorStyleSetting;
 }
 
 /**
@@ -39,17 +36,19 @@ export interface IActiveEditorMeta {
 
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { EditorCursorStyleSetting } from "../../../editor/common/config/editorCursorStyle.ts";
+import type { IRange } from "../../../editor/common/core/iRange.ts";
+import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
 
 import type { IWireEditorEdit, IWireSelection, IWireWorkspaceEditOp, WireSelectionChangeKind } from "./wireTypes.ts";
 
 export interface IEditorOptionsService {
-    getActiveEditorOptions(): IEditorOptionsState | null;
-    setActiveEditorOptions(patch: IEditorOptionsPatch): void;
+    /** Applies to the tab of `uri` in group `groupId`, whichever group is active; no-op if that tab is gone. */
+    setEditorOptions(uri: string, groupId: number, patch: IEditorOptionsPatch): void;
     /**
-     * The extension's session override of `editor.cursorStyle` for the tab of `uri` in group `groupId`;
-     * no-op if that tab is gone.
+     * Scrolls the tab of `uri` in group `groupId`, whichever group is active; the range is clamped to the
+     * document, selection and focus stay. No-op if that tab is gone.
      */
-    setEditorCursorStyle(uri: string, groupId: number, style: EditorCursorStyleSetting): void;
+    revealEditorRange(uri: string, groupId: number, range: IRange, revealType: RangeRevealType): void;
     getActiveEditorFilePath(): string | null;
     getActiveEditorMeta(): IActiveEditorMeta;
     onActiveEditorChanged(cb: (meta: IActiveEditorMeta) => void): IDisposable;
@@ -61,8 +60,30 @@ export interface IEditorOptionsService {
     applyActiveEditorEdits(
         uri: string,
         edits: readonly IWireEditorEdit[],
-        options?: { version?: number; setEndOfLine?: 1 | 2; undoStopBefore?: boolean; undoStopAfter?: boolean },
+        options?: {
+            version?: number;
+            setEndOfLine?: 1 | 2;
+            undoStopBefore?: boolean;
+            undoStopAfter?: boolean;
+        },
     ): boolean;
+    /**
+     * Upstream `MainThreadTextEditor.insertSnippet`: the template is parsed here, an edit per range, the caret on the
+     * first tab stop and revealed. `false`, with nothing changed: another version, a read-only or missing editor,
+     * no ranges or overlapping ones, or an edit or a selection change while the clipboard was being read.
+     */
+    insertSnippet(
+        uri: string,
+        groupId: number | undefined,
+        template: string,
+        ranges: readonly IRange[],
+        options: {
+            version: number;
+            undoStopBefore?: boolean;
+            undoStopAfter?: boolean;
+            keepWhitespace?: boolean;
+        },
+    ): Promise<boolean>;
     /**
      * As one undo step. All-or-nothing: if any resource fails validation, nothing is
      * applied and the result is `false`. An empty list is also `false`: the subprocess

@@ -7,12 +7,21 @@ import type { IEditorService } from "../services/editor/common/editorService.ts"
 
 import { LanguageFeatureContextKeys } from "./languageFeatureContextKeys.ts";
 
-function editorStub(options: { languageId?: string; selection?: { anchorCharacter: number } } = {}): unknown {
+function editorStub(
+    options: {
+        languageId?: string;
+        selection?: { anchorCharacter: number };
+        wordHighlights?: number;
+        linkedEditingRanges?: number;
+    } = {},
+): unknown {
     const anchorCharacter = options.selection?.anchorCharacter ?? 0;
     return {
         uri: Uri.file("/w/a.ts"),
         languageId: options.languageId ?? "typescript",
         viewState: {
+            wordHighlights: { ranges: new Array<unknown>(options.wordHighlights ?? 0) },
+            linkedEditingRanges: new Array<unknown>(options.linkedEditingRanges ?? 0),
             selections: [{ anchor: { line: 0, character: anchorCharacter }, active: { line: 0, character: 0 } }],
         },
     };
@@ -26,7 +35,7 @@ function makeKeys(editor: unknown): {
     const keys = new ContextKeyService();
     const features = new LanguageFeaturesService();
     const group = { getActiveEditor: () => editor } as unknown as IEditorService;
-    const contributor = new LanguageFeatureContextKeys(group, features);
+    const contributor = new LanguageFeatureContextKeys(group, features, keys);
     return {
         keys,
         features,
@@ -43,11 +52,34 @@ describe("LanguageFeatureContextKeys", () => {
         update();
 
         expect(keys.evaluate("editorHasDefinitionProvider")).toBe(false);
+        expect(keys.evaluate("editorHasImplementationProvider")).toBe(false);
+        expect(keys.evaluate("editorHasTypeDefinitionProvider")).toBe(false);
+        expect(keys.evaluate("editorHasDeclarationProvider")).toBe(false);
         expect(keys.evaluate("editorHasReferenceProvider")).toBe(false);
         expect(keys.evaluate("editorHasRenameProvider")).toBe(false);
         expect(keys.evaluate("editorHasCodeActionsProvider")).toBe(false);
         expect(keys.evaluate("editorHasDocumentFormattingProvider")).toBe(false);
         expect(keys.evaluate("editorHasDocumentSelectionFormattingProvider")).toBe(false);
+    });
+
+    it.each([
+        ["definitionProvider", "editorHasDefinitionProvider"],
+        ["implementationProvider", "editorHasImplementationProvider"],
+        ["typeDefinitionProvider", "editorHasTypeDefinitionProvider"],
+        ["declarationProvider", "editorHasDeclarationProvider"],
+        ["referenceProvider", "editorHasReferenceProvider"],
+        ["renameProvider", "editorHasRenameProvider"],
+        ["codeActionProvider", "editorHasCodeActionsProvider"],
+        ["documentFormattingEditProvider", "editorHasDocumentFormattingProvider"],
+        ["documentRangeFormattingEditProvider", "editorHasDocumentSelectionFormattingProvider"],
+    ] as const)("%s: registering and disposing updates %s with nothing else happening", (feature, key) => {
+        const { keys, features } = makeKeys(editorStub());
+
+        const registration = features[feature].register({ language: "typescript" }, {} as never);
+        expect(keys.evaluate(key)).toBe(true);
+
+        registration.dispose();
+        expect(keys.evaluate(key)).toBe(false);
     });
 
     it("each key is raised by its own registry and only by it", () => {
@@ -60,12 +92,30 @@ describe("LanguageFeatureContextKeys", () => {
         expect(keys.evaluate("editorHasDefinitionProvider")).toBe(false);
 
         features.definitionProvider.register({ language: "typescript" }, noop);
+        update();
+        expect(keys.evaluate("editorHasImplementationProvider")).toBe(false);
+
+        features.implementationProvider.register({ language: "typescript" }, noop);
         features.referenceProvider.register({ language: "typescript" }, noop);
         features.codeActionProvider.register({ language: "typescript" }, noop);
         features.documentFormattingEditProvider.register({ language: "typescript" }, noop);
         features.documentRangeFormattingEditProvider.register({ language: "typescript" }, noop);
+        features.inlayHintsProvider.register({ language: "typescript" }, {} as never);
         update();
+        expect(keys.evaluate("editorHasInlayHintsProvider")).toBe(true);
+
+        expect(keys.evaluate("editorHasCallHierarchyProvider")).toBe(false);
+        features.callHierarchyProvider.register({ language: "typescript" }, {} as never);
+        expect(keys.evaluate("editorHasCallHierarchyProvider")).toBe(true);
+
+        expect(keys.evaluate("editorHasTypeHierarchyProvider")).toBe(false);
+        features.typeHierarchyProvider.register({ language: "typescript" }, {} as never);
+        expect(keys.evaluate("editorHasTypeHierarchyProvider")).toBe(true);
+        expect(keys.evaluate("editorHasCodeLensProvider")).toBe(false);
+        features.codeLensProvider.register({ language: "typescript" }, {} as never);
+        expect(keys.evaluate("editorHasCodeLensProvider")).toBe(true);
         expect(keys.evaluate("editorHasDefinitionProvider")).toBe(true);
+        expect(keys.evaluate("editorHasImplementationProvider")).toBe(true);
         expect(keys.evaluate("editorHasReferenceProvider")).toBe(true);
         expect(keys.evaluate("editorHasCodeActionsProvider")).toBe(true);
         expect(keys.evaluate("editorHasDocumentFormattingProvider")).toBe(true);
@@ -93,6 +143,34 @@ describe("LanguageFeatureContextKeys", () => {
 
         expect(closed.keys.evaluate("editorHasRenameProvider")).toBe(false);
         expect(closed.keys.evaluate("editorHasSelection")).toBe(false);
+    });
+
+    it("LinkedEditingInputVisible follows the linked ranges of the active editor", () => {
+        const none = makeKeys(editorStub());
+        none.update();
+        expect(none.keys.evaluate("LinkedEditingInputVisible")).toBe(false);
+
+        const some = makeKeys(editorStub({ linkedEditingRanges: 2 }));
+        some.update();
+        expect(some.keys.evaluate("LinkedEditingInputVisible")).toBe(true);
+
+        const closed = makeKeys(null);
+        closed.update();
+        expect(closed.keys.evaluate("LinkedEditingInputVisible")).toBe(false);
+    });
+
+    it("hasWordHighlights follows the set of the active editor", () => {
+        const none = makeKeys(editorStub());
+        none.update();
+        expect(none.keys.evaluate("hasWordHighlights")).toBe(false);
+
+        const some = makeKeys(editorStub({ wordHighlights: 1 }));
+        some.update();
+        expect(some.keys.evaluate("hasWordHighlights")).toBe(true);
+
+        const closed = makeKeys(null);
+        closed.update();
+        expect(closed.keys.evaluate("hasWordHighlights")).toBe(false);
     });
 
     it("editorHasSelection only with a non-empty selection", () => {

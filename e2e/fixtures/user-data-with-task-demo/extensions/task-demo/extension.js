@@ -73,6 +73,27 @@ exports.activate = function activate(context) {
             const tasks = await vscode.tasks.fetchTasks({ type: "demo" });
             report(`fetch:${tasks.map((t) => t.name).join(",")}`);
         }),
+        // Like the upstream API test: the tasks section written through the configuration API lands in tasks.json.
+        vscode.commands.registerCommand("taskDemo.writeTasksConfiguration", async () => {
+            const config = vscode.workspace.getConfiguration("tasks");
+            await config.update("version", "2.0.0", vscode.ConfigurationTarget.Workspace);
+            await config.update(
+                "tasks",
+                [
+                    {
+                        label: "written by the extension",
+                        type: "shell",
+                        command: "echo build from tasks.json",
+                        problemMatcher: [],
+                        group: { kind: "build", isDefault: true },
+                    },
+                ],
+                vscode.ConfigurationTarget.Workspace,
+            );
+            const written = vscode.workspace.getConfiguration("tasks").get("tasks");
+            const fetched = (await vscode.tasks.fetchTasks()).find((t) => t.name === "written by the extension");
+            report(`cfg:${written.length}:${fetched?.group?.isDefault === true ? "default" : "none"}`);
+        }),
         vscode.commands.registerCommand("taskDemo.terminate", () => {
             // Like bazel-java: our own running task is found by name and source.
             const running = vscode.tasks.taskExecutions.find((e) => e.task.source === "demo" && e.task.name === "long");

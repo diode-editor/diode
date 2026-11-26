@@ -42,6 +42,16 @@ describe("EditorViewState view zones — projection", () => {
         expect(sketch(state)).toBe("0 1 · ·");
     });
 
+    it("the zones it keeps: an empty one is dropped, an anchor past the end comes to the last line", () => {
+        const state = makeState("a\nb");
+        state.setViewZones([
+            { afterLine: 0, size: 0 },
+            { afterLine: 99, size: 2 },
+        ]);
+
+        expect(state.viewZones).toEqual([{ afterLine: 1, size: 2 }]);
+    });
+
     it("several zones and merging of equal anchors", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([
@@ -292,6 +302,39 @@ describe("EditorViewState view zones — cursor", () => {
         expect(caretView).toBe(30);
         expect(state.scrollTop).toBeGreaterThan(caretView - state.viewportHeight);
         expect(state.scrollTop).toBeLessThanOrEqual(caretView);
+    });
+
+    describe("reveal with a zone right above the line", () => {
+        function setup(zoneSize: number, margin: number): EditorViewState {
+            const state = makeState(Array.from({ length: 40 }, (_, i) => `l${String(i)}`).join("\n"));
+            state.viewportHeight = 5;
+            state.cursorSurroundingLines = margin;
+            state.setViewZones([{ afterLine: 9, size: zoneSize }]);
+            return state;
+        }
+
+        it("coming from below, the zone comes into view over its line, past the margin", () => {
+            const state = setup(1, 1);
+            state.scrollTop = 20;
+            state.goToPosition(10, 0);
+            expect(state.scrollTop).toBe(9);
+        });
+
+        it("a zone taller than the viewport gives way to the line: its last rows are shown", () => {
+            const state = setup(10, 0);
+            state.scrollTop = 30;
+            state.goToPosition(10, 0);
+            expect(state.scrollTop).toBe(16);
+        });
+
+        it("the margin stays under the line, and a repeated reveal does not move", () => {
+            const state = setup(10, 1);
+            state.scrollTop = 30;
+            state.goToPosition(10, 0);
+            expect(state.scrollTop).toBe(17);
+            state.goToPosition(10, 0);
+            expect(state.scrollTop).toBe(17);
+        });
     });
 });
 

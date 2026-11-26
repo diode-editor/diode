@@ -2,6 +2,7 @@ import { Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { validateTree } from "@tuidom/core/dom/validateTree";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
@@ -55,7 +56,7 @@ describe("PanelContainerElement: tab controls in the header", () => {
         const { backend } = panelWithActions(new LabelStub("Bootstrap"));
 
         // The label must end at the `×` button, not right after the tabs.
-        const row = backend.getTextAt(new Point(0, 1), 60);
+        const row = backend.getTextAt(new Point(0, 0), 60);
         expect(row).toContain("PROBLEMS");
         expect(row.trimEnd().endsWith("Bootstrap ×")).toBe(true);
     });
@@ -91,9 +92,20 @@ describe("PanelContainerElement: tab controls in the header", () => {
     it("controls do not overlap the tabs when space is tight", () => {
         const { backend } = panelWithActions(new LabelStub("VeryLongChannelName"), 30);
 
-        const row = backend.getTextAt(new Point(0, 1), 30);
+        const row = backend.getTextAt(new Point(0, 0), 30);
         expect(row).toContain("PROBLEMS");
         expect(row).toContain("OUTPUT");
+    });
+
+    it("tabs wider than the panel leave the controls inside it, without room", () => {
+        // PROBLEMS and OUTPUT end past 12 columns: the tree validator of an app frame throws on a child outside.
+        const actions = new LabelStub("Bootstrap");
+        const { panel, text } = panelWithActions(actions, 12);
+
+        // A panel outside an app is no root: only the geometry is checked.
+        expect(validateTree(panel).filter((problem) => !problem.includes("getRoot()"))).toEqual([]);
+        expect(actions.layoutSize.width).toBe(0);
+        expect(text).not.toContain("Bootstrap");
     });
 
     it("controls are drawn even when there are no tabs yet", () => {
@@ -112,7 +124,7 @@ describe("PanelContainerElement: tab controls in the header", () => {
         panel.onActivateView = onActivate;
 
         actions.dispatchEvent(
-            new TUIMouseEvent("mousedown", { button: "left", screenX: 3, screenY: 1, localX: 0, localY: 0 }),
+            new TUIMouseEvent("mousedown", { button: "left", screenX: 3, screenY: 0, localX: 0, localY: 0 }),
         );
 
         expect(onActivate).not.toHaveBeenCalled();
@@ -125,7 +137,7 @@ describe("PanelContainerElement: tab controls in the header", () => {
         panel.onActivateView = onActivate;
 
         panel.dispatchEvent(
-            new TUIMouseEvent("mousedown", { button: "left", screenX: 3, screenY: 1, localX: 3, localY: 1 }),
+            new TUIMouseEvent("mousedown", { button: "left", screenX: 3, screenY: 0, localX: 3, localY: 0 }),
         );
 
         expect(onActivate).toHaveBeenCalledWith("problems");

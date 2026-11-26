@@ -124,18 +124,8 @@ describe("files.exclude / search.exclude defaults", () => {
         "node_modules",
         "packages/app/node_modules",
         "bower_components",
-        ".venv",
-        "dist",
-        "out",
-        "build",
-        "target",
-        "coverage",
-        ".next",
-        ".gradle",
-        ".cache",
-        ".turbo",
-        ".stryker-tmp",
-        ".claude/worktrees",
+        "saved.code-search",
+        "queries/saved.code-search",
     ];
 
     const visibleAndSearchable = [
@@ -146,6 +136,17 @@ describe("files.exclude / search.exclude defaults", () => {
         "distribution",
         "outline.ts",
         "node_modules_backup",
+        // Upstream has no name-based list of build or cache directories: those are left to
+        // `.gitignore`, and a hand-written `build/` (or `out/`, `target/`) stays searchable.
+        "build",
+        "app/build/generated.ts",
+        "out",
+        "dist",
+        "target",
+        "coverage",
+        ".venv",
+        ".cache",
+        ".claude/worktrees",
         // `.claude` is not excluded entirely: settings and skills are exactly what people search for.
         ".claude",
         ".claude/settings.json",

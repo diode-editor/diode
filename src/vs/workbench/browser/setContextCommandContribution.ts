@@ -44,6 +44,8 @@ export class SetContextCommandContribution extends Disposable implements IWorkbe
             commands.register(SET_CONTEXT_COMMAND_ID, (key: unknown, value: unknown) => {
                 if (typeof key !== "string" || key === "") return undefined;
                 contextKeys.setRaw(key, normalizeContextValue(value));
+                // Upstream's context fires at once: a view's `when` holds before the extension's next call.
+                contextKeys.flush();
                 return undefined;
             }),
         );

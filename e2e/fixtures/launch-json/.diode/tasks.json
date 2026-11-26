@@ -1,0 +1,17 @@
+{
+    // The build tasks of the launch-json e2e scenario and of manual testing (see launch.json).
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "echo",
+            "args": ["build done"]
+        },
+        {
+            "label": "broken build",
+            "type": "shell",
+            "command": "echo 'build failed'; exit 2"
+        }
+    ]
+}

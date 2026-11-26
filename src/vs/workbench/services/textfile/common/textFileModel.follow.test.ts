@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FakeFileWatcher } from "../../../../../TestUtils/configurationLayersFixture.ts";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
@@ -248,6 +248,18 @@ describe("TextFileModel — follow: the file under the document on disk grows", 
             model.dispose();
         });
 
+        it("bytes that are no UTF-8 at all (continuation bytes only) are appended as they decode, nothing waits", async () => {
+            const { model, path, changes } = await open("small.log", "ab\n");
+            grow(path, Buffer.from([0x80, 0x80, 0x80, 0x80]));
+            expect(changes).toEqual([{ startLine: 1, oldEndLine: 1, newEndLine: 1, isAppend: true }]);
+            expect(model.document.getLineContent(1)).toBe("�".repeat(4));
+
+            // The end moved past them: the next line is an ordinary append.
+            grow(path, "\ncd\n");
+            expect(model.document.getLinesContent()).toEqual(["ab", "�".repeat(4), "cd", ""]);
+            model.dispose();
+        });
+
         it("a CRLF split by the append reloads: the old CR was already a line break", async () => {
             const { model, path, changes } = await open("small.log", "ab\r\ncd\r");
             grow(path, "\ne\r\n");
@@ -363,8 +375,12 @@ describe("TextFileModel — follow: the file under the document on disk grows", 
             const latin = await open("latin.log", "a\n");
             await latin.model.reopenWithEncoding("iso88591");
             grow(latin.path, "b\n");
+            // The chosen encoding is read asynchronously (iconv), as "Reopen with Encoding".
+            await vi.waitFor(() => {
+                expect(latin.model.document.getText()).toBe("a\nb\n");
+            });
             expect(latin.changes.at(-1)).toMatchObject({ isFlush: true });
-            expect(latin.model.document.getText()).toBe("a\nb\n");
+            expect(latin.model.encoding).toBe("iso88591");
             latin.model.dispose();
         });
     });

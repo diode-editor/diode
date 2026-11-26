@@ -106,6 +106,7 @@ describe("window.showInputBox (shim)", () => {
             prompt: "What should we call you",
             placeHolder: "name",
             value: "seed",
+            valueSelection: [1, 3],
         });
         expect(result).toBe("Ada");
         expect(lastRequest(stub, "window.showInputBox")).toMatchObject({
@@ -113,6 +114,7 @@ describe("window.showInputBox (shim)", () => {
             prompt: "What should we call you",
             placeHolder: "name",
             value: "seed",
+            valueSelection: [1, 3],
             validates: false,
         });
     });
@@ -294,6 +296,16 @@ describe("window.showInputBox (shim)", () => {
 });
 
 describe("window.showQuickPick (shim)", () => {
+    it("an already cancelled token does not open the picker at all", async () => {
+        const { stub, api } = makeApi();
+        const source = new CancellationTokenSource();
+        source.cancel();
+        await expect(
+            api.showQuickPick(["apple"], {}, source.token as unknown as vscode.CancellationToken),
+        ).resolves.toBeUndefined();
+        expect(stub.requests).toHaveLength(0);
+    });
+
     it("strings: resolves with the picked string", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [1] });

@@ -54,7 +54,8 @@ export class PaneHeaderElement extends TUIElement {
         this.appendChild(this.row);
 
         this.addEventListener("mousedown", (event) => {
-            if (event.button !== "left") return;
+            // A press on the title widget is the widget's: its local X is not the header's.
+            if (event.button !== "left" || event.target !== this) return;
             this.pressed = true;
             this.dragMoved = false;
             this.pressScreenX = event.screenX;

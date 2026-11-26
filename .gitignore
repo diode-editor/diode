@@ -15,6 +15,7 @@ coverage/coverage-final.json
 
 # Compiled builtin code-extensions (built by scripts/build-extensions.mjs)
 extensions/*/out/
+extensions/*/server/out/
 
 # Session registry of the `npm run drive` live run (tools/drive/)
 .drive/
@@ -39,3 +40,5 @@ e2e/fixtures/javaSample/.project
 e2e/fixtures/javaSample/.settings/
 # Call journals of green marketplace checks (npm run api-matrix -- --update-confirmed)
 e2e/marketplace/api-trace/
+# TypeScript incremental build state — a local cache, never committed
+*.tsbuildinfo

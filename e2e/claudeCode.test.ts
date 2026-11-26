@@ -197,6 +197,17 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
         );
 
         it(
+            "claude exiting with code 0 closes its terminal: the extension reads the end of the shell execution",
+            { timeout: 60_000 },
+            async () => {
+                // The extension ran `claude` with `shellIntegration.executeCommand` and waits for
+                // `onDidEndTerminalShellExecution` with exit code 0 and command line `claude`.
+                await app.session.sendText("\r");
+                await app.session.waitForText((t) => !t.includes("Claude Code ×"), { timeoutMs: 15_000 });
+            },
+        );
+
+        it(
             "CLAUDE_CODE_SSE_PORT is also in the panel terminal environment (claude typed by hand)",
             { timeout: 60_000 },
             async () => {

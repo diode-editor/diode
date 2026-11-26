@@ -1,7 +1,7 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
@@ -20,6 +20,7 @@ const viewTitles: (string | undefined)[] = [];
 const NULL_VIEWS_SERVICE = {
     registerContainer: () => {},
     registerView: () => {},
+    setViewVisible: () => {},
     setViewTitle: (_id: string, title: string | undefined) => viewTitles.push(title),
 } as unknown as ViewsService;
 
@@ -85,6 +86,39 @@ function render(component: ReferencesComponent, w = 40, h = 10): MockTerminalBac
 }
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
+
+describe("ReferencesComponent — the tree of vscode.references-view", () => {
+    function setup() {
+        const contextKeys = new ContextKeyService();
+        const hide = vi.spyOn(NULL_VIEWS_SERVICE, "setViewVisible").mockClear();
+        const component = new ReferencesComponent(
+            fakeReveal().target,
+            contextKeys,
+            NULL_VIEWS_SERVICE,
+            NULL_JUMP_RECORDER,
+        );
+        return { component, contextKeys, hide };
+    }
+
+    it("an empty list gives way to the tree", async () => {
+        const { contextKeys, hide } = setup();
+        contextKeys.setRaw("reference-list.isActive", true);
+        await Promise.resolve();
+        expect(hide).toHaveBeenCalledWith("references-view.list", false);
+    });
+
+    it("an unrelated key hides nothing, and a list with results stays", async () => {
+        const { component, contextKeys, hide } = setup();
+        contextKeys.setRaw("other", true);
+        await Promise.resolve();
+        expect(hide).not.toHaveBeenCalled();
+
+        component.setResults([]);
+        contextKeys.setRaw("reference-list.isActive", true);
+        await Promise.resolve();
+        expect(hide).not.toHaveBeenCalledWith("references-view.list", false);
+    });
+});
 
 function line(backend: MockTerminalBackend, y: number): string {
     return backend.screenToString().split("\n")[y];

@@ -1,0 +1,27 @@
+{
+  "name": "references-view",
+  "displayName": "Reference Search View",
+  "description": "The API other extensions show their symbol trees through (vscode.references-view).",
+  "version": "0.1.0",
+  "publisher": "vscode",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.127.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.cjs",
+  "contributes": {
+    "views": {
+      "references-view": [
+        {
+          "id": "references-view.tree",
+          "name": "Results",
+          "when": "reference-list.isActive"
+        }
+      ]
+    }
+  }
+}

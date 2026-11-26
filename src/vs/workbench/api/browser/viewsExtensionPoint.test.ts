@@ -30,8 +30,17 @@ interface ISetup {
 }
 
 /** Built-in Explorer and Source Control are registered first, as the workbench does before `startWorkbench`. */
-function setup(extensions: readonly IExtension[], options: { logger?: boolean } = {}): ISetup {
+function setup(extensions: readonly IExtension[], options: { logger?: boolean; debug?: boolean } = {}): ISetup {
     const h = makeViewsHarness();
+    if (options.debug === true) {
+        h.service.registerContainer({
+            id: "workbench.view.debug",
+            title: "RUN AND DEBUG",
+            location: "sidebar",
+            order: 3,
+        });
+        h.service.registerView(testView("workbench.debug.variablesView", "workbench.view.debug", 0));
+    }
     h.service.registerContainer({ id: "explorer", title: "EXPLORER", location: "sidebar", order: 0, isDefault: true });
     h.service.registerView(testView("explorer.files", "explorer", 0));
     h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar", order: 2 });
@@ -443,6 +452,31 @@ describe("registerExtensionViews — `when`", () => {
         const shownBefore = h.shownViewlets.length;
         h.commands.execute("go.profiles.focus");
         expect(h.shownViewlets.length).toBe(shownBefore);
+    });
+
+    it("`.focus` right after `setContext`, before the coalesced event: the view is there and opens", () => {
+        const { h } = setup([GATED]);
+        h.contextKeys.setRaw("go.hasProfiles", true);
+        h.commands.execute("go.profiles.focus");
+        expect(h.service.getViewContainerByViewId("go.profiles")).toBe("workbench.view.extension.go");
+        expect(h.shownViewlets.at(-1)?.id).toBe("workbench.view.extension.go");
+    });
+
+    it("a view of the `references-view` container lands there, not in Explorer", () => {
+        const { h } = setup([
+            extension("vscode.references-view", { views: { "references-view": [{ id: "tree", name: "Results" }] } }),
+        ]);
+        expect(h.service.getViewContainerByViewId("tree")).toBe("references-view");
+    });
+
+    it("a view of the `debug` container lands in Run and Debug, expanded, as CodeLLDB's Loaded Modules", () => {
+        const { h, log } = setup(
+            [extension("vadimcn.vscode-lldb", { views: { debug: [{ id: "lldb.loadedModules", name: "Modules" }] } })],
+            { debug: true },
+        );
+        expect(paneTitles(h.paneView("workbench.view.debug"))).toEqual(["WORKBENCH.DEBUG.VARIABLESVIEW", "MODULES"]);
+        expect(h.paneView("workbench.view.debug").isCollapsed("lldb.loadedModules")).toBe(false);
+        expect(log).toEqual([]);
     });
 
     it("the view comes and goes with its context keys, and its container with it", async () => {

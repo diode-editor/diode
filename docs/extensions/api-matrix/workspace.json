@@ -11,12 +11,10 @@
       "class": "ok"
     },
     "workspace.decode": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "workspace.encode": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "workspace.findFiles": {
       "class": "ok"
@@ -52,8 +50,8 @@
       "class": "ok"
     },
     "workspace.onDidChangeWorkspaceFolders": {
-      "class": "B",
-      "note": "never fires"
+      "class": "ok",
+      "note": "fires only on in-place folder changes of a multi-root workspace; Diode is single-root and every folder change restarts the extension host, as upstream does for EMPTY/FOLDER states"
     },
     "workspace.onDidCloseNotebookDocument": {
       "class": "X",
@@ -63,12 +61,10 @@
       "class": "ok"
     },
     "workspace.onDidCreateFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onDidDeleteFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onDidGrantWorkspaceTrust": {
       "class": "ok"
@@ -81,8 +77,7 @@
       "class": "ok"
     },
     "workspace.onDidRenameFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onDidSaveNotebookDocument": {
       "class": "X",
@@ -92,16 +87,13 @@
       "class": "ok"
     },
     "workspace.onWillCreateFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onWillDeleteFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onWillRenameFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onWillSaveNotebookDocument": {
       "class": "X",
@@ -115,8 +107,8 @@
       "note": "notebook"
     },
     "workspace.openTextDocument": {
-      "class": "B",
-      "note": "A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster. untitled: uris as upstream, except that a relative or host uri has no path to write to: Ctrl+S asks through Save As, TextDocument.save gives false."
+      "class": "ok",
+      "note": "A file is a live model without a tab; an explicit encoding rereads that model in it (a dirty one refuses, as upstream). untitled: uris as upstream, except that a relative or host uri has no path to write to: Ctrl+S asks through Save As, TextDocument.save gives false."
     },
     "workspace.registerFileSystemProvider": {
       "class": "B",
@@ -130,8 +122,7 @@
       "class": "ok"
     },
     "workspace.registerTextDocumentContentProvider": {
-      "class": "B",
-      "note": "#916: a second provider for a scheme throws"
+      "class": "ok"
     },
     "workspace.rootPath": {
       "class": "ok"

@@ -6,9 +6,12 @@ import type { QuickInputComponent } from "../../../browser/parts/quickinput/quic
 import { QuickInputComponentDIToken } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
-import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
+import type { IQuickAccessProvider, QuickAccessHideReason, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 import type { QuickAccessRegistry } from "../common/quickAccessRegistry.ts";
 import { QuickAccessRegistryDIToken } from "../common/quickAccessRegistry.ts";
+
+import { GotoSymbolQuickAccessProvider } from "./gotoSymbolQuickAccessProvider.ts";
+import { WorkspaceSymbolsQuickAccessProvider } from "./workspaceSymbolsQuickAccessProvider.ts";
 
 const SEARCH_DEBOUNCE_MS = 16;
 
@@ -32,9 +35,13 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     private currentPrefix = "";
     /** QuickInputService may have taken over the shared widget's session. */
     private active = false;
+    /** How the next close of the widget is reported to the provider. */
+    private hideReason: QuickAccessHideReason = "cancel";
 
     private searchTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingQuery: string | null = null;
+    /** Enter came while the provider was loading: accept on its next refresh. */
+    private acceptWhenLoaded = false;
 
     public constructor(
         private readonly quickAccess: QuickAccessRegistry,
@@ -66,12 +73,18 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         view.prompt = undefined;
         view.validationMessage = null;
         view.onAcceptValue = null;
-        view.onActiveItemChanged = null;
+        view.onActiveItemChanged = (item) => {
+            this.currentProvider?.onActiveItemChanged?.(item);
+        };
         view.onQueryChange = (query) => {
             this.handleQueryChange(query);
         };
         view.onAccept = (item) => {
             this.handleAccept(item);
+        };
+        // An empty list may only be waiting for the provider's answer.
+        view.onAcceptEmpty = () => {
+            this.handleAccept();
         };
         view.onCancel = () => {
             this.close();
@@ -81,7 +94,12 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         };
 
         view.setQuery(prefix);
-        this.activateProviderFor(prefix);
+        const provider = this.activateProviderFor(prefix);
+        const filter = prefix === this.currentPrefix ? provider.getDefaultFilterValue?.() : undefined;
+        if (filter !== undefined) {
+            view.setQuery(prefix + filter);
+            view.setQuerySelection(prefix.length, prefix.length + filter.length);
+        }
         this.updateItems(view.getQuery());
         if (options.activateSecond === true) view.setActiveIndex(1);
 
@@ -105,6 +123,14 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("inQuickOpen", this.component.isOpen());
         contextKeys.set("inFilesPicker", this.isOpen() && this.currentPrefix === "");
+        contextKeys.set(
+            "inFileSymbolsPicker",
+            this.isOpen() && this.currentPrefix === GotoSymbolQuickAccessProvider.PREFIX,
+        );
+        contextKeys.set(
+            "inWorkspaceSymbolsPicker",
+            this.isOpen() && this.currentPrefix === WorkspaceSymbolsQuickAccessProvider.PREFIX,
+        );
     }
 
     public close(): void {
@@ -128,7 +154,10 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     private handleDidClose(): void {
         this.active = false;
         this.cancelPendingSearch();
-        this.currentProvider?.onHide?.();
+        // An accept waiting for the answer dies with the picker.
+        this.acceptWhenLoaded = false;
+        this.currentProvider?.onHide?.(this.hideReason);
+        this.hideReason = "cancel";
         this.currentProvider = null;
     }
 
@@ -137,7 +166,7 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         this.currentPrefix = prefix;
         if (provider === this.currentProvider) return provider;
 
-        this.currentProvider?.onHide?.();
+        this.currentProvider?.onHide?.("cancel");
         this.currentProvider = provider;
         provider.onShow?.((preserveSelection) => {
             // A live source update is ignored if the provider is no longer
@@ -146,12 +175,16 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
             // Stryker disable next-line ConditionalExpression: equivalent while closing (and a takeover) always runs handleDidClose, which drops the provider — the guard above returns first
             if (!this.isOpen()) return;
             this.updateItems(this.view.getQuery(), preserveSelection);
+            // Still loading, it waits again.
+            if (this.acceptWhenLoaded) this.handleAccept();
         });
         this.view.placeholder = provider.getPlaceholder();
         return provider;
     }
 
     private handleQueryChange(query: string): void {
+        // Typing after Enter is a new intent: the pending accept was for the old text.
+        this.acceptWhenLoaded = false;
         const provider = this.activateProviderFor(query);
 
         if (provider.debounceQuery !== true) {
@@ -173,12 +206,17 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     private armSearchTimer(): void {
         this.searchTimer = setTimeout(() => {
             this.searchTimer = null;
-            if (this.pendingQuery === null) return;
-            const query = this.pendingQuery;
-            this.pendingQuery = null;
-            this.updateItems(query);
-            this.armSearchTimer();
+            if (this.runPendingQuery()) this.armSearchTimer();
         }, SEARCH_DEBOUNCE_MS);
+    }
+
+    /** The trailing query of the debounce, run now; `false` if nothing was remembered. */
+    private runPendingQuery(): boolean {
+        const query = this.pendingQuery;
+        if (query === null) return false;
+        this.pendingQuery = null;
+        this.updateItems(query);
+        return true;
     }
 
     private cancelPendingSearch(): void {
@@ -189,11 +227,24 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         this.pendingQuery = null;
     }
 
-    private handleAccept(item: QuickPickItem): void {
-        const accept = (item as QuickAccessItem).accept;
+    /**
+     * Accepts the active row. The debounce's trailing query is run first — Enter right after typing must not pick
+     * a row of the previous text — and a provider still loading the answer gets the accept on its refresh.
+     */
+    private handleAccept(picked?: QuickPickItem): void {
+        // The trailing query leaves the file provider loading: the row is taken on its answer, not now.
+        this.runPendingQuery();
+        // Stryker disable next-line OptionalChaining: accept comes only from an open picker, which always has a provider
+        if (this.currentProvider?.isLoading === true) {
+            this.acceptWhenLoaded = true;
+            return;
+        }
+        this.acceptWhenLoaded = false;
+        const accept = ((picked ?? this.view.items[this.view.selectedIndex]) as QuickAccessItem | undefined)?.accept;
 
         queueMicrotask(() => {
             if (accept === undefined) return;
+            this.hideReason = "accept";
             this.close();
             accept();
         });
@@ -209,6 +260,9 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
             this.view.refreshItems(items);
         } else {
             this.view.items = items;
+            const initial = provider.getInitialActiveIndex?.(items, query);
+            if (initial !== undefined) this.view.setActiveIndex(initial);
         }
+        provider.onActiveItemChanged?.(this.view.items[this.view.selectedIndex]);
     }
 }

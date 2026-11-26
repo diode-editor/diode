@@ -1,18 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { CancellationTokenNone } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
+import type { CodeLens, ICodeLensRequest } from "../../../editor/common/languages/iCodeLensSource.ts";
 import type { IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
+import type { IInlayHintsRequest, InlayHint } from "../../../editor/common/languages/iInlayHintsSource.ts";
+import type { ILinkRequest } from "../../../editor/common/languages/iLinkSource.ts";
 import type { ITextDocument } from "../../../editor/common/model/iTextDocument.ts";
 import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
-import type { IWireLanguageProviderRegistration } from "../common/wireTypes.ts";
+import type {
+    IWireCodeLens,
+    IWireCodeLensList,
+    IWireLanguageProviderRegistration,
+    IWireWorkspaceSymbolProviderRegistration,
+    WireCodeLensCacheId,
+} from "../common/wireTypes.ts";
 
 import { LanguageFeaturesAdapter } from "./languageFeaturesAdapter.ts";
 
 const TS = { uri: Uri.file("/w/a.ts"), languageId: "typescript" };
+const LENS_RANGE = createRange(1, 0, 1, 3);
 const MD = { uri: Uri.file("/w/b.md"), languageId: "markdown" };
 const REQUEST: IHoverRequest = {
     uri: TS.uri.toString(),
@@ -24,12 +35,17 @@ const REQUEST: IHoverRequest = {
 
 function makeBridge(): IExtensionLanguageFeaturesBridge & {
     providers: IWireLanguageProviderRegistration[];
+    workspaceSymbolProviders: IWireWorkspaceSymbolProviderRegistration[];
     fire(): void;
     fireSemanticTokens(handle: number): void;
+    fireInlayHints(handle: number): void;
+    fireCodeLenses(handle: number): void;
     listeners: number;
 } {
     const listeners: (() => void)[] = [];
     const semanticListeners: ((handle: number) => void)[] = [];
+    const inlayHintListeners: ((handle: number) => void)[] = [];
+    const codeLensListeners: ((handle: number) => void)[] = [];
     const bridge = {
         providers: [] as IWireLanguageProviderRegistration[],
         getLanguageProviders: () => bridge.providers,
@@ -44,6 +60,47 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideHover: vi.fn((handle: number) => Promise.resolve({ contents: [`handle ${String(handle)}`] })),
         provideDefinition: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///def${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
+        provideImplementation: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///impl${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
+        provideTypeDefinition: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///type${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
+        provideDeclaration: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///decl${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
+        workspaceSymbolProviders: [] as IWireWorkspaceSymbolProviderRegistration[],
+        getWorkspaceSymbolProviders: () => bridge.workspaceSymbolProviders,
+        provideWorkspaceSymbols: vi.fn((handle: number, query: string) =>
+            Promise.resolve({
+                cacheId: 7,
+                symbols: [
+                    {
+                        id: 3,
+                        name: `${query}${String(handle)}`,
+                        kind: 5,
+                        tags: [],
+                        location: { uri: "file:///w.ts" },
+                    },
+                ],
+            }),
+        ),
+        resolveWorkspaceSymbol: vi.fn(() =>
+            Promise.resolve({ uri: "file:///resolved.ts", range: createRange(1, 0, 1, 1) }),
+        ),
+        provideDocumentSymbols: vi.fn((handle: number) =>
+            Promise.resolve([
+                {
+                    name: `symbol${String(handle)}`,
+                    detail: "",
+                    kind: 5,
+                    tags: [],
+                    range: createRange(0, 0, 0, 1),
+                    selectionRange: createRange(0, 0, 0, 1),
+                    children: [],
+                },
+            ]),
         ),
         provideSignatureHelp: vi.fn((handle: number) =>
             Promise.resolve({
@@ -74,9 +131,42 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
             Promise.resolve({ applied: newName === `ok${String(handle)}` }),
         ),
         provideSelectionRanges: vi.fn((handle: number) => Promise.resolve([[createRange(0, 0, 0, handle)]])),
+        provideDocumentHighlights: vi.fn((handle: number) =>
+            Promise.resolve(handle === 0 ? null : [{ range: createRange(0, 0, 0, handle), kind: 2 }]),
+        ),
+        provideOnTypeFormattingEdits: vi.fn((handle: number) =>
+            Promise.resolve([{ range: createRange(0, 0, 0, handle), text: "x" }]),
+        ),
+        provideEvaluatableExpression: vi.fn((handle: number) =>
+            Promise.resolve({ range: createRange(0, 0, 0, handle), expression: "nums" }),
+        ),
+        provideLinkedEditingRanges: vi.fn((handle: number) =>
+            Promise.resolve(handle === 0 ? null : { ranges: [createRange(0, 0, 0, handle)], wordPattern: /x/ }),
+        ),
+        provideInlineValues: vi.fn((handle: number) =>
+            Promise.resolve([{ type: "text" as const, range: createRange(handle, 0, handle, 1), text: "x = 1" }]),
+        ),
+        provideDocumentLinks: vi.fn(() =>
+            Promise.resolve({
+                cacheId: 7,
+                links: [
+                    { id: 0, range: createRange(0, 0, 0, 3), target: "https://a.b/", tooltip: "tip" },
+                    { id: 1, range: createRange(1, 0, 1, 3) },
+                ],
+            }),
+        ),
+        resolveDocumentLink: vi.fn(() => Promise.resolve("https://resolved/")),
         provideDocumentColors: vi.fn((handle: number) =>
             Promise.resolve([{ range: createRange(0, 0, 0, handle), color: { red: 1, green: 0, blue: 0, alpha: 1 } }]),
         ),
+        prepareCallHierarchy: vi.fn((handle: number) => Promise.resolve({ sessionId: handle, items: [] })),
+        provideCallHierarchyIncomingCalls: vi.fn(() => Promise.resolve([])),
+        provideCallHierarchyOutgoingCalls: vi.fn(() => Promise.resolve([])),
+        releaseCallHierarchy: vi.fn(),
+        prepareTypeHierarchy: vi.fn((handle: number) => Promise.resolve({ sessionId: handle, items: [] })),
+        provideTypeHierarchySupertypes: vi.fn(() => Promise.resolve([])),
+        provideTypeHierarchySubtypes: vi.fn(() => Promise.resolve([])),
+        releaseTypeHierarchy: vi.fn(),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -98,6 +188,64 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         fireSemanticTokens: (handle: number) => {
             for (const cb of [...semanticListeners]) cb(handle);
         },
+        provideInlayHints: vi.fn(
+            (handle: number, _request: IInlayHintsRequest, _token?: ICancellationToken): Promise<InlayHint[] | null> =>
+                Promise.resolve(handle === 0 ? null : [{ position: { line: 0, character: handle }, label: "hint" }]),
+        ),
+        onDidChangeInlayHints: (cb: (handle: number) => void) => {
+            inlayHintListeners.push(cb);
+            return {
+                dispose: () => {
+                    inlayHintListeners.splice(inlayHintListeners.indexOf(cb), 1);
+                },
+            };
+        },
+        fireInlayHints: (handle: number) => {
+            for (const cb of [...inlayHintListeners]) cb(handle);
+        },
+        provideCodeLenses: vi.fn(
+            (
+                handle: number,
+                _request: ICodeLensRequest,
+                _token?: ICancellationToken,
+            ): Promise<IWireCodeLensList | null> =>
+                Promise.resolve(
+                    handle === 0
+                        ? null
+                        : {
+                              cacheId: 40,
+                              lenses: [
+                                  { cacheId: [40, 0], range: LENS_RANGE, command: { id: "run", title: "Run" } },
+                                  { cacheId: [40, 1], range: LENS_RANGE },
+                              ],
+                          },
+                ),
+        ),
+        resolveCodeLens: vi.fn(
+            (
+                _handle: number,
+                cacheId: WireCodeLensCacheId,
+                _token?: ICancellationToken,
+            ): Promise<IWireCodeLens | null> =>
+                Promise.resolve(
+                    cacheId[1] === 9 ? null : { cacheId, range: LENS_RANGE, command: { id: "late", title: "Late" } },
+                ),
+        ),
+        releaseCodeLenses: vi.fn((_handle: number, _cacheId: number): void => undefined),
+        executeCodeLensCommand: vi.fn(
+            (_handle: number, _cacheId: WireCodeLensCacheId): Promise<void> => Promise.resolve(),
+        ),
+        onDidChangeCodeLenses: (cb: (handle: number) => void) => {
+            codeLensListeners.push(cb);
+            return {
+                dispose: () => {
+                    codeLensListeners.splice(codeLensListeners.indexOf(cb), 1);
+                },
+            };
+        },
+        fireCodeLenses: (handle: number) => {
+            for (const cb of [...codeLensListeners]) cb(handle);
+        },
         fire: () => {
             for (const cb of [...listeners]) cb();
         },
@@ -115,6 +263,82 @@ const hover = (handle: number, language = "typescript"): IWireLanguageProviderRe
 });
 
 describe("LanguageFeaturesAdapter", () => {
+    it("documentLink: the links carry a resolver bound to their list, only with hasResolve", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 3, kind: "documentLink", selector: [{ language: "go" }], hasResolve: true },
+            { handle: 4, kind: "documentLink", selector: [{ language: "c" }] },
+        ];
+        const languageFeatures = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, languageFeatures);
+        const token = CancellationTokenNone;
+        const ask = (languageId: string) => {
+            const target = { uri: Uri.file("/a"), languageId };
+            const request = { uri: "file:///a", languageId, versionId: 1 } as ILinkRequest;
+            return languageFeatures.documentLinkProvider.ordered(target)[0].provideLinks(request, token);
+        };
+
+        const links = await ask("go");
+        expect(bridge.provideDocumentLinks).toHaveBeenCalledWith(3, expect.anything(), token);
+        expect(links?.[0]).toMatchObject({ url: "https://a.b/", tooltip: "tip", range: createRange(0, 0, 0, 3) });
+        await expect(links?.[1].resolve?.(token)).resolves.toBe("https://resolved/");
+        expect(bridge.resolveDocumentLink).toHaveBeenCalledWith(3, 7, 1, token);
+
+        expect((await ask("c"))?.[1].resolve).toBeUndefined();
+
+        vi.spyOn(bridge, "provideDocumentLinks").mockResolvedValueOnce(null);
+        await expect(ask("c")).resolves.toBeUndefined();
+        adapter.dispose();
+    });
+
+    it("callHierarchy: the proxy asks and releases by the provider's handle", async () => {
+        const bridge = makeBridge();
+        const service = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, service);
+        bridge.providers = [{ handle: 5, kind: "callHierarchy", selector: [{ language: "typescript" }] }];
+        bridge.fire();
+        const [provider] = service.callHierarchyProvider.ordered({
+            uri: Uri.file("/a.ts"),
+            languageId: "typescript",
+        } as never);
+        const token = new CancellationTokenSource().token;
+        const request = { uri: "file:///a.ts", languageId: "typescript", versionId: 1, line: 0, character: 0 };
+
+        await provider.prepareCallHierarchy(request, token);
+        expect(bridge.prepareCallHierarchy).toHaveBeenCalledWith(5, request, token);
+        await provider.provideIncomingCalls(40, 2, token);
+        expect(bridge.provideCallHierarchyIncomingCalls).toHaveBeenCalledWith(5, 40, 2, token);
+        await provider.provideOutgoingCalls(40, 3, token);
+        expect(bridge.provideCallHierarchyOutgoingCalls).toHaveBeenCalledWith(5, 40, 3, token);
+        provider.releaseCallHierarchy(40);
+        expect(bridge.releaseCallHierarchy).toHaveBeenCalledWith(5, 40);
+        adapter.dispose();
+    });
+
+    it("typeHierarchy: the proxy asks and releases by the provider's handle", async () => {
+        const bridge = makeBridge();
+        const service = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, service);
+        bridge.providers = [{ handle: 5, kind: "typeHierarchy", selector: [{ language: "typescript" }] }];
+        bridge.fire();
+        const [provider] = service.typeHierarchyProvider.ordered({
+            uri: Uri.file("/a.ts"),
+            languageId: "typescript",
+        } as never);
+        const token = new CancellationTokenSource().token;
+        const request = { uri: "file:///a.ts", languageId: "typescript", versionId: 1, line: 0, character: 0 };
+
+        await provider.prepareTypeHierarchy(request, token);
+        expect(bridge.prepareTypeHierarchy).toHaveBeenCalledWith(5, request, token);
+        await provider.provideSupertypes(40, 2, token);
+        expect(bridge.provideTypeHierarchySupertypes).toHaveBeenCalledWith(5, 40, 2, token);
+        await provider.provideSubtypes(40, 3, token);
+        expect(bridge.provideTypeHierarchySubtypes).toHaveBeenCalledWith(5, 40, 3, token);
+        provider.releaseTypeHierarchy(40);
+        expect(bridge.releaseTypeHierarchy).toHaveBeenCalledWith(5, 40);
+        adapter.dispose();
+    });
+
     it("picks up registrations declared before the adapter is created", async () => {
         const bridge = makeBridge();
         bridge.providers = [hover(1)];
@@ -154,6 +378,60 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideReferences).toHaveBeenCalledWith(5, referenceRequest, token);
     });
 
+    it("implementation: the proxy lands in its own registry and calls the host with its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 6, kind: "implementation", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        expect(features.definitionProvider.has(TS)).toBe(false);
+
+        const [implementation] = features.implementationProvider.ordered(TS);
+        const token = new CancellationTokenSource().token;
+        expect(await implementation.provideImplementation(REQUEST, token)).toEqual([
+            { uri: "file:///impl6.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(bridge.provideImplementation).toHaveBeenCalledWith(6, REQUEST, token);
+    });
+
+    it("type definition and declaration: each proxy lands in its own registry with its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 7, kind: "typeDefinition", selector: [{ language: "typescript" }] },
+            { handle: 8, kind: "declaration", selector: [{ language: "typescript" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        expect(features.definitionProvider.has(TS)).toBe(false);
+        expect(features.implementationProvider.has(TS)).toBe(false);
+
+        const [typeDefinition] = features.typeDefinitionProvider.ordered(TS);
+        const [declaration] = features.declarationProvider.ordered(TS);
+        const token = new CancellationTokenSource().token;
+        expect(await typeDefinition.provideTypeDefinition(REQUEST, token)).toEqual([
+            { uri: "file:///type7.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(await declaration.provideDeclaration(REQUEST, token)).toEqual([
+            { uri: "file:///decl8.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(bridge.provideTypeDefinition).toHaveBeenCalledWith(7, REQUEST, token);
+        expect(bridge.provideDeclaration).toHaveBeenCalledWith(8, REQUEST, token);
+    });
+
+    it("document symbols: proxy in its registry, calls the host with its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 9, kind: "documentSymbol", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.documentSymbolProvider.ordered(TS);
+        const token = new CancellationTokenSource().token;
+        const request = { uri: REQUEST.uri, languageId: REQUEST.languageId, versionId: REQUEST.versionId };
+        expect((await provider.provideDocumentSymbols(request, token)).map((symbol) => symbol.name)).toEqual([
+            "symbol9",
+        ]);
+        expect(bridge.provideDocumentSymbols).toHaveBeenCalledWith(9, request, token);
+    });
+
     it("rename: proxy in its registry, both methods call the host with its handle", async () => {
         const bridge = makeBridge();
         bridge.providers = [{ handle: 9, kind: "rename", selector: [{ language: "typescript" }] }];
@@ -188,6 +466,145 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideSelectionRanges).toHaveBeenCalledWith(7, request, token);
     });
 
+    it("documentHighlight: the provider goes to the registry and asks the bridge by its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "documentHighlight", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.documentHighlightProvider.ordered(TS);
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            position: { line: 0, character: 1 },
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideDocumentHighlights(request, token)).toEqual([
+            { range: createRange(0, 0, 0, 5), kind: 2 },
+        ]);
+        expect(bridge.provideDocumentHighlights).toHaveBeenCalledWith(5, request, token);
+
+        bridge.providers = [];
+        bridge.fire();
+        expect(features.documentHighlightProvider.has(TS)).toBe(false);
+        adapter.dispose();
+    });
+
+    it("onTypeFormatting: the triggers reach the registry and the bridge is asked by its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            {
+                handle: 5,
+                kind: "onTypeFormatting",
+                selector: [{ language: "typescript" }],
+                triggerCharacters: [";", "\n"],
+            },
+            { handle: 6, kind: "onTypeFormatting", selector: [{ language: "go" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.onTypeFormattingEditProvider.ordered(TS);
+        expect(provider.triggerCharacters).toEqual([";", "\n"]);
+        const [bare] = features.onTypeFormattingEditProvider.ordered({ uri: TS.uri, languageId: "go" });
+        expect(bare.triggerCharacters).toEqual([]);
+
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            position: { line: 0, character: 1 },
+            ch: ";",
+            tabSize: 4,
+            insertSpaces: true,
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideOnTypeFormattingEdits(request, token)).toEqual([
+            { range: createRange(0, 0, 0, 5), text: "x" },
+        ]);
+        expect(bridge.provideOnTypeFormattingEdits).toHaveBeenCalledWith(5, request, token);
+        adapter.dispose();
+    });
+
+    it("linkedEditingRange: the provider goes to the registry and asks the bridge by its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "linkedEditingRange", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.linkedEditingRangeProvider.ordered(TS);
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            position: { line: 0, character: 1 },
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideLinkedEditingRanges(request, token)).toEqual({
+            ranges: [createRange(0, 0, 0, 5)],
+            wordPattern: /x/,
+        });
+        expect(bridge.provideLinkedEditingRanges).toHaveBeenCalledWith(5, request, token);
+
+        bridge.providers = [];
+        bridge.fire();
+        expect(features.linkedEditingRangeProvider.has(TS)).toBe(false);
+        adapter.dispose();
+    });
+
+    it("inlineValues: the provider goes to the registry and asks the bridge by its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "inlineValues", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.inlineValuesProvider.ordered(TS);
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            viewPort: createRange(0, 0, 9, 0),
+            context: { frameId: 3, stoppedLocation: createRange(4, 2, 4, 2) },
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideInlineValues(request, token)).toEqual([
+            { type: "text", range: createRange(5, 0, 5, 1), text: "x = 1" },
+        ]);
+        expect(bridge.provideInlineValues).toHaveBeenCalledWith(5, request, token);
+
+        bridge.providers = [];
+        bridge.fire();
+        expect(features.inlineValuesProvider.has(TS)).toBe(false);
+        adapter.dispose();
+    });
+
+    it("evaluatableExpression: the provider goes to the registry and asks the bridge by its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 4, kind: "evaluatableExpression", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.evaluatableExpressionProvider.ordered(TS);
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            position: { line: 0, character: 1 },
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideEvaluatableExpression(request, token)).toEqual({
+            range: createRange(0, 0, 0, 4),
+            expression: "nums",
+        });
+        expect(bridge.provideEvaluatableExpression).toHaveBeenCalledWith(4, request, token);
+
+        bridge.providers = [];
+        bridge.fire();
+        expect(features.evaluatableExpressionProvider.has(TS)).toBe(false);
+        adapter.dispose();
+    });
+
     it("color: a proxy in its registry calls the host with its handle and token", async () => {
         const bridge = makeBridge();
         bridge.providers = [{ handle: 5, kind: "color", selector: [{ language: "typescript" }] }];
@@ -211,6 +628,166 @@ describe("LanguageFeaturesAdapter", () => {
         bridge.fire();
         expect(features.colorProvider.has(TS)).toBe(false);
         adapter.dispose();
+    });
+
+    it("inlayHints: a proxy in its registry asks the host about the model, with its handle and token", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 5, kind: "inlayHints", selector: [{ language: "typescript" }] },
+            { handle: 0, kind: "inlayHints", selector: [{ language: "typescript" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const providers = features.inlayHintsProvider.ordered(TS);
+        expect(providers).toHaveLength(2);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const range = createRange(0, 0, 4, 0);
+        const token = new CancellationTokenSource().token;
+        const answers = await Promise.all(providers.map(async (p) => p.provideInlayHints(model, range, token)));
+
+        expect(bridge.provideInlayHints).toHaveBeenCalledWith(
+            5,
+            { uri: TS.uri.toString(), languageId: TS.languageId, versionId: 3, range },
+            token,
+        );
+        expect(answers.find((list) => list === null)).toBeNull();
+        const list = answers.find((answer) => answer !== null && answer !== undefined);
+        expect(list?.hints).toEqual([{ position: { line: 0, character: 5 }, label: "hint" }]);
+        expect(() => list?.dispose()).not.toThrow();
+    });
+
+    it("inlayHints: the change event reaches the provider of its handle; none without hasOnDidChange", () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 1, kind: "inlayHints", selector: [{ language: "typescript" }], hasOnDidChange: true },
+            { handle: 2, kind: "inlayHints", selector: [{ language: "python" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.inlayHintsProvider.ordered(TS);
+        const listener = vi.fn();
+        const subscription = provider.onDidChangeInlayHints?.(listener);
+        bridge.fireInlayHints(9);
+        expect(listener).not.toHaveBeenCalled();
+        bridge.fireInlayHints(1);
+        expect(listener).toHaveBeenCalledOnce();
+        subscription?.dispose();
+        bridge.fireInlayHints(1);
+        expect(listener).toHaveBeenCalledOnce();
+
+        const [silent] = features.inlayHintsProvider.ordered({ ...TS, languageId: "python" });
+        expect(silent.onDidChangeInlayHints).toBeUndefined();
+    });
+
+    it("codeLens: the document and token go to the bridge of its handle, the lenses come with the address, nothing to run on their own", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const token = new CancellationTokenSource().token;
+        const list = await provider.provideCodeLenses(model, token);
+
+        expect(bridge.provideCodeLenses).toHaveBeenCalledWith(
+            5,
+            { uri: TS.uri.toString(), languageId: TS.languageId, versionId: 3 },
+            token,
+        );
+        expect(list?.lenses).toEqual([
+            {
+                cacheId: [40, 0],
+                range: LENS_RANGE,
+                command: { id: "run", title: "Run", run: expect.any(Function) as () => Promise<void> },
+            },
+            { cacheId: [40, 1], range: LENS_RANGE },
+        ]);
+    });
+
+    it("codeLens: no answer from the bridge is no list", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 0, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        expect(await provider.provideCodeLenses(model, CancellationTokenNone)).toBeNull();
+        expect(bridge.releaseCodeLenses).not.toHaveBeenCalled();
+    });
+
+    it("codeLens: disposing the list releases its session, the command runs by the address of the lens", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const list = await provider.provideCodeLenses(model, CancellationTokenNone);
+
+        await list?.lenses[0].command?.run?.();
+        expect(bridge.executeCodeLensCommand).toHaveBeenCalledWith(5, [40, 0]);
+
+        expect(bridge.releaseCodeLenses).not.toHaveBeenCalled();
+        list?.dispose();
+        expect(bridge.releaseCodeLenses).toHaveBeenCalledWith(5, 40);
+    });
+
+    it("codeLens: a resolve goes by the address of the lens, its command runs by the same address", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const list = await provider.provideCodeLenses(model, CancellationTokenNone);
+        const token = new CancellationTokenSource().token;
+        const lens = list?.lenses[1];
+        if (lens === undefined) throw new Error("no lens");
+
+        const resolved = await provider.resolveCodeLens?.(model, lens, token);
+
+        expect(bridge.resolveCodeLens).toHaveBeenCalledWith(5, [40, 1], token);
+        expect(resolved?.command?.title).toBe("Late");
+        await resolved?.command?.run?.();
+        expect(bridge.executeCodeLensCommand).toHaveBeenCalledWith(5, [40, 1]);
+    });
+
+    it("codeLens: a failed resolve is null", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const lens = { range: LENS_RANGE, cacheId: [40, 9] } as CodeLens;
+        expect(await provider.resolveCodeLens?.(model, lens, CancellationTokenNone)).toBeNull();
+    });
+
+    it("codeLens: the change event reaches the provider of its handle; none without hasOnDidChange", () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 1, kind: "codeLens", selector: [{ language: "typescript" }], hasOnDidChange: true },
+            { handle: 2, kind: "codeLens", selector: [{ language: "python" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const listener = vi.fn();
+        const subscription = provider.onDidChange?.(listener);
+        bridge.fireCodeLenses(9);
+        expect(listener).not.toHaveBeenCalled();
+        bridge.fireCodeLenses(1);
+        expect(listener).toHaveBeenCalledOnce();
+        subscription?.dispose();
+        bridge.fireCodeLenses(1);
+        expect(listener).toHaveBeenCalledOnce();
+
+        const [silent] = features.codeLensProvider.ordered({ ...TS, languageId: "python" });
+        expect(silent.onDidChange).toBeUndefined();
     });
 
     it("signatureHelp: triggers come from registration metadata, empty without metadata", async () => {
@@ -454,5 +1031,48 @@ describe("LanguageFeaturesAdapter", () => {
 
         expect(features.hoverProvider.has(TS)).toBe(false);
         expect(bridge.listeners).toBe(0);
+    });
+});
+
+describe("LanguageFeaturesAdapter — workspace symbols", () => {
+    function setup(supportsResolve: boolean) {
+        const bridge = makeBridge();
+        bridge.workspaceSymbolProviders = [{ handle: 4, supportsResolve }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+        return { bridge, features, adapter, registry: features.workspaceSymbolProvider };
+    }
+
+    it("a provider appears without a selector and answers through its handle", async () => {
+        const { bridge, registry } = setup(false);
+        const [provider] = registry.all();
+        const symbols = await provider.provideWorkspaceSymbols("q", CancellationTokenNone);
+        expect(symbols[0].name).toBe("q4");
+        expect(bridge.provideWorkspaceSymbols).toHaveBeenCalledWith(4, "q", CancellationTokenNone);
+    });
+
+    it("resolve exists only if the provider can; it sends the symbol's address back", async () => {
+        expect(setup(false).registry.all()[0].resolveWorkspaceSymbol).toBeUndefined();
+
+        const { bridge, registry } = setup(true);
+        const [provider] = registry.all();
+        const [symbol] = await provider.provideWorkspaceSymbols("q", CancellationTokenNone);
+        const location = await provider.resolveWorkspaceSymbol?.(symbol, CancellationTokenNone);
+
+        expect(bridge.resolveWorkspaceSymbol).toHaveBeenCalledWith(4, 7, 3, CancellationTokenNone);
+        expect(location?.uri).toBe("file:///resolved.ts");
+    });
+
+    it("follows the bridge: an unregistered provider goes, dispose takes the rest", () => {
+        const { bridge, registry, adapter } = setup(false);
+        bridge.workspaceSymbolProviders = [];
+        bridge.fire();
+        expect(registry.all()).toEqual([]);
+
+        bridge.workspaceSymbolProviders = [{ handle: 5, supportsResolve: false }];
+        bridge.fire();
+        expect(registry.all()).toHaveLength(1);
+        adapter.dispose();
+        expect(registry.all()).toEqual([]);
     });
 });

@@ -14,17 +14,31 @@ import type {
     IWireTerminalCreate,
     IWireTerminalOpened,
     IWireTerminalRef,
+    IWireTerminalShellExecutionData,
+    IWireTerminalShellExecutionEnd,
+    IWireTerminalShellExecutionStart,
+    IWireTerminalShellIntegration,
+    IWireTerminalShellIntegrationCwd,
+    IWireTerminalShellIntegrationEnv,
     IWireValidationMessage,
     WireMarker,
     WireOutputLevel,
+    WireProgressLocation,
 } from "./wireTypes.ts";
 
 /** Full set of the resource's markers: replaces, does not merge. */
 export type DiagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]) => void;
 
+export interface IProgressStartOptions {
+    readonly title: string;
+    readonly location: WireProgressLocation;
+    readonly cancellable: boolean;
+}
+
 /** `handle` is unique within the subprocess. */
 export interface IProgressSink {
-    start(handle: number, title: string): void;
+    /** `onCancel`: the user pressed Cancel of a `cancellable` progress (upstream `$acceptProgressCanceled`). */
+    start(handle: number, options: IProgressStartOptions, onCancel: () => void): void;
     report(handle: number, message?: string, increment?: number): void;
     end(handle: number): void;
 }
@@ -85,8 +99,28 @@ export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
     readonly validate?: (value: string) => Promise<IWireValidationMessage | null>;
 }
 
+/**
+ * Upstream `ITerminalProfileService.registerTerminalProfileProvider` as `MainThreadTerminalService` calls it:
+ * `create` asks the subprocess for the profile and resolves once its terminal exists.
+ */
+export interface IExtensionTerminalProfileSink {
+    registerProvider(id: string, create: ContributedProfileCreator): IDisposable;
+}
+
+export type ContributedProfileCreator = (target: "panel" | "editor") => Promise<void>;
+
+/** Upstream `MainThreadTerminalShellIntegration`: `$shellIntegrationChange` and the rest, in the order they happen. */
+export interface IExtensionTerminalShellIntegrationEvents {
+    shellIntegrationChanged(event: IWireTerminalShellIntegration): void;
+    shellIntegrationCwd(event: IWireTerminalShellIntegrationCwd): void;
+    shellIntegrationEnv(event: IWireTerminalShellIntegrationEnv): void;
+    shellExecutionStart(event: IWireTerminalShellExecutionStart): void;
+    shellExecutionData(event: IWireTerminalShellExecutionData): void;
+    shellExecutionEnd(event: IWireTerminalShellExecutionEnd): void;
+}
+
 /** Upstream `$acceptTerminal*`. */
-export interface IExtensionTerminalEvents {
+export interface IExtensionTerminalEvents extends IExtensionTerminalShellIntegrationEvents {
     opened(terminal: IWireTerminalOpened): void;
     closed(terminal: IWireTerminalClosed): void;
     activeChanged(id: number | null): void;
@@ -95,6 +129,30 @@ export interface IExtensionTerminalEvents {
     /** User typing and `sendText` → `pty.handleInput`. */
     ptyInput(id: number, data: string): void;
     ptyResize(id: number, cols: number, rows: number): void;
+    /** Upstream `$acceptTerminalInteraction`: the first input into the instance — keys or `sendText`. */
+    interaction(id: number): void;
+    /** Upstream `$acceptTerminalTitleChange`. */
+    titleChanged(id: number, name: string): void;
+}
+
+/** What a new subprocess learns about a terminal whose shell integration is already alive. */
+export interface IExtensionTerminalShellIntegrationState {
+    readonly integration: IWireTerminalShellIntegration;
+    readonly cwd?: IWireTerminalShellIntegrationCwd;
+    readonly env?: IWireTerminalShellIntegrationEnv;
+}
+
+/** Upstream `_enableShellIntegration`: the change, then what is already known — to a live subprocess or a new one. */
+export function sendShellIntegrationState(
+    events: Pick<
+        IExtensionTerminalShellIntegrationEvents,
+        "shellIntegrationChanged" | "shellIntegrationCwd" | "shellIntegrationEnv"
+    >,
+    { integration, cwd, env }: IExtensionTerminalShellIntegrationState,
+): void {
+    events.shellIntegrationChanged(integration);
+    if (cwd !== undefined) events.shellIntegrationCwd(cwd);
+    if (env !== undefined) events.shellIntegrationEnv(env);
 }
 
 /**
@@ -105,7 +163,11 @@ export interface IExtensionTerminalEvents {
  */
 export interface IExtensionTerminalSink {
     /** In creation order; seeds a new subprocess. */
-    snapshot(): { readonly terminals: readonly IWireTerminalOpened[]; readonly activeId: number | null };
+    snapshot(): {
+        readonly terminals: readonly IWireTerminalOpened[];
+        readonly activeId: number | null;
+        readonly shellIntegrations: readonly IExtensionTerminalShellIntegrationState[];
+    };
     /** Events before subscribing are in {@link snapshot}. */
     subscribe(events: IExtensionTerminalEvents): IDisposable;
     create(request: IWireTerminalCreate): void;
@@ -115,5 +177,9 @@ export interface IExtensionTerminalSink {
     dispose(terminal: IWireTerminalRef): void;
     ptyData(terminal: IWireTerminalRef, data: string): void;
     ptyExit(terminal: IWireTerminalRef, code: number | undefined): void;
+    /** The pty's `onDidChangeName`: renames the terminal, over the name it was created with (as upstream). */
+    ptyName(terminal: IWireTerminalRef, name: string): void;
+    /** Upstream `$executeCommand`: `runCommand` — waits for the prompt, clears it, sends the line with Enter. */
+    executeCommand(id: number, commandLine: string): void;
     reset(): void;
 }

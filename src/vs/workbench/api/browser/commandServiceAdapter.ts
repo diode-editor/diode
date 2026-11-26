@@ -16,6 +16,10 @@ export class CommandServiceAdapter implements ICommandService {
         return this.registry.execute(id, ...args);
     }
 
+    public holdInputUntil(done: PromiseLike<unknown>): void {
+        this.registry.holdInputUntil(done);
+    }
+
     public listCommandIds(): readonly string[] {
         return this.registry.listCommandIds();
     }

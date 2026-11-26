@@ -16,7 +16,7 @@ on:
       gate:
         description: Which gate to run
         type: choice
-        options: [all, static, test, mutation, e2e, e2e-windows]
+        options: [all, static, test, mutation, e2e, e2e-windows, api-conformance]
         default: all
       base:
         description: Diff base of the mutation gate (SHA); empty means merge-base with origin/main
@@ -82,6 +82,22 @@ jobs:
         continue-on-error: true
         run: npm run cyrillic-check
 
+      # Dead code is deleted, not silenced: per-file `Stryker disable` markers whose reason says
+      # unreachable/defensive/"for the type" only go down (scripts/check-stryker-disable.mjs,
+      # baseline in scripts/stryker-disable-baseline.json, docs/MUTATION.md).
+      - name: Stryker disable
+        id: strykerdisable
+        continue-on-error: true
+        run: npm run stryker-disable-check
+
+      # The coverage gate is 100 and nothing else: the four thresholds in vitest.config.ts are not
+      # lowered by hand (scripts/check-coverage-thresholds.mjs; a file not worth covering goes to
+      # coverage.exclude, docs/TESTING.md).
+      - name: Coverage thresholds
+        id: coveragethresholds
+        continue-on-error: true
+        run: npm run coverage-thresholds-check
+
       # The core's V8 snapshot (SEA `useSnapshot`): main.cjs builds into a snapshot, the
       # module top level doesn't read the build environment (traps + a poisoned build),
       # and after deserialization it sees the launch environment (scripts/check-snapshot.mjs).
@@ -100,13 +116,15 @@ jobs:
         run: npm run api-matrix -- --check
 
       - name: Gate
-        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure' || steps.cyrillic.outcome == 'failure' || steps.snapshot.outcome == 'failure' || steps.apimatrix.outcome == 'failure'
+        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure' || steps.cyrillic.outcome == 'failure' || steps.strykerdisable.outcome == 'failure' || steps.coveragethresholds.outcome == 'failure' || steps.snapshot.outcome == 'failure' || steps.apimatrix.outcome == 'failure'
         run: |
           echo "typecheck: ${{ steps.typecheck.outcome }}"
           echo "lint:      ${{ steps.lint.outcome }}"
           echo "layers:    ${{ steps.layers.outcome }}"
           echo "lazy:      ${{ steps.lazy.outcome }}"
           echo "cyrillic:  ${{ steps.cyrillic.outcome }}"
+          echo "stryker:   ${{ steps.strykerdisable.outcome }}"
+          echo "coverage:  ${{ steps.coveragethresholds.outcome }}"
           echo "snapshot:  ${{ steps.snapshot.outcome }}"
           echo "apimatrix: ${{ steps.apimatrix.outcome }}"
           echo 'Formatting and import order are fixed by `npm run lint:fix`; the rest by hand.'
@@ -129,6 +147,14 @@ jobs:
 
       # Go for the golang.go stock extension suites (otherwise they are skipped) + gopls cache.
       - uses: ./.github/actions/go-tools
+
+      # clangd for the vscode-clangd stock extension suites, zsh and fish for the shell integration suites (otherwise they
+      # are skipped; pwsh comes with the runner image).
+      - name: Install clangd, zsh and fish
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clangd zsh fish
+          command -v pwsh
 
       # Stock .vsix between runs: open-vsx stalls fail the stock extension suites' beforeAll.
       - uses: ./.github/actions/stock-vsix-cache
@@ -176,6 +202,14 @@ jobs:
 
       # Go for the golang.go stock extension suites (otherwise they are skipped) + gopls cache.
       - uses: ./.github/actions/go-tools
+
+      # clangd for the vscode-clangd stock extension suites, zsh and fish for the shell integration suites (otherwise they
+      # are skipped; pwsh comes with the runner image).
+      - name: Install clangd, zsh and fish
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clangd zsh fish
+          command -v pwsh
 
       # Stock .vsix between runs: an open-vsx stall in the dry run fails the whole gate.
       - uses: ./.github/actions/stock-vsix-cache
@@ -304,6 +338,33 @@ jobs:
 
   # A manual run splits the matrix: `e2e` is ubuntu, `e2e-windows` is windows. The check
   # names on PRs (`e2e (ubuntu-latest)`, `e2e (windows-latest)`) stay the same.
+  # Upstream's vscode-api-tests against the baseline (e2e/api-conformance, docs/TESTING.md):
+  # a test green in the baseline that is not green now turns the job red. A parallel job of
+  # about five minutes; Stryker does not run it (vitest includes only src/, extensions/, tools/).
+  api-conformance:
+    if: github.event_name != 'workflow_dispatch' || inputs.gate == 'all' || inputs.gate == 'api-conformance'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - run: npm install
+
+      - run: npm run test:api-conformance
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-conformance-report
+          path: reports/api-conformance/
+          if-no-files-found: warn
+
   e2e:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["all","e2e","e2e-windows"]'), inputs.gate)
     strategy:
@@ -322,11 +383,14 @@ jobs:
       # node-pty builds from source when there is no prebuild for the current Node version.
       # Ubuntu needs build-essential + python3 (macOS already has them from Xcode CLT,
       # on Windows setup-node + windows-build-tools is usually enough).
-      - name: Install build deps for node-pty (Linux)
+      # clangd: the vscode-clangd marketplace check and scenario (skipped without it); zsh, fish: shell integration
+      # (pwsh comes with the runner image).
+      - name: Install build deps for node-pty, clangd, zsh and fish (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential python3
+          sudo apt-get install -y --no-install-recommends build-essential python3 clangd zsh fish
+          command -v pwsh
 
       - run: npm install
 

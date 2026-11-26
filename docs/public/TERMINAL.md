@@ -44,9 +44,19 @@ The setting applies at once, no restart needed.
 ## Keys
 
 The Ctrl+Shift shortcuts, `Ctrl+Tab`, `Ctrl+Enter` and ``Ctrl+` `` need an extended keyboard
-protocol. Diode asks for both the kitty keyboard protocol and xterm's `modifyOtherKeys` at startup
-and uses whichever the terminal answers with; see [Keyboard](KEYBOARD.md) for what works without
-it. Terminal by terminal:
+protocol. By default (`terminal.tier: "auto"`) Diode starts in the legacy key encoding and turns
+the extended protocol on once, at startup, when the terminal confirms it: outside tmux when the
+terminal answers the kitty protocol query, inside tmux when tmux passes extended keys
+(`extended-keys` on and the `extkeys` feature for your terminal). Otherwise it stays legacy, which
+works in every terminal; see [Keyboard](KEYBOARD.md) for what works that way. The tier never
+changes mid-session. On a Mac outside tmux this is also what makes the Cmd shortcuts reach Diode.
+
+To keep the legacy keys everywhere, set `terminal.tier` to `legacy`: the left status bar segment
+then says what the terminal could do, `legacy · kitty available` or `legacy · tmux · csi-u
+available`. `kitty` or `csi-u` force the extended protocol on from the first byte. A change applies
+after a restart.
+
+Terminal by terminal, for the extended protocol:
 
 - **kitty**, **ghostty**, **foot**, **Alacritty**: nothing to configure. In kitty, `Ctrl+Shift+<key>`
   is also kitty's own shortcut prefix; the shortcuts you use in Diode may need to be unmapped in
@@ -63,11 +73,10 @@ it. Terminal by terminal:
   Terminal.app "Use Option as Meta key". Cmd shortcuts the terminal keeps for itself (`Cmd+T`,
   `Cmd+N`, `Cmd+P`, ...) need unmapping in the terminal to reach Diode.
 
-**Diode: Keyboard Doctor** (command palette, or click the left status bar segment) walks through
-the keys, shows what arrived, and ends with the recipe for your terminal.
-
-If detection gets it wrong, `terminal.tier` forces a level (`auto`, `legacy`, `csi-u`, `kitty`),
-and `terminal.capabilities` forces single capabilities on or off.
+`terminal.tier` picks the level (`auto`, `legacy`, `csi-u`, `kitty`), and
+`terminal.capabilities` forces single capabilities on or off (`"extended-keys": true` with `auto`
+also turns the protocol on). Both apply after a restart. A click on the left status bar segment
+opens your `settings.json`.
 
 ## Clipboard
 
@@ -83,6 +92,19 @@ paste, so newlines and tabs land as text and never trigger shortcuts.
 
 The mouse is always on in Diode, so the terminal's own text selection needs its usual override:
 `Shift`+drag in most terminals, `Option`+drag in iTerm2.
+
+In Diode's integrated terminal (the TERMINAL panel or a terminal tab), drag with the left button to
+select text. A double click selects a word and a triple click the whole line, soft-wrapped rows
+included; keep dragging after either to grow the selection by words or lines. `Shift`+click moves
+the end of the selection to the clicked cell. The characters that end a word are set by
+`terminal.integrated.wordSeparators`. `Ctrl+C` with a selection copies it and clears the selection;
+without one it goes to the shell as usual. `Ctrl+Shift+C` copies and keeps the selection where your terminal passes it
+through, `Escape` clears it, and **Terminal: Select All** selects the whole buffer, scrollback
+included. With `terminal.integrated.copyOnSelection` on, a selection goes to the clipboard as soon
+as you finish it, no `Ctrl+C` needed. When a program in the terminal uses the mouse itself (htop,
+vim with `mouse=a`), its clicks are its own: hold `Shift` while dragging, double or triple clicking
+to select; if your terminal takes `Shift`+drag for its own selection, that one wins. The colors are `terminal.selectionBackground`, `terminal.inactiveSelectionBackground` and
+`terminal.selectionForeground`.
 
 ## Mouse pointer
 

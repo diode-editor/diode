@@ -1,6 +1,7 @@
 import type { TerminalCell } from "@tuidom/core/common/iTerminalSurface";
 import { describe, expect, it, vi } from "vitest";
 
+import { VSCODE_SHIM_VERSION } from "../../../api/common/vscodeShimVersion.ts";
 import type { ITerminalEnvironmentContributor } from "../common/extensionEnvironment.ts";
 
 import { buildEnv, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
@@ -33,6 +34,7 @@ function contributor() {
             env.DIODE_EXT_PATH = `${env.DIODE_EXT_PATH ?? ""}:ext`;
             env.TERM = "ext-term";
         },
+        pathPrefix: () => undefined,
     };
     return { environment, calls };
 }
@@ -45,11 +47,23 @@ describe("buildEnv — collection overlay", () => {
             target.FROM_EXT = "x";
             target.TMUX = "ext";
             target.TERM = "ext";
+            target.TERM_PROGRAM = "ext";
+            target.COLORTERM = "ext";
             target.UNSET = undefined;
+            target.VSCODE_FROM_EXT = "kept";
         });
         expect(seen).toEqual({ KEEP: "1", ADD: "3", TMUX: "t" });
         // Strict: a variable the contributor left `undefined` doesn't reach the environment at all.
-        expect(env).toStrictEqual({ KEEP: "1", ADD: "3", FROM_EXT: "x", TERM: "xterm-256color" });
+        expect(env).toStrictEqual({
+            KEEP: "1",
+            ADD: "3",
+            FROM_EXT: "x",
+            VSCODE_FROM_EXT: "kept",
+            TERM_PROGRAM: "vscode",
+            TERM_PROGRAM_VERSION: VSCODE_SHIM_VERSION,
+            COLORTERM: "truecolor",
+            TERM: "xterm-256color",
+        });
     });
 });
 

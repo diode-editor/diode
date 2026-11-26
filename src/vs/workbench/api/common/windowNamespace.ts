@@ -2,15 +2,21 @@ import * as nodePath from "node:path";
 
 import type * as vscode from "vscode";
 
+import { equals } from "../../../base/common/arrays.ts";
 import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/config/editorCursorStyle.ts";
+import { type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 
 import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { createProgressApi } from "./extHostProgress.ts";
+import { snippetRanges } from "./extHostSnippetInsert.ts";
 import { applyTextEditorEdit } from "./extHostTextEditorEdit.ts";
 import { createExtHostTreeViews, type ITreeViewMembers } from "./extHostTreeViews.ts";
 import {
     normalizeDecorationRanges,
+    rangeFrom,
     serializeDecorationRenderOptions,
+    toVscodeRange,
     toVscodeSelection,
     toWireSelection,
 } from "./extHostTypeConverters.ts";
@@ -19,17 +25,22 @@ import { createQuickInputApi } from "./quickInputNamespace.ts";
 import type { AsRelativePath } from "./quickInputResource.ts";
 import { createStatusBarMessage } from "./statusBarMessage.ts";
 import { createTerminalNamespace, type ITerminalNamespace } from "./terminalNamespace.ts";
+import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { createUriHandlers } from "./uriHandlers.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     ColorThemeKind,
     DisposableImpl,
     EventEmitter,
+    LogLevel,
+    NEVER_CANCELLED_TOKEN,
     Position,
     Selection,
     StatusBarAlignment,
     TabInputText,
     TabInputTextDiff,
+    TextEditorCursorStyle,
+    TextEditorLineNumbersStyle,
     Uri,
 } from "./vscodeTypes.ts";
 import { createWebviewNoopMembers } from "./webviewNoop.ts";
@@ -37,6 +48,7 @@ import {
     type IWireDialogFilter,
     type IWireEditorEdit,
     type IWireEditorLayout,
+    type IWireEditorOptions,
     type IWireFileDecoration,
     type IWireSelection,
     type IWireShowTextDocumentResult,
@@ -44,6 +56,7 @@ import {
     type IWireTabSnapshot,
     parseWireColorTheme,
     parseWireEditorLayout,
+    parseWireEditorPropertiesChanged,
     parseWireOpenDialogResult,
     parseWireSaveDialogResult,
     parseWireSelectionChangeKind,
@@ -63,12 +76,6 @@ function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T>
         return disposable;
     };
 }
-
-const NEVER_CANCELLED: vscode.CancellationToken = {
-    isCancellationRequested: false,
-    /* v8 ignore next -- defensive stub: the host bridge never cancels provideFileDecoration, so the listener is never called */
-    onCancellationRequested: () => new DisposableImpl(() => undefined),
-};
 
 function normalizeChangedUris(changed: undefined | vscode.Uri | vscode.Uri[]): vscode.Uri[] {
     if (changed === undefined) return [];
@@ -117,16 +124,23 @@ export function createWindowNamespace(
 
     const quickInput = createQuickInputApi(rpc, asRelativePath);
     const messages = createMessageApi(rpc);
+    const progressApi = createProgressApi(rpc);
 
     let activeEditorUri: string | null = null;
     /** null until the first meta that carries a group. */
     let activeEditorGroupId: number | null = null;
-    let nextProgressHandle = 1;
     let nextStatusBarItemHandle = 1;
     let activeSelections: readonly IWireSelection[] = [];
     /** Single source of `visibleTextEditors`/`tabGroups`/`viewColumn`: API events come from diffing snapshots. */
     let layout: IWireEditorLayout = { groups: [] };
     const selectionsByEditor = new Map<string, readonly IWireSelection[]>();
+    /** Kept while the tab lives: a hidden editor keeps its last value, as upstream. Converted once, read often. */
+    const visibleRangesByEditor = new Map<string, readonly vscode.Range[]>();
+    /**
+     * What the host last reported, with the extension's own assignments on top until the host applies them (upstream
+     * `ExtHostTextEditorOptions`). Kept while the tab lives, as the visible ranges.
+     */
+    const optionsByEditor = new Map<string, Partial<IWireEditorOptions>>();
     /** Their selection event waits for `editor.activeEditorChanged` (see {@link announceRestoredSelections}). */
     const pendingRestoredSelections = new Map<
         string,
@@ -143,6 +157,8 @@ export function createWindowNamespace(
     const tabsListeners: ((e: vscode.TabChangeEvent) => void)[] = [];
     const tabGroupsListeners: ((e: vscode.TabGroupChangeEvent) => void)[] = [];
     const selectionListeners: ((e: vscode.TextEditorSelectionChangeEvent) => void)[] = [];
+    const visibleRangesListeners: ((e: vscode.TextEditorVisibleRangesChangeEvent) => void)[] = [];
+    const optionsListeners: ((e: vscode.TextEditorOptionsChangeEvent) => void)[] = [];
     const colorThemeListeners: ((e: vscode.ColorTheme) => void)[] = [];
     /** Seeded with Dark, the VS Code default: `activeColorTheme.kind` is read unchecked before the first `window.themeChanged`. */
     let activeColorTheme: vscode.ColorTheme = { kind: ColorThemeKind.Dark };
@@ -246,6 +262,38 @@ export function createWindowNamespace(
         fireSelectionChanged(p.uri, groupId, selections, parseWireSelectionChangeKind(p.kind));
     });
 
+    /**
+     * Upstream `$acceptEditorPropertiesChanged`: every value is applied before the first event, options fire before the
+     * visible ranges. The host sends options only when they changed; unchanged ranges fire nothing.
+     */
+    rpc.handleNotification("editor.propertiesChanged", (params) => {
+        const parsed = parseWireEditorPropertiesChanged(params);
+        if (parsed === null) return;
+        const key = selectionKey(parsed.groupId, parsed.uri);
+        const textEditor = (): vscode.TextEditor =>
+            getEditorFor(registry.getOrCreate(Uri.parse(parsed.uri)), parsed.groupId);
+        if (parsed.options !== undefined) optionsByEditor.set(key, parsed.options);
+        const visibleRanges =
+            parsed.visibleRanges === undefined ||
+            equals(visibleRangesByEditor.get(key), parsed.visibleRanges, rangesEqual)
+                ? undefined
+                : parsed.visibleRanges.map(toVscodeRange);
+        if (visibleRanges !== undefined) visibleRangesByEditor.set(key, visibleRanges);
+
+        if (parsed.options !== undefined) {
+            const editor = textEditor();
+            const event: vscode.TextEditorOptionsChangeEvent = {
+                textEditor: editor,
+                options: resolvedOptions(parsed.groupId, editor.document),
+            };
+            for (const listener of [...optionsListeners]) listener(event);
+        }
+        if (visibleRanges !== undefined) {
+            const event: vscode.TextEditorVisibleRangesChangeEvent = { textEditor: textEditor(), visibleRanges };
+            for (const listener of [...visibleRangesListeners]) listener(event);
+        }
+    });
+
     // Fire on EVERY message, even when the kind stays the same (Dark+ → Abyss): upstream
     // documents the event as "the theme changed OR was modified".
     rpc.handleNotification("window.themeChanged", (params) => {
@@ -301,6 +349,10 @@ export function createWindowNamespace(
                 if (tab.selections !== undefined) {
                     selectionsByEditor.set(selectionKey(group.groupId, tab.uri), tab.selections);
                 }
+                seedVisibleRanges(group.groupId, tab.uri, tab.visibleRanges);
+                tab.sideEditors?.forEach((uri, i) => {
+                    seedVisibleRanges(group.groupId, uri, tab.sideVisibleRanges?.[i]);
+                });
             }
         }
 
@@ -320,6 +372,11 @@ export function createWindowNamespace(
         }
         for (const key of [...selectionsByEditor.keys()]) {
             if (!nextTabs.has(key)) selectionsByEditor.delete(key);
+        }
+        for (const byEditor of [visibleRangesByEditor, optionsByEditor]) {
+            for (const key of [...byEditor.keys()]) {
+                if (!nextTabs.has(key) && !visibleNext.has(key)) byEditor.delete(key);
+            }
         }
 
         const prevGroups = new Map(previous.groups.map((group) => [group.groupId, group]));
@@ -386,6 +443,41 @@ export function createWindowNamespace(
                 for (const listener of [...viewColumnListeners]) listener(event);
             }
         }
+    }
+
+    /**
+     * The snapshot only starts an editor off: an extension reads its ranges in `onDidChangeActiveTextEditor`, before
+     * `editor.propertiesChanged`. A known value is changed only by that message, which fires the event.
+     */
+    function seedVisibleRanges(groupId: number, uri: string, ranges: readonly IRange[] | undefined): void {
+        const key = selectionKey(groupId, uri);
+        if (ranges !== undefined && !visibleRangesByEditor.has(key))
+            visibleRangesByEditor.set(key, ranges.map(toVscodeRange));
+    }
+
+    /**
+     * Upstream's getter is always resolved: vsc-python-indent computes the next indent from `tabSize`. Until the host
+     * reports, the tab's indentation and the configured style. Deviation: Diode always draws plain line numbers, the
+     * style is only read from the settings.
+     */
+    function resolvedOptions(groupId: number, document: vscode.TextDocument): vscode.TextEditorOptions {
+        const uri = document.uri.toString();
+        const tab = layoutGroup(groupId)?.tabs.find((candidate) => candidate.uri === uri);
+        const options: Partial<IWireEditorOptions> = {
+            ...(tab?.tabSize === undefined ? {} : { tabSize: tab.tabSize }),
+            ...(tab?.insertSpaces === undefined ? {} : { insertSpaces: tab.insertSpaces }),
+            // Deviation: an unset `editor.cursorStyle` leaves the terminal's own shape on screen, yet reads as `Line`.
+            cursorStyle:
+                cursorStyleToApi(ctx.configStore.get("editor.cursorStyle", undefined, document.languageId)) ??
+                TextEditorCursorStyle.Line,
+            ...optionsByEditor.get(selectionKey(groupId, uri)),
+        };
+        return {
+            ...options,
+            // Diode's indent size is its tab size.
+            ...(options.tabSize === undefined ? {} : { indentSize: options.tabSize }),
+            lineNumbers: lineNumbersToApi(ctx.configStore.get("editor.lineNumbers", undefined, document.languageId)),
+        };
     }
 
     function getEditorFor(doc: ExtHostTextDocument, groupId: number): vscode.TextEditor {
@@ -480,17 +572,46 @@ export function createWindowNamespace(
         // A closed tab drops the editor from the cache; a reopened one is another object, as upstream.
         const isEditorClosed = (): boolean =>
             document.isClosed || editorCache.get(groupId)?.get(document.uri.toString()) !== editorProxy;
-        let storedOptions: vscode.TextEditorOptions = {};
-        /** Lives with this object: a closed tab drops it from the cache, so a reopened one starts clean. */
-        let cursorStyleOverride: vscode.TextEditorCursorStyle | undefined;
-        // Upstream resolves the style from the code editor; unset in Diode means the terminal's own shape.
-        const effectiveCursorStyle = (): vscode.TextEditorCursorStyle | undefined =>
-            cursorStyleOverride ??
-            cursorStyleToApi(ctx.configStore.get("editor.cursorStyle", undefined, document.languageId));
+        const setOptions = (patch: vscode.TextEditorOptions): void => {
+            const normalized: { -readonly [K in keyof IWireEditorOptions]?: IWireEditorOptions[K] } = {};
+            // As upstream `_validateTabSize`: a value that is not a number (absent and `"auto"` included) is no change.
+            // Diode's indent size is its tab size: an explicit tab size wins.
+            const tabSize = normalizeTabSize(patch.tabSize) ?? normalizeIndentSize(patch.indentSize);
+            if (tabSize !== undefined) normalized.tabSize = tabSize;
+            if (patch.insertSpaces !== undefined) {
+                normalized.insertSpaces = normalizeInsertSpaces(patch.insertSpaces);
+            }
+            // As upstream `_setOptions`: only a change goes out, so a read-modify-write of
+            // `options` for `tabSize` does not pin the configured style as an override.
+            if (
+                cursorStyleFromApi(patch.cursorStyle) !== undefined &&
+                patch.cursorStyle !== resolvedOptions(groupId, document).cursorStyle
+            ) {
+                normalized.cursorStyle = patch.cursorStyle;
+            }
+            if (Object.keys(normalized).length === 0) return;
+            // Read back at once, as upstream; the host's report of the applied values replaces it.
+            const key = selectionKey(groupId, document.uri.toString());
+            optionsByEditor.set(key, { ...optionsByEditor.get(key), ...normalized });
+            void rpc.request("editor.setOptions", { ...normalized, uri: document.uri.toString(), groupId });
+        };
         const editorData: vscode.TextEditor = {
+            /**
+             * Live, as upstream's `ExtHostTextEditorOptions`: vscodevim writes `options.lineNumbers` and
+             * `options.cursorStyle` in place, so each member reads the editor and its write applies.
+             */
             get options(): vscode.TextEditorOptions {
-                const cursorStyle = effectiveCursorStyle();
-                return cursorStyle === undefined ? { ...storedOptions } : { ...storedOptions, cursorStyle };
+                const resolve = (): vscode.TextEditorOptions => resolvedOptions(groupId, document);
+                return new Proxy(resolve(), {
+                    get: (_target, key) => Reflect.get(resolve(), key) as unknown,
+                    set: (_target, key, value: unknown): boolean => {
+                        setOptions({ [key]: value });
+                        return true;
+                    },
+                    has: (_target, key) => key in resolve(),
+                    ownKeys: () => Reflect.ownKeys(resolve()),
+                    getOwnPropertyDescriptor: (_target, key) => Reflect.getOwnPropertyDescriptor(resolve(), key),
+                });
             },
             document,
             /** Read from the current snapshot: renumbering does not break the object (AS-9). */
@@ -502,6 +623,9 @@ export function createWindowNamespace(
             },
             set selection(value: vscode.Selection) {
                 pushSelections(document, groupId, [value]);
+            },
+            get visibleRanges(): readonly vscode.Range[] {
+                return visibleRangesByEditor.get(selectionKey(groupId, document.uri.toString())) ?? [];
             },
             get selections(): readonly vscode.Selection[] {
                 const all = editorSelections(groupId, document.uri.toString());
@@ -518,6 +642,36 @@ export function createWindowNamespace(
                 applyTextEditorEdit(document, isEditorClosed(), callback, options, (params) =>
                     rpc.request("editor.applyEdit", params),
                 ),
+            // Upstream `insertSnippet`: the core parses the template (`editor/contrib/snippet`).
+            insertSnippet: (
+                snippet: vscode.SnippetString,
+                location?: vscode.Position | vscode.Range | readonly vscode.Position[] | readonly vscode.Range[],
+                options?: {
+                    readonly undoStopBefore: boolean;
+                    readonly undoStopAfter: boolean;
+                    readonly keepWhitespace?: boolean;
+                },
+            ): Thenable<boolean> => {
+                if (isEditorClosed()) {
+                    return Promise.reject(new Error("TextEditor#insertSnippet not possible on closed editors"));
+                }
+                return rpc.request("editor.insertSnippet", {
+                    uri: document.uri.toString(),
+                    groupId,
+                    version: document.version,
+                    template: snippet.value,
+                    ranges: snippetRanges(location, editorData.selections).map((range) => {
+                        const { start, end } = document.validateRange(range);
+                        return {
+                            start: { line: start.line, character: start.character },
+                            end: { line: end.line, character: end.character },
+                        };
+                    }),
+                    ...(options?.undoStopBefore === false ? { undoStopBefore: false } : {}),
+                    ...(options?.undoStopAfter === false ? { undoStopAfter: false } : {}),
+                    ...(options?.keepWhitespace === true ? { keepWhitespace: true } : {}),
+                });
+            },
             setDecorations: (
                 decorationType: vscode.TextEditorDecorationType,
                 rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
@@ -531,46 +685,23 @@ export function createWindowNamespace(
                     groupId,
                 });
             },
+            // Upstream `_runOnProxy`: a disposed editor only warns, the extension's command carries on.
+            revealRange: (range: vscode.Range, revealType?: vscode.TextEditorRevealType): void => {
+                const wireRange = rangeFrom(range);
+                if (wireRange === null || isEditorClosed()) return;
+                rpc.notify("editor.revealRange", {
+                    uri: document.uri.toString(),
+                    groupId,
+                    range: wireRange,
+                    revealType: revealType ?? TextEditorRevealType.Default,
+                });
+            },
         };
         const editorProxy: vscode.TextEditor = new Proxy(editorData, {
             set: (target, prop, value): boolean => {
                 if (prop === "options") {
                     if (typeof value !== "object" || value === null) return false;
-                    const patch = value as vscode.TextEditorOptions & { indentSize?: number | string };
-                    const normalized: {
-                        tabSize?: number;
-                        insertSpaces?: boolean;
-                        indentSize?: number;
-                        cursorStyle?: number;
-                    } = {};
-                    if (patch.tabSize !== undefined) {
-                        normalized.tabSize = normalizeTabSize(patch.tabSize);
-                    }
-                    if (patch.insertSpaces !== undefined) {
-                        normalized.insertSpaces = normalizeInsertSpaces(patch.insertSpaces);
-                    }
-                    if (patch.indentSize !== undefined) {
-                        const indentSize = normalizeIndentSize(patch.indentSize);
-                        if (indentSize !== undefined) normalized.indentSize = indentSize;
-                    }
-                    // As upstream `_setOptions`: only a change goes out, so a read-modify-write of
-                    // `options` for `tabSize` does not pin the configured style as an override.
-                    if (
-                        cursorStyleFromApi(patch.cursorStyle) !== undefined &&
-                        patch.cursorStyle !== effectiveCursorStyle()
-                    ) {
-                        cursorStyleOverride = patch.cursorStyle;
-                        normalized.cursorStyle = patch.cursorStyle;
-                    }
-                    storedOptions = { ...storedOptions, ...patch };
-                    delete storedOptions.cursorStyle;
-                    if (Object.keys(normalized).length > 0) {
-                        void rpc.request("editor.setOptions", {
-                            ...normalized,
-                            uri: document.uri.toString(),
-                            groupId,
-                        });
-                    }
+                    setOptions(value as vscode.TextEditorOptions);
                     return true;
                 }
                 if (prop === "selection") {
@@ -597,7 +728,7 @@ export function createWindowNamespace(
         if (uris.length === 0) return;
         const decorations: IWireFileDecoration[] = [];
         for (const uri of uris) {
-            const decoration = await provider.provideFileDecoration(uri, NEVER_CANCELLED);
+            const decoration = await provider.provideFileDecoration(uri, NEVER_CANCELLED_TOKEN);
             const entry: IWireFileDecoration = {
                 uri: uri.toString(),
                 ...(decoration?.badge !== undefined ? { badge: decoration.badge } : {}),
@@ -668,9 +799,11 @@ export function createWindowNamespace(
             rpc.notify("window.statusBarItem.dispose", { handle });
         };
 
+        // Upstream `extHostStatusBar`: the public id is the explicit one or the extension id, not the wire id.
+        const publicId = explicitId ?? owner.current ?? "";
         const item: vscode.StatusBarItem = {
             get id(): string {
-                return currentId();
+                return publicId;
             },
             get alignment(): vscode.StatusBarAlignment {
                 return alignment ?? StatusBarAlignment.Left;
@@ -771,6 +904,8 @@ export function createWindowNamespace(
 
         // A selection set by the extension itself is not echoed back: the echo guard lives on the host side.
         onDidChangeTextEditorSelection: makeListenerEvent(selectionListeners),
+        onDidChangeTextEditorVisibleRanges: makeListenerEvent(visibleRangesListeners),
+        onDidChangeTextEditorOptions: makeListenerEvent(optionsListeners),
 
         get activeColorTheme(): vscode.ColorTheme {
             return activeColorTheme;
@@ -829,17 +964,22 @@ export function createWindowNamespace(
         onDidOpenTerminal: terminals.onDidOpenTerminal,
         onDidCloseTerminal: terminals.onDidCloseTerminal,
         onDidChangeActiveTerminal: terminals.onDidChangeActiveTerminal,
-        // No shell integration, so these events never fire: after a 3 s wait Claude Code
-        // falls back to `sendText`.
-        onDidChangeTerminalShellIntegration: new EventEmitter<vscode.TerminalShellIntegrationChangeEvent>().event,
-        onDidStartTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionStartEvent>().event,
-        onDidEndTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionEndEvent>().event,
+        onDidChangeTerminalState: terminals.onDidChangeTerminalState,
+        // Not declared: there are no terminal links to ask for yet. Without the member js-debug's `activate()` failed
+        // halfway, and its JavaScript Debug Terminal profile never answered.
+        registerTerminalLinkProvider: (): vscode.Disposable => new DisposableImpl(() => undefined),
+        registerTerminalProfileProvider: terminals.registerProfileProvider.bind(terminals),
+        onDidChangeTerminalShellIntegration: terminals.onDidChangeTerminalShellIntegration,
+        onDidStartTerminalShellExecution: terminals.onDidStartTerminalShellExecution,
+        onDidEndTerminalShellExecution: terminals.onDidEndTerminalShellExecution,
 
         registerUriHandler: createUriHandlers(rpc, owner),
 
         // vscode-languageclient reports errors ONLY here, so the channel must be real.
         // id `extensions.<owner>.<slug>`: same-named channels of different extensions and host loggers do not collide.
-        createOutputChannel: (name: string): vscode.OutputChannel => {
+        // Every channel is a log channel: `{ log: true }` changes nothing, and extensions call `channel.info(...)` on a
+        // plain channel too.
+        createOutputChannel: (name: string, _languageIdOrOptions?: string | { log: true }): vscode.LogOutputChannel => {
             const prefix = owner.current === undefined ? "extensions." : `extensions.${owner.current}.`;
             const channel = prefix + slugifyChannelName(name);
             const send = (level: WireOutputLevel, value: string): void => {
@@ -858,9 +998,8 @@ export function createWindowNamespace(
                 pending = "";
                 send("info", value);
             };
-            // The `{ log: true }` d.ts overload is not implemented, but extensions call `channel.info(...)` on a plain channel too.
             const logChannelExtras = {
-                logLevel: 3, // vscode.LogLevel.Info
+                logLevel: LogLevel.Info,
                 onDidChangeLogLevel: new EventEmitter<never>().event,
                 trace: logEntry("trace"),
                 debug: logEntry("debug"),
@@ -968,6 +1107,7 @@ export function createWindowNamespace(
             return (pick as (typeof picks)[number] | undefined)?.folder;
         },
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => quickInput.createQuickPick<T>(),
+        createInputBox: (): vscode.InputBox => quickInput.createInputBox(),
         showOpenDialog: async (options?: vscode.OpenDialogOptions): Promise<vscode.Uri[] | undefined> => {
             const result = parseWireOpenDialogResult(
                 await rpc.request("window.showOpenDialog", {
@@ -1034,50 +1174,7 @@ export function createWindowNamespace(
                 return getEditorFor(registry.getOrCreate(Uri.parse(result.uri)), result.groupId);
             });
         },
-        // Location is ignored (in a TUI everything is Window); the token never fires, which
-        // languageclient's ProgressPart tolerates.
-        withProgress: <R>(
-            options: vscode.ProgressOptions,
-            task: (
-                progress: vscode.Progress<{ message?: string; increment?: number }>,
-                token: vscode.CancellationToken,
-            ) => Thenable<R>,
-        ): Thenable<R> => {
-            const handle = nextProgressHandle++;
-            const token: vscode.CancellationToken = {
-                isCancellationRequested: false,
-                onCancellationRequested: new EventEmitter<never>().event,
-            };
-            rpc.notify("window.progress.start", { handle, title: options.title ?? "" });
-            const progress: vscode.Progress<{ message?: string; increment?: number }> = {
-                report: (value: unknown) => {
-                    const v = (typeof value === "object" && value !== null ? value : {}) as {
-                        message?: unknown;
-                        increment?: unknown;
-                    };
-                    rpc.notify("window.progress.report", {
-                        handle,
-                        ...(typeof v.message === "string" ? { message: v.message } : {}),
-                        ...(typeof v.increment === "number" && Number.isFinite(v.increment)
-                            ? { increment: v.increment }
-                            : {}),
-                    });
-                },
-            };
-            const done = (): void => {
-                rpc.notify("window.progress.end", { handle });
-            };
-            return Promise.resolve(task(progress, token)).then(
-                (result) => {
-                    done();
-                    return result;
-                },
-                (err: unknown) => {
-                    done();
-                    throw err;
-                },
-            );
-        },
+        withProgress: progressApi.withProgress,
     };
 
     return implementsApi<typeof vscode.window>()(windowNs);
@@ -1099,10 +1196,11 @@ export function openBeforeShow(
             : showAny(documentOrUri, ...rest)) as typeof vscode.window.showTextDocument;
 }
 
-function normalizeTabSize(value: number | string): number {
+/** `undefined` for a string that is not a number (`"auto"` included: Diode does not re-detect on request). */
+function normalizeTabSize(value: unknown): number | undefined {
     if (typeof value === "number") return Math.max(1, Math.floor(value));
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? 4 : Math.max(1, parsed);
+    const parsed = Number.parseInt(String(value), 10);
+    return Number.isNaN(parsed) ? undefined : Math.max(1, parsed);
 }
 
 function normalizeInsertSpaces(value: boolean | string): boolean {
@@ -1112,11 +1210,25 @@ function normalizeInsertSpaces(value: boolean | string): boolean {
 }
 
 /** `indentSize` is either a number or `"tabSize"` (same as tabSize, so skipped). */
-function normalizeIndentSize(value: number | string): number | undefined {
+function normalizeIndentSize(value: unknown): number | undefined {
     if (typeof value === "number") return Math.max(1, Math.floor(value));
     if (value === "tabSize") return undefined;
-    const parsed = Number.parseInt(value, 10);
+    const parsed = Number.parseInt(String(value), 10);
     return Number.isNaN(parsed) ? undefined : Math.max(1, parsed);
+}
+
+/** Upstream `MainThreadTextEditorProperties`: `editor.lineNumbers` as the API enum, anything unknown is `On`. */
+function lineNumbersToApi(setting: unknown): vscode.TextEditorLineNumbersStyle {
+    switch (setting) {
+        case "off":
+            return TextEditorLineNumbersStyle.Off;
+        case "relative":
+            return TextEditorLineNumbersStyle.Relative;
+        case "interval":
+            return TextEditorLineNumbersStyle.Interval;
+        default:
+            return TextEditorLineNumbersStyle.On;
+    }
 }
 
 function toWireDialogFilters(filters: Readonly<Record<string, string[]>> | undefined): IWireDialogFilter[] | undefined {

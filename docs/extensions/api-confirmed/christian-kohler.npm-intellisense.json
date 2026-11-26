@@ -1,0 +1,13 @@
+{
+    "members": [
+        "commands.registerCommand",
+        "CompletionItem.kind",
+        "CompletionItem.label",
+        "CompletionItem.textEdit",
+        "languages.registerCompletionItemProvider",
+        "window.activeTextEditor",
+        "window.showQuickPick",
+        "workspace.getConfiguration",
+        "workspace.rootPath"
+    ]
+}

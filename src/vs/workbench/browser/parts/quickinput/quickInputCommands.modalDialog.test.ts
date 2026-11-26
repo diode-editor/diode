@@ -24,7 +24,6 @@ describe("user bindings on quick input commands behind a modal dialog", () => {
         ws = createTempWorkspace({ prefix: "diode-qi-modal-", files: { "alpha.txt": "Alpha" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(80, 24) });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
     });
 
     afterEach(() => {

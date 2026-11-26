@@ -1,6 +1,8 @@
+import type { IColorDefaults, IColorDefinition } from "../../../../platform/theme/common/colorRegistry.ts";
 import type { IThemeFile } from "../../../../platform/theme/common/iThemeFile.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 
+import { colorCustomizationsForTheme } from "./colorCustomizations.ts";
 import { builtinThemes } from "./themes/builtinThemes.ts";
 
 export interface IThemeDescriptor {
@@ -14,6 +16,8 @@ export interface IThemeDescriptor {
  */
 export class ThemeRegistry {
     private readonly themes = new Map<string, IThemeFile>();
+    private readonly extensionColors: Record<string, IColorDefinition> = {};
+    private colorCustomizations: unknown = {};
 
     public constructor(initial: readonly IThemeFile[] = []) {
         for (const theme of initial) this.register(theme);
@@ -45,9 +49,28 @@ export class ThemeRegistry {
         }));
     }
 
+    /**
+     * A `contributes.colors` entry: its defaults go under every theme resolved from now on, so a theme
+     * switch picks the slot of the new theme kind. Collisions are the contributor's business.
+     */
+    public registerColor(id: string, defaults: IColorDefaults, description: string): void {
+        this.extensionColors[id] = { defaults, description };
+    }
+
+    /** The `workbench.colorCustomizations` value: every theme resolved from now on carries the blocks that name it. */
+    public setColorCustomizations(setting: unknown): void {
+        this.colorCustomizations = setting;
+    }
+
     public resolve(label: string): WorkbenchTheme | undefined {
         const themeFile = this.themes.get(label);
-        return themeFile === undefined ? undefined : WorkbenchTheme.fromThemeFile(themeFile);
+        return themeFile === undefined
+            ? undefined
+            : WorkbenchTheme.fromThemeFile(
+                  themeFile,
+                  this.extensionColors,
+                  colorCustomizationsForTheme(this.colorCustomizations, label),
+              );
     }
 }
 

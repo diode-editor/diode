@@ -10,23 +10,7 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
 /** No-op stubs outside the `vscode.d.ts` surface: a new `register*Provider` must go either into OWNED_MEMBERS or here. */
-const NOOP_PROVIDERS = [
-    "registerCallHierarchyProvider",
-    "registerCodeLensProvider",
-    "registerDeclarationProvider",
-    "registerDocumentHighlightProvider",
-    "registerDocumentLinkProvider",
-    "registerDocumentSymbolProvider",
-    "registerImplementationProvider",
-    "registerInlayHintsProvider",
-    "registerInlineValuesProvider",
-    "registerLinkedEditingRangeProvider",
-    "registerOnTypeFormattingEditProvider",
-    "registerSelectionRangeProvider",
-    "registerTypeDefinitionProvider",
-    "registerTypeHierarchyProvider",
-    "registerWorkspaceSymbolProvider",
-];
+const NOOP_PROVIDERS = ["registerSelectionRangeProvider"];
 
 function build(): ReturnType<typeof buildVscodeNamespace> & { stub: ReturnType<typeof makeStubRpc> } {
     const stub = makeStubRpc();
@@ -182,5 +166,70 @@ describe("overlay with the call journal", () => {
         const api = createExtensionApi(namespace, owner, "pub.a");
         expect(api.workspace.getConfiguration).toBe(namespace.workspace.getConfiguration);
         expect(Object.getOwnPropertyDescriptor(api.env, "appName")?.value).toBe("Diode");
+    });
+});
+
+// Test files are ES modules, so strict mode: an assignment to a frozen or getter-only member throws, as in an upstream test.
+
+describe.each([
+    ["without", undefined],
+    ["with", new ApiTrace({ write: () => undefined, schedule: () => undefined, onError: () => undefined })],
+])("env is readonly, %s the call journal", (_label, trace) => {
+    it("[api:env.language][api:env.appRoot][api:env.appName][api:env.machineId][api:env.sessionId][api:env.shell] every env member refuses assignment, clipboard and openExternal still reach the host", async () => {
+        const { namespace, owner, stub } = build();
+        stub.responder = (method) => (method === "env.clipboard.readText" ? { text: "from host" } : { opened: true });
+        const api = createExtensionApi(namespace, owner, "pub.a", trace);
+        const env = api.env as unknown as Record<string, unknown>;
+        for (const key of [
+            "language",
+            "appRoot",
+            "appName",
+            "machineId",
+            "sessionId",
+            "shell",
+            "uriScheme",
+            "uiKind",
+        ]) {
+            const before = env[key];
+            expect(() => {
+                env[key] = "234";
+            }, key).toThrow(TypeError);
+            expect(env[key], key).toBe(before);
+        }
+        expect(() => {
+            env.extra = 1;
+        }).toThrow(TypeError);
+
+        expect(await api.env.clipboard.readText()).toBe("from host");
+        await expect(api.env.openExternal(Uri.parse("https://example.com"))).resolves.toBe(true);
+        expect(stub.requests.map((r) => r.method)).toEqual(["env.clipboard.readText", "env.openExternal"]);
+    });
+});
+
+describe("the configuration object is readonly", () => {
+    it("[api:workspace.getConfiguration] the configuration object refuses assignment, get/has/inspect/update work as before", async () => {
+        const { namespace, owner, stub } = build();
+        stub.fire("workspace.initialize", {
+            configuration: { defaults: { farboo: { config4: "", get: "get-prop" } }, user: {} },
+            workspaceFolders: [],
+        });
+        const config = createExtensionApi(namespace, owner, "pub.a").workspace.getConfiguration("farboo");
+        const mutable = config as unknown as Record<string, unknown>;
+        expect(() => {
+            mutable.config4 = "valuevalue";
+        }).toThrow(TypeError);
+        expect(() => {
+            mutable.get = "get-prop";
+        }).toThrow(TypeError);
+        expect(() => {
+            mutable.added = 1;
+        }).toThrow(TypeError);
+        expect(mutable.config4).toBe("");
+        expect(config.get("config4")).toBe("");
+        expect(config.get("get")).toBe("get-prop");
+        expect(config.has("config4")).toBe(true);
+        expect(config.inspect("config4")?.defaultValue).toBe("");
+        await config.update("config4", "next", true);
+        expect(stub.requests).toContainEqual(expect.objectContaining({ method: "configuration.update" }));
     });
 });

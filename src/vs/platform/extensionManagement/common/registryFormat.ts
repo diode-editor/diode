@@ -78,7 +78,12 @@ export interface IRegistryIndexEntry {
     readonly displayName: string;
     readonly description: string;
     readonly kind: RegistryExtensionKind;
+    /**
+     * From the manifest of the latest version (`categories`, `keywords`), for the search's `@category:` and `@tag:`.
+     * In the index, not the meta: the Extensions view filters the whole catalog without reading metas.
+     */
     readonly categories?: readonly string[];
+    readonly tags?: readonly string[];
     /** In the index too, not just the meta: the list badge must be visible before install. */
     readonly support?: IRegistrySupport;
     readonly latest: { readonly version: string; readonly engines: IRegistryEngines };
@@ -98,6 +103,8 @@ export interface IRegistryExtensionMeta {
     readonly displayName: string;
     readonly description: string;
     readonly kind: RegistryExtensionKind;
+    readonly categories?: readonly string[];
+    readonly tags?: readonly string[];
     readonly support?: IRegistrySupport;
     readonly repository?: string;
     readonly license?: string;
@@ -131,6 +138,12 @@ function parseEngines(value: unknown): IRegistryEngines | undefined {
     if (vscode !== undefined && !isNonEmptyString(vscode)) return undefined;
     if (diode === undefined && vscode === undefined) return undefined;
     return { diode, vscode };
+}
+
+/** `undefined` means no field, `null` a broken one. */
+function parseSearchList(value: unknown): readonly string[] | undefined | null {
+    if (value === undefined) return undefined;
+    return Array.isArray(value) && value.every(isNonEmptyString) ? value : null;
 }
 
 /** `null` means a broken field. */
@@ -254,10 +267,9 @@ function parseIndexEntry(value: unknown, semver: Semver): IRegistryIndexEntry | 
     if (record === undefined) return undefined;
     const identity = parseIdentity(record);
     if (identity === undefined) return undefined;
-    const categories = record.categories;
-    if (categories !== undefined && (!Array.isArray(categories) || !categories.every(isNonEmptyString))) {
-        return undefined;
-    }
+    const categories = parseSearchList(record.categories);
+    const tags = parseSearchList(record.tags);
+    if (categories === null || tags === null) return undefined;
     const latestRecord = asRecord(record.latest);
     if (latestRecord === undefined) return undefined;
     const latestVersion = latestRecord.version;
@@ -266,7 +278,8 @@ function parseIndexEntry(value: unknown, semver: Semver): IRegistryIndexEntry | 
     if (latestEngines === undefined) return undefined;
     return {
         ...identity,
-        categories: categories as readonly string[] | undefined,
+        categories,
+        tags,
         support: parseSupport(record.support),
         latest: { version: latestVersion, engines: latestEngines },
     };
@@ -340,6 +353,9 @@ export function parseRegistryMeta(
         meta: {
             schemaVersion: record.schemaVersion as number,
             ...identity,
+            // The meta's lists only describe the page: a broken one is dropped, the versions stay installable.
+            categories: parseSearchList(record.categories) ?? undefined,
+            tags: parseSearchList(record.tags) ?? undefined,
             support: parseSupport(record.support),
             repository: optional("repository"),
             license: optional("license"),

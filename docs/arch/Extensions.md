@@ -140,6 +140,15 @@
     зависимостях молчит. `--install-extension foo.vsix` тоже тянет зависимости из реестра; сбой —
     предупреждение, само расширение остаётся (как у эталона для VSIX). `extensionPack` пока не
     ставится.
+  - **Установка `.vsix` из редактора** — команда эталона `workbench.extensions.command.installFromVSIX`
+    (`contrib/extensions/browser/extensionVsixActions.ts`, аргумент `Uri`/`Uri[]`/путь; из расширения
+    `Uri` приезжает structured clone'ом) и палитровая «Extensions: Install from VSIX...» (терминальный диалог
+    открытия `FileDialogService` с фильтром `.vsix`, как эталонный `showOpenDialog`). Тот же путь, что `--install-extension foo.vsix`
+    (`installVsixWithDependencies`), версия закрепляется. Каталог у нас `<id>-<version>` без суффикса
+    платформы (у эталона он есть), поэтому платформенный пакет той же версии встаёт **на место**
+    запущенного: CodeLLDB находит `adapter/` по своему `extensionPath` без перезагрузки, и уведомление
+    — «Completed installing extension.» без кнопки. Новое расширение, другая версия или поставленные
+    зависимости — «Please reload Diode» с «Reload Now», как у эталона (#1134).
 
 ## Extensions/Host/ — extension host (real subprocess)
 **Журнал вызовов API** (`DIODE_API_TRACE=<файл>`, `api/common/apiTrace.ts`, запись — `api/node/apiTraceFile.ts`): слой поверх оверлея расширения для отметки «подтверждён» в матрице. Без переменной не создаётся ни одна обёртка. Формат, виды записей и границы → [docs/extensions/README.md](../extensions/README.md#журнал-вызовов).
@@ -166,7 +175,8 @@
   полёте), оркестрацию спавна и делегаторы. Процесс — `ExtensionHostProcess` (spawn, stdio, ready,
   выключение host.shutdown → SIGTERM → SIGKILL). Каждая поверхность API — customer в `customers/`
   (`secrets`, `env`, `window`, `diagnostics`, `decorations`, `fileSystem`, `commands`, `editor`,
-  `configuration`, `documents`, `languageFeatures`, `terminal`, `tasks`, `treeViews`) с контрактом
+  `configuration`, `documents`, `languageFeatures`, `terminal`, `tasks`, `treeViews`, `search` — индекс файлов
+  Quick Open, см. [QuickInput.md](workbench/QuickInput.md#поиск-файлов-quick-open-вне-процесса-редактора)) с контрактом
   `IExtensionHostCustomer.attach(ctx): IDisposable` (`common/extensionHostCustomer.ts`): объект
   customer'а живёт столько же, сколько хост, а всё состояние одного спавна — обработчики RPC,
   подписки на ядро, handle'ы — заводится в `attach` и снимается возвращённым disposable вместе со
@@ -205,10 +215,12 @@
   расширения — **тонкий оверлей** поверх общего namespace (`api/common/extensionApiFactory.ts`), а
   не своя копия неймспейсов: собственные свойства — дескрипторы общего (геттеры вроде
   `window.activeTextEditor` живые, value-типы общие: `api1.Position === api2.Position`), перекрыты
-  лишь `window`/`languages`/`commands`, где явный список синхронных «создающих» членов
-  (`createOutputChannel`, `createStatusBarItem`, активные `register*Provider`,
-  `createDiagnosticCollection`, `registerCommand`, …) обёрнут в `ExtensionOwner.runAs(id, …)` —
-  «окружающего владельца» из общего контекста (`IVscodeHostContext.owner`). Импортёр вне известных
+  лишь `window`/`languages`/`commands`/`tasks`/`workspace`/`lm`, где явный список синхронных
+  «создающих» членов (`OWNED_MEMBERS`: `createOutputChannel`, `createStatusBarItem`, активные
+  `register*Provider`, `createDiagnosticCollection`, `registerCommand`, …) обёрнут в
+  `ExtensionOwner.runAs(id, …)` — «окружающего владельца» из общего контекста
+  (`IVscodeHostContext.owner`). Это и есть общий способ узнать, какое расширение зовёт член: для
+  владения ресурсом или чтобы назвать расширение в строке Output (`registerUriHandler`, `lm.register*`). Импортёр вне известных
   корней получает общий namespace и одно предупреждение в stderr. Полную фабрику API на расширение
   (как `createApiFactoryAndRegisterActors` эталона) не делаем: обработчики RPC живут внутри фабрик
   неймспейсов, и копия на расширение их бы размножила — переписывание тысяч строк ради того, что
@@ -335,7 +347,9 @@
   debounce `didChange`, синхронизацию по жизненному циклу моделей вместо вкладок, `reason` Undo/Redo
   в событии изменения.
 - **Definition-провайдер seam (LSP):** `languages.registerDefinitionProvider` — калька с completion
-  (`languages.provideDefinition` RPC, таймаут 5000 мс — холодный language server). Реестр —
+  (`languages.provideDefinition` RPC, без таймаута, как в эталоне: поиск по большому проекту дольше любого
+  дедлайна, а истёкший выглядел бы как «ничего не найдено»; отменяет вызывающий — движение каретки, правка, новый
+  запрос; то же у implementation, type definition, declaration, references и обеих иерархий). Реестр —
   `ILanguageFeaturesService.definitionProvider` (тип
   `editor/common/languages/iDefinitionSource.ts`); UI — contrib `gotoDefinition`
   (`DefinitionService` + F12 `editor.action.revealDefinition`), кросс-файловая навигация паттерном
@@ -352,6 +366,25 @@
   Цели в панели могут быть недисковыми: группа хранит `uri`, текст строк — от провайдера схемы.
   Команды с аргументами от расширений (`editor.action.goToLocations`, `peekLocations`, алиас
   `showReferences`, без пункта в палитре) терпят JSON-форму uri — разбор в `goToLocationsArguments.ts`.
+  **Implementation** (`languages.registerImplementationProvider`, RPC `languages.provideImplementation`,
+  реестр `implementationProvider`, Ctrl+F12 `editor.action.goToImplementation`) — тот же шов: обработчик
+  в субпроцессе общий (`provideLocations`), а `DefinitionService` параметризован видом запроса
+  (`ISymbolNavigation`: заголовок панели, сообщения, ключи настроек, реестр). Peek-вариант
+  (`editor.action.peekImplementation`) не заводим — роль Peek играет панель.
+  **Document Symbols** (`registerDocumentSymbolProvider`, RPC `languages.provideDocumentSymbols`, таймаут 5000):
+  ответ `SymbolInformation[]` становится деревом по вложенности диапазонов в субпроцессе, как в эталоне; потребитель —
+  quick access `@` ([QuickInput.md](workbench/QuickInput.md)).
+  **Workspace Symbols** (`registerWorkspaceSymbolProvider`, RPC `languages.provideWorkspaceSymbols` и
+  `languages.resolveWorkspaceSymbol`, таймаут 10000: поиск по проекту на JDT и gopls дольше позиционных 5000):
+  селектора нет, поэтому регистрация — своё сообщение `languages.registerWorkspaceSymbol {handle, supportsResolve}`,
+  снимается общим `languages.unregister`, а в ядре лежит в `GlobalFeatureRegistry` (`all()`, без оценки документа).
+  Оригиналы ответа — в кэше субпроцесса, глубина 2 **на провайдер**: на один запрос отвечают все провайдеры, общая
+  глубина вытесняла бы чужие ответы (тот же урок, что у `codeActionCache`). `id` символа — индекс в ответе, выброшенный
+  символ (нет имени или `location`, предупреждение в OUTPUT) адреса не сдвигает. Потребитель — quick access `#`.
+  **Type Definition и Declaration** (`registerTypeDefinitionProvider`, `registerDeclarationProvider`,
+  RPC `languages.provideTypeDefinition`/`provideDeclaration`, команды `editor.action.goToTypeDefinition`
+  и `editor.action.revealDeclaration`, без клавиш — как в эталоне) — ещё два `ISymbolNavigation` на том же
+  шве. `editor.action.goToDeclaration` в эталоне — устаревший алиас `revealDefinition`, его не заводим.
 - **Провайдер содержимого недисковых ресурсов:** `workspace.registerTextDocumentContentProvider` —
   дверь, которой в редактор попадают исходники, которых нет на диске (`jdt:`/`class:` у стокового
   `redhat.java`: класс из jar, исходник JDK, декомпиляция). Проводка — калька с провайдеров ФС:
@@ -373,10 +406,12 @@
   Есть модель — смена в ней даёт `editor.didClose`/`editor.didOpen`. Нет — ответ `applied: false`,
   пару событий выдаёт сам субпроцесс, а хост держит выбор до появления вкладки
   (`EditorLayoutServiceAdapter.pendingLanguages`). Язык документа без модели субпроцесс тоже
-  спрашивает у хоста (`languages.getLanguageOfDocument`), иначе там был бы `plaintext`.
+  спрашивает у хоста (`languages.getLanguageOfDocument`), иначе там был бы `plaintext`; ответ заодно запрашивает
+  языковые фичи (`onLanguage:<id>`), как создание модели в `$tryOpenDocument` эталона.
 - **API-команды `vscode.execute*`** (`apiCommands.ts`): как `vscode.open`, живут в субпроцессе и в
-  `getCommands` не входят. Completion и code action спрашивают провайдеров этого же субпроцесса и
-  отдают их объекты; `vscode.executeLinkProvider` всегда отдаёт `[]`: провайдеры ссылок — no-op.
+  `getCommands` не входят. Документ команда держит ссылкой (`referenceDocument`, `createModelReference` эталона):
+  документ провайдера содержимого, который до неё никто не открывал, закрывается с ней. Completion и code action спрашивают провайдеров этого же субпроцесса и
+  отдают их объекты. `vscode.executeLinkProvider` — исключение: после проверки аргументов он зовёт хостовую `_executeLinkProvider` (`executeLinkProviderCommand.ts`, `getLinks` эталона), потому что встроенный детектор URL живёт в ядре; документ он не открывает — нет загруженной модели, ответ `[]`, как у эталона. Первые `linkResolveCount` ссылок без цели резолвятся; отступление: ссылка, которую резолвить нечем или резолв не дал цели, остаётся без `target`, эталон же отклоняет всю команду.
   `workspace.openTextDocument` по такой схеме спрашивает провайдера локально, без RPC, — он живёт в
   том же субпроцессе. Неудача открытия (схемы никто не обслуживает, провайдер отказался или
   сломался) — **не исключение**: `EditorService.openUri` не отклоняется никогда, причина уезжает в
@@ -405,12 +440,15 @@
   (`languages.provideHover` RPC, таймаут 5000 мс). Ядро спрашивает все подошедшие провайдеры и
   склеивает непустые ответы в порядке реестра (`ICoreHover {contents, range?}`, contents — блоки
   сырого markdown; `MarkedString {language, value}` сериализуется fenced-блоком). Реестр —
-  `ILanguageFeaturesService.hoverProvider` (тип `editor/common/languages/iHoverSource.ts`); UI —
+  `ILanguageFeaturesService.hoverProvider` (тип `editor/common/languages/iHoverSource.ts`); над ответами
+  провайдеров — диагностики под кареткой из `MarkerService` (`message source(code)`, эталонный
+  `MarkerHoverParticipant`), между ними — `hoverMessage` декораций расширений под кареткой (часть
+  `MarkdownHoverParticipant` эталона, см. «Декорации»); UI —
   contrib `hover` (пара `HoverService`/`HoverComponent` по образцу suggest: overlay-сессия у каретки
   без захвата фокуса, `stripMarkdown` в плоский текст, закрытие по Escape/правке/каретке/фокусу;
   ключ `editorHoverVisible`).
 - **References-провайдер seam (LSP):** `languages.registerReferenceProvider` — та же калька
-  (`languages.provideReferences` RPC, таймаут 5000 мс; в параметрах LSP-контекст
+  (`languages.provideReferences` RPC, без таймаута; в параметрах LSP-контекст
   `includeDeclaration`). Ядро спрашивает все подошедшие провайдеры и склеивает ответы в порядке
   реестра (`ICoreReference {uri, range}`, сериализатор общий с definition). Реестр —
   `ILanguageFeaturesService.referenceProvider` (тип `editor/common/languages/iReferenceSource.ts`);
@@ -437,6 +475,27 @@
   нужен в рантайме: его конструирует конвертер vscode-languageclient. Слияние ответов со встроенными
   ступенями — `editor/contrib/smartSelect/smartSelect.ts` (порт `provideSelectionRanges` эталона),
   стек Expand/Shrink — `SmartSelectController`, команды — contrib `smartSelect`.
+- **Linked editing seam (LSP):** `languages.registerLinkedEditingRangeProvider` — по рецепту реестра
+  (`kind: "linkedEditingRange"`, `ILanguageFeaturesService.linkedEditingRangeProvider`, RPC
+  `languages.provideLinkedEditingRanges`, 5000 мс). Субпроцесс отдаёт `{ranges, wordPattern?, wordPatternFlags?}`
+  или `null`, если нет массива `ranges`; `RegExp` пересекает провод источником и флагами, в ядре собирается
+  заново. Ответ берётся у первого провайдера с непустыми `ranges`. Класс `vscode.LinkedEditingRanges` нужен в
+  рантайме: его конструирует конвертер vscode-languageclient. Потребитель — `LinkedEditingController`
+  ([Editor.md](Editor.md#editorcontriblinkedediting-связанная-правка-тегов)).
+- **On type formatting seam (LSP):** `languages.registerOnTypeFormattingEditProvider` — по рецепту реестра
+  (`kind: "onTypeFormatting"`, `ILanguageFeaturesService.onTypeFormattingEditProvider`, RPC
+  `languages.provideOnTypeFormattingEdits`, 5000 мс). `firstTriggerCharacter` и `moreTriggerCharacter` едут
+  метаданными `triggerCharacters`; ответ — `ITextEdit[]`, отказ — пустой список. Потребитель — `FormatOnTypeController`
+  ([Editor.md](Editor.md#editorcontribformat-format-on-type)).
+- **Document link seam:** `languages.registerDocumentLinkProvider` — по рецепту реестра (`kind: "documentLink"`,
+  `ILanguageFeaturesService.documentLinkProvider`, RPC `languages.provideDocumentLinks` и
+  `languages.resolveDocumentLink`, по 5000 мс). Метаданные — `hasResolve`. Ответ — `{cacheId, links: [{id, range,
+  target?, tooltip?}]}`, `target` — `encodeURI(uri.toString(true))`, как href у опенера эталона (голый `toString()` кодирует `=`, `&`, `@`); битая запись отбрасывается одна, отказ провайдера — пустой список.
+  Оригиналы ссылок лежат в субпроцессе (`resolveDocumentLink` получает тот же объект): глубина 2 **в версиях документа на пару провайдер +
+  документ**, освобождение вытеснением и снятием провайдера. Глубина в списках, как у code action, здесь не годится: у
+  каждого сплита свой список той же версии, и третий вытеснил бы ссылки первого. `tooltip`
+  едет, но не показывается (нет hover мышью). Потребитель — `LinkDetector`
+  ([Editor.md](Editor.md#editorcontriblinks-ссылки-в-тексте)).
 - **Color seam:** `languages.registerColorProvider` — по рецепту реестра (`kind: "color"`,
   `ILanguageFeaturesService.colorProvider`, RPC `languages.provideDocumentColors`, 5000 мс; отмена по
   новой правке уходит провайдеру токеном). Субпроцесс отдаёт `IColorInformation[]`
@@ -446,6 +505,39 @@
   **отступление** по спеке #884: эталон глушит детектор самой регистрацией провайдера на документ.
   Классы `vscode.Color`/`ColorInformation`/`ColorPresentation` — в рантайме (их конструирует
   конвертер vscode-languageclient); пикера нет, `provideColorPresentations` не вызывается.
+- **Inlay hints seam:** `languages.registerInlayHintsProvider` — по рецепту реестра (`kind: "inlayHints"`,
+  `ILanguageFeaturesService.inlayHintsProvider`, RPC `languages.provideInlayHints`, 5000 мс; отмена по новой
+  правке уходит провайдеру токеном). Субпроцесс отдаёт `IWireInlayHint[]` (`serializeInlayHints`: пустая метка
+  и позиция вне запрошенного диапазона отбрасывают одну подсказку, как `_isValidInlayHint` эталона) или `null`,
+  если подсказок нет — пустой ответ, не массив, сбой (`reportProviderFailure` с id расширения) или таймаут.
+  Хост разбирает ответ `wireToCoreInlayHints`: битая позиция и неизвестный `kind` стоят одной подсказки.
+  `onDidChangeInlayHints` объявляется в регистрации (`hasOnDidChange`) и идёт нотификацией
+  `languages.didChangeInlayHints` до события прокси; контроллер перезапрашивает. **Отступления:**
+  `resolveInlayHint` и кэш сессий не делаем, поэтому `$releaseInlayHints` нет и `dispose` списка — пустой; по
+  проводу не едут `tooltip`, `textEdits`, `location` и `command` частей (у подсказки нет ни наведения, ни
+  клика, [InlayHintsCodeLens.md](../TODO/InlayHintsCodeLens.md)); `displayName` не возим.
+- **Code lens seam:** `languages.registerCodeLensProvider` — по рецепту реестра (`kind: "codeLens"`,
+  `ILanguageFeaturesService.codeLensProvider`, RPC `languages.provideCodeLenses` и `languages.resolveCodeLens`,
+  по 5000 мс; отмена уходит провайдеру токеном). Как `CodeLensAdapter` эталона, субпроцесс держит оригинальные
+  линзы ответа в сессии (`ICodeLensRegistration.sessions`), по проводу идёт `IWireCodeLensList {cacheId, lenses}`,
+  у линзы — адрес `[session, index]`, диапазон и команда `{id, title, tooltip?}` **без аргументов**. Линза без
+  диапазона отбрасывается с предупреждением и id расширения, индексы остальных не сдвигаются; пустой ответ, сбой
+  (`reportProviderFailure`), отмена и таймаут — `null`, сессии не остаётся. `resolveCodeLens` зовётся на оригинале,
+  только если у линзы ещё нет команды; ответ заменяет оригинал в сессии (провайдер вправе вернуть новый объект), без
+  команды — `INVALID code lens resolved, lacks command` в лог и `null`. `dispose` списка в ядре —
+  нотификация `languages.releaseCodeLenses`; снятие провайдера освобождает сессии вместе с регистрацией.
+  `onDidChangeCodeLenses` объявляется в регистрации (`hasOnDidChange`) и идёт нотификацией
+  `languages.didChangeCodeLenses` до `onDidChange` прокси.
+  **Путь команды — отступление от `_generated_`-механизма эталона** (`CommandsConverter.toInternal`), решение
+  человека в #937: прокси `LanguageFeaturesAdapter` кладёт в `CodeLensCommand` поле `run`, и `runCodeLensCommand`
+  вызывает его вместо реестра → `languages.executeCodeLensCommand {handle, cacheId}` (без таймаута) → субпроцесс
+  берёт команду линзы и зовёт `commands.executeCommand(id, ...arguments)` с настоящими объектами: своя команда
+  расширения и API-команда исполняются на месте, команда хоста (`editor.action.showReferences`) уходит
+  обычным `commands.executeCommand`, и её аргументы сериализуются только тут. Отказ команды отвергает запрос, и хост
+  показывает тост. Хост отвечает на неизвестный id `undefined`, поэтому субпроцесс сперва сверяется
+  (`ICodeActionDeps.hasCommand`) и отвергает с `command 'x' not found`, как эталон. Линза, снятая под кликом, просто
+  ничего не исполняет. У линз провайдеров ядра `run` нет — у них реестр, как раньше. **Известный остаток:** ответ,
+  дошедший до хоста уже после отмены запроса, отбрасывается, и его сессия живёт до снятия провайдера (так и в эталоне).
 - **Signature-help seam (LSP):** `languages.registerSignatureHelpProvider` — та же калька
   (`languages.provideSignatureHelp` RPC, таймаут 5000 мс), но с двумя отличиями. Первое: провайдеров
   обходим по очереди и возвращаем ПЕРВЫЙ непустой ответ (vscode API предписывает именно это —
@@ -491,8 +583,9 @@
   `providedCodeActionKinds` из метаданных регистрации, `provideCodeActions`/`applyCodeAction`; выбор
   и склейка — `editor/contrib/codeAction`); потребители — source-команды
   `editor.action.organizeImports` / `fixAll` (полный диапазон + `only`, выбор `isPreferred` ??
-  первого) и `editor.action.quickFix` (Ctrl+., чорд Ctrl+K Ctrl+Q; строка каретки/выделение без
-  `only`, меню на `QuickInputService.quickPick`) в
+  первого) и `editor.action.quickFix` (Ctrl+., чорд Ctrl+K Ctrl+Q; точное выделение без `only`; нет
+  quickfix под кареткой — запрос `only: quickfix` с конца ближайшего маркера строки, как
+  `includeNearbyQuickFixes` эталона, но эталон спрашивает у всех маркеров: хост держит два ответа на провайдер; меню на `QuickInputService.quickPick`) в
   `contrib/codeAction/browser/codeActionActions.ts`; notices в статус-баре. Сборка зависимостей —
   ассемблер `buildVscodeNamespace` передаёт `workspace.applyEdit` / `commands.executeCommand` в
   `createLanguagesNamespace` (commands строится ДО languages).
@@ -577,7 +670,10 @@
   inline completions, срок которых едет в самом запросе, и `languages.provideCompletionItems`, у
   которого срока нет вовсе (как в upstream: по «пустому» ответу ядро открыло бы попап словами из
   буфера вместо пунктов медленного language server'а; ожидание ограничивает токен
-  `CompletionService` — перезапрос, уход каретки из слова, закрытие). Хост шлёт через
+  `CompletionService` — перезапрос, уход каретки из слова, закрытие). Срока нет и у
+  `languages.provideInlayHints`, `languages.provideCodeLenses`, `languages.resolveCodeLens` (как в
+  upstream: пустой ответ никто не перезапрашивает, и занятый импортом jdt.ls навсегда оставлял на кадре
+  `no commands`; ожидание ограничивает токен контроллера — правка, закрытие). Хост шлёт через
   `loggingRequest`: истёкший срок — debug, отказ — warn с методом и ошибкой (стек доезжает целиком);
   результат в обоих случаях пустой, UI не ждёт.
 - **Ошибки через RPC (G4):** отказ обработчика едет `SerializedError`
@@ -657,7 +753,15 @@
   обратный notify `workspace.watcher.events`. **Матчинг шаблона — на хосте**: субпроцессу уезжают
   только подошедшие события, а не весь поток по воркспейсу. Рекурсивность выводится из шаблона (`*`
   — только прямые дети, `**`/`/` — поддерево) — на этом держится дешёвый watcher `.git` у
-  встроенного git.
+  встроенного git. **База на схеме провайдера** (`RelativePattern` на `Uri` схемы, для которой
+  зарегистрирован `registerFileSystemProvider`) обходится без ядра: провайдер живёт в том же
+  субпроцессе, поэтому `watchProviderFiles` зовёт `provider.watch(base, {recursive, excludes})`
+  напрямую, но в микрозадаче, а не синхронно: тест эталона подписывается на `watch` уже после
+  возврата `createFileSystemWatcher` (у эталона — круг через `MainThreadFileSystemEventService` и файловый сервис обратно в
+  ext host) и фильтрует `onDidChangeFile` шаблоном относительно `base.path`. Как у эталона:
+  `excludes` — `files.watcherExclude` только для рекурсивного; watcher, игнорирующий все три вида
+  событий, `watch` не зовёт. Схема без провайдера идёт старым путём по `fsPath`. Новых RPC-сообщений
+  нет.
 - **Локальный диск без RPC (`workspace.fs`, `workspace.findFiles`):** обе поверхности (и
   `openTextDocument` по промаху реестра) работают **в субпроцессе через `node:fs`**: привязка к
   диску — `api/node/extHostDisk.ts` (`IExtHostDisk`, как `extHostDiskFileSystemProvider` у эталона),
@@ -754,10 +858,20 @@
   code actions, а `onDidChangeDiagnostics` (окно 50 мс, как `DebounceEmitter` эталона) стреляет на
   `set`/`delete`/`clear` коллекций и на зеркало. Стоковый потребитель — Claude Code: без
   `onDidChangeDiagnostics` его ide-MCP-сервер рвёт каждое подключение CLI.
-- **Прогресс (LSP):** настоящий `window.withProgress` — notify `window.progress.{start,report,end}`
-  → опция `ExtensionHost.progressSink` → `ProgressStatusBarAdapter` (запись статус-бара с
-  анимированным спиннером; report обновляет message/проценты, end снимает; на смерть subprocess'а
-  host гасит живые handle'ы). Отмена не поддержана — токен не стреляет.
+- **Прогресс:** настоящий `window.withProgress` (`api/common/extHostProgress.ts`) — notify
+  `window.progress.{start,report,end}`; `start` несёт `location` и `cancellable` → опция
+  `ExtensionHost.progressSink` → `ExtensionProgressAdapter`: `Notification` — тост-прогресс
+  (`NotificationService.showProgress`, [Notifications.md](workbench/Notifications.md)), `Window` —
+  `ProgressStatusBarAdapter` (запись статус-бара со спиннером), SourceControl и `{ viewId }` —
+  `ExtensionViewProgressAdapter`: операция `ProgressService` с местом `"view"` и `passive` (спиннер
+  в заголовке вида; `isBusy` и `operationProgress` её не видят — git-команды и кнопка Commit не
+  блокируются и не перенимают заголовок). Порядок разбора id — как в
+  эталонном `handleStringLocation`: id контейнера → его первый вид, id вида → он сам, иначе
+  `Bad progress location` в лог и никакого UI; SourceControl — вид `workbench.scm.changes`
+  (эталон: `workbench.scm`). Только индикатор: `message`, `increment` и Cancel вид не показывает. Cancel тоста возвращается в subprocess уведомлением `window.progress.cancel`
+  (эталонный `$acceptProgressCanceled`) и стреляет токен; без `cancellable` токен — «никогда».
+  `end` уходит при resolve, reject и синхронном throw задачи; на смерть subprocess'а host гасит
+  живые handle'ы.
 - **Пункты статус-бара:** настоящий `window.createStatusBarItem` — notify
   `window.statusBarItem.update`/`.dispose` → опция `ExtensionHost.statusBarItemSink` →
   `ExtensionStatusBarAdapter` (запись `StatusBarService` на каждый ПОКАЗАННЫЙ пункт; клик исполняет
@@ -793,27 +907,120 @@
   ними — отказ с причиной (перегрузка обещает сессию, `undefined` уронил бы расширение невнятным
   `TypeError`), провайдер принимается и не зовётся, человеку — одна warn-строка в Output на id
   провайдера. Настоящие провайдеры — [docs/TODO/LanguageServers.md](../TODO/LanguageServers.md#terraform).
-- **Отладка и Test API как null-объекты (`debugNoop.ts`, `testsNoop.ts`):** дебаггера (DAP) в Diode
-  нет и не планируется (решение человека, [StockExtensions.md](StockExtensions.md#go-golanggo-gopls)), view Testing пока
-  нет, но ОТСУТСТВИЕ namespace'ов убивало расширение целиком: `golang.go` регистрирует провайдер
-  конфигураций отладки посреди `activate()` и заводит контроллер тестов с тремя профилями
-  `TestRunProfileKind` — без них не появлялись ~60 команд `go.*`, хотя gopls уже жил. Декларации
-  `vscode.debug`/`vscode.tests` и их типы подняты в `vscode.d.ts` целиком, значения-типы — эталонные
-  (`debugTypes.ts`, `testingTypes.ts`). Поведение — «сессий нет»: `register*` — `Disposable`,
-  события не стреляют, `startDebugging` — `false`, `asDebugSourceUri` честный; у контроллера тестов
-  коллекции `items`/`children` рабочие (расширение ищет в них свои элементы), обработчики никто не
-  зовёт. Человеку — одна warn-строка в Output на тип отладчика / id контроллера (как у comments).
-  События активации `onDebug*` не стреляют.
+- **Отладка (`debugNamespace.ts`, эпик #1132):** настоящий отладчик через DAP: адаптер приносит расширение,
+  ядро ведёт сессию, виды и консоль. Первое расширение, проверенное целиком, — стоковый CodeLLDB (#1149,
+  [StockExtensions.md](StockExtensions.md#отладка-cc-vadimcnvscode-lldb-codelldb)); устройство серии и что
+  осталось — `docs/TODO/Debugger.md`. Сначала `vscode.debug` был null-объектом: ОТСУТСТВИЕ namespace'а убивало
+  `golang.go` посреди `activate()`. Сейчас живы провайдеры конфигураций и `startDebugging`/`stopDebugging`
+  (#1139): пара — `debugNamespace.ts` ↔ `DebugCustomer` ↔ `IExtensionDebugSink` ↔ `ExtensionDebugAdapter`
+  (`contrib/debug/browser/`), сообщения `debug.*` (`debugWireTypes.ts`), по образцу задач. Провайдер
+  регистрируется с флагами своих методов, ядро зовёт его запросами с токеном; `undefined` и `null` ответа
+  различаются на проводе (`{}` против `{ config: null }`). `contributes.debuggers` читает
+  `bindExtensionDebuggers` при старте сервиса расширений; `${command:…}` и `${input:…}` подставляет резолвер
+  ядра (`debugVariableResolver` в `debugPorts.ts`), эталонного `$substituteVariables` в субпроцессе нет:
+  те же переменные резолвер ядра знает сам. Неявного `onDebugResolve:<type>` из `contributes.debuggers`
+  нет и в эталоне 1.127 — CodeLLDB и js-debug объявляют события сами.
+  **Адаптеры (#1140)** живут в субпроцессе, как у эталона: с каждым каталогом субпроцесс шлёт
+  `debug.registerDebugTypes` (типы «главных» вкладов — с `label`/`program`/`runtime`), ядро ставит на эти
+  типы фабрику `ExtensionHostDebugAdapter` (наследник `AbstractDebugAdapter`). Сессия просит адаптер
+  (`debug.startAdapter` с handle и DTO сессии), субпроцесс берёт дескриптор: `debugServer` конфигурации,
+  фабрику типа (только от расширения, чей вклад с `label` определяет тип) или исполняемый файл
+  `contributes.debuggers` (`api/common/debugAdapterExecutable.ts`), — ставит трекеры (тип и `*`, не дольше
+  секунды) и запускает адаптер. Inline — `DirectDebugAdapter` (`api/common/extHostDebugAdapter.ts`);
+  процесс, TCP и пайп — `api/node/extHostDebugAdapters.ts` (протокол `Content-Length`, процесс под
+  `GuardedChildProcess`, `node` — форком), их отдаёт `buildVscodeNamespace` третьим аргументом: `api/common`
+  ОС не трогает. DAP-сообщения — `debug.sendAdapterMessage` / `debug.acceptAdapterMessage` по handle,
+  ошибки и выход — `debug.acceptAdapterError`/`Exit`; маршрутизация по handle и «Extension host shut down»
+  живым адаптерам при смерти субпроцесса — в `DebugCustomer`. Перед созданием адаптера —
+  `onDebugAdapterProtocolTracker:<type>`. Отступления: путей в сообщениях не переводим (ядро и субпроцесс на
+  одной ФС, эталонный круг path → uri → path — тождество), `handshake` отклоняется «no signer», адаптер,
+  ушедший сам, пишет «Debug adapter process has terminated unexpectedly (…)» в Debug Console
+  (`AdapterEndEvent.failure`; эталон молчит).
+  **Сессии, брейкпоинты, консоль (#1141).** `ExtensionDebugAdapter.subscribe` — конструктор эталонного
+  `MainThreadDebugService`: старт/конец/фокус сессии, её имя и DAP-события, которых ядро не разбирает само
+  (слушаются с `onWillNewSession`: событие приходит и во время `launch`), фокус потока/кадра, дельты
+  брейкпоинтов (все — при подписке, затем каждая правка модели, кроме `sessionOnly`). Провод —
+  `debug.accept*` ядро → субпроцесс; обратно `debug.customRequest`, `debug.getDebugProtocolBreakpoint`,
+  `debug.registerBreakpoints`/`unregisterBreakpoints` (запросы), `debug.setSessionName`,
+  `debug.appendDebugConsole` (уведомления). В субпроцессе объект `DebugSession` один на id — от первого
+  сообщения о нём (адаптер или событие) до `acceptSessionTerminated`; стоп адаптера его не убивает.
+  Брейкпоинты ядра приходят с его id (`setBreakpointId` в `debugTypes.ts`), правка меняет объект
+  расширения на месте; строки и символы на проводе 0-based, в модели — 1-based, колонка 0 — «нет
+  колонки» (эталон #46784). Отступления: сессия едет целиком в каждом сообщении (нет `$sessionCached`),
+  data-брейкпоинты не пересекают провод (`vscode.DataBreakpoint` не объявлен — веха 2), слушатель имени
+  ставится один раз до `launch` (у эталона — на каждый `onDidNewSession`, и после рестарта имя приходило
+  дважды).
+- **Языковые модели как null-объект (`lmNoop.ts`, #1133):** моделей и чата в Diode нет, но
+  CodeLLDB зовёт `vscode.lm.registerTool` посреди `activate()` — без namespace'а активация обрывалась
+  `TypeError`, и команды `lldb.*` не появлялись. Декларации `vscode.lm` и замыкание типов подняты в
+  `vscode.d.ts` целиком (`vscode.chat` — нет), значения-типы — эталонные (`lmTypes.ts`).
+  Поведение — «ни моделей, ни инструментов»: `register*` — `Disposable`, `tools` и
+  `selectChatModels` пусты, `invokeTool` — отказ с причиной, событие не стреляет. Человеку — одна
+  warn-строка в Output на расширение (имя — от оверлея, `OWNED_MEMBERS.lm`).
+- **Тесты расширений (Testing, #1068):** цепочка эталона `ExtHostTesting` ↔ `MainThreadTesting` →
+  `TestService`. **Объекты расширения живут только в субпроцессе** (`api/common/extHostTesting.ts`,
+  `extHostTestItem.ts`); его `ExtHostTestItemCollection` — порт `TestItemCollection` эталона — шлёт
+  хосту дерево **диффами** (`testingWireTypes.ts`): `Add` (тест с полями и `expand`), `Update`
+  (неглубокая правка; правки одного теста подряд и правка теста, добавленного в той же пачке,
+  сливаются в одну операцию), `Remove` (тест с поддеревом). Id теста — путь id элементов через `\0`
+  с id контроллера в корне (`TestId`), теги — `<контроллер>\0<тег>`. Пачка уходит раз в 200 мс
+  (`debounceSendDiff` эталона) и сразу перед ответом на `testing.expandTest`. Корень контроллера —
+  сам тест с id контроллера, его дети — `controller.items`. Протокол: субпроцесс шлёт
+  `testing.registerController {controllerId, label, canRefresh}` / `updateController` /
+  `unregisterController`, `publishDiff`, `publishProfile` / `updateProfile` / `removeProfile`
+  (группа — битсет эталона `Run=2, Debug=4, Coverage=8`, id профиля — хеш метки, как у эталона);
+  хост просит `testing.expandTest {testId, levels}` (отрицательное — «все уровни») и
+  `testing.refreshTests {controllerId}` с отменой по токену. **Ленивые дети:** без `resolveHandler`
+  элементы `NotExpandable`, с ним — `Expandable` при `canResolveChildren`; раскрытие → `BusyExpanding`
+  → `resolveHandler(элемент | undefined для корня)` → `Expanded`; исключение или reject — error-строка
+  `Unhandled error in resolveHandler of test controller "<id>"` в Output → Extensions, дерево как было.
+  Хост: `TestingCustomer` → порт `IExtensionTestingSink` → `ExtensionTestingAdapter`
+  (`contrib/testing/browser`) → `TestService` (контроллеры, зеркало дерева, `onDidProcessDiff`, ключи
+  `testing.providerCount`/`canRefresh`/`isRefreshing`) и `TestProfileService` (профили,
+  `testing.hasRunnableTests`, `testing.hasDebuggableTests`, `capabilitiesForTest`). Команды `testing.refreshTests` (`Ctrl+; Ctrl+R`, доступна при
+  `testing.canRefresh`) и `testing.cancelTestRefresh` — `contrib/testing/browser/testingActions.ts`.
+  Смерть субпроцесса — `reset()`: контроллеры уходят с деревьями и профилями.
+  Debug-профиль запускается так же, как Run (`testing.runControllerTests` с его `profileId`): отладочную сессию
+  стартует сам `runHandler` расширения через `vscode.debug.startDebugging` (vitest, jest), ядро о связи сессии и
+  запуска не знает — эталон тоже. Отступления: Coverage-профили хранятся, но `testing.hasCoverableTests` всегда
+  `false` (coverage — позже); `isDefault` профиля —
+  только расширения (`onDidChangeDefault` не стреляет, выбора профилей по умолчанию у ядра нет);
+  `DocumentSynced`, `AddTag`/`RemoveTag` эталона не переносятся (их потребители — декорации и фильтр
+  вьюхи). Пункт меню строки Test Explorer (`testing/item/context` → `MenuId.TestItem`) получает аргументом
+  `IWireTestItemArg {$testId}`: `processArgument` субпроцесса (`extHostTesting`, после деревьев) превращает его
+  в собственный `TestItem` расширения по id (`MarshalledId.TestItemContext` эталона), ушедший тест —
+  `undefined`. Вьюха — [Views.md, «Testing»](workbench/Views.md#testing).
+  **Запуски (#1070)** — `TestRunTracker`/`TestRunCoordinator` эталона в `api/common/extHostTestRun.ts`.
+  Ядро просит `testing.runControllerTests {requests: [{runId, controllerId, profileId, testIds,
+  excludeExtIds}]}` с токеном: субпроцесс строит `TestRunRequest` (`include` — `undefined` для корня,
+  исключения — только под включёнными) и зовёт `runHandler` профиля; `createTestRun(request)` внутри него —
+  задача того же запуска. Ответ — `[{error?}]` (reject обработчика — текст), он ждёт конца всех `TestRun`
+  запуска, после отмены — только сам обработчик. Отчёты — notify: `startedTestRunTask`/`finishedTestRunTask`,
+  `addTestsToRun` (цепочка от известного предка или корня, как `ensureTestIsKnown`), `updateTestStateInRun`
+  (`TestResultState` эталона), `appendTestMessagesInRun` (markdown — текстом, локация теста по умолчанию),
+  `appendOutputToRun`. Отмена: токен запроса и `testing.cancelExtensionTestRun {runId?, taskId?}` (одна
+  функция на спавн, ядро шлёт её раз на субпроцесс); через `RUN_CANCEL_DEADLINE = 10 с` трекер сам
+  завершает `TestRun`, повторная отмена — сразу. `createTestRun` без запроса ядра — запуск расширения:
+  `startedExtensionTestRun` → `finishedExtensionTestRun` с концом последнего `TestRun`. Хост:
+  `ExtensionTestingAdapter` пишет отчёты в живой `LiveTestResult` (`common/testResult.ts`) из
+  `TestResultService` (`testResultService.ts`, ключи `testing.isRunning`/`hasAnyResults`, 128 результатов в
+  памяти); `TestService.runTests` берёт первый профиль группы контроллера, подходящий по тегу, Save All и
+  тост ошибки — через `ITestRunUi` (`browser/testRunUi.ts`). Смерть субпроцесса: ответ отклоняется, запуск
+  закрывается, его тесты в работе — skipped (`markTaskComplete` эталона); запуски расширения закрывает
+  `reset()`. Отступления: имя задачи без `name` — подпись контроллера (у эталона — имя расширения);
+  результаты не переживают перезапуск (у эталона — storage); coverage-отчёты отбрасываются. Вывод и
+  сообщения показывает панель TEST RESULTS ([Views.md](workbench/Views.md#test-results)). Не сделано:
+  `tests.testResults`/`onDidChangeTestResults`, continuous run, related code.
 - **`languages.setLanguageConfiguration` (`extHostLanguageConfiguration.ts` →
   `LanguageConfigurationCustomer`):** по эталону `wordPattern` остаётся в субпроцессе — определение
   слова языка в `DocumentRegistry` для `getWordRangeAtPosition` (и эфемерных документов
   `openTextDocument`), а секции, которые ядро умеет из `language-configuration.json` (`comments`,
-  `brackets`, `autoClosingPairs`), уезжают notify `languages.setLanguageConfiguration` слоем в
+  `brackets`, `autoClosingPairs`, `onEnterRules`, `wordPattern` — его читает linked editing), уезжают notify `languages.setLanguageConfiguration` слоем в
   `ILanguageConfigurationService.register` — как `register(…, priority)` эталона: секция слоя
   заменяет секцию файла, поздний слой побеждает ранний, результат слияния разворачивается тем же
   `resolveLanguageConfiguration`. Снятие — `languages.unsetLanguageConfiguration` по handle; смерть
-  субпроцесса снимает все его слои (кастомер живёт один спавн). `indentationRules`/`onEnterRules` не
-  применяются: ядро не умеет их и из файла.
+  субпроцесса снимает все его слои (кастомер живёт один спавн). `indentationRules` не
+  применяются: ядро не умеет их и из файла. `onEnterRules` регулярки идут как `{ pattern, flags }`, действие — в формате файла.
 - **Значки `$(name)` в тексте расширений:** подменщик — `renderCodicons` (`base/common/codicons.ts`
   над генерируемой таблицей `codicons.generated.ts`: `scripts/import-codicons.mjs`, пин в лок-степе
   с `vscode.d.ts`). Политика: известное имя → глиф, **неизвестное выбрасывается** (литерал `$(foo)`
@@ -873,6 +1080,17 @@
   запрос с `only` ⊇ `source.organizeImports.ts` и считает правки лениво; клиент дописывает действие
   с пустым `WorkspaceEdit`, и команда молчит, как в VS Code, вместо «No organize imports action for
   'javascript'».
+  **Inlay hints и code lens** включаются ключами эталона `typescript-language-features`
+  (`typescript.inlayHints.*`, `javascript.inlayHints.*`, `*.referencesCodeLens.*`,
+  `typescript.implementationsCodeLens.*`), по умолчанию выключены. Сервер берёт эти предпочтения только из
+  `workspace/didChangeConfiguration` (`workspace/configuration` он спрашивает лишь про `formattingOptions`) и заменяет
+  ими свою копию целиком, поэтому `synchronize.configurationSection` плюс middleware
+  `workspace.didChangeConfiguration` шлют полный перевод (`lib/serverSettings.ts`) на старте и при каждой смене;
+  сервер сам просит клиента обновить подсказки и линзы (`inlayHint/refresh`, `codeLens/refresh`). Перевод как в
+  `getInlayHintsPreferences` эталона: `suppressWhen*` → `includeWhen*` с отрицанием. Настройки читаются без `scope`:
+  уведомление одно на сервер, поэтому `scope: "resource"` у подсказок на деле — на всё окно. Сервер игнорирует
+  `implementationsCodeLens.showOnInterfaceMethods`. Не объявлены `js/ts.*` (единые ключи эталона 1.127) и
+  `implementationsCodeLens.showOnAllClassMethods`, у старых ключей поэтому нет `markdownDeprecationMessage`.
   **Статус проекта JS/TS** (`lib/projectStatus.ts`, `lib/projectConfig.ts`) — порт эталонного
   `IntellisenseStatus` и команд `tsconfig.ts`: элемент Language Status `typescript.projectStatus`
   («No jsconfig» → «Configure JSConfig», путь конфига → «Open Config File», «Loading IntelliSense
@@ -881,7 +1099,7 @@
   мимо middleware), логика написана против хоста-интерфейса и тестируется без `vscode`, `main.ts`
   только связывает. Отступления: «Configure» не открывает untitled-буфер со сниппетом, а создаёт
   `<папка>/jsconfig.json` одной `workspace.applyEdit` (createFile + текст шаблона, Ctrl+Z удаляет
-  файл) и открывает его (нет `insertSnippet`; решение человека
+  файл) и открывает его (нет сниппет-сессий; решение человека
   2026-10-25); шаблон — с дефолтами `js/ts.implicitProjectConfig.*` (настроек нет); `projectInfo` без
   ответа убирает элемент вместо вечного Loading; активный редактор — `activeTextEditor`, а не
   активная вкладка. **Пересчёт без смены редактора:** tsserver сам замечает новый/удалённый конфиг
@@ -927,6 +1145,35 @@
   выделения снимка, если оно не 1:1. В активной группе оно отложено до `editor.activeEditorChanged`
   (снимок приходит раньше меты): слушатели сверяют `e.textEditor === activeTextEditor`, так
   отбрасывает чужие события Claude Code.
+- **Свойства редактора (`TextEditor.visibleRanges` + `onDidChangeTextEditorVisibleRanges`, #1226):**
+  эхо upstream `$acceptEditorPropertiesChanged` — notify `editor.propertiesChanged`
+  (`IWireEditorPropertiesChanged`: адрес редактора `uri` + `groupId` и только изменившиеся свойства:
+  `options` и `visibleRanges`). Продюсер — `EditorLayoutServiceAdapter`: он и так знает видимые редакторы
+  (активная текстовая вкладка каждой группы и модельные стороны diff'а — `visibleEditors()`),
+  подписан на `TextEditorPane.onDidChangeVisibleRange`, `onDidChangeIndentOptions` и
+  `onDidChangeCursorStyleSetting` каждого и раз в микрозадачу шлёт значение, отличное от последнего
+  отправленного этим редактором (скрытый редактор хранит своё, как в эталоне).
+  Значение `visibleRanges` — `EditorViewState.getVisibleRanges()`: целиком видимые строки, разрезанные вокруг
+  свёрнутых; строка с переносом, обрезанная краем вьюпорта, выпадает, как частично видимая строка
+  в эталоне. Стартовое значение едет в снимке раскладки (`visibleRanges` активной вкладки,
+  `sideVisibleRanges` сторон diff'а): errorlens читает его в `onDidChangeActiveTextEditor`, раньше
+  первого `editor.propertiesChanged`, а новый редактор к этому моменту ещё не разложен — `EditorGroupsService`
+  даёт ему размер вьюпорта редактора, уже стоящего на экране (`seedViewport`). Субпроцесс сидит снимком только
+  неизвестный ключ; известное
+  значение меняет лишь сообщение — сначала кэш, потом событие, и только при изменении. Customer
+  сначала флашит раскладку: свойства адресуют вкладку, которой субпроцесс уже должен знать.
+  **Опции (`onDidChangeTextEditorOptions`, #1231)** — все разом, если изменилась любая, как
+  `MainThreadTextEditorProperties`: `tabSize`, `insertSpaces` из вью-стейта и `cursorStyle` — то, во что
+  разрешились переопределение расширения и `editor.cursorStyle` (`TextEditorPane.cursorStyleSetting`, до того
+  как терминал свернёт его в три формы; не задан — `Line`). `indentSize` у нас — `tabSize`, его дописывает
+  субпроцесс. `lineNumbers` на проводе нет: ключа `editor.lineNumbers` у ядра нет, субпроцесс читает его из
+  своих настроек, и смена настройки события не даёт. Впервые видимый редактор опций не шлёт — эталонный
+  новый редактор приходит со своими без события; субпроцесс до первого отчёта берёт отступы вкладки из
+  снимка и форму курсора из настроек (переопределения у новой панели ещё нет, так что это то же значение).
+  Субпроцесс держит присланные опции по редактору, поверх — присвоенное самим расширением до ответа хоста
+  (эталонный `ExtHostTextEditorOptions`). Событие стреляет на каждое сообщение с `options` (хост уже
+  отфильтровал неизменённое) и раньше `visibleRanges` того же сообщения. `editor.setOptions` адресует
+  редактор по `uri` + `groupId` (`IEditorOptionsService.setEditorOptions`), а не активный.
 - **Активная тема (`window.activeColorTheme` + `onDidChangeActiveColorTheme`):** notify
   `window.themeChanged {kind}` (host → subprocess) через тот же порт `IThemeColorResolver`, что
   резолвит `ThemeColor` — второго порта к теме не заводим, событие смены у обоих потребителей одно.
@@ -1033,8 +1280,8 @@
   Code в наши `MenuId` и кладёт пункты в `MenuRegistry.appendMenuItem`. Правила разбора и список
   поддержанных точек — в [workbench/Menus.md](workbench/Menus.md); неизвестная точка, пункт без
   команды и ссылка на необъявленное подменю — строка в лог и пропуск пункта, а не падение
-  расширения. Пункты смотрят на upstream-имена контекст-ключей (`editorLangId`, `editorTextFocus`),
-  поэтому они выставляются рядом с нашими.
+  расширения. Пункты смотрят на upstream-имена контекст-ключей (`editorLangId`, `editorTextFocus`,
+  `resourceLangId` и прочие `resource*`), поэтому они выставляются рядом с нашими.
 - **`contributes.keybindings` (#194):** декларативный contributor
   `extensionKeybindingContributor.ts` (не через host) собирает манифестные биндинги всех расширений
   в слой extension `KeybindingRegistry` (`setExtensionKeybindings`): бинд расширения сильнее
@@ -1102,6 +1349,10 @@
   сразу поднимает новый спавн. Субпроцесса нет (или до барьера старта) — перезапускать нечего,
   остаётся проход `workspaceContains:` по новым папкам. Окно при этом не перезагружается: вкладки,
   раскладка и терминалы живут дальше.
+  Поэтому API-событие `vscode.workspace.onDidChangeWorkspaceFolders` молчит, как у эталона вне
+  multi-root: там оно стреляет только при смене папок на месте в состоянии WORKSPACE, а из
+  EMPTY/FOLDER смена идёт через перезапуск хоста (`abstractWorkspaceEditingService.ts`). Тест —
+  `extensionHost.onDidChangeWorkspaceFolders.test.ts`.
 - **Владелец цикла — `ExtensionService`** (`services/extensions/node/extensionService.ts`, интерфейс
   `IExtensionService` и токен — `services/extensions/common/extensions.ts`; аналог vscode
   `IExtensionService`, узкий срез). Политика «что и когда активировать» — у сервиса, механика (RPC,
@@ -1167,7 +1418,8 @@
   (`activationEvents.ts`, как `activationEventsGenerator` у дескрипторов точек эталона):
   `contributes.commands` ⇒ `onCommand:<id>` (иначе видимая в палитре команда не-eager расширения
   была бы вечным no-op'ом), `contributes.languages` ⇒ `onLanguage:<id>`,
-  `contributes.taskDefinitions` ⇒ `onTaskType:<type>`. Полный набор (`computeActivationEvents`:
+  `contributes.taskDefinitions` ⇒ `onTaskType:<type>`, `contributes.terminal.profiles` ⇒
+  `onTerminalProfile:<id>`. Полный набор (`computeActivationEvents`:
   объявленные + неявные) считается **один раз при сборке регистрации** (`toExtensionRegistration`) и
   лежит в `IExtensionRegistration.activationEvents`; хост только сравнивает строки и про
   `contributes` не знает. Голое `onUri` манифеста там же становится `onUri:<id в нижнем регистре>`
@@ -1177,7 +1429,10 @@
   провайдеров, — см. «Задачи расширений»), `*` и `onStartupFinished` (фаерит
   `ExtensionService.start()` после регистрации, когда файлы открыты), `onLanguage:<id>`,
   `onCommand:<id>`, `workspaceContains:<паттерн>`, `onUri:<id>` (фаерит обработчик URL — см.
-  «Обработчики URI расширений»). `onLanguage:<id>` — владелец сигнала сервис языков (как
+  «Обработчики URI расширений»), `onFileSystem:<scheme>` (`FileService.onWillActivateFileSystemProvider` — первая
+  операция над схемой, один раз на схему; `extensionHostModule.ts` переводит в `activateByEvent`, как
+  `AbstractExtensionService` эталона; `file` фаерит первое открытие файла или папки — так встаёт gitblame, чей
+  `workspaceContains:**/.git/HEAD` прячет `files.exclude`, как и в эталоне). `onLanguage:<id>` — владелец сигнала сервис языков (как
   `requestRichLanguageFeatures` эталона): `TextFileModel` зовёт
   `ILanguageService.requestLanguageFeatures(id)`, когда у документа появляется язык (новая модель,
   открытый файл, синтетический документ) или меняется (Change Language Mode, Save As);
@@ -1260,10 +1515,13 @@
     поднимается без него, с предупреждением в лог (`isBuiltinVSCodeExtension`). У эталона они часть
     продукта и есть всегда, а у нас многих нет (`git` — это `diode.git`), и поставить их неоткуда:
     строгий вариант молча выключил стоковый Supermaven (`extensionDependencies: ["vscode.git"]`).
-    Встроенные `vscode.*`, которые у нас есть (`vscode.git-base`), — декларативные языковые паки
+    Встроенные `vscode.*` с кодом — `vscode.references-view` (своя узкая реализация, [Views.md](workbench/Views.md)),
+    `vscode.merge-conflict`, `vscode.debug-auto-launch` и `vscode.html-language-features` (код эталона дословно,
+    `scripts/import-vscode-editor.mjs`; HTML — [StockExtensions.md](StockExtensions.md#html-встроенный-vscodehtml-language-features)). Расширение, которое в эталоне
+    часть продукта и не тянет за собой чужого ядра, кладём встроенным, а не в магазин. Остальные, которые у нас есть (`vscode.git-base`), — декларативные языковые паки
     (следующий пункт): скрипт импорта вырезает из манифеста `main` вместе с кодом, иначе хост читал бы
     отсутствующую точку входа и писал `failed to register (builtin)` на каждом старте;
-  - расширение **без кода** (декларативный языковой пак, тема) регистрации в хосте не имеет, но зависимость на него удовлетворена: `ExtensionService.start()` сообщает хосту такие id (`registerDeclarativeExtension`), как `_isResolvedExtension` эталона;
+  - расширение **без кода** (декларативный языковой пак, тема) регистрации в хосте не имеет, но зависимость на него удовлетворена: `ExtensionService.start()` сообщает хосту такие расширения (`registerDeclarativeExtension`: id, манифест, корень), как `_isResolvedExtension` эталона. Они же — в каталоге `extensions.all` с `packageJSON` и `isActive: false`, как в эталоне: клиент HTML находит там `htmlLanguageParticipants` пака `handlebars`;
   - субпроцесс умер, пока поднималась зависимость, — зависимое не считается упавшим и возвращается к оживлению вместе с ней.
 - **Тест-хелпер:** `registerAndActivate(host, reg)` (`TestUtils/ExtensionTestHarness.ts`) = `registerExtension` + `activateByEvent("*")`; харнесс фаерит `activateEvents` (дефолт `["*"]`) после регистрации.
 
@@ -1277,6 +1535,25 @@
 `workbench/common/configuration/configurationContributions.ts`) + `contributes.configuration` всех
 builtin и пишет `settings-schema.generated.ts`, который бандлится в `out/extension.cjs`. Никакого
 рантайм-API за схемой расширение не ходит.
+
+Второй провайдер того же расширения — **IntelliSense `launch.json`** (#1157): `.diode/launch.json` (и
+`.vscode/launch.json` эталона), блок `launch` в `settings.json`, `launch` и `settings.launch` в `.code-workspace`.
+Схема — эталонная схема `launch` (`debugSchemas.ts`, `updateDebugAdapterSchema` в `debugAdapterManager.ts`,
+`Debugger.getSchemaAttributes`), только собирается в расширении, а не в ядре: `lib/launchSchema.ts` читает
+`contributes.debuggers` из `vscode.extensions.all[].packageJSON` (манифест уже локализован) на каждый запрос —
+`configurationAttributes` вкладов одного типа из разных расширений складываются. `lib/launchCompletion.ts` по позиции
+каретки: ключи верхнего уровня (`version`/`configurations`/`compounds`); атрибуты конфигурации по её `type` и
+`request` (`oneOf` эталона: неизвестный `request` — атрибуты всех запросов отладчика, нет `type` — только общие) плюс
+общие атрибуты (`name`, `preLaunchTask`, `presentation`, `internalConsoleOptions`…) и `windows`/`osx`/`linux`;
+уже заданные ключи и `doNotSuggest` не предлагаются; значения — `enum` (с `enumDescriptions`), boolean, иначе
+`default`; `type` — отладчики с `label` (не `deprecated`); на месте элемента `configurations` — сниппеты
+`configurationSnippets` всех отладчиков (тело печатается как у JSON language service: табы, строка с `^` — сырьём).
+Сниппет-сессий у нас нет — ядро вставляет текст плейсхолдеров, поэтому отступы сниппета расширение подгоняет само
+(`SnippetSession.adjustWhitespace` эталона: отступ строки каретки + единица отступа редактора). Отступления: нет
+диагностик (валидации), как и у `settings.json`; вложенные объекты (`presentation`, `windows`…) и `compounds` не
+дополняются; не видны отладчики из расширений без `main` (их нет в `extensions.all`); сниппеты одного типа из разных
+расширений складываются (эталон оставляет массив последнего). Тесты: `lib/launchCompletion.test.ts`,
+`extensionHost.launchCompletion.test.ts` (настоящий субпроцесс), сценарий `launch-completion`.
 
 ## LSP и стоковые клиенты
 
@@ -1310,8 +1587,12 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   node (`main.ts` проверяет RUN_AS_NODE первым, env-фикс — `runExtensionHostSubprocess`). Продолжение:
   `Files.resolve()` vscode-languageserver'а (так eslint ищет линтер в проекте) форкает с
   `execArgv: ["-e", <скрипт>]` — runAsNode обязан понимать eval-режим, иначе расширение молча не
-  линтит. Гейты — `extensionHost.fork.test.ts`, `runAsNode.eval.test.ts`, e2e `pythonLsp`/`eslintLsp`
-  на настоящем SEA.
+  линтит. Путь скрипта runAsNode разрешает как `node <путь>` (CJS: каталог → `package.json` `main` →
+  `index.js`, недостающее `.js`) и только потом импортирует: Angular.ng-template форкает
+  `{ module: "<расширение>/server" }` — каталог, и голый ESM-импорт падал `ERR_UNSUPPORTED_DIR_IMPORT`
+  пять раз до отказа клиента. Из исходников этого не видно: там форкается настоящий node, а tsx
+  разрешает `index.js` и расширение сам. Гейты — `extensionHost.fork.test.ts`, `runAsNode.eval.test.ts`,
+  `runAsNode.entry.test.ts`, e2e `pythonLsp`/`eslintLsp` на настоящем SEA.
 - **Rename у tsserver проверять с каретки на ОБЪЯВЛЕНИИ.** С вызова импортированного символа сервер
   переименовывает только локальный алиас (`useAliasesForRenames`, как в VS Code). На холодном старте
   tsserver отвечает только по открытым файлам: перед кросс-файловым rename дождаться готовности проекта
@@ -1332,15 +1613,35 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   молчащий сервер не морозит правку. Сервер без `resolveProvider` (gopls) шлёт `additionalTextEdits`
   сразу в списке: они едут в пункте (`ICoreCompletionItem.additionalEdits`), и accept применяет их без
   resolve — как «sync additional edits» в `suggestController` эталона.
-- **Сниппеты не поддержаны** (осознанно): `SnippetString` — только транспорт, плейсхолдеры
-  вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в буфер.
+- **Сниппет-сессия — только у `insertSnippet`** (цепочка #991): в подсказках и `SnippetTextEdit` `SnippetString` — только транспорт,
+  плейсхолдеры вырезаются (`stripSnippetPlaceholders` → `snippetText` в `extHostSnippetInsert.ts`: урезанное
+  прочтение той же грамматики — табстопы, плейсхолдеры, choice, экранирование; вендорённый парсер ядра лежит в
+  `browser` и общему коду субпроцесса недоступен), чтобы `${1:name}` не попал в буфер; перевод на парсер ядра — #1035.
+  `TextEditor.insertSnippet` идёт как в эталоне (`$tryInsertSnippet`): субпроцесс шаблон не разбирает, а шлёт
+  `snippet.value` и диапазоны `where` (`snippetRanges` в `extHostSnippetInsert.ts`, `validateRange` документа)
+  запросом `editor.insertSnippet` `{uri, groupId, version, template, ranges, undoStopBefore?, undoStopAfter?,
+  keepWhitespace?}`. Хост (`IEditorOptionsService.insertSnippet`) разбирает шаблон парсером эталона
+  (`editor/contrib/snippet`, [Editor.md](Editor.md#editorcontribsnippet-сниппеты)), применяет правки одним
+  шагом undo вместе с кареткой на первой позиции и раскрывает её; чужая версия, read-only или закрытый
+  редактор, перекрытые диапазоны — `false` без правки. Дальше редактор в сниппет-сессии: Tab/Shift+Tab по
+  позициям, набор во все зеркала, `$0` и Esc завершают (#1032, [Editor.md](Editor.md#editorcontribsnippet-сниппеты)).
+  `editor.action.insertSnippet {snippet}` идёт тем же путём через `TextEditor.insertSnippet`.
+- **Клавиши ждут текстовую команду расширения** (отступление от эталона). `registerTextEditorCommand`
+  помечает регистрацию `textEditor: true`; пока прокси не получил ответ, `attachKeyboardInputHold`
+  (`keyboardInputHold.ts`) держит клавиши в capture на корне и затем прогоняет их в порядке нажатия. Иначе
+  клавиша меняет версию документа, правка команды отклоняется, и у Python Indent пропадает перевод строки
+  (#967). Ответ приходит после правки: subprocess шлёт `editor.applyEdit` раньше. Потолок — 1 с, зависшее
+  расширение клавиатуру не отнимет. Обычные `registerCommand` не держат: они могут ждать человека. Вставка
+  (`paste`) не удерживается; переигранный Tab, который никто не обработал, не двигает фокус: это делает только
+  движок для своего ввода.
 - Markdown в документации и hover показывается текстом — рендерера markdown нет.
 
 ### Участники сохранения
 
 `editor.codeActionsOnSave` (объект VS Code `{ "<kind>": true | "explicit" | "always" | false |
 "never" }` или массив kinds; все сохранения diode ручные, так что `"explicit"` ≡ `true`) и
-`editor.formatOnSave`; дефолты выключены.
+`editor.formatOnSave`; дефолты выключены. Форматтер выбирает `editor.defaultFormatter` (id расширения приходит в
+`languages.register`): названный, но недоступный — не форматируем другим, команда пишет об этом в статус-бар, сохранение молчит.
 
 - **Композиция.** `TextFileSaveParticipant` (один на все модели) берёт список участников в момент
   save (живые настройки); `EditorService.collectSaveParticipants` собирает порядок VS Code: code
@@ -1373,6 +1674,19 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   `textFileSaveParticipant.test.ts`, `editorService.whitespaceOnSave.test.ts`; стоковый стек — `extensionHost.ruffLsp.onSave.test.ts` (fixAll
   чинит F401 и формат на диске за один Ctrl+S).
 
+### Участники файловых операций
+
+`workspace.onWill/onDid{Create,Delete,Rename}Files` — эталонная цепочка `WorkingCopyFileService` → `mainThreadFileSystemEventService` → `extHostFileSystemEventService`, у нас `WorkspaceEditService` → `FileOperationParticipantAdapter` → `FileOperationsCustomer` → `ExtHostFileOperations`.
+
+- **Группа.** Подряд идущие операции одного вида — одна операция с одним событием на все файлы, как `BulkFileEdits`; текстовая правка или другой вид группу заканчивают. Переименование и перенос из проводника — `move`, копия для расширения — создание.
+- **Порядок.** Проверка всей правки → `will` → правка участника → операция → `did`. Отказанная или пропущенная (`ignoreIfExists`) операция событий не даёт.
+- **Правка из `waitUntil`** применяется до операции и входит в тот же шаг отмены. Отказ или сбой правки участника операцию не останавливает. Файловые операции внутри неё сами зовут участников, как в эталоне. Автосохранение рефакторинга её буферы не трогает: они остаются грязными.
+- **Undo и redo.** Участников не зовут, но `did` посылают с обратной операцией: отмена создания — `delete`, отмена переименования — `move` наоборот.
+- **Таймаут** — `files.participants.timeout` (60 с, `0` выключает). Истёк — запрос отменён, операция идёт без правок. Слушатели вызываются по одному, следующий ждёт `waitUntil` предыдущего.
+- **Без слушателей `will`** RPC нет (`workspace.updateFileOperationSubscriptions`): зависший хост не держит переименование.
+- **Отступления от эталона:** нет вопроса «Extension wants to make refactoring changes» и нет `needsConfirmation` — предпросмотра у нас нет, правка применяется как после «OK» и отменяется одним шагом; прогресс в статус-баре, без кнопки отмены; виртуальные файлы отказываются целиком, событий не дают.
+- Гейты: `workspaceEditService.fileOperations.test.ts`, `extHostFileOperations.test.ts`, `fileOperationsCustomer.test.ts`, `extensionHost.fileOperations.test.ts`, сценарий `renameFileUpdatesImports`.
+
 ## Правило роста `vscode.d.ts` (важно)
 `src/vscode-dts/vscode.d.ts` — стадийная копия upstream `microsoft/vscode:src/vscode-dts/vscode.d.ts`, всё line-commented кроме активной поверхности. Это дословная копия реального API, а не стаб под реализацию. Инвариант: **файл меняется ТОЛЬКО снятием `// `**.
 
@@ -1397,6 +1711,13 @@ Runtime-значение может опережать типовую декла
 публичную матрицу** [docs/public/API-COVERAGE.md](../public/API-COVERAGE.md): она ведётся руками и
 держится актуальной именно этой дисциплиной; генератор для неё не заводим (решение человека:
 дисциплина, а не автоматика).
+
+Тем же PR правь **классы матрицы расширение × API** (`docs/extensions/api-matrix/<namespace>.json`
+и `types.json`, затем `npm run api-matrix`): член заработал — класс `ok` или сужение `note` до того, что
+осталось; заработала поверхность (Testing, Debug, Comments, …) — пройди все члены и типы с её `note`
+(«needs the Testing surface» и т. п.). Гейт `npm run api-matrix -- --check` устаревший класс не видит,
+а рейтинг пробелов по нему ведёт следующую волну работы: так после Testing класс C простоял на
+`tests.*` и `Test*` и выводил давно сделанное в верх рейтинга.
 
 **Bounded member-level uncommenting.** Для «тяжёлого по closure» блока (namespace/интерфейс/класс,
 чьё полное upstream-тело тянет непрактичное дерево зависимостей) можно раскомментировать
@@ -1437,12 +1758,39 @@ Runtime-значение может опережать типовую декла
 | `TextEditorOptions.cursorStyle` | Getter — `undefined`, пока стиль не задали ни расширение, ни `editor.cursorStyle` (форма терминала, решение человека по #887). Сеттер шлёт только изменение и только 1..6, в редактор по `uri` + `groupId` (не в активный); на хосте это `TextEditorPane.cursorStyleOverride` — переопределение сессии поверх настройки, живёт с вкладкой, в settings.json не пишется (#888). |
 | Namespaces / value-типы | Рантайм может опережать типы (лишние члены разрешены); отставание ловит компилятор — поверхность собирается в `api/common/*Namespace.ts` и проверяется `implementsApi<typeof vscode.*>()`. Где отставание осознанное (новый функционал не сделан), стоит точечный каст с комментарием-причиной. |
 
-**Кодировки (#106).** `workspace.openTextDocument(…, { encoding })` реально декодирует не-utf8 файлы
-осью encoding ядра (`src/vs/editor/common/model/encoding.ts`): explicit-кодировка побеждает
-BOM-сниф, неизвестный id молча откатывается к дефолту (контракт vscode.d.ts); эфемерный документ
-детектит и `encoding`, и `eol`. `ExtHostTextDocument.encoding`/`.eol` — живые: обновляются метой
-`editor.activeEditorChanged` и снапшотом will-save (`IWireWillSaveParams.encoding`). Дормантные
-`workspace.decode`/`encode` не раскомментированы (не понадобились).
+**Кодировки (#106, #1103).** `workspace.openTextDocument(file, { encoding })` — как
+`ensureDocumentData` + `MainThreadDocuments._handleAsResourceInput` эталона. Ext host отдаёт открытый
+документ, только если кодировку не просили или она уже такая; иначе — `workspace.openTextDocument`
+с полем `encoding`. Загрузка uri в полёте одна на всех (`documentLoads`, `_documentLoader` эталона):
+запрос с другой кодировкой ждёт её и, если документ пришёл не в той, повторяется. Main-сторона
+(`EditorService.openTextDocumentWithoutEditor`): грязная модель — отказ с текстом эталона дословно;
+иначе имя валидируется (`validateEncoding`: неизвестное — utf8) и модель перечитывается
+`reopenWithEncoding`, если кодировка новая. Смена кодировки уходит `editor.didChangeDocumentState`
+до ответа — у расширения тот же объект и `onDidChangeTextDocument` (`$acceptEncodingChanged`).
+Модель хранит любое имя, которое знает iconv (`cp1252` остаётся `cp1252`): `encodingInfoOf` даёт
+вне таблицы запись с самим именем, статус-бар показывает его как есть. Выбранная кодировка
+(«Reopen/Save with Encoding», расширение) — `preferredEncoding` модели, как в эталоне: перезагрузка
+с диска (внешняя запись, revert) читает в ней, асинхронно, а не снифом BOM; новый файл в модели её
+сбрасывает. Документ сверх лимита синхронизации — по-прежнему разовое чтение с диска.
+`ExtHostTextDocument.encoding`/`.eol` — живые: обновляются метой `editor.activeEditorChanged`,
+`editor.didChangeDocumentState` и снапшотом will-save (`IWireWillSaveParams.encoding`).
+
+**`workspace.decode`/`encode` (#1102)** — как `ExtHostWorkspace.decode`/`encode` эталона, но кодировку
+выбирает сам ext host, без RPC: у него сырые слои настроек, а язык ресурса (для секции `"[lang]"`)
+спрашивается тем же `languages.getLanguageOfDocument`, что у `openTextDocument`. Выбор — порт
+`EncodingOracle` эталона в `workbench/services/textfile/common/encodingOracle.ts` (без DI, чтобы его
+взял и редактор): override → явная кодировка (явный `utf8` на содержимом с BOM — `utf8bom`) →
+найденная по BOM, по нулевым байтам (UTF-16 без BOM) или угаданная jschardet при
+`files.autoGuessEncoding` → `files.encoding` → utf8. Override — каталоги настроек, всегда utf8:
+`user-data/User` (`IEnvironmentService.userRoamingDataHome`, едет полем `userRoamingDataHome` в
+`workspace.initialize`), `.vscode/` и наш `.diode/` каждой папки, любой `*.code-workspace`. Имя
+кодировки — любое, которое знает iconv-lite (`'cp1252'` остаётся `'cp1252'`), неизвестное — utf8
+(`validateEncoding`, `encodeWithEncoding`, `decodeWithEncoding` в `encoding.ts`). Бинарное содержимое
+(нули вне шаблона UTF-16) — исключение с текстом эталона. Детекция по нулям и угадывание —
+`encodingDetection.ts`, отдельным модулем: пока их зовёт только `decode`, и в общий с ядром код
+ext host (бюджет `roles/extension-host`) они не входят; jschardet — ленивый кусок. Настройки
+`files.encoding`/`autoGuessEncoding`/`candidateGuessEncodings` зарегистрированы дословно, но
+открытие и сохранение файлов редактором их пока не читает (пункт в `docs/TODO/README.md`).
 
 **Зависимости:** Extensions → Editor (через `ILanguageService`, `TextMateGrammarLoader`,
 `TokenizationRegistry`), Common. Host-адаптеры (`workbench/api/browser/`) **дополнительно →
@@ -1453,14 +1801,28 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 
 **Терминалы расширений (`window.createTerminal`, `terminals`, `activeTerminal`, события).** Устроено
 как `ExtHostTerminalService` ↔ `MainThreadTerminalService` эталона. Состояние `vscode.Terminal`
-живёт в субпроцессе (`api/common/terminalNamespace.ts`), инстансом владеет хост: `TerminalCustomer`
+живёт в субпроцессе (`api/common/terminalNamespace.ts`; разбор сообщений хоста — `terminalWireParsers.ts`,
+отдельно от общего с ядром `wireTypes.ts`, чтобы не раздувать общий код роли extension-host —
+бюджет в `scripts/build-lazy-chunks.mjs`), инстансом владеет хост: `TerminalCustomer`
 (`services/extensions/node/customers/`) переводит нотификации
 `terminal.create/show/hide/sendText/dispose` в сток `IExtensionTerminalSink`, а его реализация
 `ExtensionTerminalAdapter` (`contrib/terminal/browser/` — в фиче, потому что ядро workbench фич не
 знает) водит `TerminalService`. Обратно хост пересказывает жизнь ВСЕХ инстансов встроенного
 терминала, включая шеллы человека: `terminal.opened` (с pid и `launch` — из него `creationOptions`
 чужого терминала), `terminal.closed` (код и причина: выход шелла — `process`, Kill — `user`,
-`dispose()` — `extension`), `terminal.activeChanged`. Адресация двойная: хостовый `id` минтит хост,
+`dispose()` — `extension`), `terminal.activeChanged`, `terminal.titleChanged` (`$acceptTerminalTitleChange`:
+инстанс переименован — pty или перезапуск задачи; субпроцесс меняет `name`) и `terminal.interaction`
+(`$acceptTerminalInteraction`). `Terminal.state` — объект, который заменяется при каждой смене, как в
+эталоне. Ввод — нажатия клавиш и `sendText` — сессия сообщает событием `onDidInput`; флаг
+`isInteractedWith` держит инстанс `TerminalService`, и сервис сообщает только первый ввод
+(`onDidInteractWithInstance`): эталон шлёт каждый (`onAnyInstanceDataInput`), но состояние меняет лишь
+первый. Флаг едет и полем `isInteractedWith` в `terminal.opened` — так его видят снимок нового
+субпроцесса и терминал, в который печатали до засева. Тип оболочки
+(`state.shell`) — `guessShellTypeFromExecutable` эталона (`platform/terminal/common/terminalShellType.ts`)
+по basename исполняемого файла при создании инстанса и его перезапуске; у pty его нет. Едет полем `shellType` в
+`terminal.opened` (и в снимке), а субпроцесс после `onDidOpenTerminal` выставляет его и стреляет
+`onDidChangeTerminalState` — как `$acceptTerminalShellType` после `$acceptTerminalOpened`. Опроса
+процесса (вложенная оболочка) нет — отступление. Адресация двойная: хостовый `id` минтит хост,
 свой терминал субпроцесс до прихода `opened` адресует собственной меткой `extHostId`
 (`extHostTerminalId` эталона) — поэтому `createTerminal` + `sendText` в одном тике доходят до шелла.
 Снимок всех инстансов уходит после `host.ready` и до первой активации (`pushInitialState`); на
@@ -1482,12 +1844,35 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 эталона): на хосте — инстанс с сессией-эмулятором без процесса (`ExtensionPtySession` поверх общего
 с шеллом `XtermSurface`, фабрика `ExtensionPtySessionFactoryDIToken`, в сервис — готовой сессией в
 опции `session`, как `customPtyImplementation` эталона). Хост сразу после создания шлёт
-`terminal.pty.start` — субпроцесс подключает `onDidWrite`/`onDidClose` и зовёт `pty.open`; вывод
-склеивается окном 5 мс и едет `terminal.pty.data`, выход pty — `terminal.pty.exit`. Набор человека и
+`terminal.pty.start` — субпроцесс подключает `onDidWrite`/`onDidClose`/`onDidChangeName` и зовёт
+`pty.open`; вывод склеивается окном 5 мс и едет `terminal.pty.data`, выход pty — `terminal.pty.exit`,
+новое имя — сразу, без склейки, `terminal.pty.name` (свойство `Title` эталона): хост делает
+`TerminalService.renameInstance` (`instance.rename` эталона — перекрывает и явное `name`), вкладка
+перерисовывается по `onDidChangeInstanceTitle`, а `terminal.titleChanged` возвращает имя расширению
+раньше `terminal.closed`. Набор человека и
 `sendText` расширения идут через хост в эмулятор и обратно `terminal.pty.input` → `handleInput` —
 поэтому `sendText` сразу после `createTerminal` приходит уже после `open` (как в эталоне); размер
 виджета — `terminal.pty.resize` → `setDimensions`. Закрытие инстанса по любой причине зовёт
 `pty.close()`; на смерти субпроцесса его pty-терминалы закрываются.
+
+**Профили терминала расширений (`contributes.terminal.profiles`, `window.registerTerminalProfileProvider`).**
+Устроено как `TerminalContributionService` + `TerminalProfileService` эталона. Профили манифестов
+(`id`, `title`, `icon`; разбор — `contrib/terminal/common/terminalExtensionPoints.ts`) кладёт в
+`TerminalProfileService` `bindExtensionTerminalProfiles` при сборке хоста расширений — без активации.
+Провайдер живёт в субпроцессе (`terminalNamespace.ts`, один на id на все расширения — как эталон, второй
+бросает); `terminal.registerProfileProvider`/`unregisterProfileProvider` несут только id,
+`TerminalCustomer` регистрирует на хосте колбэк, который зовёт запрос
+`terminal.createContributedProfile` (`$createContributedProfileTerminal`). Команда
+`workbench.action.terminal.newWithProfile` показывает шелл по умолчанию (группа `profiles`) и профили
+расширений (группа `contributed`, по заголовку; метка группы — `hint` первой строки, разделителей в нашем
+пикере нет); выбор поднимает `onTerminalProfile:<id>`, ищет провайдер по одному id (отступление: у эталона пара «расширение, id», а у нас личность расширения в субпроцессе выводится из пути модуля, и на Windows профиль не находился) и
+просит субпроцесс создать терминал из `TerminalProfile` обычным `createTerminal` — место (панель или
+область редактора по `terminal.integrated.defaultLocation`) перекрывает `location` самого профиля, как
+внутренние опции эталона. Отказ (нет провайдера, нет опций) — тост ошибки. Своих профилей
+(`terminal.integrated.profiles.*`) у нас нет: «встроенный» профиль один — шелл по умолчанию.
+`window.registerTerminalLinkProvider` не объявлен, но в рантайме есть как null-объект: без него
+`activate()` js-debug падал раньше регистрации своих сервисов, и запрос профиля
+«JavaScript Debug Terminal» висел без ответа.
 
 **Обработчики URI расширений (`window.registerUriHandler`).** Устроено как `ExtHostUrls` ↔
 `MainThreadUrls` + `ExtensionUrlHandler` эталона. Субпроцесс (`api/common/uriHandlers.ts`) держит по
@@ -1526,8 +1911,15 @@ workspace-состоянии `terminal.integrated.environmentVariableCollections
 фабрика сессий в `workbenchModule.ts`) и зовёт его на каждый запуск процесса — и при перезапуске
 терминала задачи — поверх унаследованного окружения и `env` терминала, под нашими `TERM`/`TMUX`
 (`buildEnv`); при `strictEnv` — нет (`shouldUseEnvironmentVariableCollection` эталона).
-**Отступления:** `applyAtShellIntegration` не применяется (shell integration нет); нет индикатора
-устаревшего окружения и `environmentChangesRelaunch`; `${…}` в значениях не разворачиваются.
+Мутатор с `applyAtShellIntegration` дописывается и в `VSCODE_ENV_REPLACE|PREPEND|APPEND`
+(`<переменная>=<значение>` через `:`, `:` в значении — `\x3a`, как в эталоне): скрипт shell integration
+применяет их после rc-файлов пользователя; без инъекции переменные лежат в окружении без дела.
+`VSCODE_PYTHON_<SHELL>_ACTIVATE` принимается только от `ms-python.vscode-python-envs`
+(`blockPythonActivationVar`) — на этом держится автоактивация `.venv` у python-envs. Склейка `Prepend`
+к `PATH` уходит в `VSCODE_PATH_PREFIX` для fish и login-шеллов macOS — см.
+[Terminal.md](workbench/Terminal.md#shell-integration-инъекция).
+**Отступления:** нет индикатора устаревшего окружения и `environmentChangesRelaunch`; `${…}` в значениях
+не разворачиваются.
 
 **Задачи расширений (`vscode.tasks`).** Устроено как `ExtHostTask` ↔ `MainThreadTask` эталона;
 задачами владеет сервис ядра (`contrib/tasks`, см. [workbench/Tasks.md](workbench/Tasks.md)).
@@ -1572,9 +1964,65 @@ workspace-состоянии `terminal.integrated.environmentVariableCollections
 (`ThemeColor`/`FileDecoration`/`OverviewRulerLane`/`DecorationRangeBehavior`) живут в
 `api/common/vscodeTypes.ts`; `WindowNamespace` держит тип декорации локально (монотонный числовой
 key) и шлёт хосту RPC-нотификации, сериализуя `ThemeColor` как `{ $themeColor: id }` (см.
-`api/common/wireTypes.ts`). Хост держит реестр `key → { overviewRulerColorId?, isWholeLine }`
-(gutter-тип = есть `overviewRulerColor`), резолвит `ThemeColor` через `IThemeColorResolver` и
-проталкивает: gutter change-bar'ы — в `EditorComponent.setGutterChangeDecorations` (по совпадению
-пути, образец — `DiagnosticsService`), файловые декорации — в `ExplorerService.setFileDecorations`.
+`api/common/wireTypes.ts`; на провод идут `backgroundColor`, `color`, `overviewRulerColor`, `fontStyle`, `fontWeight`,
+`textDecoration`, `opacity` (CSS-строки как есть), `gutterIconPath` (`uri.toString()`; строка — путь файла, как
+`pathOrURIToURI` эталона), `isWholeLine`, `rangeBehavior`, `overviewRulerLane`, `before`/`after`
+(`contentText`, `color`, `backgroundColor`, `borderColor`, `fontStyle`, `fontWeight`, `textDecoration`, `margin`, `width`)
+и ветки `light`/`dark` с теми же полями — рамки, `padding`, `height`, семейство и размер шрифта, `gutterIconSize`,
+`contentIconPath` клетке нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions?, hoverMessage? }`
+(`IWireDecorationOptions`; голый `Range` — без обоих), `renderOptions` — `before`/`after` и их ветки, `hoverMessage` —
+сырой markdown каждой непустой записи, как `contents` hover-провайдера (`serializeHoverContents`); хост разбирает их
+`parseDecorationOptions` (битый элемент выбрасывается, мусор в полях = поля нет, у `hoverMessage` остаются строки).
+`hoverMessage` едет по диапазону до `IExtensionTextDecoration` (в том числе у диапазона, который ничего не рисует, и через
+`restyle`); `ExtensionTextDecorations.hoverMessagesAt` отдаёт сообщения трекнутых диапазонов, держащих позицию (концы
+включены, `isWholeLine` — вся строка; схлопнутый правкой непустой диапазон — нет), по началу диапазона, как
+`_getLineDecorations` + `MarkdownHoverParticipant` эталона; `HoverService` ставит их блоками между диагностиками и
+ответами провайдеров.
+`DecorationsCustomer` держит на тип разобранные опции (`overviewRuler`, `gutterIcon`, `isWholeLine`, stickiness из
+`rangeBehavior` — значения совпадают с `TrackedRangeStickiness`, цвета `background`/`foreground` и слои `before`/`after`,
+у каждого — `base`/`light`/`dark`; так же по одному свойству — `italic`, `bold`, `textDecoration`, `opacity`); цвет — id `ThemeColor` (строка) или packed RGBA (число): CSS-строку один раз
+разбирает `parseCssColor` (`base/common/color.ts`, порт `Color.Format.CSS.parse`, отдаёт `RGBA`; дробные каналы и
+`null` вместо исключения — отступления), мусор = поля нет. На каждый push эффективный цвет — ветка темы
+(`Dark`/`HighContrast` → `dark`, `Light`/`HighContrastLight` → `light`, `IThemeColorResolver.kind()`), иначе базовое
+поле; `ThemeColor` резолвит `IThemeColorResolver`. `before`/`after` диапазона — слияние по полям «тип ⊕ ветка типа ⊕
+`renderOptions` диапазона ⊕ его ветка», позднее побеждает (как подтип `.sub.parent::before` эталона,
+`setDecorationsByType`). Пустой или пробельный `contentText` с цветом (`backgroundColor`, иначе `borderColor`, иначе
+`color`) — свотч `■ ` (как у `ColorDetector`; бокс 0.8em с рамкой клетке не нарисовать); непустой — первая строка без
+управляющих символов (`\t` → пробел) со своими `color`/`backgroundColor` и атрибутами (`fontStyle`, `fontWeight`,
+`textDecoration` — тот же разбор, что у текста диапазона ниже, итог — `style` вставки); ни текста, ни цвета — ничего.
+Длины `margin` и `width` вставки — в ячейки (`cellsOf`): `Nch` → N, `Nem`/`Nrem` → 2·N, `Npx` → N/8, с округлением;
+у `calc()` — только слагаемые в `ch` (`calc(12ch - 6px)` файлового blame GitLens → 12); прочее и отрицательное — 0.
+`margin` — шорткат CSS (1–4 значения, `calc(…)` не режется по пробелам), берутся левая и правая стороны →
+`marginLeft`/`marginRight` вставки; редактор кладёт их отдельными вставками из пробелов без фона вставки (margin вне
+бокса), в фоне строки. `width` — текст ровно этой ширины (`fitToWidth`: короче — пробелы в фоне вставки, длиннее —
+обрезка по графемам; у эталона текст вылезает за бокс — отступление), ширина в 0 ячеек — поля нет. У свотча `width`
+игнорируется (он всегда `■ `), `margin` действует. Фон `isWholeLine` не закрашивает ячейки вставки со своим фоном —
+бокс `::after` эталона лежит над слоем строки.
+Атрибуты текста — CSS-разбор на хосте: `fontStyle` `italic`/`oblique` → курсив, `fontWeight` `bold`/`bolder`/≥600 →
+жирный (`normal` — «не добавляет», а не «снимает» атрибут токена: клетке нечем различить спан и токен), `textDecoration` —
+слова до первого `;` (расширения дописывают туда CSS): `underline` (с `wavy` — undercurl), `line-through`; `overline`,
+цвет и толщина линии — нет. Итог — флаги `StyleFlags` в `IExtensionTextDecoration.style`. `opacity` — CSS `<alpha-value>`
+(число или процент, зажат в [0, 1]; `1` не шлётся) → `IExtensionTextDecoration.opacity`. Все четыре — свойства
+`inlineClassName` эталона: ложатся на глифы диапазона (с `isWholeLine` — всех строк), как и `color`.
+Хост проталкивает в `IEditorDecorationsService` (адаптер — во все редакторы ресурса во всех группах): отметки
+скроллбара ресурса (типы с `overviewRulerColor`, CSS-строка или `ThemeColor`, ветки темы) — в
+`setOverviewRulerDecorations`. **В гуттере `overviewRulerColor` не рисует ничего**, как у эталона (решение 2026-11-18,
+#1235): раньше тип с ним давал полосу изменений, и todo-tree с GitLens показывали ложные изменения git. Иконка
+`gutterIconPath` — один глиф в колонке глифов (`setGlyphMarginDecorations(uri, "ext:<key>", …)`, владелец на тип, без
+`zIndex` — брейкпоинт строки побеждает) на каждой строке каждого диапазона, как `glyphMarginClassName` эталона. Глиф
+выбирает `gutterIconGlyphOf` (`customers/gutterIconGlyph.ts`) по SVG: один высокий узкий `<rect>` — `▎` (полосы
+GitLens), один треугольник (`<polygon>` или прямой `<path>` из трёх вершин) — `▸`, остальное — `●`; цвет — самая
+насыщенная краска `fill`/`stroke` (у стоковых иконок Error Lens первым идёт серый фон-кружок `#1e1e1e`), PNG, битый
+файл и SVG без цвета — `●` цвета `editorLineNumber.foreground`. Файл читает `ExtensionHostOptions.gutterIconReader`
+(файловый сервис) один раз на спавн, `data:` разбирается на месте; пока чтение идёт, глифа нет, по готовности набор
+пере-push'ится, после смерти спавна — нет. Полный набор ОДНОГО
+типа — в `setExtensionTextDecorations(uri, { key, decorations })` (проекция `IExtensionTextDecoration`: фон, цвет,
+`before`/`after`, stickiness; все диапазоны типа, даже ничего не рисующие в этой теме). Редактор держит диапазоны
+трекнутыми декорациями документа (`ExtensionTextDecorations` в `workbench/browser/parts/editor/`, [Editor.md](Editor.md)):
+между двумя `setDecorations` фон и вставки едут за текстом; схлопнутый правкой диапазон остаётся до следующего набора
+(как у эталона). Смена темы шлёт тот же набор с `restyle: true` — координаты хоста устарели, редактор берёт новые
+цвета и оставляет трекнутые позиции (сопоставление по индексу). Смерть спавна снимает его декорации из редакторов.
+Отметки скроллбара остаются статическими (координаты последнего `setDecorations`, [TODO/TrackedDecorations.md](../TODO/TrackedDecorations.md)); глифы иконок едут со строкой (`TrackedLineDecorations`).
+Файловые декорации — в `ExplorerService.setFileDecorations`.
 На `theme.onDidChange` все держимые декорации пере-резолвятся и пере-push'атся. **Ядро про источник
 декораций (git/SCM) не знает** — адаптеры отдают уже резолвнутые packed-RGB цвета.

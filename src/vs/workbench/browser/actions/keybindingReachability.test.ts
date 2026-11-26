@@ -125,6 +125,7 @@ describe("tier gate asymmetry — user-facing contract", () => {
     // Canonical binding under the tier gate and its label on both sides: `command | on legacy | on kitty`.
     // The table is built from the bindings themselves — a new gate must land here deliberately.
     const CONTRACT = [
+        "debug.openBreakpointToSide | Alt+Enter | Ctrl+Enter",
         "deleteWordLeft | Alt+Backspace | Ctrl+Backspace",
         "editor.action.blockComment | Ctrl+K Alt+A | Shift+Alt+A",
         "editor.action.formatDocument | Ctrl+K Ctrl+E | Shift+Alt+F",
@@ -136,12 +137,15 @@ describe("tier gate asymmetry — user-facing contract", () => {
         "fileOperations.copyPath | Ctrl+K Alt+C | Shift+Alt+C",
         "git.commit | Alt+Enter | Ctrl+Enter",
         "input.deleteWordLeft | Alt+Backspace | Ctrl+Backspace",
+        // No legacy fallback (#949): `ctrl+k ctrl+h` is Output's; the palette and the context menu run it there.
+        "references-view.showCallHierarchy | Shift+Alt+H | Shift+Alt+H",
         "workbench.action.files.saveAs | Ctrl+K Alt+S | Ctrl+Shift+S",
         "workbench.action.focusFifthEditorGroup | Ctrl+K 5 | Ctrl+5",
         "workbench.action.focusFirstEditorGroup | Ctrl+K 1 | Ctrl+1",
         "workbench.action.focusFourthEditorGroup | Ctrl+K 4 | Ctrl+4",
         "workbench.action.focusSecondEditorGroup | Ctrl+K 2 | Ctrl+2",
         "workbench.action.focusThirdEditorGroup | Ctrl+K 3 | Ctrl+3",
+        "workbench.action.gotoSymbol | Ctrl+Shift+O | Ctrl+Shift+O",
         "workbench.action.moveEditorToNextGroup | Ctrl+K Alt+Right | Ctrl+Alt+Right",
         "workbench.action.moveEditorToPreviousGroup | Ctrl+K Alt+Left | Ctrl+Alt+Left",
         "workbench.action.navigateBack | Ctrl+K Ctrl+B | Ctrl+Alt+-",
@@ -149,6 +153,8 @@ describe("tier gate asymmetry — user-facing contract", () => {
         // No legacy fallback (#901): it only steps the picker up, the Up arrow does the same everywhere.
         "workbench.action.quickOpenNavigatePreviousInFilePicker | Ctrl+Shift+P | Ctrl+Shift+P",
         "workbench.action.search.toggleQueryDetails | Ctrl+K Alt+J | Ctrl+Shift+J",
+        // No legacy fallback (#1087): Ctrl+C with a selection copies there.
+        "workbench.action.terminal.copySelection | Ctrl+Shift+C | Ctrl+Shift+C",
         "workbench.action.terminal.focusTabs | Ctrl+K \\ | Ctrl+Shift+\\",
         "workbench.action.terminal.new | Ctrl+K Alt+T | Ctrl+Shift+`",
         // No legacy fallback (#817): the palette runs it there; the label is the canonical binding.
@@ -156,6 +162,8 @@ describe("tier gate asymmetry — user-facing contract", () => {
         "workbench.action.terminal.toggleTerminal | Ctrl+K T | Ctrl+`",
         "workbench.action.toggleEditorGroupLayout | Ctrl+K Alt+0 | Shift+Alt+0",
         "workbench.actions.view.problems | Ctrl+K M | Ctrl+Shift+M",
+        "workbench.debug.action.toggleRepl | Ctrl+K Y | Ctrl+Shift+Y",
+        "workbench.view.debug | Ctrl+K B | Ctrl+Shift+D",
         "workbench.view.explorer | Ctrl+K E | Ctrl+Shift+E",
         "workbench.view.extensions | Ctrl+K X | Ctrl+Shift+X",
         "workbench.view.scm | Ctrl+K G | Ctrl+Shift+G",
@@ -230,7 +238,8 @@ describe("default keybinding collisions", () => {
         "down: cursorDown / selectNextSuggestion",
         "pagedown: cursorPageDown / selectNextPageSuggestion",
         "pageup: cursorPageUp / selectPrevPageSuggestion",
-        "tab: acceptSelectedSuggestion / editor.action.indentLines",
+        "shift+tab: acceptAlternativeSelectedSuggestion / editor.action.outdentLines",
+        "tab: acceptSelectedSuggestion / tab",
         "up: cursorUp / selectPrevSuggestion",
         // Long-standing pc layout debt, tracked in docs/TODO/MacKeybindings.md.
         "ctrl+k ctrl+f: editor.action.formatSelection / workbench.action.navigateForward",

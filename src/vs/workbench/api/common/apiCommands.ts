@@ -1,13 +1,17 @@
 import type * as vscode from "vscode";
 
-import { Position, Range, Uri } from "./vscodeTypes.ts";
+import { toVscodeRange } from "./extHostTypeConverters.ts";
+import { DocumentLink, Position, Range, SnippetString, Uri } from "./vscodeTypes.ts";
+import type { IWireExecutedDocumentLink } from "./wireTypes.ts";
+import type { IDocumentReference } from "./workspaceNamespace.ts";
 
 type ApiCommandHandler = (...args: unknown[]) => unknown;
 
 export interface IApiCommandsDeps {
     showTextDocument(uri: vscode.Uri, options?: vscode.TextDocumentShowOptions): Thenable<unknown>;
     openExternal(target: vscode.Uri): Thenable<boolean>;
-    openTextDocument(uri: vscode.Uri): Thenable<vscode.TextDocument>;
+    /** Upstream `createModelReference`: the document for one command, released when it is done. */
+    referenceDocument(uri: vscode.Uri): Promise<IDocumentReference>;
     executeCompletionItemProvider(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -20,16 +24,37 @@ export interface IApiCommandsDeps {
         kind: string | undefined,
         itemResolveCount: number | undefined,
     ): Promise<(vscode.CodeAction | vscode.Command)[]>;
+    executeHoverProvider(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover[]>;
+    getActiveTextEditor(): vscode.TextEditor | undefined;
+    /** The core's own command, bypassing the API commands. */
+    executeHostCommand(id: string, args: readonly unknown[]): Thenable<unknown>;
 }
 
 /** Registered locally, never sent to the host registry (upstream's `registerCommand(false, …)`). */
 export function createApiCommands(deps: IApiCommandsDeps): ReadonlyMap<string, ApiCommandHandler> {
     return new Map<string, ApiCommandHandler>([
         ["vscode.open", (...args) => open(deps, args)],
-        ["vscode.executeLinkProvider", (...args) => executeLinkProvider(args)],
+        ["vscode.diff", (...args) => diff(deps, args)],
+        ["vscode.executeLinkProvider", (...args) => executeLinkProvider(deps, args)],
         ["vscode.executeCompletionItemProvider", (...args) => executeCompletionItemProvider(deps, args)],
         ["vscode.executeCodeActionProvider", (...args) => executeCodeActionProvider(deps, args)],
+        // Upstream's `recursive` only stops an `exclusive` selector from hiding the others; ours never hides them.
+        ...["vscode.executeHoverProvider", "vscode.experimental.executeHoverProvider_recursive"].map(
+            (id): [string, ApiCommandHandler] => [id, (...args) => executeHoverProvider(deps, id, args)],
+        ),
+        ["editor.action.insertSnippet", (...args) => insertSnippet(deps, args)],
     ]);
+}
+
+/**
+ * Upstream's `InsertSnippetAction` with an inline `snippet`, on top of `TextEditor.insertSnippet`.
+ * Deviation: `langId` + `name` look up contributed snippets upstream, and we have none: nothing happens.
+ */
+async function insertSnippet(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<void> {
+    const snippet = (args[0] as { readonly snippet?: unknown } | null | undefined)?.snippet;
+    const editor = deps.getActiveTextEditor();
+    if (typeof snippet !== "string" || editor === undefined) return;
+    await editor.insertSnippet(new SnippetString(snippet));
 }
 
 /**
@@ -63,23 +88,65 @@ async function open(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<v
     await deps.showTextDocument(resource, showOptions);
 }
 
+/** Upstream's argument checks, then the core's `vscode.diff` (upstream's `_workbench.diff`) opens the pair. */
+async function diff(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<void> {
+    const [left, right, title, columnOrOptions] = args;
+    const validate = validatorOf("vscode.diff");
+    validate("left", left, Uri.isUri(left));
+    validate("right", right, Uri.isUri(right));
+    validate("title", title, isOptional(title, "string"));
+    validate("columnOrOptions", columnOrOptions, columnOrOptions === undefined || typeof columnOrOptions === "object");
+    await deps.executeHostCommand("vscode.diff", args);
+}
+
 function isHttpString(value: unknown): boolean {
     return typeof value === "string" && /^https?:/i.test(value);
 }
 
-/**
- * Deviation: always empty. `registerDocumentLinkProvider` is a no-op and the core has no link detector,
- * so there is nothing to ask. The arguments are still checked, as upstream.
- */
-function executeLinkProvider(args: readonly unknown[]): Promise<readonly never[]> {
+/** Upstream's argument checks, then the core's `_executeLinkProvider`: the built-in URL detector lives there. */
+async function executeLinkProvider(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<vscode.DocumentLink[]> {
     const [uri, linkResolveCount] = args;
     const validate = validatorOf("vscode.executeLinkProvider");
     validate("uri", uri, Uri.isUri(uri));
     validate("linkResolveCount", linkResolveCount, isOptional(linkResolveCount, "number"));
-    return Promise.resolve([]);
+    const links = (await deps.executeHostCommand("_executeLinkProvider", [
+        uri,
+        linkResolveCount,
+    ])) as readonly IWireExecutedDocumentLink[];
+    return links.map(toDocumentLink);
 }
 
-/** The document is opened as upstream's `createModelReference`: the command works on a file nobody opened. */
+/** Upstream `DocumentLink.to`: a target that does not parse is dropped, the link stays. */
+function toDocumentLink({ range, target, tooltip }: IWireExecutedDocumentLink): vscode.DocumentLink {
+    const link = new DocumentLink(toVscodeRange(range), parseLinkTarget(target));
+    link.tooltip = tooltip;
+    return link;
+}
+
+function parseLinkTarget(target: string | undefined): vscode.Uri | undefined {
+    try {
+        // Stryker disable next-line ConditionalExpression: equivalent: a strict parse of `undefined` throws and lands in the catch below
+        if (target !== undefined) return Uri.parse(target, true);
+    } catch {
+        // Upstream ignores it too.
+    }
+    return undefined;
+}
+
+/** For one command, as upstream's `createModelReference`: the command works on a file nobody opened. */
+async function withDocument<T>(
+    deps: IApiCommandsDeps,
+    uri: unknown,
+    run: (document: vscode.TextDocument) => Promise<T>,
+): Promise<T> {
+    const reference = await deps.referenceDocument(uri as vscode.Uri);
+    try {
+        return await run(reference.document);
+    } finally {
+        reference.dispose();
+    }
+}
+
 async function executeCompletionItemProvider(
     deps: IApiCommandsDeps,
     args: readonly unknown[],
@@ -90,11 +157,13 @@ async function executeCompletionItemProvider(
     validate("position", position, position instanceof Position);
     validate("triggerCharacter", triggerCharacter, isOptional(triggerCharacter, "string"));
     validate("itemResolveCount", itemResolveCount, isOptional(itemResolveCount, "number"));
-    return deps.executeCompletionItemProvider(
-        await deps.openTextDocument(uri as vscode.Uri),
-        position as vscode.Position,
-        (triggerCharacter ?? undefined) as string | undefined,
-        (itemResolveCount ?? undefined) as number | undefined,
+    return withDocument(deps, uri, (document) =>
+        deps.executeCompletionItemProvider(
+            document,
+            position as vscode.Position,
+            (triggerCharacter ?? undefined) as string | undefined,
+            (itemResolveCount ?? undefined) as number | undefined,
+        ),
     );
 }
 
@@ -108,12 +177,26 @@ async function executeCodeActionProvider(
     validate("rangeOrSelection", rangeOrSelection, rangeOrSelection instanceof Range);
     validate("kind", kind, isOptional(kind, "string"));
     validate("itemResolveCount", itemResolveCount, isOptional(itemResolveCount, "number"));
-    return deps.executeCodeActionProvider(
-        await deps.openTextDocument(uri as vscode.Uri),
-        rangeOrSelection as vscode.Range,
-        (kind ?? undefined) as string | undefined,
-        (itemResolveCount ?? undefined) as number | undefined,
+    return withDocument(deps, uri, (document) =>
+        deps.executeCodeActionProvider(
+            document,
+            rangeOrSelection as vscode.Range,
+            (kind ?? undefined) as string | undefined,
+            (itemResolveCount ?? undefined) as number | undefined,
+        ),
     );
+}
+
+async function executeHoverProvider(
+    deps: IApiCommandsDeps,
+    command: string,
+    args: readonly unknown[],
+): Promise<vscode.Hover[]> {
+    const [uri, position] = args;
+    const validate = validatorOf(command);
+    validate("uri", uri, Uri.isUri(uri));
+    validate("position", position, position instanceof Position);
+    return withDocument(deps, uri, (document) => deps.executeHoverProvider(document, position as vscode.Position));
 }
 
 /** Upstream's `ApiCommandArgument.optional()`: `null` passes too. */

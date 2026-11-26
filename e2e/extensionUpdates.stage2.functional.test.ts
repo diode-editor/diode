@@ -153,7 +153,8 @@ async function runPaletteCommand(app: HeadlessApp, title: string): Promise<void>
 }
 
 async function rowText(app: HeadlessApp, section: "marketplace" | "installed", id: string): Promise<string | null> {
-    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)}`);
+    // The entry's first line: name, version, badges.
+    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)}--title`);
     return row?.text ?? null;
 }
 
@@ -183,9 +184,11 @@ async function toastText(app: HeadlessApp, head: string): Promise<string> {
     const lines = (await waitForScreen(app, head)).split("\n");
     const first = lines.findIndex((line) => line.includes(head));
     const border = lines[first]!.lastIndexOf("│", lines[first]!.indexOf(head));
+    // The toast's right border is not the line's last "│": the editor group's frame line follows it.
+    const right = lines[first]!.indexOf("│", lines[first]!.indexOf(head));
     return lines
         .slice(first)
-        .map((line) => line.slice(border + 1).replace(/│\s*$/u, ""))
+        .map((line) => line.slice(border + 1, right))
         .join(" ")
         .replace(/\s+/gu, " ");
 }
@@ -324,7 +327,8 @@ describe("Manual extension updates edge cases (ExtensionUpdates stage 2 QA, func
             expect(await rowText(app, "installed", META)).toBeNull();
         });
         expect(await rowText(app, "installed", PLAIN)).toMatch(/Update 1\.1\.0$/u);
-        expect(await screen(app)).not.toContain("MARKETPLACE");
+        // The MARKETPLACE section stays, but the catalog would only repeat the installed ones: it is empty.
+        expect(await rowText(app, "marketplace", PLAIN)).toBeNull();
 
         // Text before the filter works the same.
         await search(app, "meta @Outdated");

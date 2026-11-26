@@ -29,6 +29,7 @@ import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorGroupComponent } from "../../../browser/parts/editor/editorGroupComponent.ts";
+import { GroupCornerStack } from "../../../browser/parts/editor/groupCornerStack.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { TextFileModelService } from "../../../services/textfile/common/textFileModelService.ts";
@@ -129,7 +130,7 @@ describe("FindService over a document on disk", () => {
         const testApp = TestApp.create(body, new Size(100, 24));
         testApp.render();
 
-        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
+        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view }, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
         const widget = component.widgetFor(group.editorGroups.activeGroup.id)!;
         const editor = group.getActiveEditor()!;

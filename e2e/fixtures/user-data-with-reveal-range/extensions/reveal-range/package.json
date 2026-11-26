@@ -1,0 +1,31 @@
+{
+    "name": "reveal-range",
+    "displayName": "Reveal Range",
+    "description": "E2E demo extension: scrolls the active editor with TextEditor.revealRange, one command per TextEditorRevealType.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "contributes": {
+        "commands": [
+            {
+                "command": "revealRange.default",
+                "title": "Reveal Range: Default"
+            },
+            {
+                "command": "revealRange.inCenter",
+                "title": "Reveal Range: In Center"
+            },
+            {
+                "command": "revealRange.inCenterIfOutside",
+                "title": "Reveal Range: In Center If Outside Viewport"
+            },
+            {
+                "command": "revealRange.atTop",
+                "title": "Reveal Range: At Top"
+            }
+        ]
+    }
+}

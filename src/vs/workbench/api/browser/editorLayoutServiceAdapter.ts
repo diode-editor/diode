@@ -1,10 +1,14 @@
+import { equals } from "../../../base/common/arrays.ts";
 import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
-import { Disposable } from "../../../base/common/lifecycle.ts";
+import { combinedDisposable, Disposable, DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
+import { cursorStyleToApi } from "../../../editor/common/config/editorCursorStyle.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
+import { type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import { type ILanguageService, NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
+import type { EditorViewState } from "../../../editor/common/viewModel/editorViewState.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
 import { isTextEditorPane, TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
@@ -21,6 +25,9 @@ import type {
     IWireCloseTabsParams,
     IWireCreateUntitledParams,
     IWireEditorLayout,
+    IWireEditorOptions,
+    IWireEditorPropertiesChanged,
+    IWireOpenTextDocumentParams,
     IWireSelection,
     IWireShowTextDocumentParams,
     IWireShowTextDocumentResult,
@@ -42,6 +49,14 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
      */
     private latestFocusedShow: { readonly group: EditorGroup; readonly uri: Uri } | null = null;
     private showsInFlight = 0;
+    private readonly indentWatchers = this.register(new DisposableStore());
+    private readonly onDidChangeEditorPropertiesEmitter = this.register(new Emitter<IWireEditorPropertiesChanged>());
+    private readonly visibleEditorWatchers = this.register(new DisposableStore());
+    /** What each editor last reported: a hidden one keeps it, as upstream, so showing it again reports only a change. */
+    private readonly reported = new WeakMap<
+        TextEditorPane,
+        { readonly options: IWireEditorOptions; readonly visibleRanges: readonly IRange[] }
+    >();
     private activeBeforeShows: EditorGroup;
 
     public constructor(
@@ -49,7 +64,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         private readonly groups: IEditorGroupsService,
         private readonly languages: Pick<
             ILanguageService,
-            "getRegisteredLanguageIds" | "getLanguageIdForResource"
+            "getRegisteredLanguageIds" | "getLanguageIdForResource" | "requestLanguageFeatures"
         > = NULL_LANGUAGE_SERVICE,
     ) {
         super();
@@ -67,9 +82,111 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         this.register(
             editors.onDidChangeEditors(() => {
                 this.applyPendingLanguages();
+                this.watchIndentOptions();
+                this.watchVisibleEditors();
                 this.scheduleLayoutPush();
             }),
         );
+        this.watchIndentOptions();
+        this.watchVisibleEditors();
+    }
+
+    public readonly onDidChangeEditorProperties = this.onDidChangeEditorPropertiesEmitter.event;
+
+    /**
+     * Upstream `MainThreadTextEditor` recomputes on a scroll and a layout change; here also on an edit, which moves
+     * the last line's end without a scroll (an edit from another editor of the document fires no view change), and on
+     * a change of its options. Every change of the editors re-subscribes and checks them all: what did not change
+     * reports nothing.
+     */
+    private watchVisibleEditors(): void {
+        // Stryker disable next-line all: without it a pane holds a second listener, and the check coalesces them
+        this.visibleEditorWatchers.clear();
+        for (const { pane } of this.visibleEditors()) {
+            const schedule = (): void => {
+                this.scheduleProperties();
+            };
+            this.visibleEditorWatchers.add(
+                combinedDisposable(
+                    pane.onDidChangeVisibleRange(schedule),
+                    pane.onDidChangeContent(schedule),
+                    pane.onDidChangeIndentOptions(schedule),
+                    pane.onDidChangeCursorStyleSetting(schedule),
+                ),
+            );
+        }
+        this.scheduleProperties();
+    }
+
+    /** Not coalesced: a second check in the same tick finds every editor where it was last reported. */
+    private scheduleProperties(): void {
+        queueMicrotask(() => {
+            this.flushProperties();
+        });
+    }
+
+    /** An editor hidden while it waited reports nothing: the extension host has already dropped it. */
+    private flushProperties(): void {
+        for (const { pane, group } of this.visibleEditors()) {
+            const before = this.reported.get(pane);
+            const options = editorOptionsOf(pane);
+            const visibleRanges = this.visibleRangesOf(group, pane);
+            // A newly visible editor starts from its tab's indentation in the snapshot and the configured style, as
+            // upstream's new editor arrives with its options: no change event.
+            const optionsChanged = before !== undefined && !sameEditorOptions(before.options, options);
+            const rangesChanged = !equals(before?.visibleRanges, visibleRanges, rangesEqual);
+            if (!optionsChanged && !rangesChanged) continue;
+            this.reported.set(pane, { options, visibleRanges });
+            this.onDidChangeEditorPropertiesEmitter.fire({
+                uri: pane.uri.toString(),
+                groupId: group.id,
+                ...(optionsChanged ? { options } : {}),
+                ...(rangesChanged ? { visibleRanges } : {}),
+            });
+        }
+    }
+
+    /**
+     * An editor shown for the first time is not laid out until the next frame, so its viewport is the view state's
+     * default. It borrows the size of an editor already on screen: itself once laid out, else the latest of its group
+     * (the tab it replaces), else the latest of another group (a split). Extensions read `visibleRanges` on
+     * the activation event, before that frame (#1226); the frame's layout corrects any difference.
+     */
+    private visibleRangesOf(group: EditorGroup, pane: IEditorPane & { readonly viewState: EditorViewState }): IRange[] {
+        const donor = [
+            pane,
+            ...group.getMruOrder(),
+            ...this.groups.groups.flatMap((candidate) => candidate.getMruOrder()),
+        ].find((candidate) => candidate.view.lastLayoutConstraints !== null)?.viewState;
+        if (donor !== undefined) {
+            pane.viewState.viewportHeight = donor.viewportHeight;
+            pane.viewState.viewportWidth = donor.viewportWidth;
+        }
+        return pane.viewState.getVisibleRanges();
+    }
+
+    /** Upstream's visible text editors: the active text tab of every group and the model-backed sides of a diff. */
+    private visibleEditors(): { pane: TextEditorPane; group: EditorGroup }[] {
+        return this.groups.groups.flatMap((group) => {
+            const active = group.activePane;
+            const panes =
+                active instanceof DiffEditorPane2 ? diffSidePanes(active) : isTextEditorPane(active) ? [active] : [];
+            return panes.map((pane) => ({ pane, group }));
+        });
+    }
+
+    /** `TextEditor.options` reads the snapshot: detection and the status bar picker must reach it. */
+    private watchIndentOptions(): void {
+        // Stryker disable next-line all: without it a pane holds a second listener, and the push coalesces them
+        this.indentWatchers.clear();
+        for (const pane of this.groups.groups.flatMap((group) => group.getPanes())) {
+            if (!(pane instanceof TextEditorPane)) continue;
+            this.indentWatchers.add(
+                pane.onDidChangeIndentOptions(() => {
+                    this.scheduleLayoutPush();
+                }),
+            );
+        }
     }
 
     public getLayoutSnapshot(): IWireEditorLayout {
@@ -97,7 +214,6 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const show = { group: target, uri };
         if (focus) this.latestFocusedShow = show;
 
-        this.groups.focusGroup(target.id, { focus: false });
         // Upstream `isUntitledWithAssociatedResource`: `Untitled-N` is a name, anything else a path to save to.
         if (uri.scheme === "untitled") {
             // Stryker disable next-line Regex: the pattern is not anchored, `\d` and `\d+` match the same names
@@ -158,8 +274,11 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         return this.languages.getRegisteredLanguageIds();
     }
 
-    public getLanguageOfDocument(uri: string): string | null {
-        return this.pendingLanguages.get(uri) ?? this.languages.getLanguageIdForResource(Uri.parse(uri).path) ?? null;
+    public openDocumentWithoutModel(uri: string): string | null {
+        const languageId =
+            this.pendingLanguages.get(uri) ?? this.languages.getLanguageIdForResource(Uri.parse(uri).path) ?? null;
+        if (languageId !== null) this.languages.requestLanguageFeatures(languageId);
+        return languageId;
     }
 
     public changeDocumentLanguage({ uri, languageId }: IWireChangeLanguageParams): IWireChangeLanguageResult {
@@ -169,6 +288,8 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const model = this.findModel(uri);
         if (model === undefined) {
             this.pendingLanguages.set(uri, languageId);
+            // As a model's `setLanguage`: the extension host's document already has the new language.
+            this.languages.requestLanguageFeatures(languageId);
             return { applied: false };
         }
         model.setLanguage(languageId);
@@ -210,8 +331,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         return { uri: uri.toString() };
     }
 
-    public async openTextDocument(params: IWireUriParams): Promise<IWireUriParams | null> {
-        return (await this.editors.openTextDocumentWithoutEditor(Uri.parse(params.uri))) ? { uri: params.uri } : null;
+    public async openTextDocument(params: IWireOpenTextDocumentParams): Promise<IWireUriParams | null> {
+        const opened = await this.editors.openTextDocumentWithoutEditor(Uri.parse(params.uri), params.encoding);
+        return opened ? { uri: params.uri } : null;
     }
 
     /** The same confirm flow as for the user (upstream `MainThreadEditorTabs.$closeTab`); an already closed tab is a success. */
@@ -270,12 +392,14 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             isDirty: pane.isModified,
         };
         if (pane instanceof DiffEditorPane2) {
+            const sides = diffSidePanes(pane);
             return {
                 ...base,
                 kind: "diff",
                 ...(pane.originalUri !== null ? { original: pane.originalUri.toString() } : {}),
                 ...(pane.modifiedUri !== null ? { modified: pane.modifiedUri.toString() } : {}),
-                sideEditors: diffSideEditors(pane),
+                sideEditors: sides.map((side) => side.uri.toString()),
+                ...(isActive ? { sideVisibleRanges: sides.map((side) => this.visibleRangesOf(group, side)) } : {}),
             };
         }
         // Neither text nor diff (`TabInputUnknown` in vscode): it must not be passed off as text by uri.
@@ -286,18 +410,39 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             ...base,
             kind: "text",
             languageId: pane.languageId,
-            // Selections only for the active tab: its selection is seeded to the extension from the snapshot.
-            ...(isActive ? { selections: pane.viewState.selections.map(toWireSelection) } : {}),
+            tabSize: pane.viewState.tabSize,
+            insertSpaces: pane.viewState.insertSpaces,
+            // Selections and visible ranges only for the active tab: they seed its editor in the extension.
+            ...(isActive
+                ? {
+                      selections: pane.viewState.selections.map(toWireSelection),
+                      visibleRanges: this.visibleRangesOf(group, pane),
+                  }
+                : {}),
         };
     }
 }
 
-function diffSideEditors(pane: DiffEditorPane2): string[] {
+/** Upstream `MainThreadTextEditorProperties._readOptionsFromCodeEditor`. */
+function editorOptionsOf(pane: TextEditorPane): IWireEditorOptions {
+    return {
+        tabSize: pane.viewState.tabSize,
+        insertSpaces: pane.viewState.insertSpaces,
+        // `Line`, upstream's default when `editor.cursorStyle` is unset.
+        cursorStyle: cursorStyleToApi(pane.cursorStyleSetting) ?? 1,
+    };
+}
+
+function sameEditorOptions(a: IWireEditorOptions, b: IWireEditorOptions): boolean {
+    return a.tabSize === b.tabSize && a.insertSpaces === b.insertSpaces && a.cursorStyle === b.cursorStyle;
+}
+
+function diffSidePanes(pane: DiffEditorPane2): TextEditorPane[] {
     const snapshots = pane.snapshotSides();
     const [original, modified] = pane.sidePanes();
     return [
-        ...(snapshots.includes("original") ? [] : [original.uri.toString()]),
-        ...(snapshots.includes("modified") ? [] : [modified.uri.toString()]),
+        ...(snapshots.includes("original") ? [] : [original]),
+        ...(snapshots.includes("modified") ? [] : [modified]),
     ];
 }
 

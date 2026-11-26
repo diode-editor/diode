@@ -8,3 +8,6 @@ export function createTestConfigurationService(
 ): InMemoryConfigurationService {
     return new InMemoryConfigurationService(new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS), settings);
 }
+
+/** Ctrl+Shift keys are gated on an extended tier, which only an explicit setting turns on (#1049). */
+export const EXTENDED_TIER_SETTINGS: Readonly<Record<string, unknown>> = { "terminal.tier": "csi-u" };

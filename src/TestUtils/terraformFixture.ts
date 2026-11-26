@@ -15,7 +15,6 @@ export const TERRAFORM_ID = "hashicorp.terraform";
 export const TF_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".tf") ? "terraform" : undefined),
-    getLanguageDisplayName: () => undefined,
 };
 
 /**
@@ -46,6 +45,8 @@ export const MAIN_TF = [
     "}",
     "",
 ].join("\n");
+
+export const TF_SAMPLE_DIR = path.resolve(import.meta.dirname, "..", "..", "e2e", "fixtures", "tfSample");
 
 export interface IInstalledTerraform {
     readonly registration: IExtensionRegistration;

@@ -1,0 +1,14 @@
+{
+    "name": "demo-type-hierarchy",
+    "displayName": "Demo Type Hierarchy",
+    "description": "E2E demo extension: a type hierarchy provider over a fixed file.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:typescript"
+    ]
+}

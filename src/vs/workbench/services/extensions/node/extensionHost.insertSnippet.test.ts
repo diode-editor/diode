@@ -1,0 +1,298 @@
+import { afterEach, describe, expect, it } from "vitest";
+
+import {
+    createExtensionTestHarness,
+    extensionFixture,
+    type IExtensionHarness,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { settle } from "../../../../../TestUtils/timing.ts";
+import { SnippetController2 } from "../../../../editor/contrib/snippet/browser/snippetController2.ts";
+import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+
+/** `TextEditor.insertSnippet` (#967) through the real subprocess: the text, the caret and the session after it. */
+describe("ExtensionHost — TextEditor.insertSnippet", () => {
+    let harness: IExtensionHarness | undefined;
+
+    afterEach(async () => {
+        await harness?.dispose();
+        harness = undefined;
+    });
+
+    async function setup(content: string) {
+        const h = await createExtensionTestHarness({
+            initialFile: { name: "main.txt", content },
+            extensions: [extensionFixture("test.snippet", "insertSnippetExtension.cjs")],
+        });
+        harness = h;
+        const pane = h.group.editorGroups.groups[0].getPane(0);
+        expect(pane).toBeInstanceOf(TextEditorPane);
+        const editor = pane as TextEditorPane;
+        const text = (): string => editor.model.document.getText();
+        const caret = (): unknown => editor.viewState.selections[0].active;
+        const putCaret = (line: number, character: number): void => {
+            editor.viewState.selections = [
+                { anchor: { line, character }, active: { line, character }, idealColumn: undefined },
+            ];
+        };
+        const frame = (): string => {
+            h.app.render();
+            return h.app.backend.screenToString();
+        };
+        return { h, editor, text, caret, putCaret, frame };
+    }
+
+    it("[api:TextEditor.insertSnippet] a command that does not await it gets the line break, the indent and the caret", async () => {
+        const { h, text, caret, putCaret, frame } = await setup("    foo()\n");
+        putCaret(0, 8);
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.enter");
+        await settle();
+
+        expect(text()).toBe("    foo(\n        \n    )\n");
+        expect(caret()).toEqual({ line: 1, character: 8 });
+        // `foo(` ends its row (up to the group's frame line), the next row is line 2.
+        expect(frame()).toMatch(/foo\(\s*│?\n[^\n]*2\s/);
+    });
+
+    it("[api:TextEditor.insertSnippet] undo removes the whole insertion in one step", async () => {
+        const { h, editor, text, putCaret } = await setup("    foo()\n");
+        putCaret(0, 8);
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.enter");
+        await settle();
+        expect(text()).toBe("    foo(\n        \n    )\n");
+
+        editor.undo();
+        await settle();
+        expect(text()).toBe("    foo()\n");
+    });
+
+    it("[api:TextEditor.insertSnippet] a placeholder comes out selected, and the promise says it went in", async () => {
+        const { h, editor, text, putCaret } = await setup("ab\n");
+        putCaret(0, 1);
+        await settle();
+
+        const inserted = await h.commandRegistry.execute("test.snippet.insert", "<${1:name}>");
+        await settle();
+
+        expect(inserted).toBe(true);
+        expect(text()).toBe("a<name>b\n");
+        expect(editor.viewState.selections[0]).toMatchObject({
+            anchor: { line: 0, character: 2 },
+            active: { line: 0, character: 6 },
+        });
+    });
+
+    // As upstream, the caret lands on `$1`, the empty tabstop before the placeholder (which is `$2`).
+    it("[api:SnippetString.appendPlaceholder] [api:SnippetString.appendTabstop] a snippet from the builders goes in with the caret on its first tabstop", async () => {
+        const { h, editor, text, frame } = await setup("");
+        await settle();
+
+        await expect(h.commandRegistry.execute("test.snippet.build")).resolves.toBe(true);
+        await settle();
+
+        expect(text()).toBe("This is a placeholder snippet");
+        expect(editor.viewState.selections[0]).toMatchObject({
+            anchor: { line: 0, character: 10 },
+            active: { line: 0, character: 10 },
+        });
+        expect(frame()).toContain("This is a placeholder snippet");
+    });
+
+    it("[api:SnippetString.appendText] text from appendText goes in literally, snippet syntax and all", async () => {
+        const { h, text } = await setup("");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.literal", "a $1 } \\ ${2:b}");
+        await settle();
+
+        expect(text()).toBe("a $1 } \\ ${2:b}");
+    });
+
+    it("[api:TextEditor.insertSnippet] several locations get a caret each, on one line and across lines", async () => {
+        const { h, editor, text } = await setup("ab\ncd\n");
+        await settle();
+
+        const location = [
+            [0, 1],
+            [0, 2],
+            [1, 0],
+        ];
+        await h.commandRegistry.execute("test.snippet.insert", "x\n$0y", location);
+        await settle();
+
+        expect(text()).toBe("ax\nybx\ny\nx\nycd\n");
+        expect(editor.viewState.selections.map((selection) => selection.active)).toEqual([
+            { line: 1, character: 0 },
+            { line: 2, character: 0 },
+            { line: 4, character: 0 },
+        ]);
+    });
+
+    it("[api:TextEditor.insertSnippet] keepWhitespace leaves the template's whitespace alone", async () => {
+        const { h, text, putCaret } = await setup("    a\n");
+        putCaret(0, 5);
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "\nb", undefined, {
+            undoStopBefore: true,
+            undoStopAfter: true,
+            keepWhitespace: true,
+        });
+        await settle();
+
+        expect(text()).toBe("    a\nb\n");
+    });
+
+    it("[api:TextEditor.insertSnippet] replaces the selection when no location is given", async () => {
+        const { h, editor, text } = await setup("abcd\n");
+        editor.viewState.selections = [
+            { anchor: { line: 0, character: 1 }, active: { line: 0, character: 3 }, idealColumn: undefined },
+        ];
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "X");
+        await settle();
+
+        expect(text()).toBe("aXd\n");
+    });
+
+    it("[api:TextEditor.insertSnippet] the core transforms the selected text; the frame shows the result", async () => {
+        const { h, editor, text, frame } = await setup("x abc y\n");
+        editor.viewState.selections = [
+            { anchor: { line: 0, character: 2 }, active: { line: 0, character: 5 }, idealColumn: undefined },
+        ];
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "${TM_SELECTED_TEXT/(.*)/${1:/upcase}/}");
+        await settle();
+
+        expect(text()).toBe("x ABC y\n");
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 5 });
+        expect(frame()).toContain("x ABC y");
+    });
+
+    it("[api:TextEditor.insertSnippet] variables resolve at the caret, an unknown one is its default or empty", async () => {
+        const { h, text, putCaret } = await setup("a\nbc\n");
+        putCaret(1, 1);
+        await settle();
+
+        await h.commandRegistry.execute(
+            "test.snippet.insert",
+            "[$TM_LINE_NUMBER|$TM_CURRENT_LINE|$TM_FILENAME_BASE|${FOO:f}|$FOO]",
+        );
+        await settle();
+
+        expect(text()).toBe("a\nb[2|bc|main|f|]c\n");
+    });
+
+    it("[api:TextEditor.insertSnippet] the file name, the clipboard after env.clipboard.writeText and the year", async () => {
+        const { h, text, frame } = await setup("");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.copy", "abc");
+        await expect(
+            h.commandRegistry.execute("test.snippet.insert", "// $TM_FILENAME, $CURRENT_YEAR, $CLIPBOARD"),
+        ).resolves.toBe(true);
+        await settle();
+
+        const expected = `// main.txt, ${new Date().getFullYear()}, abc`;
+        expect(text()).toBe(expected);
+        expect(frame()).toContain(expected);
+    });
+
+    it("[api:TextEditor.insertSnippet] a choice puts in its first option, selected inside the nested placeholder", async () => {
+        const { h, editor, text, putCaret } = await setup("\n");
+        putCaret(0, 0);
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "${2:${1|one,two|} out} $0");
+        await settle();
+
+        expect(text()).toBe("one out \n");
+        expect(editor.viewState.selections[0]).toMatchObject({
+            anchor: { line: 0, character: 0 },
+            active: { line: 0, character: 3 },
+        });
+    });
+
+    it("[api:TextEditor.insertSnippet] the session is on the choice; a transform applies on Tab and shows on the frame", async () => {
+        const { h, editor, text, frame } = await setup("\n");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "${1|get,set|} ${2/^_(.*)/$1/} $0");
+        await settle();
+        const session = SnippetController2.get(editor);
+        expect(session.activeChoice?.choice.options.map((option) => option.value)).toEqual(["get", "set"]);
+
+        session.next();
+        expect(session.activeChoice).toBeUndefined();
+        editor.pushUndo(editor.viewState.type("_prop"));
+        session.next();
+        expect(text()).toBe("get prop \n");
+        expect(frame()).toContain("get prop");
+    });
+
+    it("[api:TextEditor.insertSnippet] the session: typing fills the mirrors, Tab walks to `$0` and ends it", async () => {
+        const { h, editor, text, frame } = await setup("\n");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "${1:name} = $1;$0");
+        await settle();
+        const session = SnippetController2.get(editor);
+        expect(session.isInSnippet).toBe(true);
+        expect(editor.viewState.snippetTabstopRanges).toHaveLength(2);
+
+        editor.pushUndo(editor.viewState.type("a"));
+        expect(text()).toBe("a = a;\n");
+        session.next();
+        expect(editor.viewState.selections.map((selection) => selection.active)).toEqual([{ line: 0, character: 6 }]);
+        expect(session.isInSnippet).toBe(false);
+        expect(frame()).toContain("a = a;");
+    });
+
+    it("[api:TextEditor.insertSnippet] two locations are one session: Tab moves both carets, undo of the insert ends it", async () => {
+        const { h, editor, text } = await setup("x\ny\n");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "(${1:a}, ${2:b})", [
+            [0, 1],
+            [1, 1],
+        ]);
+        await settle();
+        const session = SnippetController2.get(editor);
+        session.next();
+        expect(editor.viewState.selections.map(({ anchor, active }) => [anchor, active])).toEqual([
+            [
+                { line: 0, character: 5 },
+                { line: 0, character: 6 },
+            ],
+            [
+                { line: 1, character: 5 },
+                { line: 1, character: 6 },
+            ],
+        ]);
+        session.prev();
+        expect(session.hasPrevTabstop).toBe(false);
+
+        editor.undo();
+        await settle();
+        expect(text()).toBe("x\ny\n");
+        expect(session.isInSnippet).toBe(false);
+    });
+
+    it("[api:TextEditor.insertSnippet] a closed editor rejects with upstream's message", async () => {
+        const { h } = await setup("a\n");
+        await settle();
+        await h.commandRegistry.execute("test.snippet.hold");
+
+        await h.group.closeEditor(h.group.editorGroups.groups[0], 0);
+        await settle();
+
+        await expect(h.commandRegistry.execute("test.snippet.onHeld")).resolves.toBe(
+            "TextEditor#insertSnippet not possible on closed editors",
+        );
+    });
+});

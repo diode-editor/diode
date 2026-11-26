@@ -30,6 +30,32 @@ export interface ICoreCompletionCommand {
     readonly arguments?: readonly unknown[];
 }
 
+/** Values of `vscode.CompletionItemTag`. */
+export const CompletionItemTag = {
+    Deprecated: 1,
+} as const;
+
+export type CompletionItemTag = (typeof CompletionItemTag)[keyof typeof CompletionItemTag];
+
+/** Bits of upstream `languages.CompletionItemInsertTextRule`. */
+export const CompletionItemInsertTextRule = {
+    /** `vscode.CompletionItem.keepWhitespace`: the inserted lines keep their indentation as is. */
+    KeepWhitespace: 1,
+} as const;
+
+/**
+ * Upstream `languages.CompletionItemRanges` (`vscode.CompletionItem.range` as `{ inserting, replacing }`): both start
+ * at the same position, `editor.suggest.insertMode` picks the one accept replaces.
+ */
+export interface ICompletionItemRanges {
+    readonly insert: IRange;
+    readonly replace: IRange;
+}
+
+export function isCompletionItemRanges(range: IRange | ICompletionItemRanges): range is ICompletionItemRanges {
+    return "insert" in range;
+}
+
 /** `insertText` is already normalized: the host falls back to `label` when serializing. */
 export interface ICoreCompletionItem {
     readonly label: string;
@@ -46,11 +72,18 @@ export interface ICoreCompletionItem {
     readonly documentation?: string;
     readonly command?: ICoreCompletionCommand;
     /** Absent: the core uses the prefix. */
-    readonly range?: IRange;
+    readonly range?: IRange | ICompletionItemRanges;
     readonly sortText?: string;
     readonly filterText?: string;
     /** Sent right in the list (gopls): accepting applies them without resolve, like upstream `suggestController`. */
     readonly additionalEdits?: readonly ITextEdit[];
+    /** `CompletionItemTag.Deprecated`: the list strikes the label through. */
+    readonly tags?: readonly CompletionItemTag[];
+    /** Only `true` travels. The list selects the first such item among the best matches. */
+    readonly preselect?: true;
+    readonly commitCharacters?: readonly string[];
+    /** Bitmask of {@link CompletionItemInsertTextRule}; absent — none. */
+    readonly insertTextRules?: number;
 }
 
 /**

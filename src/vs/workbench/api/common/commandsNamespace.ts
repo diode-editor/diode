@@ -19,33 +19,50 @@ export function buildCommandsNamespace(
     apiCommands: ReadonlyMap<string, CommandHandler> = new Map(),
     processArgument: (arg: unknown) => unknown = (arg) => arg,
 ): typeof vscode.commands {
-    const localCommands = new Map<string, CommandHandler>();
+    /**
+     * A stack per id, the last one in force, as the host's `CommandRegistry`: disposing a repeated
+     * registration brings the previous one back. Deviation: upstream throws `already exists` on the repeat.
+     */
+    const localCommands = new Map<string, CommandHandler[]>();
 
     rpc.handleRequest("commands.executeCommand", (params): unknown => {
         const { id, args } = parseExecuteParams(params);
-        const handler = localCommands.get(id);
+        const handler = localCommands.get(id)?.at(-1);
         if (handler === undefined) {
             throw new Error(`command "${id}" not found in subprocess`);
         }
         return handler(...args.map(processArgument));
     });
 
-    const registerCommand = (
+    const addCommand = (
         id: string,
         callback: (...args: unknown[]) => unknown,
-        thisArg?: unknown,
+        thisArg: unknown,
+        textEditor: boolean,
     ): vscode.Disposable => {
         const bound: CommandHandler = thisArg != null ? (...args) => callback.apply(thisArg, args) : callback;
-        localCommands.set(id, bound);
-        rpc.notify("commands.registerCommand", { id });
+        const stack = localCommands.get(id) ?? [];
+        stack.push(bound);
+        localCommands.set(id, stack);
+        rpc.notify("commands.registerCommand", textEditor ? { id, textEditor } : { id });
         return new DisposableImpl(() => {
-            // A repeated register with the same id may have replaced the callback; a stale dispose must not remove it.
-            if (localCommands.get(id) === bound) {
+            // A second dispose finds nothing, and must not take someone else's registration.
+            const index = stack.lastIndexOf(bound);
+            if (index < 0) return;
+            stack.splice(index, 1);
+            // The host's proxy calls by id, so it stays while any registration of this id is left.
+            if (stack.length === 0) {
                 localCommands.delete(id);
                 rpc.notify("commands.unregisterCommand", { id });
             }
         });
     };
+
+    const registerCommand = (
+        id: string,
+        callback: (...args: unknown[]) => unknown,
+        thisArg?: unknown,
+    ): vscode.Disposable => addCommand(id, callback, thisArg, false);
 
     /** Upstream `ExtHostTextEditors.registerTextEditorCommand`: what the callback returns does not delay the edit. */
     const registerTextEditorCommand = (
@@ -56,7 +73,7 @@ export function buildCommandsNamespace(
         // Owner is captured at registration: by execution time the surrounding owner is gone.
         const extensionId = owner?.current;
         const tag = extensionId === undefined ? "" : `[${extensionId}] `;
-        return registerCommand(id, (...args: unknown[]): unknown => {
+        const run = (...args: unknown[]): unknown => {
             const editor = getActiveTextEditor?.();
             if (editor === undefined) {
                 console.warn(`${tag}Cannot execute text editor command "${id}": no active text editor`);
@@ -74,11 +91,12 @@ export function buildCommandsNamespace(
                         console.warn(`${tag}An error occurred while running command "${id}"`, error);
                     },
                 );
-        });
+        };
+        return addCommand(id, run, undefined, true);
     };
 
     const executeCommand = <T = unknown>(id: string, ...args: unknown[]): Promise<T> => {
-        const handler = localCommands.get(id) ?? apiCommands.get(id);
+        const handler = localCommands.get(id)?.at(-1) ?? apiCommands.get(id);
         if (handler !== undefined) {
             // Inside the executor: a synchronous API-command refusal becomes a promise rejection, as upstream.
             return new Promise<T>((resolve) => {

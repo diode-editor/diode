@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import iconv from "iconv-lite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
@@ -58,6 +59,50 @@ describe("EditorService — file models without an editor", () => {
         expect(await service().openTextDocumentWithoutEditor(Uri.parse("git:/a.txt"))).toBe(false);
         expect(service().holdFileModel(Uri.parse("git:/a.txt"))).toBeNull();
         expect(heldPaths()).toEqual([ws.path("a.txt")]);
+    });
+
+    describe("with an encoding (upstream MainThreadDocuments._handleAsResourceInput)", () => {
+        const HELLO = "Hell\u00f6 W\u00f6rld"; // "Hello World" with o-umlauts
+
+        it("rereads the held model in it, a name outside the table verbatim", async () => {
+            fs.writeFileSync(ws.path("a.txt"), iconv.encode(HELLO, "cp1252"));
+            const uri = Uri.file(ws.path("a.txt"));
+
+            expect(await service().openTextDocumentWithoutEditor(uri, "cp1252")).toBe(true);
+
+            const model = hold("a.txt");
+            expect(model.encoding).toBe("cp1252");
+            expect(model.getText()).toBe(HELLO);
+        });
+
+        it("an unknown name is utf-8; the same encoding does not reread", async () => {
+            const model = hold("a.txt");
+            const reopen = vi.spyOn(model, "reopenWithEncoding");
+
+            expect(await service().openTextDocumentWithoutEditor(Uri.file(ws.path("a.txt")), "foobar123")).toBe(true);
+
+            expect(reopen).not.toHaveBeenCalled();
+            expect(model.encoding).toBe("utf8");
+        });
+
+        it("without an encoding a dirty model opens as it is", async () => {
+            const model = hold("a.txt");
+            edit(model, "X");
+
+            expect(await service().openTextDocumentWithoutEditor(Uri.file(ws.path("a.txt")))).toBe(true);
+            expect(model.getText()).toBe("Xa");
+        });
+
+        it("a dirty model refuses with upstream's message and keeps its text", async () => {
+            const model = hold("a.txt");
+            edit(model, "X");
+
+            await expect(service().openTextDocumentWithoutEditor(Uri.file(ws.path("a.txt")), "cp1252")).rejects.toThrow(
+                "Cannot re-open a dirty text document with different encoding. Save it first.",
+            );
+            expect(model.getText()).toBe("Xa");
+            expect(model.encoding).toBe("utf8");
+        });
     });
 
     it("holding fires onDidChangeEditors: the document sync reconciles on it", () => {

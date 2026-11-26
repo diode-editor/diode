@@ -1,0 +1,21 @@
+{
+    // The launch configurations of the debug-provider e2e scenario and of manual testing, with the Debug Demo
+    // extension of e2e/fixtures/user-data-with-debug-demo:
+    //   F5 on the first configuration: the extension's quick pick for the program, its provider in the status bar,
+    //   then its inline adapter: a greeting in the Debug Console, a stop on entry with the locals in VARIABLES;
+    //   the second one has no program: the provider answers null and launch.json opens.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug a picked program",
+            "type": "demo",
+            "request": "launch",
+            "program": "${command:pickProgram}"
+        },
+        {
+            "name": "Without a program",
+            "type": "demo",
+            "request": "launch"
+        }
+    ]
+}

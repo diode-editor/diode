@@ -49,13 +49,11 @@ import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths
 import { getIdAndVersion } from "../platform/extensionManagement/common/getIdAndVersion.ts";
 import type { IExtensionRegistrySource } from "../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import { createRegistrySource } from "../platform/extensionManagement/node/createRegistrySource.ts";
-import { installVsix, readVsixManifest } from "../platform/extensionManagement/node/extensionInstaller.ts";
 import {
     describeDependencyInstall,
-    type IDependencyInstallResult,
-    type IInstalledFromRegistry,
-    installDependenciesFromRegistry,
+    type IInstallFromRegistryResult,
     installFromRegistry,
+    installVsixWithDependencies,
 } from "../platform/extensionManagement/node/installFromRegistry.ts";
 import {
     cleanUpExtensions,
@@ -71,7 +69,7 @@ import {
     referencedExtensionDirs,
 } from "../platform/extensionManagement/node/profileExtensions.ts";
 import { currentTargetPlatform } from "../platform/extensionManagement/node/targetPlatform.ts";
-import { extensionKey, readExtensionDependencies } from "../platform/extensions/common/extensionDependencies.ts";
+import { extensionKey } from "../platform/extensions/common/extensionDependencies.ts";
 import { scanExtensions } from "../platform/extensions/common/extensionScanner.ts";
 import { mergeExtensions } from "../platform/extensions/common/mergeExtensions.ts";
 import { ChokidarFileWatcher } from "../platform/files/node/chokidarFileWatcher.ts";
@@ -99,6 +97,7 @@ import {
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
+import { registerExtensionColors } from "../workbench/services/extensions/common/extensionColorContributor.ts";
 import { ExtensionConfigurationContributor } from "../workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import { ExtensionServiceDIToken } from "../workbench/services/extensions/common/extensions.ts";
 import { registerExtensionSemanticTokens } from "../workbench/services/extensions/common/extensionSemanticTokensContributor.ts";
@@ -109,6 +108,8 @@ import { LanguageConfigurationService } from "../workbench/services/language/com
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { OutputServiceDIToken } from "../workbench/services/output/common/outputService.ts";
+import { extendedKeysAtStartup } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
+import { COLOR_CUSTOMIZATIONS_SETTING } from "../workbench/services/themes/common/colorCustomizations.ts";
 import { SemanticTokenStyleResolver } from "../workbench/services/themes/common/semanticTokenStyleResolver.ts";
 import { createTextMateTheme } from "../workbench/services/themes/common/textMateTheme.ts";
 import {
@@ -364,8 +365,13 @@ async function runEditor(): Promise<void> {
     const headlessBackend = cli.headless
         ? new HeadlessCaptureBackend(new Size(cli.headless.cols, cli.headless.rows))
         : null;
+    // Legacy keys unless the user asked for more: the protocols are not switched mid-session (#1049).
+    const terminalOptions = { extendedKeys: extendedKeysAtStartup(configurationService) };
     const backend =
-        headlessBackend ?? (startupTraceFile !== null ? new TracingNodeTerminalBackend() : new NodeTerminalBackend());
+        headlessBackend ??
+        (startupTraceFile !== null
+            ? new TracingNodeTerminalBackend(undefined, undefined, terminalOptions)
+            : new NodeTerminalBackend(undefined, undefined, terminalOptions));
     const application = new TuiApplication(backend);
     application.validateTreeAfterRender = process.env.DIODE_VALIDATE_TREE === "1";
     const clipboard = new OscClipboard((seq) => {
@@ -376,6 +382,9 @@ async function runEditor(): Promise<void> {
     const themeRegistry = createBuiltinThemeRegistry();
     const themeContributor = new ExtensionThemeContributor(assets, allExtensions, themeRegistry, extensionsLogger);
     await themeContributor.apply();
+    registerExtensionColors(allExtensions, themeRegistry, extensionsLogger);
+    // Before the first frame; ThemeConfigContribution reports invalid entries and follows later edits.
+    themeRegistry.setColorCustomizations(configurationService.get(COLOR_CUSTOMIZATIONS_SETTING));
     // The setting is left alone: if the extension comes back, so does its theme. With scheme detection the
     // terminal hasn't answered yet — the scheme it reported last time picks the key (HostColorSchemeService).
     const lastHostColorScheme = stateService.get(LAST_HOST_COLOR_SCHEME) ?? undefined;
@@ -652,22 +661,14 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                 extensionsDir,
                 host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
             };
-            let result: IInstalledFromRegistry;
-            let dependencies: IDependencyInstallResult = { dependencies: [], missingDependencies: [] };
+            let result: IInstallFromRegistryResult;
             // Upstream `installGivenVersion`: `id@version` and a `.vsix` pin the version in the profile.
             let givenVersion = true;
             if (target.endsWith(".vsix")) {
-                const vsixPath = path.resolve(target);
-                result = await installVsix(vsixPath, extensionsDir);
-                const manifest = await readVsixManifest(vsixPath);
-                if (readExtensionDependencies(manifest).length > 0) {
-                    try {
-                        dependencies = await installDependenciesFromRegistry(registry(), result.id, manifest, options);
-                    } catch (err) {
-                        // Like VS Code for VSIX: a dependency failure is a warning, not a failed install.
-                        console.error(`Warning: ${err instanceof Error ? err.message : String(err)}`);
-                    }
-                }
+                const installed = await installVsixWithDependencies(registry, path.resolve(target), options);
+                // Like VS Code for VSIX: a dependency failure is a warning, not a failed install.
+                if (installed.dependencyError !== undefined) console.error(`Warning: ${installed.dependencyError}`);
+                result = installed;
             } else {
                 const [extensionId, version] = getIdAndVersion(target);
                 givenVersion = version !== undefined;
@@ -680,14 +681,12 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                     console.log(`Extension '${extensionId}@${current.version}' is already installed.`);
                     return;
                 }
-                const installed = await installFromRegistry(registry(), extensionId, { ...options, version });
-                result = installed;
-                dependencies = installed;
+                result = await installFromRegistry(registry(), extensionId, { ...options, version });
             }
             // Into the profile, together with dependencies, including those already on disk for another profile.
             const { obsolete } = profileExtensions.add([result], {
                 ...(givenVersion ? { pinned: true } : {}),
-                dependencies: dependencies.dependencies,
+                dependencies: result.dependencies,
             });
             const { id, version } = result;
             console.log(`Installed ${id}@${version}`);
@@ -696,7 +695,7 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
             if (previous.length > 0) {
                 console.log(`Previous version(s) will be removed on next start: ${previous.join(", ")}`);
             }
-            const report = describeDependencyInstall(id, dependencies);
+            const report = describeDependencyInstall(id, result);
             for (const line of report.info) console.log(line);
             for (const line of report.warnings) console.error(line);
             return;
@@ -837,6 +836,10 @@ async function preloadGrammarsForFiles(
  * out before extraction (which happens in `startExtensions`, after the first frames).
  */
 function builtinConfigInjection(manifestName: string): Record<string, unknown> {
+    if (manifestName === "html-language-features") {
+        const htmlServerPath = bundledTsServerTarget()?.htmlServerPath;
+        return htmlServerPath === undefined ? {} : { "diode.html.bundledServerPath": htmlServerPath };
+    }
     if (manifestName !== "diode-lsp-typescript") return {};
     const target = bundledTsServerTarget();
     if (target === null) return {};

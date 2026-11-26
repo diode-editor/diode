@@ -1,0 +1,23 @@
+{
+    "name": "reveal-range-sequence",
+    "displayName": "Reveal Range Sequence",
+    "description": "E2E probe: TextEditor.revealRange in the same breath as the call an extension pairs it with.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "contributes": {
+        "commands": [
+            {
+                "command": "revealSequence.openAndReveal",
+                "title": "Reveal Sequence: Open And Reveal"
+            },
+            {
+                "command": "revealSequence.editAndReveal",
+                "title": "Reveal Sequence: Edit And Reveal"
+            }
+        ]
+    }
+}

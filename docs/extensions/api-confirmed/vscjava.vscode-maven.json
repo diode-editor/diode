@@ -1,0 +1,27 @@
+{
+    "members": [
+        "commands.executeCommand",
+        "commands.registerCommand",
+        "debug.onDidTerminateDebugSession",
+        "env.createTelemetryLogger",
+        "env.isTelemetryEnabled",
+        "env.shell",
+        "extensions.getExtension",
+        "languages.createDiagnosticCollection",
+        "tasks.onDidEndTaskProcess",
+        "window.createOutputChannel",
+        "window.createTerminal",
+        "window.createTreeView",
+        "window.onDidCloseTerminal",
+        "workspace.createFileSystemWatcher",
+        "workspace.findFiles",
+        "workspace.getConfiguration",
+        "workspace.getWorkspaceFolder",
+        "workspace.isTrusted",
+        "workspace.onDidChangeConfiguration",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidChangeWorkspaceFolders",
+        "workspace.onDidGrantWorkspaceTrust",
+        "workspace.workspaceFolders"
+    ]
+}

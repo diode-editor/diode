@@ -373,7 +373,8 @@ describe("Workbench — diff without an open file (openDiffWithHead)", () => {
         expect(screen).toContain("gone.weird ↔ HEAD");
         expect(screen).toMatch(/1-\s+alpha/u);
         expect(screen).toMatch(/4-\s+delta/u);
-        expect(screen).not.toMatch(/\d\+ +\S/u);
+        // No added text: after `+` only blanks up to the group's frame line.
+        expect(screen).not.toMatch(/\d\+ +[^\s│]/u);
         workbench.dispose();
     });
 

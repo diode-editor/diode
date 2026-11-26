@@ -13,7 +13,214 @@
             "workbench.action.focusQuickOpen",
             "workbench.action.quickPickManyToggle",
             "workbench.action.quickInputBack",
-            "workbench.action.quickOpenWithModes"
+            "workbench.action.quickOpenWithModes",
+            "type",
+            "default:type",
+            "tab",
+            "jumpToNextSnippetPlaceholder",
+            "jumpToPrevSnippetPlaceholder",
+            "leaveSnippet",
+            "acceptSnippet",
+            "testing.debugAll",
+            "testing.runAll",
+            "testing.showMostRecentOutput",
+            "testing.collapsePeekStack",
+            "testing.debugAtCursor",
+            "testing.debugCurrentFile",
+            "testing.goToNextMessage",
+            "testing.goToPreviousMessage",
+            "testing.openOutputPeek",
+            "testing.runAtCursor",
+            "testing.runCurrentFile",
+            "testing.toggleInlineTestOutput",
+            "workbench.action.debug.start",
+            "workbench.action.debug.run",
+            "workbench.action.debug.selectandstart",
+            "workbench.action.debug.configure",
+            "debug.addConfiguration",
+            "workbench.action.debug.restart",
+            "workbench.action.debug.stepOver",
+            "workbench.action.debug.stepInto",
+            "workbench.action.debug.stepOut",
+            "workbench.action.debug.pause",
+            "workbench.action.debug.disconnect",
+            "workbench.action.debug.stop",
+            "workbench.action.debug.continue",
+            "workbench.action.debug.terminateThread",
+            "workbench.action.debug.restartFrame",
+            "debug.copyStackTrace",
+            "workbench.action.debug.callStackTop",
+            "workbench.action.debug.callStackBottom",
+            "workbench.action.debug.callStackUp",
+            "workbench.action.debug.callStackDown",
+            "debug.startFromConfig",
+            "workbench.action.debug.focusProcess",
+            "workbench.action.debug.selectDebugSession",
+            "debug.installAdditionalDebuggers",
+            "debug.openView",
+            "workbench.action.debug.disconnectAndSuspend",
+            "workbench.action.debug.stepBack",
+            "workbench.action.debug.reverseContinue",
+            "workbench.action.debug.showLoadedScripts",
+            "debug.enableOrDisableBreakpoint",
+            "debug.jumpToCursor",
+            "debug.jumpToCursor",
+            "workbench.action.debug.stepIntoTarget",
+            "editor.debug.action.toggleInlineBreakpoint",
+            "debug.editBreakpoint",
+            "debug.editFunctionBreakpoint",
+            "debug.editFunctionBreakpointHitCount",
+            "debug.editBreakpointMode",
+            "workbench.debug.viewlet.action.editDataBreakpointOnAddress",
+            "variables.collapse",
+            "workbench.debug.viewlet.action.addWatchExpression",
+            "workbench.debug.viewlet.action.removeAllWatchExpressions",
+            "watch.collapse",
+            "workbench.debug.viewlet.action.copyAllWatchExpressions",
+            "debug.renameWatchExpression",
+            "debug.removeWatchExpression",
+            "callStack.collapse",
+            "loadedScripts.collapse",
+            "debug.toggleBreakpoint",
+            "debug.removeBreakpoint",
+            "workbench.debug.viewlet.action.removeBreakpoint",
+            "debug.openBreakpointToSide",
+            "debug.setVariable",
+            "workbench.debug.viewlet.action.copyValue",
+            "debug.copyEvaluatePath",
+            "debug.addToWatchExpressions",
+            "debug.breakWhenValueIsRead",
+            "debug.breakWhenValueChanges",
+            "debug.breakWhenValueIsAccessed",
+            "debug.setWatchExpression",
+            "debug.copyWatchExpression",
+            "debug.replCopy",
+            "workbench.debug.action.copyAll",
+            "debug.replPaste",
+            "workbench.action.debug.selectRepl",
+            "workbench.action.debug.selectDebugConsole",
+            "workbench.action.debug.nextConsole",
+            "workbench.action.debug.prevConsole",
+            "extensions.actions.searchByCategory.AI",
+            "extensions.actions.searchByCategory.Azure",
+            "extensions.actions.searchByCategory.Chat",
+            "extensions.actions.searchByCategory.Data Science",
+            "extensions.actions.searchByCategory.Debuggers",
+            "extensions.actions.searchByCategory.Extension Packs",
+            "extensions.actions.searchByCategory.Education",
+            "extensions.actions.searchByCategory.Formatters",
+            "extensions.actions.searchByCategory.Keymaps",
+            "extensions.actions.searchByCategory.Language Packs",
+            "extensions.actions.searchByCategory.Linters",
+            "extensions.actions.searchByCategory.Machine Learning",
+            "extensions.actions.searchByCategory.Notebooks",
+            "extensions.actions.searchByCategory.Programming Languages",
+            "extensions.actions.searchByCategory.SCM Providers",
+            "extensions.actions.searchByCategory.Snippets",
+            "extensions.actions.searchByCategory.Testing",
+            "extensions.actions.searchByCategory.Themes",
+            "extensions.actions.searchByCategory.Visualization",
+            "extensions.actions.searchByCategory.Other",
+            "extensions.sort.name",
+            "extensions.sort.publishedDate",
+            "references-view.removeCallItem",
+            "references-view.removeTypeItem"
+        ]
+    },
+    "DebugBreakpointsContext": {
+        "3_modification": [
+            "workbench.debug.viewlet.action.removeBreakpoint",
+            "workbench.debug.viewlet.action.removeAllBreakpoints"
+        ],
+        "navigation": [
+            "debug.editBreakpoint",
+            "debug.editFunctionBreakpoint",
+            "workbench.debug.viewlet.action.editDataBreakpointOnAddress",
+            "debug.editFunctionBreakpointHitCount",
+            "debug.editBreakpointMode"
+        ],
+        "z_commands": [
+            "workbench.debug.viewlet.action.enableAllBreakpoints",
+            "workbench.debug.viewlet.action.disableAllBreakpoints",
+            "workbench.debug.viewlet.action.reapplyBreakpointsAction"
+        ]
+    },
+    "DebugCallStackContext": {
+        "3_modification": [
+            "workbench.action.debug.restart",
+            "workbench.action.debug.disconnect",
+            "debug.copyStackTrace",
+            "workbench.action.debug.disconnectAndSuspend",
+            "workbench.action.debug.stop"
+        ],
+        "navigation": [
+            "workbench.action.debug.pause",
+            "workbench.action.debug.continue",
+            "workbench.action.debug.restartFrame",
+            "workbench.action.debug.stepOver",
+            "workbench.action.debug.stepInto",
+            "workbench.action.debug.stepOut"
+        ],
+        "termination": [
+            "workbench.action.debug.terminateThread"
+        ]
+    },
+    "DebugConsoleContext": {
+        "2_cutcopypaste": [
+            "debug.replCopy",
+            "workbench.debug.action.copyAll",
+            "debug.replPaste"
+        ],
+        "z_commands": [
+            "debug.collapseRepl",
+            "workbench.debug.panel.action.clearReplAction"
+        ]
+    },
+    "DebugToolBar": {
+        "navigation": [
+            "workbench.action.debug.pause",
+            "workbench.action.debug.continue",
+            "workbench.action.debug.stepOver",
+            "workbench.action.debug.stepInto",
+            "workbench.action.debug.stepOut",
+            "workbench.action.debug.stepBack",
+            "workbench.action.debug.reverseContinue",
+            "workbench.action.debug.restart",
+            "workbench.action.debug.disconnect",
+            "workbench.action.debug.stop",
+            "workbench.action.debug.focusProcess"
+        ]
+    },
+    "DebugVariablesContext": {
+        "3_modification": [
+            "debug.setVariable"
+        ],
+        "5_cutcopypaste": [
+            "workbench.debug.viewlet.action.copyValue",
+            "debug.copyEvaluatePath"
+        ],
+        "z_commands": [
+            "debug.addToWatchExpressions",
+            "debug.breakWhenValueIsRead",
+            "debug.breakWhenValueChanges",
+            "debug.breakWhenValueIsAccessed"
+        ]
+    },
+    "DebugWatchContext": {
+        "3_modification": [
+            "workbench.debug.viewlet.action.addWatchExpression",
+            "debug.renameWatchExpression",
+            "debug.copyWatchExpression",
+            "debug.setWatchExpression",
+            "workbench.debug.viewlet.action.copyValue",
+            "workbench.debug.viewlet.action.copyAllWatchExpressions",
+            "debug.copyEvaluatePath"
+        ],
+        "z_commands": [
+            "workbench.debug.viewlet.action.removeAllWatchExpressions",
+            "debug.breakWhenValueIsRead",
+            "debug.breakWhenValueChanges",
+            "debug.breakWhenValueIsAccessed"
         ]
     },
     "EditorContext": {
@@ -33,9 +240,28 @@
             "editor.action.clipboardCopyAction",
             "editor.action.clipboardPasteAction"
         ],
+        "debug": [
+            "editor.debug.action.selectionToRepl",
+            "editor.debug.action.toggleInlineBreakpoint",
+            "editor.debug.action.selectionToWatch",
+            "editor.debug.action.stepIntoTargets",
+            "editor.debug.action.runToCursor",
+            "debug.jumpToCursor"
+        ],
         "navigation": [
             "editor.action.revealDefinition",
-            "references-view.findReferences"
+            "editor.action.revealDeclaration",
+            "editor.action.goToTypeDefinition",
+            "editor.action.goToImplementation",
+            "references-view.findReferences",
+            "references-view.showCallHierarchy",
+            "references-view.showTypeHierarchy"
+        ],
+        "testing": [
+            "testing.runAtCursor",
+            "testing.debugAtCursor",
+            "testing.runCurrentFile",
+            "testing.debugCurrentFile"
         ],
         "z_commands": [
             "workbench.action.showCommands"
@@ -43,6 +269,7 @@
     },
     "EditorTitle": {
         "navigation": [
+            "submenu:EditorTitleRun",
             "workbench.action.unlockEditorGroup"
         ]
     },
@@ -253,6 +480,12 @@
             "workbench.action.nextEditorInGroup",
             "workbench.action.openPreviousRecentlyUsedEditorInGroup",
             "workbench.action.previousEditorInGroup"
+        ],
+        "3_global_nav": [
+            "workbench.action.showAllSymbols"
+        ],
+        "4_symbol_nav": [
+            "workbench.action.gotoSymbol"
         ]
     },
     "MenubarHelpMenu": {
@@ -325,10 +558,13 @@
             "workbench.view.explorer",
             "workbench.view.search",
             "workbench.view.scm",
+            "workbench.view.debug",
             "workbench.view.extensions",
             "workbench.view.references",
+            "workbench.view.extension.test",
             "workbench.actions.view.problems",
             "workbench.action.output.toggleOutput",
+            "workbench.debug.action.toggleRepl",
             "workbench.action.terminal.toggleTerminal",
             "workbench.action.toggleSidebarVisibility",
             "workbench.action.toggleAuxiliaryBar",
@@ -393,7 +629,31 @@
             "workbench.action.terminal.killActiveTab"
         ]
     },
+    "TestItem": {
+        "builtin@1": [
+            "testing.run",
+            "testing.debug",
+            "testing.editFocusedTest"
+        ],
+        "inline": [
+            "testing.run",
+            "testing.debug",
+            "testing.editFocusedTest"
+        ]
+    },
+    "ViewContainerTitle": {
+        "": [
+            "workbench.action.debug.selectandstart",
+            "workbench.action.debug.configure"
+        ],
+        "navigation": [
+            "workbench.action.debug.configure"
+        ]
+    },
     "ViewTitle": {
+        "0_filter": [
+            "submenu:extensionsFilterSubMenu"
+        ],
         "1_actions": [
             "scm.graph.loadMore"
         ],
@@ -425,23 +685,101 @@
         "9_footer": [
             "git.showOutput"
         ],
+        "displayAction": [
+            "testing.collapseAll",
+            "testing.clearTestResults"
+        ],
         "navigation": [
+            "variables.collapse",
             "workbench.action.toggleEditorGroupLayout",
             "explorer.newFile",
             "search.action.collapseSearchResults",
             "search.action.expandSearchResults",
             "workbench.action.terminal.new",
+            "testing.refreshTests",
+            "testing.cancelTestRefresh",
+            "workbench.debug.viewlet.action.addWatchExpression",
+            "callStack.collapse",
+            "workbench.debug.viewlet.action.addFunctionBreakpointAction",
+            "workbench.debug.viewlet.action.toggleBreakpointsPresentation",
             "git.refresh",
             "scm.graph.refresh",
             "extensions.refresh",
             "references-view.collapseAll",
             "references-view.expandAll",
+            "references-view.showOutgoingCalls",
+            "references-view.showIncomingCalls",
+            "references-view.showSupertypes",
+            "references-view.showSubtypes",
+            "testing.cancelRun",
+            "testing.runSelected",
+            "workbench.debug.viewlet.action.addDataBreakpointOnAddress",
+            "testing.debugSelected",
+            "testing.showMostRecentOutput",
+            "testing.collapsePeekStack",
+            "testing.clearTestResults",
+            "testing.toggleResultsViewLayout",
             "workbench.action.files.saveAll",
             "explorer.newFolder",
+            "workbench.debug.viewlet.action.removeAllWatchExpressions",
+            "workbench.debug.viewlet.action.toggleBreakpointsActivatedAction",
             "references-view.clear",
+            "references-view.removeCallItem",
+            "references-view.removeTypeItem",
             "workbench.files.action.refreshFilesExplorer",
             "openEditors.closeAll",
-            "workbench.action.terminal.kill"
+            "workbench.action.terminal.kill",
+            "watch.collapse",
+            "loadedScripts.collapse",
+            "workbench.debug.viewlet.action.removeAllBreakpoints",
+            "workbench.debug.panel.action.clearReplAction"
+        ],
+        "sortBy": [
+            "testing.sortByDuration",
+            "testing.sortByLocation",
+            "testing.sortByStatus"
+        ]
+    },
+    "extensionsCategoryFilterSubMenu": {
+        "": [
+            "extensions.actions.searchByCategory.AI",
+            "extensions.actions.searchByCategory.Azure",
+            "extensions.actions.searchByCategory.Chat",
+            "extensions.actions.searchByCategory.Data Science",
+            "extensions.actions.searchByCategory.Debuggers",
+            "extensions.actions.searchByCategory.Extension Packs",
+            "extensions.actions.searchByCategory.Education",
+            "extensions.actions.searchByCategory.Formatters",
+            "extensions.actions.searchByCategory.Keymaps",
+            "extensions.actions.searchByCategory.Language Packs",
+            "extensions.actions.searchByCategory.Linters",
+            "extensions.actions.searchByCategory.Machine Learning",
+            "extensions.actions.searchByCategory.Notebooks",
+            "extensions.actions.searchByCategory.Programming Languages",
+            "extensions.actions.searchByCategory.SCM Providers",
+            "extensions.actions.searchByCategory.Snippets",
+            "extensions.actions.searchByCategory.Testing",
+            "extensions.actions.searchByCategory.Themes",
+            "extensions.actions.searchByCategory.Visualization",
+            "extensions.actions.searchByCategory.Other"
+        ]
+    },
+    "extensionsFilterSubMenu": {
+        "2_categories": [
+            "submenu:extensionsCategoryFilterSubMenu"
+        ],
+        "3_installed": [
+            "workbench.extensions.action.installedExtensions",
+            "workbench.extensions.action.extensionUpdates"
+        ],
+        "4_sort": [
+            "submenu:extensionsSortSubMenu"
+        ]
+    },
+    "extensionsSortSubMenu": {
+        "": [
+            "extensions.sort.name",
+            "extensions.sort.publishedDate"
         ]
     }
 }

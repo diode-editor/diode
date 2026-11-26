@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Uri } from "./uri.ts";
+import { Uri, UriUtils } from "./uri.ts";
 
 describe("Uri — file scheme", () => {
     it("file() builds an absolute path and fsPath", () => {
@@ -107,5 +107,15 @@ describe("Uri — with", () => {
 
     it("from() builds a uri from components", () => {
         expect(Uri.from({ scheme: "untitled", path: "Untitled-7" }).toString()).toBe("untitled:Untitled-7");
+    });
+});
+
+describe("UriUtils.basenameOrAuthority", () => {
+    it("is the basename when the path has one", () => {
+        expect(UriUtils.basenameOrAuthority(Uri.file("/a/b/c.js"))).toBe("c.js");
+    });
+
+    it("is the authority when the path has no basename", () => {
+        expect(UriUtils.basenameOrAuthority(Uri.parse("http://www.example.com/"))).toBe("www.example.com");
     });
 });

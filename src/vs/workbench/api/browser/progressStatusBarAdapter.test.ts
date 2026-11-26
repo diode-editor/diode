@@ -23,7 +23,7 @@ describe("ProgressStatusBarAdapter", () => {
     });
 
     it("start adds an entry with a spinner, a timer tick advances the frame", () => {
-        adapter.start(1, "TS: starting");
+        adapter.start(1, { title: "TS: starting" });
         expect(texts()).toEqual(["⠋ TS: starting"]);
 
         vi.advanceTimersByTime(100);
@@ -33,7 +33,7 @@ describe("ProgressStatusBarAdapter", () => {
     });
 
     it("report updates the message and accumulates percent clamped to 0–100", () => {
-        adapter.start(1, "TS");
+        adapter.start(1, { title: "TS" });
         adapter.report(1, "loading project");
         expect(texts()).toEqual(["⠋ TS · loading project"]);
 
@@ -48,7 +48,7 @@ describe("ProgressStatusBarAdapter", () => {
     });
 
     it("end removes the entry and stops the timer; report/end for an unknown handle is a no-op", () => {
-        adapter.start(1, "TS");
+        adapter.start(1, { title: "TS" });
         adapter.end(1);
         expect(texts()).toEqual([]);
 
@@ -62,22 +62,22 @@ describe("ProgressStatusBarAdapter", () => {
     });
 
     it("parallel progresses are independent entries; a repeated start replaces", () => {
-        adapter.start(1, "TS");
-        adapter.start(2, "Go");
+        adapter.start(1, { title: "TS" });
+        adapter.start(2, { title: "Go" });
         expect(texts()).toEqual(["⠋ TS", "⠋ Go"]);
 
         adapter.end(1);
         expect(texts()).toEqual(["⠋ Go"]);
 
-        adapter.start(2, "Go (restart)");
+        adapter.start(2, { title: "Go (restart)" });
         expect(texts()).toEqual(["⠋ Go (restart)"]);
     });
 
     it("dispose clears all entries and timers; an empty title renders without a tail", () => {
-        adapter.start(1, "");
+        adapter.start(1, { title: "" });
         adapter.report(1, "message only");
         expect(texts()).toEqual(["⠋ message only"]);
-        adapter.start(2, "B");
+        adapter.start(2, { title: "B" });
 
         adapter.dispose();
         expect(texts()).toEqual([]);

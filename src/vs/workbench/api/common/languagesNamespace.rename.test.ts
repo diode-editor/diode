@@ -36,6 +36,7 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
             return Promise.resolve(true);
         },
         executeCommand: () => Promise.resolve(undefined),
+        hasCommand: () => Promise.resolve(false),
         ...deps,
     });
     ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });

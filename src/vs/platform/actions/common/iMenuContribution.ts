@@ -21,6 +21,11 @@ export interface IMenuContribution {
     readonly order?: number;
     /** A product icon follows `diode.icons.nerdFont`; a plain string is a literal. */
     readonly icon?: IProductIcon | string;
+    /**
+     * A theme color id for the icon of a button (upstream colors codicons by CSS rules, `debugColors.ts`: the debug
+     * toolbar and its docked copy in the Run and Debug title).
+     */
+    readonly iconColor?: string;
     readonly args?: (context: unknown) => readonly unknown[];
     /** `false` hides the shortcut; a string is a literal; otherwise it is resolved from `KeybindingRegistry`. */
     readonly shortcut?: string | false;
@@ -41,6 +46,14 @@ export interface ISubmenuContribution {
     readonly order?: number;
     /** Rendered as a dropdown (`SelectBoxElement`) instead of a nested popup. */
     readonly isSelection?: boolean;
+    /**
+     * Upstream `ISubmenuItem.isSplitButton`: in a title bar, a button running one item of the submenu plus an
+     * arrow opening all of them. The button runs the first item; with `togglePrimaryAction` the one last picked
+     * from the arrow, remembered per workspace.
+     */
+    readonly isSplitButton?: boolean | { readonly togglePrimaryAction: true };
+    /** The split button's glyph when its item has none of its own (an extension command with an SVG icon). */
+    readonly icon?: IProductIcon | string;
 }
 
 export type MenuContribution = IMenuContribution | ISubmenuContribution;

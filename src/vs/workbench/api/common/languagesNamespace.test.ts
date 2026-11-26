@@ -187,7 +187,10 @@ describe("LanguagesNamespace", () => {
         expect(a.documentation).toBe("md");
         expect(a.sortText).toBe("0");
         expect(a.filterText).toBe("f");
-        expect(a.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 1 } });
+        expect(a.range).toEqual({
+            insert: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+            replace: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+        });
         expect(a.command).toEqual({ command: "c", arguments: [1] });
         const d = result.items[1];
         expect(d.insertText).toBe("d");

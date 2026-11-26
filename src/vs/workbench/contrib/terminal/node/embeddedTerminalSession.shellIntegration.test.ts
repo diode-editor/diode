@@ -1,0 +1,188 @@
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { makeLogger } from "../../../../../TestUtils/configurationLayersFixture.ts";
+import { findShell, PROMPT_START, RecordingSession } from "../../../../../TestUtils/shellIntegrationSession.ts";
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+
+import type { EmbeddedTerminalOptions, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
+
+const BASH = "/bin/bash";
+const ZSH = findShell("zsh");
+const WAIT = { timeout: 10_000, interval: 50 };
+/**
+ * Debian's `/etc/zsh/zshrc` runs `compinit` unless this is set; on a CI runner it finds "insecure directories" and
+ * waits for an answer instead of drawing the prompt.
+ */
+const NO_GLOBAL_COMPINIT = { skip_global_compinit: "1" };
+
+// The user's ZDOTDIR goes through the terminal env: the fallback, `os.homedir()`, reads the process's real HOME — a
+// stubbed one does not reach it in a worker thread (Stryker runs vitest in the `threads` pool). The fallback itself is
+// covered by the port's unit test.
+let home: string;
+let tmp: string;
+const sessions: EmbeddedTerminalSession[] = [];
+
+beforeEach(() => {
+    home = mkdtempSync(path.join(os.tmpdir(), "diode-si-home-"));
+    tmp = mkdtempSync(path.join(os.tmpdir(), "diode-si-tmp-"));
+    // `os.tmpdir()` reads TMPDIR on every call: the zsh ZDOTDIR goes here, not into the machine's /tmp.
+    vi.stubEnv("TMPDIR", tmp);
+});
+afterEach(() => {
+    for (const session of sessions.splice(0)) session.dispose();
+    vi.unstubAllEnvs();
+    // A killed shell may still be writing into its home for a moment.
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+});
+
+function start(options: Partial<EmbeddedTerminalOptions>, logger?: ILogger): RecordingSession {
+    const session = new RecordingSession(
+        {
+            cols: 100,
+            rows: 10,
+            cwd: home,
+            env: { HOME: home, HISTFILE: "/dev/null", ZDOTDIR: home, ...NO_GLOBAL_COMPINIT },
+            ...options,
+        },
+        undefined,
+        logger,
+    );
+    sessions.push(session);
+    return session;
+}
+
+async function waitForPrompt(session: RecordingSession): Promise<void> {
+    await vi.waitFor(() => {
+        expect(session.raw).toContain(PROMPT_START);
+    }, WAIT);
+}
+
+function exited(session: RecordingSession): Promise<void> {
+    return new Promise((resolve) => {
+        session.onExit(() => {
+            resolve();
+        });
+    });
+}
+
+async function run(session: RecordingSession, command: string, expected: string): Promise<void> {
+    session.write(`${command}\r`);
+    await vi.waitFor(() => {
+        expect(session.raw).toContain(expected);
+    }, WAIT);
+}
+
+describe("EmbeddedTerminalSession — shell integration injection, bash", () => {
+    it("the script reports the prompt and the command's exit code; the user's .bashrc still runs", async () => {
+        writeFileSync(path.join(home, ".bashrc"), "alias diodealias='echo from-bashrc'\n");
+        const session = start({ shell: BASH, shellIntegrationEnabled: true });
+        await waitForPrompt(session);
+        await run(session, "true", "\x1b]633;D;0\x07");
+        await run(session, "false", "\x1b]633;D;1\x07");
+        // The script consumes `VSCODE_INJECTION` (unsets it); its functions stay.
+        await run(session, 'declare -F __vsc_precmd && echo "fn-$((40 + 2))"', "fn-42");
+        await run(session, "diodealias", "from-bashrc");
+    }, 30_000);
+
+    it("login arguments — injected too; the script runs the login profile instead of .bashrc", async () => {
+        writeFileSync(path.join(home, ".bash_profile"), "echo profile-$((1 + 1))\n");
+        writeFileSync(path.join(home, ".bashrc"), "echo bashrc-$((1 + 1))\n");
+        const session = start({ shell: BASH, args: ["-l"], shellIntegrationEnabled: true });
+        await waitForPrompt(session);
+        expect(session.raw).toContain("profile-2");
+        expect(session.raw).not.toContain("bashrc-2");
+    }, 30_000);
+
+    it("relaunch — injected again", async () => {
+        const session = start({ shell: BASH, shellIntegrationEnabled: true });
+        await waitForPrompt(session);
+        const exit = exited(session);
+        session.write("exit\r");
+        await exit;
+        session.raw = "";
+        session.relaunch({ shell: BASH, cwd: home, env: { HOME: home }, shellIntegrationEnabled: true });
+        await waitForPrompt(session);
+    }, 30_000);
+
+    it("the setting off, a task terminal, custom arguments — the shell runs as is", async () => {
+        const logger = makeLogger();
+        const cases: Partial<EmbeddedTerminalOptions>[] = [
+            { shellIntegrationEnabled: false },
+            { shellIntegrationEnabled: true, isFeatureTerminal: true },
+            { shellIntegrationEnabled: true, args: ["--norc", "-i"] },
+        ];
+        for (const options of cases) {
+            const session = start({ shell: BASH, ...options }, logger);
+            await run(session, 'echo "[${VSCODE_INJECTION:-none}]"', "[none]");
+            expect(session.raw).not.toContain(PROMPT_START);
+        }
+        // Unsupported args are not a warning upstream — only an unknown shell is.
+        expect(logger.warn).not.toHaveBeenCalled();
+    }, 30_000);
+});
+
+describe("EmbeddedTerminalSession — VSCODE_NONCE", () => {
+    const printNonce = { shell: "/bin/sh", args: ["-c", 'echo "<$VSCODE_NONCE>"'] };
+
+    async function nonceOf(session: RecordingSession): Promise<string> {
+        let nonce = "";
+        await vi.waitFor(() => {
+            const match = /<([0-9a-f-]{36})>/.exec(session.raw);
+            expect(match).not.toBeNull();
+            nonce = match![1];
+        }, WAIT);
+        return nonce;
+    }
+
+    it("set even without the injection; one per terminal, the same after a relaunch", async () => {
+        const first = start(printNonce);
+        const firstExit = exited(first);
+        const second = start(printNonce);
+        const nonce = await nonceOf(first);
+        expect(await nonceOf(second)).not.toBe(nonce);
+        await firstExit;
+        first.raw = "";
+        first.relaunch(printNonce);
+        expect(await nonceOf(first)).toBe(nonce);
+    }, 30_000);
+});
+
+describe.skipIf(ZSH === undefined)("EmbeddedTerminalSession — shell integration injection, zsh", () => {
+    // Without zsh the suite is skipped: CI installs it (`.github/workflows/ci.yml`).
+    const zsh = ZSH ?? "";
+    const zdotdir = () => path.join(tmp, `${os.userInfo().username}-diode-zsh`);
+
+    it("ZDOTDIR is ours in TMPDIR, the script reports the prompt and exit code, the user's .zshrc runs", async () => {
+        writeFileSync(path.join(home, ".zshrc"), "alias diodealias='echo from-zshrc'\n");
+        const session = start({ shell: zsh, shellIntegrationEnabled: true });
+        await waitForPrompt(session);
+        await run(session, "true", "\x1b]633;D;0\x07");
+        await run(session, "diodealias", "from-zshrc");
+        await run(session, 'echo "<$ZDOTDIR>"', `<${home}>`);
+        expect(existsSync(path.join(zdotdir(), ".zshrc"))).toBe(true);
+    }, 30_000);
+
+    it("the user's own ZDOTDIR — its .zshrc runs", async () => {
+        const own = path.join(home, "zdot");
+        mkdirSync(own);
+        writeFileSync(path.join(own, ".zshrc"), "alias diodealias='echo from-own-zdotdir'\n");
+        const session = start({
+            shell: zsh,
+            env: { HOME: home, ZDOTDIR: own, ...NO_GLOBAL_COMPINIT },
+            shellIntegrationEnabled: true,
+        });
+        await waitForPrompt(session);
+        await run(session, "diodealias", "from-own-zdotdir");
+    }, 30_000);
+
+    it("a script that cannot be copied is skipped — the shell still starts with the injection env", async () => {
+        mkdirSync(path.join(zdotdir(), ".zlogin"), { recursive: true });
+        const session = start({ shell: zsh, shellIntegrationEnabled: true });
+        await waitForPrompt(session);
+    }, 30_000);
+});

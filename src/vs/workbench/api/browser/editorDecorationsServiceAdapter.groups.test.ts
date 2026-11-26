@@ -49,14 +49,33 @@ describe("EditorDecorationsServiceAdapter — all groups", () => {
         service.editorGroups.focusGroup({ index: 0 });
         const inactive = service.editorGroups.groups[1].getPane(0);
         expect(inactive instanceof TextEditorPane).toBe(true);
-        const pushed = vi.spyOn(inactive as TextEditorPane, "setExtensionGutterChangeDecorations");
+        const pushed = vi.spyOn(inactive as TextEditorPane, "setOverviewRulerDecorations");
         const decorations = [{ range: createRange(1, 0, 1, 0), color: 0x123456 }];
 
-        new EditorDecorationsServiceAdapter(service).setGutterChangeDecorations(
+        new EditorDecorationsServiceAdapter(service).setOverviewRulerDecorations(
             Uri.file(ws.path("a.ts")).toString(),
             decorations,
         );
 
         expect(pushed).toHaveBeenCalledWith(decorations);
+    });
+
+    it("[api:TextEditor.setDecorations] text decorations reach the file's tabs in both splits", () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        const panes = service.getEditors();
+        expect(panes).toHaveLength(2);
+        const pushed = panes.map((pane) => vi.spyOn(pane, "setExtensionTextDecorations"));
+        const decorations = {
+            key: 1,
+            decorations: [{ range: createRange(0, 1, 0, 3), bg: 0x123456, isWholeLine: false }],
+        };
+
+        new EditorDecorationsServiceAdapter(service).setExtensionTextDecorations(
+            Uri.file(ws.path("a.ts")).toString(),
+            decorations,
+        );
+
+        for (const spy of pushed) expect(spy).toHaveBeenCalledWith(decorations);
     });
 });

@@ -5,22 +5,40 @@
  */
 import type * as vscode from "vscode";
 
+import { Uri } from "../../../base/common/uri.ts";
 import { comparePositions, createPosition, type IPosition } from "../../../editor/common/core/iPosition.ts";
-import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
+import { createRange, type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 import type { IColor, IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
-import type { ICoreCompletionItem } from "../../../editor/common/languages/iCompletionSource.ts";
+import {
+    CompletionItemInsertTextRule,
+    CompletionItemTag,
+    type ICompletionItemRanges,
+    type ICoreCompletionItem,
+} from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
+import type { ICoreDocumentSymbol } from "../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ICoreParameterInfo,
     ICoreSignature,
     ICoreSignatureHelp,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ICoreWorkspaceSymbol,
+    ICoreWorkspaceSymbolLocation,
+} from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { snippetText } from "./extHostSnippetInsert.ts";
 import {
     Diagnostic,
     EndOfLine,
+    Hover,
+    InlineValueEvaluatableExpression,
+    InlineValueText,
+    InlineValueVariableLookup,
+    MarkdownString,
     ParameterInformation,
     Position,
     Range,
@@ -33,16 +51,28 @@ import {
     type WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import type {
+    IWireCodeLensCommand,
+    IWireDecorationOptions,
+    IWireDocumentHighlight,
+    IWireDocumentLink,
     IWireEditorEdit,
+    IWireEvaluatableExpression,
+    IWireInlayHint,
+    IWireLinkedEditingRanges,
     IWireSelection,
     IWireWorkspaceEditOp,
     SerializedColor,
+    SerializedDecorationAttachmentRenderOptions,
+    SerializedDecorationInstanceRenderOptions,
     SerializedDecorationRenderOptions,
+    SerializedThemableDecorationInstanceRenderOptions,
+    SerializedThemableDecorationRenderOptions,
     WireFoldingRange,
     WireMarker,
     WireRenamePrepare,
     WireTextEdit,
 } from "./wireTypes.ts";
+import { parseWireStringArray } from "./wireTypes.ts";
 
 function isFiniteNumber(raw: unknown): raw is number {
     return Number.isFinite(raw);
@@ -76,13 +106,31 @@ export function toVscodeRange(range: IRange): Range {
     return new Range(range.start.line, range.start.character, range.end.line, range.end.character);
 }
 
-/** A broken range is dropped, just as the host's decoration parsing would drop it. */
+/**
+ * A broken range is dropped, just as the host's decoration parsing would drop it; a bare `Range` goes without
+ * `renderOptions` and `hoverMessage`.
+ */
 export function normalizeDecorationRanges(
     rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
-): IRange[] {
-    return rangesOrOptions.flatMap((item) => {
-        const range = rangeFrom("range" in item ? item.range : item);
-        return range === null ? [] : [range];
+): IWireDecorationOptions[] {
+    return rangesOrOptions.flatMap((item): IWireDecorationOptions[] => {
+        if (!("range" in item)) {
+            const range = rangeFrom(item);
+            return range === null ? [] : [{ range }];
+        }
+        const range = rangeFrom(item.range);
+        if (range === null) return [];
+        const renderOptions = asObject(item.renderOptions);
+        const hoverMessage = serializeHoverContents(item.hoverMessage);
+        return [
+            {
+                range,
+                ...(renderOptions === undefined
+                    ? {}
+                    : { renderOptions: serializeInstanceRenderOptions(renderOptions) }),
+                ...(hoverMessage.length === 0 ? {} : { hoverMessage }),
+            },
+        ];
     });
 }
 
@@ -116,29 +164,117 @@ export function serializeColor(value: unknown): SerializedColor | undefined {
     return undefined;
 }
 
-export function serializeDecorationRenderOptions(options: unknown): SerializedDecorationRenderOptions {
-    const o = (typeof options === "object" && options !== null ? options : {}) as {
-        isWholeLine?: unknown;
-        overviewRulerLane?: unknown;
-        backgroundColor?: unknown;
-        color?: unknown;
-        overviewRulerColor?: unknown;
-    };
+function serializeThemableDecorationRenderOptions(
+    o: Record<string, unknown>,
+): SerializedThemableDecorationRenderOptions {
     const result: {
-        isWholeLine?: boolean;
-        overviewRulerLane?: number;
         backgroundColor?: SerializedColor;
         color?: SerializedColor;
         overviewRulerColor?: SerializedColor;
-    } = {};
-    if (typeof o.isWholeLine === "boolean") result.isWholeLine = o.isWholeLine;
-    if (typeof o.overviewRulerLane === "number") result.overviewRulerLane = o.overviewRulerLane;
+        fontStyle?: string;
+        fontWeight?: string;
+        textDecoration?: string;
+        opacity?: string;
+        gutterIconPath?: string;
+    } & SerializedThemableDecorationInstanceRenderOptions = serializeThemableInstanceRenderOptions(o);
     const bg = serializeColor(o.backgroundColor);
     if (bg !== undefined) result.backgroundColor = bg;
     const color = serializeColor(o.color);
     if (color !== undefined) result.color = color;
     const overview = serializeColor(o.overviewRulerColor);
     if (overview !== undefined) result.overviewRulerColor = overview;
+    if (typeof o.fontStyle === "string") result.fontStyle = o.fontStyle;
+    if (typeof o.fontWeight === "string") result.fontWeight = o.fontWeight;
+    if (typeof o.textDecoration === "string") result.textDecoration = o.textDecoration;
+    if (typeof o.opacity === "string") result.opacity = o.opacity;
+    const gutterIcon = gutterIconText(o.gutterIconPath);
+    if (gutterIcon !== undefined) result.gutterIconPath = gutterIcon;
+    return result;
+}
+
+/** Upstream `pathOrURIToURI`: a string is a file path. */
+function gutterIconText(value: unknown): string | undefined {
+    if (typeof value === "string") return Uri.file(value).toString();
+    return typeof value === "object" && value !== null ? uriText(value) : undefined;
+}
+
+function asObject(value: unknown): Record<string, unknown> | undefined {
+    return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
+}
+
+/**
+ * Only what a cell can draw: the text, its colors, its attributes, the horizontal margin and the width
+ * (`borderColor` colors a swatch). Borders, padding, height and fonts have no cell counterpart.
+ */
+function serializeAttachment(o: Record<string, unknown>): SerializedDecorationAttachmentRenderOptions {
+    const result: {
+        contentText?: string;
+        color?: SerializedColor;
+        backgroundColor?: SerializedColor;
+        borderColor?: SerializedColor;
+        fontStyle?: string;
+        fontWeight?: string;
+        textDecoration?: string;
+        margin?: string;
+        width?: string;
+    } = {};
+    if (typeof o.contentText === "string") result.contentText = o.contentText;
+    const color = serializeColor(o.color);
+    if (color !== undefined) result.color = color;
+    const bg = serializeColor(o.backgroundColor);
+    if (bg !== undefined) result.backgroundColor = bg;
+    const border = serializeColor(o.borderColor);
+    if (border !== undefined) result.borderColor = border;
+    if (typeof o.fontStyle === "string") result.fontStyle = o.fontStyle;
+    if (typeof o.fontWeight === "string") result.fontWeight = o.fontWeight;
+    if (typeof o.textDecoration === "string") result.textDecoration = o.textDecoration;
+    if (typeof o.margin === "string") result.margin = o.margin;
+    if (typeof o.width === "string") result.width = o.width;
+    return result;
+}
+
+function serializeThemableInstanceRenderOptions(
+    o: Record<string, unknown>,
+): SerializedThemableDecorationInstanceRenderOptions {
+    const result: {
+        before?: SerializedDecorationAttachmentRenderOptions;
+        after?: SerializedDecorationAttachmentRenderOptions;
+    } = {};
+    const before = asObject(o.before);
+    if (before !== undefined) result.before = serializeAttachment(before);
+    const after = asObject(o.after);
+    if (after !== undefined) result.after = serializeAttachment(after);
+    return result;
+}
+
+function serializeInstanceRenderOptions(o: Record<string, unknown>): SerializedDecorationInstanceRenderOptions {
+    const result: {
+        light?: SerializedThemableDecorationInstanceRenderOptions;
+        dark?: SerializedThemableDecorationInstanceRenderOptions;
+    } & SerializedThemableDecorationInstanceRenderOptions = serializeThemableInstanceRenderOptions(o);
+    const light = asObject(o.light);
+    if (light !== undefined) result.light = serializeThemableInstanceRenderOptions(light);
+    const dark = asObject(o.dark);
+    if (dark !== undefined) result.dark = serializeThemableInstanceRenderOptions(dark);
+    return result;
+}
+
+export function serializeDecorationRenderOptions(options: unknown): SerializedDecorationRenderOptions {
+    const o = asObject(options) ?? {};
+    const result: {
+        isWholeLine?: boolean;
+        rangeBehavior?: number;
+        overviewRulerLane?: number;
+        light?: SerializedThemableDecorationRenderOptions;
+        dark?: SerializedThemableDecorationRenderOptions;
+    } & SerializedThemableDecorationRenderOptions = serializeThemableDecorationRenderOptions(o);
+    if (typeof o.isWholeLine === "boolean") result.isWholeLine = o.isWholeLine;
+    if (typeof o.rangeBehavior === "number") result.rangeBehavior = o.rangeBehavior;
+    if (typeof o.overviewRulerLane === "number") result.overviewRulerLane = o.overviewRulerLane;
+    const light = asObject(o.light);
+    if (light !== undefined) result.light = serializeThemableDecorationRenderOptions(light);
+    const dark = asObject(o.dark);
+    if (dark !== undefined) result.dark = serializeThemableDecorationRenderOptions(dark);
     return result;
 }
 
@@ -238,14 +374,56 @@ export function serializeHoverContents(raw: unknown): string[] {
     return blocks;
 }
 
+/**
+ * With `supportThemeIcons` upstream draws `$(name)` as an icon and an escaped `\\$(name)` (what `appendText`
+ * writes) as the literal `$(name)`. The hover draws no icons, so the escape's own backslash goes here, before
+ * the markdown loses the flag; parentheses may be markdown-escaped too (`\\$\(name\)`).
+ */
+const ESCAPED_THEME_ICON = /\\\\(\$\\?\([A-Za-z0-9-]+(?:~[A-Za-z]+)?\\?\))/g;
+
 function readHoverBlock(block: unknown): string | null {
     if (typeof block === "string") return block;
-    if (block === null) return null;
-    const b = block as { value?: unknown; language?: unknown };
+    if (typeof block !== "object" || block === null) return null;
+    const b = block as { value?: unknown; language?: unknown; supportThemeIcons?: unknown };
     if (typeof b.value !== "string") return null;
+    if (b.supportThemeIcons === true) return b.value.replace(ESCAPED_THEME_ICON, "$1");
     // Legacy `MarkedString` goes into a fence so the UI can tell code from prose.
     if (typeof b.language !== "string" || b.language === "") return b.value;
     return `\`\`\`${b.language}\n${b.value}\n\`\`\``;
+}
+
+/**
+ * Upstream's `HoverAdapter.provideHover` and the `Hover.from`/`Hover.to` round trip: no contents is no hover,
+ * a missing range is the word at the position or an empty range there, contents become MarkdownStrings.
+ */
+export function toApiHover(raw: unknown, document: vscode.TextDocument, position: vscode.Position): Hover | null {
+    const { contents, range } = (raw ?? {}) as { contents?: unknown; range?: unknown };
+    if (!Array.isArray(contents) || contents.length === 0) return null;
+    const given = rangeFrom(range);
+    return new Hover(
+        contents.map(toApiMarkdown),
+        given === null
+            ? (document.getWordRangeAtPosition(position) ?? new Range(position, position))
+            : toVscodeRange(given),
+    );
+}
+
+/**
+ * Upstream's `MarkdownString.from` then `.to`. Not `readHoverBlock`: that one makes text for our own hover widget
+ * (icon escapes undone, blank blocks dropped), while an extension gets back what upstream gives it.
+ */
+function toApiMarkdown(block: unknown): MarkdownString {
+    if (typeof block === "string") return new MarkdownString(block);
+    const { language, value } = (block ?? {}) as { language?: unknown; value?: unknown };
+    if (typeof language === "string" && typeof value === "string") {
+        return new MarkdownString(`\`\`\`${language}\n${value}\n\`\`\`\n`);
+    }
+    if (!(block instanceof MarkdownString)) return new MarkdownString();
+    const copy = new MarkdownString(block.value, block.supportThemeIcons);
+    copy.isTrusted = block.isTrusted;
+    copy.supportHtml = block.supportHtml;
+    copy.baseUri = block.baseUri;
+    return copy;
 }
 
 /**
@@ -371,27 +549,11 @@ function readLabelDetails(item: vscode.CompletionItem): { detail?: string; descr
 }
 
 /**
- * There are no snippet sessions: this is a safeguard so that `${1:name}` does not end up
- * in the buffer, not snippet support.
+ * There are no snippet sessions: the text `insertSnippet` would put in the buffer, with the template as is
+ * (`keepWhitespace`), so that `${1:name}` and the escapes of `SnippetString.appendText` do not end up there.
  */
 export function stripSnippetPlaceholders(value: string): string {
-    // The escaped `\$` is hidden FIRST: otherwise `\$5` parses as the placeholder
-    // `$5`, leaving an orphaned backslash behind.
-    const ESCAPED_DOLLAR = "\u0000";
-    return (
-        value
-            .replace(/\\\$/g, ESCAPED_DOLLAR)
-            // `split(",", 1).join("")` instead of `[0]`: yields the first choice without an
-            // "array might be empty" branch (it never is, and covering it would need a test).
-            .replace(/\$\{(\d+)\|([^|]*)\|\}/g, (_all, _index: string, choices: string) =>
-                // Stryker disable next-line StringLiteral: equivalent `join` separator — `split(…, 1)` always yields exactly one element, nothing to join; mutating the `split` separator is covered by the "${1|foo,bar|}" test
-                choices.split(",", 1).join(""),
-            )
-            .replace(/\$\{\d+:([^}]*)\}/g, "$1")
-            .replace(/\$\{\d+\}/g, "")
-            .replace(/\$\d+/g, "")
-            .replaceAll(ESCAPED_DOLLAR, "$")
-    );
+    return snippetText(value);
 }
 
 function readInsertText(item: vscode.CompletionItem, label: string): string {
@@ -417,11 +579,15 @@ function readDocumentationText(doc: unknown): string | undefined {
 }
 
 /** By shape, not `instanceof`: a `Range` from a foreign bundle is a range too. */
-function readRange(item: vscode.CompletionItem): IRange | undefined {
+function readRange(item: vscode.CompletionItem): IRange | ICompletionItemRanges | undefined {
     const raw = (item as { range?: unknown }).range;
     if (raw === undefined || raw === null) return undefined;
-    const replacing = (raw as { replacing?: unknown }).replacing;
-    return rangeFrom(replacing === undefined ? raw : replacing) ?? undefined;
+    const { inserting, replacing } = raw as { inserting?: unknown; replacing?: unknown };
+    if (replacing === undefined) return rangeFrom(raw) ?? undefined;
+    const replace = rangeFrom(replacing);
+    if (replace === null) return undefined;
+    const insert = rangeFrom(inserting);
+    return insert === null ? replace : { insert, replace };
 }
 
 /** `id` is the item key in the response cache; the host resolves the item by it later. */
@@ -435,11 +601,15 @@ export function serializeCompletionItem(item: vscode.CompletionItem, id: string)
     const sortText = (item as { sortText?: unknown }).sortText;
     const filterText = (item as { filterText?: unknown }).filterText;
     const documentation = readDocumentation(item);
-    const range = readRange(item);
+    // The old `textEdit` wins over `insertText` and `range`, as upstream `_convertCompletionItem`.
+    const textEdit = serializeTextEdit((item as { textEdit?: unknown }).textEdit);
+    const range = textEdit?.range ?? readRange(item);
     const additionalEdits = readAdditionalTextEdits(item);
+    const tags = readCompletionTags(item);
+    const commitCharacters = readCommitCharacters(item);
     return {
         label,
-        insertText: readInsertText(item, label),
+        insertText: textEdit?.text ?? readInsertText(item, label),
         id,
         ...(labelDetails.detail !== undefined ? { labelDetail: labelDetails.detail } : {}),
         ...(labelDetails.description !== undefined ? { labelDescription: labelDetails.description } : {}),
@@ -458,7 +628,25 @@ export function serializeCompletionItem(item: vscode.CompletionItem, id: string)
         ...(typeof sortText === "string" ? { sortText } : {}),
         ...(typeof filterText === "string" ? { filterText } : {}),
         ...(additionalEdits.length > 0 ? { additionalEdits } : {}),
+        ...(tags.length > 0 ? { tags } : {}),
+        ...((item as { preselect?: unknown }).preselect === true ? { preselect: true } : {}),
+        ...(commitCharacters.length > 0 ? { commitCharacters } : {}),
+        ...((item as { keepWhitespace?: unknown }).keepWhitespace === true
+            ? { insertTextRules: CompletionItemInsertTextRule.KeepWhitespace }
+            : {}),
     };
+}
+
+/** Unknown tags are dropped, as upstream `CompletionItemTag.from` maps them to nothing. */
+function readCompletionTags(item: vscode.CompletionItem): CompletionItemTag[] {
+    const raw = (item as { tags?: unknown }).tags;
+    if (!Array.isArray(raw)) return [];
+    return raw.some((tag) => tag === CompletionItemTag.Deprecated) ? [CompletionItemTag.Deprecated] : [];
+}
+
+function readCommitCharacters(item: vscode.CompletionItem): string[] {
+    const chars = parseWireStringArray((item as { commitCharacters?: unknown }).commitCharacters) ?? [];
+    return chars.filter((c) => c !== "");
 }
 
 export function readAdditionalTextEdits(item: vscode.CompletionItem): IWireEditorEdit[] {
@@ -502,6 +690,100 @@ export function serializeTextEdit(edit: unknown): IWireEditorEdit | null {
     const range = rangeFrom(e.range);
     if (range === null || typeof e.newText !== "string") return null;
     return { range, text: e.newText };
+}
+
+function serializeSymbolTags(raw: unknown): number[] {
+    return Array.isArray(raw) ? raw.filter(isFiniteNumber) : [];
+}
+
+function serializeDocumentSymbol(raw: vscode.DocumentSymbol): ICoreDocumentSymbol | null {
+    const range = rangeFrom(raw.range);
+    const selectionRange = rangeFrom(raw.selectionRange);
+    if (range === null || selectionRange === null || typeof raw.name !== "string") return null;
+    return {
+        name: raw.name,
+        detail: typeof raw.detail === "string" ? raw.detail : "",
+        kind: raw.kind,
+        tags: serializeSymbolTags(raw.tags),
+        range,
+        selectionRange,
+        children: Array.isArray(raw.children) ? serializeDocumentSymbolList(raw.children) : [],
+    };
+}
+
+function serializeDocumentSymbolList(raw: readonly vscode.DocumentSymbol[]): ICoreDocumentSymbol[] {
+    return raw.flatMap((symbol) => serializeDocumentSymbol(symbol) ?? []);
+}
+
+/** Upstream `DocumentSymbolAdapter._asDocumentSymbolTree`: sorted by start, longest first, nested by containment. */
+function symbolInformationToTree(infos: readonly vscode.SymbolInformation[]): ICoreDocumentSymbol[] {
+    const elements = infos.flatMap((info): (ICoreDocumentSymbol & { children: ICoreDocumentSymbol[] })[] => {
+        const range = rangeFrom(info.location.range);
+        if (range === null) return [];
+        return [
+            {
+                name: info.name || "!!MISSING: name!!",
+                detail: "",
+                kind: info.kind,
+                tags: serializeSymbolTags(info.tags),
+                containerName: info.containerName,
+                range,
+                selectionRange: range,
+                children: [],
+            },
+        ];
+    });
+    elements.sort(
+        (a, b) => comparePositions(a.range.start, b.range.start) || comparePositions(b.range.end, a.range.end),
+    );
+    const roots: ICoreDocumentSymbol[] = [];
+    const parents: (typeof elements)[number][] = [];
+    for (const element of elements) {
+        while (parents.length > 0 && !strictlyContains(parents[parents.length - 1].range, element.range)) {
+            parents.pop();
+        }
+        (parents.at(-1)?.children ?? roots).push(element);
+        parents.push(element);
+    }
+    return roots;
+}
+
+/** The elements are sorted by start, so `inner` never starts before `outer`. */
+function strictlyContains(outer: IRange, inner: IRange): boolean {
+    return comparePositions(inner.end, outer.end) <= 0 && !rangesEqual(outer, inner);
+}
+
+/** A `SymbolInformation[]` answer becomes a tree in the subprocess, as upstream; anything malformed answers nothing. */
+export function serializeDocumentSymbols(raw: unknown): ICoreDocumentSymbol[] {
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    const list = raw as readonly (vscode.DocumentSymbol | vscode.SymbolInformation)[];
+    return "location" in list[0]
+        ? symbolInformationToTree(list as readonly vscode.SymbolInformation[])
+        : serializeDocumentSymbolList(list as readonly vscode.DocumentSymbol[]);
+}
+
+/** A partial location has no range: the provider fills it in on resolve. */
+export function serializeWorkspaceSymbolLocation(raw: unknown): ICoreWorkspaceSymbolLocation | null {
+    const location = raw as { uri?: unknown; range?: unknown } | null | undefined;
+    if (location?.uri == null) return null;
+    const range = rangeFrom(location.range);
+    return { uri: uriText(location.uri), ...(range === null ? {} : { range }) };
+}
+
+/** `null` for what upstream calls an INVALID SymbolInformation: no name; here also no location to open. */
+export function serializeWorkspaceSymbol(
+    raw: vscode.SymbolInformation | null | undefined,
+): ICoreWorkspaceSymbol | null {
+    if (!raw?.name) return null;
+    const location = serializeWorkspaceSymbolLocation(raw.location);
+    if (location === null) return null;
+    return {
+        name: raw.name,
+        kind: raw.kind,
+        tags: serializeSymbolTags(raw.tags),
+        ...(raw.containerName ? { containerName: raw.containerName } : {}),
+        location,
+    };
 }
 
 export function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRange | null {
@@ -550,6 +832,91 @@ function containsRange(outer: IRange, inner: IRange): boolean {
     return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
 }
 
+/**
+ * Upstream `DocumentHighlight.from` over the provider's array. Not an array (`undefined`, `null`, garbage) is
+ * `null`, the provider declined; an entry without a range is dropped.
+ */
+export function serializeDocumentHighlights(raw: unknown): IWireDocumentHighlight[] | null {
+    if (!Array.isArray(raw)) return null;
+    const result: IWireDocumentHighlight[] = [];
+    for (const item of raw as unknown[]) {
+        const range = rangeFrom((item as { range?: unknown } | null | undefined)?.range);
+        if (range === null) continue;
+        const kind = (item as { kind?: unknown }).kind;
+        result.push({ range, ...(isFiniteNumber(kind) ? { kind } : {}) });
+    }
+    return result;
+}
+
+/**
+ * Upstream `LinkedEditingRangeAdapter`: no `ranges` array (`undefined`, `null`, garbage) is `null`, the provider
+ * declined; an entry that is not a range is dropped.
+ */
+/** Upstream `EvaluatableExpression.from`; a value without a range is no answer. */
+export function serializeEvaluatableExpression(raw: unknown): IWireEvaluatableExpression | null {
+    const value = raw as { range?: unknown; expression?: unknown } | null | undefined;
+    const range = rangeFrom(value?.range);
+    if (range === null) return null;
+    const { expression } = value as { expression?: unknown };
+    return typeof expression === "string" ? { range, expression } : { range };
+}
+
+export function serializeLinkedEditingRanges(raw: unknown): IWireLinkedEditingRanges | null {
+    const value = raw as { ranges?: unknown; wordPattern?: unknown } | null | undefined;
+    if (!Array.isArray(value?.ranges)) return null;
+    const ranges: IRange[] = [];
+    for (const item of value.ranges as unknown[]) {
+        const range = rangeFrom(item);
+        if (range !== null) ranges.push(range);
+    }
+    const { wordPattern } = value;
+    return {
+        ranges,
+        ...(wordPattern instanceof RegExp
+            ? { wordPattern: wordPattern.source, wordPatternFlags: wordPattern.flags }
+            : {}),
+    };
+}
+
+/**
+ * Upstream `InlineValuesAdapter` and `InlineValue.from`: no array is `null`; an entry that is none of the three
+ * classes, or has no range, is dropped (upstream fails the whole answer on it). An empty name or expression is
+ * absent: upstream's core takes the range's text for it too.
+ */
+export function serializeInlineValues(raw: unknown): InlineValue[] | null {
+    if (!Array.isArray(raw)) return null;
+    const result: InlineValue[] = [];
+    for (const item of raw as unknown[]) {
+        const value = inlineValueFrom(item);
+        if (value !== null) result.push(value);
+    }
+    return result;
+}
+
+function inlineValueFrom(item: unknown): InlineValue | null {
+    const range = rangeFrom((item as { range?: unknown } | null | undefined)?.range);
+    if (range === null) return null;
+    if (item instanceof InlineValueText) return { type: "text", range, text: String(item.text as unknown) };
+    if (item instanceof InlineValueVariableLookup) {
+        return {
+            type: "variable",
+            range,
+            ...(typeof item.variableName === "string" && item.variableName !== ""
+                ? { variableName: item.variableName }
+                : {}),
+            caseSensitiveLookup: item.caseSensitiveLookup,
+        };
+    }
+    if (item instanceof InlineValueEvaluatableExpression) {
+        return {
+            type: "expression",
+            range,
+            ...(typeof item.expression === "string" && item.expression !== "" ? { expression: item.expression } : {}),
+        };
+    }
+    return null;
+}
+
 /** A channel outside [0, 1] is clamped; not a number (NaN included) — `null`, the color is dropped. */
 function colorChannel(raw: unknown): number | null {
     if (typeof raw !== "number" || Number.isNaN(raw)) return null;
@@ -582,6 +949,96 @@ export function serializeDocumentColors(raw: unknown): IColorInformation[] | nul
         if (range !== null && color !== null) colors.push({ range, color });
     }
     return colors;
+}
+
+/**
+ * Upstream `DocumentLink.from`, except that a broken entry is dropped, not the whole answer. The result lines up
+ * with `valid`, the provider's own objects, for `resolveDocumentLink`.
+ */
+export function serializeDocumentLinks(raw: unknown): {
+    readonly links: IWireDocumentLink[];
+    readonly valid: readonly unknown[];
+} {
+    const links: IWireDocumentLink[] = [];
+    const valid: unknown[] = [];
+    // Stryker disable next-line ArrayDeclaration: an element that is no link is dropped just as there being none
+    for (const item of Array.isArray(raw) ? (raw as unknown[]) : []) {
+        const link = (item ?? {}) as { range?: unknown; target?: unknown; tooltip?: unknown };
+        const range = rangeFrom(link.range);
+        if (range === null) continue;
+        if (link.target !== undefined && link.target !== null && !Uri.isUri(link.target)) continue;
+        links.push({
+            id: valid.length,
+            range,
+            target: documentLinkTarget(item) ?? undefined,
+            tooltip: typeof link.tooltip === "string" ? link.tooltip : undefined,
+        });
+        valid.push(item);
+    }
+    return { links, valid };
+}
+
+/**
+ * `null` — no target yet, or a `resolveDocumentLink` that did not give one. As upstream's opener turns a URI into an
+ * href: `toString()` alone would encode the `=`, `&` and `@` a url needs as they are.
+ */
+export function documentLinkTarget(raw: unknown): string | null {
+    const target = (raw as { target?: unknown }).target;
+    return Uri.isUri(target) ? encodeURI(target.toString(true)) : null;
+}
+
+/** Part fields other than `value` have nothing to draw them yet. `null` is a label upstream calls invalid. */
+function inlayHintLabelFrom(raw: unknown): IWireInlayHint["label"] | null {
+    if (typeof raw === "string") return raw === "" ? null : raw;
+    if (!Array.isArray(raw)) return null;
+    const parts = (raw as unknown[]).map((part) => ({ value: (part as { value?: unknown } | null)?.value }));
+    const valid = parts.filter((part): part is { value: string } => typeof part.value === "string");
+    return valid.some((part) => part.value !== "") ? valid : null;
+}
+
+function inlayHintFrom(raw: unknown, range: IRange): IWireInlayHint | null {
+    const hint = (raw ?? {}) as {
+        position?: { line?: unknown; character?: unknown };
+        label?: unknown;
+        kind?: unknown;
+        paddingLeft?: unknown;
+        paddingRight?: unknown;
+    };
+    const label = inlayHintLabelFrom(hint.label);
+    const line = hint.position?.line;
+    const character = hint.position?.character;
+    if (label === null || !isFiniteNumber(line) || !isFiniteNumber(character)) return null;
+    const position = createPosition(line, character);
+    if (comparePositions(position, range.start) < 0 || comparePositions(position, range.end) > 0) return null;
+    return {
+        position,
+        label,
+        // The host validates the kind: it drops the one hint with an unknown value.
+        ...(hint.kind === undefined || hint.kind === null ? {} : { kind: hint.kind as 1 | 2 }),
+        ...(hint.paddingLeft === true ? { paddingLeft: true } : {}),
+        ...(hint.paddingRight === true ? { paddingRight: true } : {}),
+    };
+}
+
+/**
+ * Upstream `InlayHintsAdapter.provideInlayHints` without the resolve cache: an empty label or a position outside
+ * the requested range costs that one hint (`_isValidInlayHint`). No hints at all is `null`.
+ */
+export function serializeInlayHints(raw: unknown, range: IRange): IWireInlayHint[] | null {
+    if (!Array.isArray(raw)) return null;
+    const hints = (raw as unknown[]).map((item) => inlayHintFrom(item, range)).filter((hint) => hint !== null);
+    return hints.length === 0 ? null : hints;
+}
+
+/** `null` — no command to show: nothing, or no title. A command without an id is upstream's plain label. */
+export function serializeCodeLensCommand(raw: unknown): IWireCodeLensCommand | null {
+    const command = (raw ?? {}) as { command?: unknown; title?: unknown; tooltip?: unknown };
+    if (typeof command.title !== "string") return null;
+    return {
+        id: typeof command.command === "string" ? command.command : "",
+        title: command.title,
+        ...(typeof command.tooltip === "string" ? { tooltip: command.tooltip } : {}),
+    };
 }
 
 /** Edit fields are public and writable, and the host does not re-validate the will-save response. */

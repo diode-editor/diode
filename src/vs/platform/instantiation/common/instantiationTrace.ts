@@ -139,7 +139,8 @@ function captureCaller(): Error {
  * meaningless `main.cjs` line.
  */
 function callerName(error: Error): string {
-    // Stryker disable next-line StringLiteral: in V8 an Error's `stack` is always a string; the fallback is a type guard
+    // No stack under a `prepareStackTrace` hook that yields none; any string without a frame line gives the same "?".
+    // Stryker disable next-line StringLiteral: see above
     for (const line of (error.stack ?? "").split("\n")) {
         // `at name (file:line:col)`; an anonymous function is `at file:line:col` and is
         // skipped, as are node's own frames (`processTicksAndRejections` after

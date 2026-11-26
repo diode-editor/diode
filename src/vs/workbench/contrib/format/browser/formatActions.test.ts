@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -8,6 +9,7 @@ import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
@@ -37,7 +39,13 @@ type FakeFormatter = (request: IFormattingRequest, token: ICancellationToken) =>
 
 function makeSetup(
     source: FakeFormatter | undefined,
-    options: { selection?: ISelectionLike; noSelections?: boolean; selector?: string } = {},
+    options: {
+        selection?: ISelectionLike;
+        noSelections?: boolean;
+        selector?: string;
+        settings?: Record<string, unknown>;
+        extensionId?: string;
+    } = {},
 ): ISetup {
     let text = "const  a=1;\nsecond line\nthird";
     const applied: { edits: readonly ITextEdit[]; label: string }[] = [];
@@ -73,8 +81,13 @@ function makeSetup(
             requests.push(request);
             return source(request, token);
         };
-        languageFeatures.documentFormattingEditProvider.register(selector, { provideDocumentFormattingEdits: format });
+        const { extensionId } = options;
+        languageFeatures.documentFormattingEditProvider.register(selector, {
+            extensionId,
+            provideDocumentFormattingEdits: format,
+        });
         languageFeatures.documentRangeFormattingEditProvider.register(selector, {
+            extensionId,
             provideDocumentRangeFormattingEdits: format,
         });
     }
@@ -93,6 +106,7 @@ function makeSetup(
     accessor.bind(EditorServiceDIToken, () => group);
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
     accessor.bind(LanguageFeaturesServiceDIToken, () => languageFeatures);
+    accessor.bind(IConfigurationServiceDIToken, () => createTestConfigurationService(options.settings));
     return {
         accessor,
         applied,
@@ -121,6 +135,35 @@ beforeEach(() => {
 });
 afterEach(() => {
     vi.useRealTimers();
+});
+
+describe("editor.defaultFormatter in the format commands", () => {
+    const BAD =
+        "formatting.notice: Extension 'acme.gone' is configured as formatter but not available. " +
+        "Select a different default formatter to continue.";
+
+    it("the formatter named for the editor's language formats, in both commands", async () => {
+        const setup = makeSetup(() => Promise.resolve([EDIT]), {
+            extensionId: "acme.fmt",
+            settings: { "editor.defaultFormatter": "acme.gone", "[python]": { "editor.defaultFormatter": "acme.fmt" } },
+        });
+        await formatDocumentAction.run(setup.accessor);
+        await formatSelectionAction.run(setup.accessor);
+        expect(setup.applied.map((step) => step.label)).toEqual(["Format Document", "Format Selection"]);
+        expect(setup.notices).toEqual([]);
+    });
+
+    it("a named formatter that is missing says so and leaves the text alone, in both commands", async () => {
+        const setup = makeSetup(() => Promise.resolve([EDIT]), {
+            extensionId: "acme.fmt",
+            settings: { "editor.defaultFormatter": "acme.gone" },
+        });
+        await formatDocumentAction.run(setup.accessor);
+        await formatSelectionAction.run(setup.accessor);
+        expect(setup.applied).toEqual([]);
+        expect(setup.requests).toEqual([]);
+        expect(setup.notices).toEqual([BAD, BAD]);
+    });
 });
 
 describe("editor.action.formatDocument", () => {

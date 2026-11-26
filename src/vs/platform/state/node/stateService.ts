@@ -60,6 +60,15 @@ export class StateFileStore implements IStateStore {
     }
 
     public store<T>(descriptor: IStateDescriptor<T>, value: T): void {
+        // Upstream `Storage.set`: the same value again changes nothing and writes nothing. A write at shutdown would
+        // recreate the directory of a profile deleted from this window, and the profile would come back.
+        const storedVersion = asRecord(this.data[VERSIONS_KEY])[descriptor.key];
+        if (
+            JSON.stringify(this.data[descriptor.key]) === JSON.stringify(value) &&
+            storedVersion === descriptor.version
+        ) {
+            return;
+        }
         this.data[descriptor.key] = clone(value);
         if (descriptor.version !== undefined) {
             const versions = asRecord(this.data[VERSIONS_KEY]);
@@ -70,6 +79,7 @@ export class StateFileStore implements IStateStore {
     }
 
     public remove<T>(descriptor: IStateDescriptor<T>): void {
+        if (!(descriptor.key in this.data)) return;
         Reflect.deleteProperty(this.data, descriptor.key);
         const versions = asRecord(this.data[VERSIONS_KEY]);
         if (Reflect.deleteProperty(versions, descriptor.key) && Object.keys(versions).length === 0) {

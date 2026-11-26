@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { IOverviewRulerDecoration } from "../../../../editor/common/model/iOverviewRulerDecoration.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
-import type { IEditorDecorationsService } from "../../../api/common/iEditorDecorationsService.ts";
+import {
+    type IEditorDecorationsService,
+    NULL_EDITOR_DECORATIONS_SERVICE,
+} from "../../../api/common/iEditorDecorationsService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import type { IFileDecorationsService } from "../../../api/common/iFileDecorationsService.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
@@ -17,8 +20,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 
 const editorWriteCalls: { method: string; uri: string; payload: unknown }[] = [];
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),
@@ -52,10 +54,11 @@ function makeLogger(): { logger: ILogger; lines: string[] } {
 }
 
 function makeHost(colors: Record<string, number>) {
-    const editorCalls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
+    const editorCalls: { uri: string; decorations: readonly IOverviewRulerDecoration[] }[] = [];
     const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
     const editorDecorations: IEditorDecorationsService = {
-        setGutterChangeDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
+        ...NULL_EDITOR_DECORATIONS_SERVICE,
+        setOverviewRulerDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
     };
     const fileDecorations: IFileDecorationsService = {
         setFileDecorations: (entries) => fileCalls.push([...entries]),
@@ -134,6 +137,7 @@ describe("ExtensionHost — host handlers (in-process, deterministic)", () => {
         await flushMicrotasks(10);
         expect(h.configChanges.at(-1)).toEqual({
             configuration: { defaults: {}, user: { some: "config" }, workspace: {} },
+            settingIds: [],
             affectedKeys: ["git.enabled"],
         });
     });

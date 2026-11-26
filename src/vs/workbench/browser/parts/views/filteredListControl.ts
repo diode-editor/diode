@@ -1,4 +1,4 @@
-import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
+import { INHERITED_BG, type StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
@@ -14,6 +14,10 @@ export interface IFilteredListOptions {
     readonly placeholder?: string;
     /** Off for filtered lists: typing goes to the input. */
     readonly typeahead?: boolean;
+    /** A line after each row (multi-line rows of the Extensions view). */
+    readonly rowSeparatorColor?: StyleColor;
+    /** `workbench.list.openMode`, read on every click. */
+    readonly openOnSingleClick?: () => boolean;
 }
 
 /**
@@ -35,7 +39,11 @@ export class FilteredListControl {
             this.onQueryChange?.(value);
         };
 
-        this.list = new ListViewElement({ typeahead: options.typeahead ?? false });
+        this.list = new ListViewElement({
+            typeahead: options.typeahead ?? false,
+            rowSeparatorColor: options.rowSeparatorColor,
+            openOnSingleClick: options.openOnSingleClick,
+        });
         this.list.id = options.listId;
         this.list.onActivate = (element) => {
             // The consumer never adds rows without an id.

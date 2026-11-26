@@ -19,14 +19,38 @@ const SHOW_DELAY_MS = 300;
 
 const MIN_VISIBLE_MS = 500;
 
-/** `view` is a spinner in a section header, `window` is a status bar entry. */
+/**
+ * `view` is a spinner in a section header, `window` is a status bar entry. A `passive` view entry only
+ * spins: {@link ProgressService.isBusy} ignores it, so an extension's progress in the SCM view doesn't
+ * disable git commands (upstream `operationInProgress` is the git extension's own key).
+ */
 export type IProgressOptions =
-    | { readonly location: "view"; readonly viewId: string; readonly title: string }
+    | { readonly location: "view"; readonly viewId: string; readonly title: string; readonly passive?: boolean }
     | { readonly location: "window"; readonly title: string };
 
 export interface IProgressFrame {
     readonly spinner: string;
     readonly title: string;
+    /** The last {@link IProgress.report}ed percent; unset: indeterminate. */
+    readonly percent?: number;
+}
+
+/**
+ * Upstream `IProgress<IProgressStep>`, but with an absolute percent instead of summed increments: the reporter knows
+ * the whole, and a percent that disappears (`undefined`) is how an indeterminate stage follows a measured one.
+ */
+export interface IProgress {
+    report(step: { readonly percent: number | undefined }): void;
+}
+
+/** The status bar's percent suffix, ` (47%)`, shared by window progress and extension progress; empty without one. */
+export function formatProgressPercent(percent: number | undefined): string {
+    return percent === undefined ? "" : ` (${String(Math.round(percent))}%)`;
+}
+
+/** What a consumer that reports no percent needs: a fake of it passes no {@link IProgress}. */
+export interface IIndeterminateProgressService {
+    withProgress<T>(options: IProgressOptions, task: () => Promise<T>): Promise<T>;
 }
 
 export interface IProgressServiceOptions {
@@ -41,11 +65,13 @@ class ProgressEntry {
     public minVisibleTimer: ReturnType<typeof setTimeout> | undefined;
     /** The operation finished, but the entry stays until `minVisibleMs` elapses. */
     public endRequested = false;
+    public percent: number | undefined;
 
     /** `scope === null` means the `window` location, otherwise the section id. */
     public constructor(
         public readonly scope: string | null,
         public readonly title: string,
+        public readonly passive: boolean,
     ) {}
 }
 
@@ -77,10 +103,17 @@ export class ProgressService extends Disposable {
     }
 
     /** A task error also ends the progress and is rethrown untouched. */
-    public async withProgress<T>(options: IProgressOptions, task: () => Promise<T>): Promise<T> {
+    public async withProgress<T>(options: IProgressOptions, task: (progress: IProgress) => Promise<T>): Promise<T> {
         const entry = this.start(options);
+        const progress: IProgress = {
+            report: ({ percent }) => {
+                if (entry.percent === percent) return;
+                entry.percent = percent;
+                this.fire();
+            },
+        };
         try {
-            return await task();
+            return await task(progress);
         } finally {
             this.end(entry);
         }
@@ -89,7 +122,7 @@ export class ProgressService extends Disposable {
     /** Includes entries not shown yet: buttons must disable immediately, not after the show delay. */
     public isBusy(viewId?: string): boolean {
         for (const entry of this.entries) {
-            if (entry.endRequested) continue;
+            if (entry.endRequested || entry.passive) continue;
             if (viewId === undefined || entry.scope === viewId) return true;
         }
         return false;
@@ -103,6 +136,22 @@ export class ProgressService extends Disposable {
             if (!result.has(entry.scope)) result.set(entry.scope, this.frameOf(entry));
         }
         return result;
+    }
+
+    /**
+     * The section's own operation, for its buttons: the earliest visible entry that is not passive. A passive
+     * entry spins the header only — an extension's progress must not take over the section's controls.
+     */
+    public operationProgress(viewId: string): IProgressFrame | null {
+        for (const entry of this.entries) {
+            if (entry.visible && !entry.passive && entry.scope === viewId) return this.frameOf(entry);
+        }
+        return null;
+    }
+
+    /** The ticker's current frame, for a spinner outside the progress entries (a page's busy button). */
+    public spinner(): string {
+        return SPINNER_FRAMES[this.frame];
     }
 
     /** The earliest visible entry. */
@@ -122,7 +171,10 @@ export class ProgressService extends Disposable {
     }
 
     private start(options: IProgressOptions): ProgressEntry {
-        const entry = new ProgressEntry(options.location === "view" ? options.viewId : null, options.title);
+        const entry =
+            options.location === "view"
+                ? new ProgressEntry(options.viewId, options.title, options.passive === true)
+                : new ProgressEntry(null, options.title, false);
         entry.delayTimer = setTimeout(() => {
             entry.delayTimer = undefined;
             entry.visible = true;
@@ -161,7 +213,7 @@ export class ProgressService extends Disposable {
     }
 
     private frameOf(entry: ProgressEntry): IProgressFrame {
-        return { spinner: SPINNER_FRAMES[this.frame], title: entry.title };
+        return { spinner: this.spinner(), title: entry.title, percent: entry.percent };
     }
 
     private startTicker(): void {

@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../../base/common/uri.ts";
-import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { type IMarkerData, MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
+import { MarkerService, MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
 import {
     type QuickInputService,
     QuickInputServiceDIToken,
@@ -43,6 +45,7 @@ function makeSetup(
         /** Picks in the quick pick by label; a missing field means cancel (undefined). */
         pickLabel?: string;
         selection?: { anchor: { line: number; character: number }; active: { line: number; character: number } };
+        markers?: readonly IMarkerData[];
     } = {},
 ): ISetup {
     const requests: ICodeActionRequest[] = [];
@@ -97,6 +100,9 @@ function makeSetup(
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
     accessor.bind(QuickInputServiceDIToken, () => quickInput);
     accessor.bind(LanguageFeaturesServiceDIToken, () => languageFeatures);
+    const markers = new MarkerService();
+    markers.changeOne("test", editor.uri.toString(), options.markers ?? []);
+    accessor.bind(MarkerServiceDIToken, () => markers);
     return { accessor, requests, appliedIds, notices, pickCalls };
 }
 
@@ -164,7 +170,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(setup.notices).toEqual([]);
     });
 
-    it("quickFix: request on the cursor line WITHOUT only, a menu with kind/badge, the picked one is applied", async () => {
+    it("quickFix: request at the caret WITHOUT only, a menu with kind/badge, the picked one is applied", async () => {
         const setup = makeSetup(
             {
                 provide: () =>
@@ -184,13 +190,12 @@ describe("editor.action.organizeImports / fixAll", () => {
         );
         await quickFixAction.run(setup.accessor);
 
-        // Empty selection → the cursor line (line 1 is "import a", 8 chars), only is absent.
         expect(setup.requests).toStrictEqual([
             {
                 uri: Uri.file("/proj/a.py").toString(),
                 languageId: "python",
                 versionId: 7,
-                range: createRange(1, 0, 1, 8),
+                range: createRange(1, 3, 1, 3),
             },
         ]);
         expect(setup.pickCalls).toStrictEqual([
@@ -288,6 +293,135 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(provide).not.toHaveBeenCalled();
     });
 
+    it("the request carries the selection in document order, whichever way it was made", async () => {
+        const setup = makeSetup(
+            { provide: () => Promise.resolve([]), apply: () => Promise.resolve(true) },
+            { selection: { anchor: { line: 1, character: 6 }, active: { line: 0, character: 2 } } },
+        );
+
+        await quickFixAction.run(setup.accessor);
+
+        expect(setup.requests[0].range).toEqual(createRange(0, 2, 1, 6));
+    });
+
+    describe("quick fixes of a diagnostic on the caret line (upstream includeNearbyQuickFixes)", () => {
+        const markerAt = (range: IRange): IMarkerData => ({ severity: MarkerSeverity.Warning, range, message: "m" });
+        const onLine = (line: number, start: number, end: number): IMarkerData =>
+            markerAt(createRange(line, start, line, end));
+        const caret = (character: number) => ({
+            anchor: { line: 1, character },
+            active: { line: 1, character },
+        });
+        /** A provider answers for a diagnostic only when the request is inside its range, like ShellCheck. */
+        const fixesAt = (fixes: Record<number, ICoreCodeAction>) => ({
+            provide: (request: ICodeActionRequest) =>
+                Promise.resolve(
+                    request.range.start.line === 1 && request.range.start.character in fixes
+                        ? [fixes[request.range.start.character]]
+                        : [],
+                ),
+            apply: () => Promise.resolve(true),
+        });
+
+        it("nothing at the caret: one request for quick fixes only, at the end of the nearest marker", async () => {
+            const setup = makeSetup(
+                fixesAt({
+                    2: { id: "1", title: "Far", kind: "quickfix" },
+                    6: { id: "2", title: "Near", kind: "quickfix" },
+                }),
+                { selection: caret(7), markers: [onLine(1, 0, 2), onLine(1, 5, 6), onLine(0, 0, 7)] },
+            );
+
+            await quickFixAction.run(setup.accessor);
+
+            expect(setup.requests.map(({ range, only }) => [range, only])).toEqual([
+                [createRange(1, 7, 1, 7), undefined],
+                [createRange(1, 6, 1, 6), "quickfix"],
+            ]);
+            expect(setup.pickCalls[0].items.map((item) => item.label)).toEqual(["Near"]);
+        });
+
+        it.each([
+            ["starts on the caret line", createRange(1, 3, 2, 1), createRange(2, 1, 2, 1)],
+            ["ends on the caret line", createRange(0, 2, 1, 1), createRange(1, 1, 1, 1)],
+        ])("a marker that %s counts", async (_name, marker, asked) => {
+            const setup = makeSetup(fixesAt({}), { selection: caret(4), markers: [markerAt(marker)] });
+
+            await quickFixAction.run(setup.accessor);
+
+            expect(setup.requests[1].range).toEqual(asked);
+        });
+
+        it("a quick fix at the caret is enough: the rest of the line isn't asked", async () => {
+            const setup = makeSetup(fixesAt({ 3: { id: "1", title: "Here", kind: "quickfix.sub" } }), {
+                selection: caret(3),
+                markers: [onLine(1, 0, 2)],
+            });
+
+            await quickFixAction.run(setup.accessor);
+
+            expect(setup.requests).toHaveLength(1);
+        });
+
+        it.each([
+            ["a refactoring", { id: "1", title: "Extract", kind: "refactor" }],
+            ["a bare command", { id: "1", title: "Extract" }],
+            ["a disabled quick fix", { id: "1", title: "Extract", kind: "quickfix", disabled: "no" }],
+        ])("%s at the caret still looks along the line and stays next to what it finds", async (_name, here) => {
+            const setup = makeSetup(fixesAt({ 3: here, 2: { id: "2", title: "Fix", kind: "quickfix" } }), {
+                selection: caret(3),
+                markers: [onLine(1, 0, 2)],
+            });
+
+            await quickFixAction.run(setup.accessor);
+
+            expect(setup.requests).toHaveLength(2);
+            expect(setup.pickCalls[0].items.map((item) => item.label)).toContain("Fix");
+        });
+
+        it.each([
+            ["left", [onLine(1, 3, 4), onLine(1, 7, 8)]],
+            ["right", [onLine(1, 7, 8), onLine(1, 3, 4)]],
+        ])("the nearest marker wins whichever comes first (listed %s first)", async (_name, markers) => {
+            const setup = makeSetup(
+                fixesAt({
+                    4: { id: "1", title: "Near", kind: "quickfix" },
+                    8: { id: "2", title: "Far", kind: "quickfix" },
+                }),
+                { selection: caret(5), markers },
+            );
+
+            await quickFixAction.run(setup.accessor);
+
+            expect(setup.requests[1].range).toEqual(createRange(1, 4, 1, 4));
+        });
+
+        it("a marker of another file on the same line is not asked about", async () => {
+            const setup = makeSetup(fixesAt({}), { selection: caret(7) });
+            setup.accessor.get(MarkerServiceDIToken).changeOne("test", "file:///proj/other.py", [onLine(1, 0, 2)]);
+
+            await quickFixAction.run(setup.accessor);
+
+            expect(setup.requests).toHaveLength(1);
+        });
+
+        it("no marker on the line: nothing more is asked", async () => {
+            const setup = makeSetup(fixesAt({}), { selection: caret(7), markers: [onLine(0, 0, 2)] });
+
+            await quickFixAction.run(setup.accessor);
+
+            expect(setup.requests).toHaveLength(1);
+        });
+
+        it("Refactor… doesn't look along the line", async () => {
+            const setup = makeSetup(fixesAt({}), { selection: caret(7), markers: [onLine(1, 0, 2)] });
+
+            await refactorAction.run(setup.accessor);
+
+            expect(setup.requests).toHaveLength(1);
+        });
+    });
+
     it("Refactor…: request with only=refactor, its own menu title and its own 'empty' text", async () => {
         const setup = makeSetup(
             {
@@ -307,7 +441,7 @@ describe("editor.action.organizeImports / fixAll", () => {
                 uri: Uri.file("/proj/a.py").toString(),
                 languageId: "python",
                 versionId: 7,
-                range: createRange(1, 0, 1, 8),
+                range: createRange(1, 3, 1, 3),
                 only: "refactor",
             },
         ]);

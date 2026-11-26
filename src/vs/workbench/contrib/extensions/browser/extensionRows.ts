@@ -1,13 +1,19 @@
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
+import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
 const GAP = "  ";
 
+/** Name with version and badges, the description, the publisher: upstream's list entry without the icon. */
+export const EXTENSION_ROW_HEIGHT = 3;
+
 /** `available` carries no badge. */
-export type ExtensionRowBadge = "installed" | "update" | "incompatible" | "reload";
+export type ExtensionRowBadge = "installed" | "update" | "incompatible" | "reload" | "installing" | "uninstalling";
 
 export const PARTIAL_SUPPORT_BADGE = "Partial";
 
@@ -53,6 +59,9 @@ export function describeExtensionRow(entry: IExtensionListEntry): IExtensionRowL
 function badgeTextOf(entry: IExtensionListEntry): { text: string; kind: ExtensionRowBadge } | null {
     // "Waiting for reload" overrides everything: the state on disk and in the running editor differ.
     if (entry.needsReload) return { text: "Reload", kind: "reload" };
+    // The row has no buttons: the badge is upstream's `Installing` label. No percent: the page and status bar have it.
+    if (entry.operation === "installing") return { text: "Installing", kind: "installing" };
+    if (entry.operation === "uninstalling") return { text: "Uninstalling", kind: "uninstalling" };
     if (entry.availability === "incompatible") return { text: "Incompatible", kind: "incompatible" };
     if (entry.installedVersion === null) return null;
     if (entry.availability === "outdated") {
@@ -61,15 +70,26 @@ function badgeTextOf(entry: IExtensionListEntry): { text: string; kind: Extensio
     return { text: "Installed", kind: "installed" };
 }
 
-export function buildExtensionRow(
-    id: string,
-    entry: IExtensionListEntry,
-    styles: IExtensionRowStyles,
-): TextLabelElement {
+/** The id of a row's first line (name, version, badges). */
+export function extensionRowTitleId(rowId: string): string {
+    return `${rowId}--title`;
+}
+
+/** {@link EXTENSION_ROW_HEIGHT} lines with a one-column gutter on both sides; the list appends it with that height. */
+export function buildExtensionRow(id: string, entry: IExtensionListEntry, styles: IExtensionRowStyles): TUIElement {
     const layout = describeExtensionRow(entry);
-    const row = new TextLabelElement(layout.text);
+    const header = new TextLabelElement(layout.text);
+    // e2e and the inspector read the name line by it: the row is a container without text of its own.
+    header.id = extensionRowTitleId(id);
+    paintRow(header, layout, styles);
+    const description = new TextLabelElement(entry.description);
+    const publisher = new TextLabelElement(entry.publisher);
+    publisher.setColors(styles.dimFg, INHERITED_BG);
+
+    const lines = new VStackElement();
+    for (const line of [header, description, publisher]) lines.addChild(line, { width: "fill", height: 1 });
+    const row = new PaddingContainerElement(lines, { left: 1, right: 1 });
     row.id = id;
-    paintRow(row, layout, styles);
     return row;
 }
 
@@ -79,6 +99,8 @@ const BADGE_COLOR: Record<ExtensionRowBadge, keyof IExtensionRowStyles> = {
     incompatible: "warningFg",
     // Reload is an available action, just like an update.
     reload: "updateFg",
+    installing: "updateFg",
+    uninstalling: "updateFg",
 };
 
 function paintRow(row: TextLabelElement, layout: IExtensionRowLayout, styles: IExtensionRowStyles): void {
@@ -95,11 +117,4 @@ function paintSpan(row: TextLabelElement, start: number, length: number, fg: Sty
     for (let i = start; i < start + length; i++) {
         row.setCharStyle(i, { fg });
     }
-}
-
-export function buildGroupRow(id: string, title: string, dimFg: StyleColor): TextLabelElement {
-    const row = new TextLabelElement(title);
-    row.id = id;
-    row.setColors(dimFg, INHERITED_BG);
-    return row;
 }

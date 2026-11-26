@@ -1,9 +1,12 @@
 import type { Uri } from "../vs/base/common/uri.ts";
 import type { LanguageFeatureRegistry } from "../vs/editor/common/languageFeatureRegistry.ts";
 import type { DocumentColorProvider } from "../vs/editor/common/languages/iColorSource.ts";
+import type { DocumentHighlightProvider } from "../vs/editor/common/languages/iDocumentHighlightSource.ts";
 import type { FoldingRangeProvider } from "../vs/editor/common/languages/iFoldingSource.ts";
+import type { InlayHintsProvider } from "../vs/editor/common/languages/iInlayHintsSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
+import type { LinkProvider } from "../vs/editor/common/languages/iLinkSource.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
 import type { ILargeFileOptions } from "../vs/editor/common/model/largeFileOptions.ts";
@@ -13,6 +16,7 @@ import type { IRandomAccessFileOpener } from "../vs/platform/files/common/iRando
 import type { IMemoryProbe } from "../vs/platform/memory/common/iMemoryProbe.ts";
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
+import type { ICodeLensFeature } from "../vs/workbench/browser/parts/editor/editorComponent.ts";
 import { EditorComponent } from "../vs/workbench/browser/parts/editor/editorComponent.ts";
 import { TextEditorPane } from "../vs/workbench/browser/parts/editor/textEditorPane.ts";
 import { TextFileModel } from "../vs/workbench/services/textfile/common/textFileModel.ts";
@@ -30,6 +34,10 @@ export interface IEditorPaneOverrides {
     readonly undoRedoService?: UndoRedoService;
     readonly foldingProviders?: LanguageFeatureRegistry<FoldingRangeProvider>;
     readonly colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>;
+    readonly inlayHintsProviders?: LanguageFeatureRegistry<InlayHintsProvider>;
+    readonly documentHighlightProviders?: LanguageFeatureRegistry<DocumentHighlightProvider>;
+    readonly codeLens?: ICodeLensFeature;
+    readonly linkProviders?: LanguageFeatureRegistry<LinkProvider>;
     /** Defaults to the real disk. */
     readonly files?: IFileService;
     /** Absent — TextMate only. */
@@ -72,6 +80,10 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         overrides.semanticTokens,
         undefined,
         overrides.colorProviders,
+        overrides.inlayHintsProviders,
+        overrides.codeLens,
+        overrides.documentHighlightProviders,
+        overrides.linkProviders,
     );
     return new TextEditorPane(model, component);
 }

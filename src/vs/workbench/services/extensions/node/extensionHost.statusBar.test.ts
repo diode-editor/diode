@@ -18,6 +18,7 @@ async function makeHarness(withBridge = true) {
     let registry: CommandRegistry | null = null;
     const commands: ICommandService = {
         execute: (id, args) => new CommandServiceAdapter(assertRegistry(registry)).execute(id, args),
+        holdInputUntil: () => undefined,
         listCommandIds: () => [],
         registerProxy: (id, invoke, title) =>
             new CommandServiceAdapter(assertRegistry(registry)).registerProxy(id, invoke, title),

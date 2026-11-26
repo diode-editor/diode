@@ -136,7 +136,7 @@ function adjustRange(range: IRange, stickiness: TrackedRangeStickiness, edit: Ed
 
 interface ITrackedDecoration {
     range: IRange;
-    readonly stickiness: TrackedRangeStickiness;
+    stickiness: TrackedRangeStickiness;
 }
 
 /**
@@ -162,6 +162,13 @@ export class TrackedDecorations {
             });
             return id;
         });
+    }
+
+    /** Upstream `changeDecorationOptions`: the decoration stays where it is, with its id. An unknown id is ignored. */
+    public changeOptions(id: string, options: IModelDecorationOptions): void {
+        const decoration = this.decorations.get(id);
+        if (decoration === undefined) return;
+        decoration.stickiness = options.stickiness ?? TrackedRangeStickiness.AlwaysGrowsWhenTypingAtEdges;
     }
 
     public getRange(id: string): IRange | null {

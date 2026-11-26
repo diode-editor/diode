@@ -135,12 +135,14 @@ describe("OpenEditorsView", () => {
             .map((line) => line.trimEnd());
     }
 
-    /** The rows of the section body (between its header and the next one). */
+    /** The rows of the section body: between the line under its header and the line above the next header. */
     async function rows(): Promise<string[]> {
         const lines = await screen();
         const start = lines.findIndex((line) => line.includes("OPEN EDITORS"));
         const end = lines.findIndex((line, index) => index > start && line.includes("FILES"));
-        return lines.slice(start + 1, end);
+        expect(lines[start + 1]).toMatch(/^─+$/u);
+        expect(lines[end - 1]).toMatch(/^─+$/u);
+        return lines.slice(start + 2, end - 1);
     }
 
     /** Rows without file icons and the cursor row's ×, spaces collapsed: "a.ts src". */
@@ -194,6 +196,16 @@ describe("OpenEditorsView", () => {
 
         expect(h.paneView(EXPLORER_VIEWLET_ID).getPaneIds()).toEqual([OPEN_EDITORS_VIEW_ID, "files"]);
         expect(await texts()).toEqual(["a.ts src", "b.ts", "c.ts src/lib"]);
+    });
+
+    it("the component's view is the scrolling list the section mounts", async () => {
+        open(groups.activeGroup, "a.ts");
+        show();
+        await screen();
+
+        expect(view.view.id).toBe("openEditorsView");
+        expect(app.querySelector("#openEditorsView")).toBe(view.view);
+        expect(view.view.querySelector("#openEditorsList")).toBe(list());
     });
 
     it("a modified editor keeps ● at the row's end; saving it removes the dot", async () => {

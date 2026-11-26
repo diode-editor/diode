@@ -14,7 +14,7 @@ a URL and a sha256 for every version.
 
 Some extensions carry a **Partial** badge: the extension works, but some of its features need a
 browser or a GUI and are listed under "Does not work" on its page, before you install it. A typical
-example: the language server works, the extension's webview chat or tree views don't.
+example: the language server works, the extension's webview chat doesn't.
 
 Today it has languages (Python, Go, Java, Terraform, Protocol Buffers), linters and formatters
 (ESLint, Prettier, ruff), themes, Claude Code with a diff tab for proposed edits, and inline
@@ -26,7 +26,24 @@ Open the Extensions view with `Ctrl+Shift+X` (or `Ctrl+K X` in a terminal that c
 Ctrl+Shift, see [Keyboard](KEYBOARD.md)); it is also under **View: Show Extensions** in the command
 palette. Type in the search box: results come in two groups, **Marketplace** and **Installed**.
 `Enter` on a row opens the extension's page with its description, the support note and the
-buttons: **Install**, **Update to x.y.z**, **Uninstall**.
+buttons: **Install**, **Update to x.y.z**, **Uninstall**. While an install runs, the page shows a
+disabled **Installing** button, the list row an `Installing` badge, and the status bar how much of the
+`.vsix` has been downloaded, e.g. `Installing redhat.java (47%)`; platform packages can weigh over
+100 MB.
+
+The search box understands VS Code's filters, alone or combined with text:
+
+| Filter | Shows |
+|---|---|
+| `@category:themes`, `@category:"programming languages"` | extensions of a category; `category:-themes` excludes one |
+| `@tag:python` | extensions with that keyword in their manifest |
+| `@installed`, `@updates` (or `@outdated`) | one list of installed / outdated extensions |
+| `@id:publisher.name` | exactly that extension |
+| `@sort:name`, `@sort:publishedDate` | the same results, sorted |
+
+The same filters are in the view's `...` menu under **Filter Extensions...**. To find a color theme,
+pick **Install Additional Color Themes...** at the end of **Preferences: Color Theme**, or run
+**Preferences: Browse Color Themes in Marketplace**.
 
 After an install or uninstall, run **Reload Window** (File menu or the command palette): extensions
 are loaded at startup, there is no hot reload. The catalog is fetched the first time you open the
@@ -51,6 +68,12 @@ To go back to an older version, press **Install Specific Version...** on the ext
 **Extensions: Install Specific Version of Extension...** from the command palette) and pick one of
 the versions that work with your build. A version chosen this way is pinned in the profile, like in
 VS Code: auto-update leaves it alone until you check **Auto Update** again.
+
+To install a `.vsix` file, run **Extensions: Install from VSIX...** and pick it in the open dialog
+(`~` and path completion work, only `.vsix` files are listed). The version is pinned, like with `--install-extension`. Extensions can
+do the same with the `workbench.extensions.command.installFromVSIX` command: CodeLLDB installs its
+platform package this way on first activation, and keeps working without a reload, because the
+package replaces the files of the running version in place.
 
 ## From the command line
 

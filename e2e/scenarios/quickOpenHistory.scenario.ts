@@ -5,8 +5,8 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 const RECENT_ROW = /folding\.ts[\s\S]*main\.ts[\s\S]*sample\.ts/;
 
-/** The tab strip is the second screen row. */
-const tabs = (text: string): string => text.split("\n")[1] ?? "";
+/** The tab label row: screen row 2 (row 1 is the tabs' top lines). */
+const tabs = (text: string): string => text.split("\n")[2] ?? "";
 
 export default defineScenario({
     name: "quick-open-history",

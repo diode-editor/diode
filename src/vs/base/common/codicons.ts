@@ -35,3 +35,10 @@ export function renderCodicons(text: string, nerdFont: boolean): string {
         return table[name.toLowerCase()] ?? "";
     });
 }
+
+/** Upstream `stripIcons`: notifications show no icons (microsoft/vscode#145722); `\$(name)` stays literal. */
+export function stripCodicons(text: string): string {
+    return text.replace(ICON_MARKUP, (match: string, escape: string | undefined) =>
+        escape === undefined ? "" : match.slice(1),
+    );
+}

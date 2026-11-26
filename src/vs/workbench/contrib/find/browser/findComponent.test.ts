@@ -21,7 +21,7 @@ const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const WIDTH = 44;
 
 function make(): FindWidget {
-    return new FindWidget();
+    return new FindWidget(() => 1);
 }
 
 /** `resolveStyles` so the counter gets the theme color (in the app the render pipeline does this). */

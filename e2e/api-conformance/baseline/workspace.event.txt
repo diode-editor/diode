@@ -1,4 +1,10 @@
+vscode API - workspace events onWillCreate/onDidCreate
+vscode API - workspace events onWillCreate/onDidCreate, make changes, edit another file
 vscode API - workspace events onWillCreate/onDidCreate, make changes, edit new file fails
+vscode API - workspace events onWillDelete/onDidDelete
 vscode API - workspace events onWillDelete/onDidDelete, make changes
 vscode API - workspace events onWillDelete/onDidDelete, make changes, del another file
 vscode API - workspace events onWillDelete/onDidDelete, make changes, double delete
+vscode API - workspace events onWillRename - make changes (dirty file)
+vscode API - workspace events onWillRename - make changes (saved file)
+vscode API - workspace events onWillRename/onDidRename

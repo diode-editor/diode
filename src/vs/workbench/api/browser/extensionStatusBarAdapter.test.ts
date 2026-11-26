@@ -21,6 +21,7 @@ function makeCommands(behaviour?: (id: string) => unknown): {
             calls.push({ id, args });
             return behaviour?.(id);
         },
+        holdInputUntil: () => undefined,
         listCommandIds: () => [],
         registerProxy: () => ({ dispose: () => undefined }),
     };

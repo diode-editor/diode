@@ -14,7 +14,6 @@ describe("Workbench — input widget editing via keybindings (QuickOpen)", () =>
         ws = createTempWorkspace({ prefix: "diode-input-", files: { "alpha.txt": "Alpha" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         h.workbench.focusEditor();
         h.testApp.sendKey("Ctrl+P");
         h.testApp.render();

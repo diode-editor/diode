@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";
 
-import { ProgressService } from "./progressService.ts";
+import { type IProgress, ProgressService } from "./progressService.ts";
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -217,6 +217,47 @@ describe("ProgressService", () => {
         expect(service.viewProgress().size).toBe(0);
     });
 
+    it("a passive operation spins its section but does not make it busy", async () => {
+        const task = deferred();
+        const running = service.withProgress(
+            { location: "view", viewId: VIEW, title: "Indexing", passive: true },
+            () => task.promise,
+        );
+
+        vi.advanceTimersByTime(300);
+        expect(service.viewProgress().get(VIEW)?.title).toBe("Indexing");
+        expect(service.isBusy(VIEW)).toBe(false);
+        expect(service.isBusy()).toBe(false);
+        expect(service.operationProgress(VIEW)).toBeNull();
+
+        task.resolve();
+        await running;
+    });
+
+    it("the section's operation: the earliest visible non-passive entry of that section only", async () => {
+        const passive = deferred();
+        const own = deferred();
+        const other = deferred();
+        const a = service.withProgress(
+            { location: "view", viewId: VIEW, title: "Indexing", passive: true },
+            () => passive.promise,
+        );
+        const b = service.withProgress(
+            { location: "view", viewId: "workbench.scm.graph", title: "Fetching…" },
+            () => other.promise,
+        );
+        const c = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => own.promise);
+
+        expect(service.operationProgress(VIEW)).toBeNull();
+        vi.advanceTimersByTime(300);
+        expect(service.operationProgress(VIEW)).toEqual({ spinner: "⠋", title: "Committing…" });
+        // The header still shows the earliest entry, passive or not.
+        expect(service.viewProgress().get(VIEW)?.title).toBe("Indexing");
+
+        for (const task of [passive, own, other]) task.resolve();
+        await Promise.all([a, b, c]);
+    });
+
     it("a task error propagates and closes the progress", async () => {
         const task = deferred();
         const running = service.withProgress({ location: "view", viewId: VIEW, title: "Pushing…" }, () => task.promise);
@@ -242,6 +283,41 @@ describe("ProgressService", () => {
         await running;
         vi.advanceTimersByTime(10_000);
         expect(service.windowProgress()).toBeNull();
+    });
+
+    it("a reported percent rides on the frame until it is reported away", async () => {
+        const task = deferred();
+        const listener = vi.fn();
+        disposables.add(service.onDidChange(listener));
+        let progress!: IProgress;
+        const running = service.withProgress({ location: "window", title: "Installing x" }, (p) => {
+            progress = p;
+            return task.promise;
+        });
+        vi.advanceTimersByTime(300);
+
+        listener.mockClear();
+        progress.report({ percent: 47 });
+        expect(service.windowProgress()).toEqual({ spinner: "⠋", title: "Installing x", percent: 47 });
+        expect(listener).toHaveBeenCalledTimes(1);
+        // The same percent again is no change: a download reports per chunk.
+        progress.report({ percent: 47 });
+        expect(listener).toHaveBeenCalledTimes(1);
+
+        progress.report({ percent: undefined });
+        expect(service.windowProgress()).toEqual({ spinner: "⠋", title: "Installing x" });
+        expect(listener).toHaveBeenCalledTimes(2);
+
+        task.resolve();
+        await running;
+    });
+
+    it("the spinner follows the shared ticker", () => {
+        expect(service.spinner()).toBe("⠋");
+        void service.withProgress({ location: "window", title: "x" }, () => new Promise<void>(() => {}));
+        vi.advanceTimersByTime(300 + 100);
+        expect(service.spinner()).toBe("⠙");
+        expect(service.spinner()).toBe(service.windowProgress()!.spinner);
     });
 
     it("the ticker stops together with the last spinner", async () => {

@@ -28,6 +28,11 @@ import {
 
 export type { IFileDialogFilter } from "./fileDialogPaths.ts";
 
+/** A selection or a highlight the dialog does not act on. */
+function ignoreItems(): void {
+    /* the query line, not the list, is what the dialog reads */
+}
+
 /** Upstream `IOpenDialogOptions` without remote file systems. */
 export interface IOpenDialogOptions {
     readonly title?: string;
@@ -183,7 +188,7 @@ export class SimpleFileDialog {
                     this.update({ validationMessage: undefined });
                     this.completeWith(item);
                 },
-                onDidChangeSelection: () => undefined,
+                onDidChangeSelection: ignoreItems,
                 onDidHide: () => {
                     this.hidden = true;
                     if (isResolving === 0) doResolve(undefined);
@@ -389,8 +394,9 @@ export class SimpleFileDialog {
                     prompt.hide();
                     resolve(true);
                 },
-                onDidChangeActive: () => undefined,
-                onDidChangeSelection: () => undefined,
+                // The question has no items: nothing is ever active or selected in it.
+                onDidChangeActive: ignoreItems,
+                onDidChangeSelection: ignoreItems,
                 onDidHide: () => {
                     if (!isResolving) {
                         resolve(false);

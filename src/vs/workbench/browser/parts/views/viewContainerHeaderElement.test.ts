@@ -75,7 +75,16 @@ describe("ViewContainerHeaderElement", () => {
 
         mouse(header, "mousedown", { localX: 25 });
         mouse(header, "mouseup", { localX: 25 });
-        expect(onAction).toHaveBeenCalledWith("scm.refresh");
+        expect(onAction).toHaveBeenCalledWith("scm.refresh", { screenX: 25, screenY: 0 });
+    });
+
+    it("a click on a button of a header without an action handler does not throw", () => {
+        const { header } = makeHeader();
+        header.onAction = undefined;
+        mouse(header, "mousedown", { localX: 25 });
+        expect(() => {
+            mouse(header, "mouseup", { localX: 25 });
+        }).not.toThrow();
     });
 
     it("a click on the title does nothing: the container does not collapse", () => {
@@ -151,6 +160,29 @@ describe("ViewContainerHeaderElement", () => {
         const hit = app.root.elementFromPoint(new Point(widget.globalPosition.x, widget.globalPosition.y));
         expect(hit).toBe(widget);
         expect(app.root.elementFromPoint(new Point(header.globalPosition.x, header.globalPosition.y))).toBe(header);
+    });
+
+    it("a click on the widget of a sidebar header is the widget's: the switcher does not open", () => {
+        const header = new ViewContainerHeaderElement("RUN AND DEBUG");
+        header.setSwitcher(true);
+        const onSwitch = vi.fn();
+        header.onSwitch = onSwitch;
+        const widget = new TextLabelElement("launcher");
+        const clicks = vi.fn();
+        widget.addEventListener("click", clicks);
+        header.setTitleWidget(widget);
+        const app = TestApp.createWithContent(header, new Size(40, 1));
+        app.render();
+        const x = widget.globalPosition.x + 1;
+
+        app.backend.simulateMouse(token({ action: "press", x, y: 1 }));
+        app.backend.simulateMouse(token({ action: "release", x, y: 1 }));
+        expect(clicks).toHaveBeenCalledOnce();
+        expect(onSwitch).not.toHaveBeenCalled();
+
+        app.backend.simulateMouse(token({ action: "press", x: 2, y: 1 }));
+        app.backend.simulateMouse(token({ action: "release", x: 2, y: 1 }));
+        expect(onSwitch).toHaveBeenCalledOnce();
     });
 
     it("hover highlights the button under the pointer, leaving clears it", () => {

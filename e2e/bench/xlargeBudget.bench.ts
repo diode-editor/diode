@@ -33,6 +33,8 @@ import { median } from "./stats.ts";
 //    10 cycles — Enter 8, undo (Enter) 5, undo (char) 5, insert 5 ms; single samples up to 23 ms. Budgets 20/16/16:
 //    2.5–3× the median, so that a runner 1.6× slower (the small gate's observed spread, 92–146 ms) still has
 //    1.5× headroom; a sync pass over the file on the key path (folding, projection: +50 ms and more) is caught.
+//    Recalibration (human's decision 2026-11-05): on the main runs of 2026-11-04/05 the Enter median was 10-18 ms
+//    and twice 20-21 ms over the budget of 20 with no trend; Enter is 25 now, ~1.2x the worst observed median.
 //
 // Cost: the quiet moment comes ~20 s after spawn on CI (~45 s locally on 4 slower cores): the TextMate
 // tokenizer walks 200 K lines on the main thread, ~100–200 µs a line. So every key run is the expensive part —
@@ -46,7 +48,7 @@ import { median } from "./stats.ts";
 export const XLARGE_BUDGET_OURS_MS = 350;
 /** Median keystroke latency (ms) after the background work has settled; keys not listed are reported only. */
 export const KEY_BUDGET_MS: Readonly<Partial<Record<WorkloadStepKey, number>>> = {
-    enter: 20,
+    enter: 25,
     undoEnter: 16,
     undoInsert: 16,
 };

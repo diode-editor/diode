@@ -4,6 +4,7 @@ import { stat, unlink, writeFile } from "node:fs/promises";
 import * as vscode from "vscode";
 import {
     CancellationToken,
+    DidChangeConfigurationNotification,
     ExecuteCommandRequest,
     LanguageClient,
     type LanguageClientOptions,
@@ -11,6 +12,7 @@ import {
     type ServerOptions,
 } from "vscode-languageclient/node";
 
+import { highlightsFromTsserver } from "./lib/documentHighlights.ts";
 import { needsNoopOrganizeImports } from "./lib/organizeImports.ts";
 import { configFileFromProjectInfo, JS_TS_LANGUAGE_IDS } from "./lib/projectConfig.ts";
 import {
@@ -22,6 +24,7 @@ import {
 } from "./lib/projectStatus.ts";
 import { createRefactoringEditsMiddleware, type RefactoringEditsHost } from "./lib/refactoringEdits.ts";
 import { LANGUAGE_SERVERS, resolveServerCommand } from "./lib/resolveServer.ts";
+import { serverSettings, SYNCHRONIZED_SECTIONS } from "./lib/serverSettings.ts";
 
 /** Bundled server extraction starts when builtins are registered; activation can overtake it. */
 const BUNDLED_WAIT_MS = 5_000;
@@ -55,7 +58,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const runtime = { command: process.execPath, runAsNodeFlag: serverRuntime === "diode-as-node" };
 
     for (const spec of LANGUAGE_SERVERS) {
-        const outputChannel = vscode.window.createOutputChannel(spec.displayName);
+        const outputChannel = vscode.window.createOutputChannel(spec.displayName, { log: true });
 
         // The cache is published by an atomic rename: existsSync of the entry means ready.
         const hasEarlierCandidate =
@@ -110,8 +113,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             outputChannel,
             progressOnInitialization: true,
             ...(Object.keys(initializationOptions).length > 0 ? { initializationOptions } : {}),
+            // Sends on start and on each change of these sections; the payload comes from the middleware below.
+            synchronize: { configurationSection: SYNCHRONIZED_SECTIONS },
             middleware: {
                 provideCodeActions: withNoopOrganizeImports,
+                provideDocumentHighlights: async (document, position, token, next) => {
+                    const highlights = await tsserverDocumentHighlights(clientRef.current, document, position, token);
+                    return highlights ?? next(document, position, token);
+                },
                 // tsserver notices a new or deleted config by polling it (2 s) and loads the project in the
                 // background; the server reports that load as "Initializing JS/TS language features…". Its end is
                 // the moment the project of the active file may have changed without an editor switch.
@@ -121,6 +130,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 },
                 executeCommand: (command, args, next) => refactoringEdits.executeCommand(command, args, next),
                 workspace: {
+                    // The stock payload copies the sections as they are and drops `false`; the server wants its own keys.
+                    didChangeConfiguration: async () => {
+                        const section = vscode.workspace.getConfiguration();
+                        await clientRef.current?.sendNotification(DidChangeConfigurationNotification.type, {
+                            settings: serverSettings((key, fallback) => section.get(key, fallback)),
+                        });
+                    },
                     handleApplyEdit: (params, next) =>
                         refactoringEdits.handleApplyEdit(params, (edit) => next(edit, CancellationToken.None)),
                 },
@@ -200,6 +216,48 @@ function projectStatusHost(clientRef: { readonly current?: LanguageClient }): IP
         showInformationMessage: (message, ...items) => vscode.window.showInformationMessage(message, ...items),
         showWarningMessage: (message) => void vscode.window.showWarningMessage(message),
     };
+}
+
+/** The server drops the token of `workspace/executeCommand`: a superseded request still runs in tsserver, over one file. */
+async function tsserverDocumentHighlights(
+    client: LanguageClient | undefined,
+    document: vscode.TextDocument,
+    position: vscode.Position,
+    token: vscode.CancellationToken,
+): Promise<vscode.DocumentHighlight[] | undefined> {
+    if (client === undefined) return undefined;
+    try {
+        const response: unknown = await client.sendRequest(
+            ExecuteCommandRequest.type,
+            {
+                command: "typescript.tsserverRequest",
+                arguments: [
+                    "documentHighlights",
+                    {
+                        file: document.uri.fsPath,
+                        line: position.line + 1,
+                        offset: position.character + 1,
+                        filesToSearch: [document.uri.fsPath],
+                    },
+                ],
+            },
+            token,
+        );
+        return highlightsFromTsserver(response)?.map(
+            (highlight) =>
+                new vscode.DocumentHighlight(
+                    new vscode.Range(
+                        highlight.startLine,
+                        highlight.startCharacter,
+                        highlight.endLine,
+                        highlight.endCharacter,
+                    ),
+                    highlight.isWrite ? vscode.DocumentHighlightKind.Write : vscode.DocumentHighlightKind.Read,
+                ),
+        );
+    } catch {
+        return undefined;
+    }
 }
 
 /** An empty edit applies with no changes and no undo step; see `lib/organizeImports.ts` for why. */

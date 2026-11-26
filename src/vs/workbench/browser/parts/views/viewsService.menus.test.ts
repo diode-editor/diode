@@ -205,7 +205,7 @@ describe("ViewsService — inline title buttons", () => {
         h.service.registerView(testView(GRAPH, "scm", 20));
         h.service.attachContainer("scm");
 
-        h.header("scm")!.onAction?.("scm.newRepo");
+        h.header("scm")!.onAction?.("scm.newRepo", { screenX: 0, screenY: 0 });
         expect(run).toHaveBeenCalledOnce();
     });
 });

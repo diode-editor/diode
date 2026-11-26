@@ -82,56 +82,58 @@ describe("PanelContainerElement: rendering", () => {
         expect(at(screen, 0, 5).bg).not.toBe(BG);
     });
 
-    it("draws the top border strip across the full width and only on row zero", () => {
+    it("draws no top border strip: the part's frame separates it, and row zero is the tab row", () => {
         const screen = paint(twoTabs(), new Size(20, 5));
 
-        expect(row(screen, 0, 0, 20)).toBe("─".repeat(20));
-        expect(at(screen, 0, 0).fg).toBe(BORDER);
-        expect(at(screen, 19, 0).fg).toBe(BORDER);
-        expect(at(screen, 20, 0).char).not.toBe("─");
-        expect(at(screen, 0, 1).char).not.toBe("─");
+        expect(row(screen, 0, 0, 16)).toBe("  PROBLEMS  OUT ");
+        for (let y = 0; y < 5; y++) {
+            for (let x = 0; x < 20; x++) {
+                expect(at(screen, x, y).char).not.toBe("─");
+                expect(at(screen, x, y).fg).not.toBe(BORDER);
+            }
+        }
     });
 
     it("pads tab names with exactly one space on each side", () => {
         const screen = paint(twoTabs(), new Size(20, 5));
 
-        expect(row(screen, 1, 0, 16)).toBe("  PROBLEMS  OUT ");
-        expect(at(screen, 1, 1).char).toBe(" ");
-        expect(at(screen, 10, 1).char).toBe(" ");
-        expect(at(screen, 2, 1).fg).toBe(TITLE_FG);
+        expect(row(screen, 0, 0, 16)).toBe("  PROBLEMS  OUT ");
+        expect(at(screen, 1, 0).char).toBe(" ");
+        expect(at(screen, 10, 0).char).toBe(" ");
+        expect(at(screen, 2, 0).fg).toBe(TITLE_FG);
     });
 
     it("does not paint the tab row past the last tab", () => {
         const screen = paint(twoTabs(), new Size(20, 5));
 
         // Column 16 is right after the tab row tail: fill color, NOT the label color.
-        expect(at(screen, 16, 1).fg).not.toBe(TITLE_FG);
-        expect(at(screen, 16, 1).fg).toBe(at(screen, 5, 3).fg);
+        expect(at(screen, 16, 0).fg).not.toBe(TITLE_FG);
+        expect(at(screen, 16, 0).fg).toBe(at(screen, 5, 3).fg);
     });
 
     it("clips the tab row at the right panel edge without overflowing it", () => {
         const screen = paint(twoTabs(), new Size(8, 4));
 
-        expect(row(screen, 1, 0, 8)).toBe("  PRO × ");
-        expect(at(screen, 8, 1).fg).not.toBe(TITLE_FG);
-        expect(at(screen, 8, 1).bg).not.toBe(BG);
+        expect(row(screen, 0, 0, 8)).toBe("  PRO × ");
+        expect(at(screen, 8, 0).fg).not.toBe(TITLE_FG);
+        expect(at(screen, 8, 0).bg).not.toBe(BG);
     });
 
     it("underlines the active tab — only under the name glyphs", () => {
         const panel = twoTabs();
         const screen = paint(panel, new Size(20, 5));
 
-        expect(at(screen, 2, 1).style).toBe(StyleFlags.Underline);
-        expect(at(screen, 9, 1).style).toBe(StyleFlags.Underline);
-        expect(at(screen, 1, 1).style).toBe(StyleFlags.None); // leading padding
-        expect(at(screen, 10, 1).style).toBe(StyleFlags.None); // trailing padding
-        expect(at(screen, 12, 1).style).toBe(StyleFlags.None); // glyph of the INACTIVE tab
+        expect(at(screen, 2, 0).style).toBe(StyleFlags.Underline);
+        expect(at(screen, 9, 0).style).toBe(StyleFlags.Underline);
+        expect(at(screen, 1, 0).style).toBe(StyleFlags.None); // leading padding
+        expect(at(screen, 10, 0).style).toBe(StyleFlags.None); // trailing padding
+        expect(at(screen, 12, 0).style).toBe(StyleFlags.None); // glyph of the INACTIVE tab
 
         panel.setActiveView("b");
         const after = paint(panel, new Size(20, 5));
-        expect(at(after, 2, 1).style).toBe(StyleFlags.None);
-        expect(at(after, 12, 1).style).toBe(StyleFlags.Underline);
-        expect(at(after, 11, 1).style).toBe(StyleFlags.None);
+        expect(at(after, 2, 0).style).toBe(StyleFlags.None);
+        expect(at(after, 12, 0).style).toBe(StyleFlags.Underline);
+        expect(at(after, 11, 0).style).toBe(StyleFlags.None);
     });
 
     it("draws the placeholder below the tab name and clips it at the panel edge", () => {
@@ -140,9 +142,9 @@ describe("PanelContainerElement: rendering", () => {
         const screen = paint(panel, new Size(10, 5));
 
         // The tail does not spill past the panel.
-        expect(row(screen, 2, 0, 10)).toBe("  01234567");
-        expect(at(screen, 10, 2).char).not.toBe("8");
-        expect(at(screen, 10, 2).bg).not.toBe(BG);
+        expect(row(screen, 1, 0, 10)).toBe("  01234567");
+        expect(at(screen, 10, 1).char).not.toBe("8");
+        expect(at(screen, 10, 1).bg).not.toBe(BG);
     });
 
     it("ends the placeholder at its last character instead of painting the rest of the row", () => {
@@ -150,9 +152,9 @@ describe("PanelContainerElement: rendering", () => {
         panel.addView({ id: "a", title: "P", content: null, placeholder: "No problems." });
         const screen = paint(panel, new Size(20, 5));
 
-        expect(row(screen, 2, 0, 14)).toBe("  No problems.");
-        expect(at(screen, 14, 2).fg).not.toBe(TITLE_FG);
-        expect(at(screen, 14, 2).fg).toBe(at(screen, 5, 3).fg);
+        expect(row(screen, 1, 0, 14)).toBe("  No problems.");
+        expect(at(screen, 14, 1).fg).not.toBe(TITLE_FG);
+        expect(at(screen, 14, 1).fg).toBe(at(screen, 5, 3).fg);
     });
 
     it("the placeholder is not shown for a tab that has content", () => {
@@ -161,19 +163,19 @@ describe("PanelContainerElement: rendering", () => {
         panel.addView({ id: "a", title: "P", content: new MarkerContent("X"), placeholder: "hidden" });
         const screen = paint(panel, new Size(20, 5));
 
-        expect(at(screen, 2, 2).char).toBe("X");
-        expect(row(screen, 2, 0, 10)).toBe("  X       ");
+        expect(at(screen, 2, 1).char).toBe("X");
+        expect(row(screen, 1, 0, 10)).toBe("  X       ");
     });
 
     it("does not draw the placeholder when there is no content row at all", () => {
         // No room for content; a write to a nonexistent row is visible only on a screen larger than the panel.
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: null, placeholder: "hidden" });
-        const screen = paint(panel, new Size(20, 2));
+        const screen = paint(panel, new Size(20, 1));
 
-        expect(row(screen, 1, 0, 4)).toBe("  P ");
-        expect(at(screen, 2, 2).char).not.toBe("h");
-        expect(at(screen, 2, 2).bg).not.toBe(BG);
+        expect(row(screen, 0, 0, 4)).toBe("  P ");
+        expect(at(screen, 2, 1).char).not.toBe("h");
+        expect(at(screen, 2, 1).bg).not.toBe(BG);
     });
 
     it("a tab with content and no placeholder renders and lays out", () => {
@@ -182,8 +184,8 @@ describe("PanelContainerElement: rendering", () => {
         panel.addView({ id: "a", title: "P", content });
         const screen = paint(panel, new Size(20, 5));
 
-        expect(at(screen, 2, 2).char).toBe("X");
-        expect(content.layoutSize).toEqual(new Size(18, 3));
+        expect(at(screen, 2, 1).char).toBe("X");
+        expect(content.layoutSize).toEqual(new Size(18, 4));
     });
 
     it("a panel with no tabs at all lays out and renders", () => {
@@ -192,6 +194,6 @@ describe("PanelContainerElement: rendering", () => {
 
         expect(() => paint(panel, new Size(20, 5))).not.toThrow();
         const screen = paint(panel, new Size(20, 5));
-        expect(row(screen, 1, 0, 20)).toBe(`${" ".repeat(17)} × `);
+        expect(row(screen, 0, 0, 20)).toBe(`${" ".repeat(17)} × `);
     });
 });

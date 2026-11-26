@@ -59,6 +59,25 @@ describe("Workbench — Rename", () => {
         expect(fs.readFileSync(ws.path("new.txt"), "utf-8")).toBe("hi");
     });
 
+    it("typing replaces the stem of a file and keeps its extension, as upstream's explorer", () => {
+        h.commands.execute("fileOperations.rename", ws.path("old.txt"));
+        h.testApp.render();
+
+        h.testApp.sendKey("x");
+
+        expect(quickPickByTitle(h.testApp, "Rename").getQuery()).toBe("x.txt");
+    });
+
+    it("typing replaces the whole of a name without an extension", () => {
+        fs.writeFileSync(ws.path(".env"), "");
+        h.commands.execute("fileOperations.rename", ws.path(".env"));
+        h.testApp.render();
+
+        h.testApp.sendKey("x");
+
+        expect(quickPickByTitle(h.testApp, "Rename").getQuery()).toBe("x");
+    });
+
     it("open file: the tab in the frame follows the rename, saving does not resurrect the old one", async () => {
         h.container.get(EditorServiceDIToken).openFile(ws.path("old.txt"));
         h.testApp.render();

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { commonPrefixLength, commonSuffixLength, splitLines } from "./strings.ts";
+import {
+    commonPrefixLength,
+    commonSuffixLength,
+    removeAnsiEscapeCodes,
+    splitLines,
+    truncateMiddle,
+} from "./strings.ts";
 
 describe("commonPrefixLength", () => {
     it("counts the length of the common prefix", () => {
@@ -61,5 +67,28 @@ describe("splitLines", () => {
 
     it("an empty string gives one empty element", () => {
         expect(splitLines("")).toEqual([""]);
+    });
+});
+
+describe("truncateMiddle", () => {
+    it("keeps a value that fits", () => {
+        expect(truncateMiddle("abcdef", 6)).toBe("abcdef");
+    });
+
+    it("keeps the start and the end of a longer one around the ellipsis, within the length", () => {
+        expect(truncateMiddle("abcdefghij", 7)).toBe("abc…hij");
+        expect(truncateMiddle("abcdefghij", 6)).toBe("ab…hij");
+    });
+});
+
+describe("removeAnsiEscapeCodes", () => {
+    it("drops colors, a link's OSC and a charset switch, keeps the text", () => {
+        expect(removeAnsiEscapeCodes("\x1b[31mred\x1b[0m \x1b[1;32mbold\x1b[39m")).toBe("red bold");
+        expect(removeAnsiEscapeCodes("\x1b]8;;http://x\x07link\x1b]8;;\x07")).toBe("link");
+        expect(removeAnsiEscapeCodes("\x1b(Bplain\x9b2Kend")).toBe("plainend");
+    });
+
+    it("leaves a text without sequences alone", () => {
+        expect(removeAnsiEscapeCodes("expected 2 to be 3")).toBe("expected 2 to be 3");
     });
 });

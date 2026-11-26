@@ -187,10 +187,10 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             await provider.getChildren(pkg);
 
             provider.watchNode(pkg);
-            expect(watcher.live()).toEqual([ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
+            expect(watcher.live()).toEqual([ws.dir, ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
 
             provider.unwatchNode(pkg);
-            expect(watcher.live()).toEqual([]);
+            expect(watcher.live()).toEqual([ws.dir]);
         });
 
         it("the expanded node's chain changed — watching moves", async () => {
@@ -201,15 +201,15 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             // A second entry in `a` shortens the chain: `b` is no longer part of it.
             ws.writeFile("pkg/a/x.ts", "");
             await provider.getChildren(pkg);
-            expect(watcher.live()).toEqual([ws.path("pkg"), ws.path("pkg/a")]);
+            expect(watcher.live()).toEqual([ws.dir, ws.path("pkg"), ws.path("pkg/a")]);
 
             // The entry is gone — the chain reaches `b` again.
             fs.rmSync(ws.path("pkg/a/x.ts"));
             await provider.getChildren(pkg);
-            expect(watcher.live()).toEqual([ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
+            expect(watcher.live()).toEqual([ws.dir, ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
 
             provider.unwatchNode(pkg);
-            expect(watcher.live()).toEqual([]);
+            expect(watcher.live()).toEqual([ws.dir]);
             // Folders that stayed in the chain weren't resubscribed: one
             // subscription each for `pkg` and `pkg/a` over the whole test.
             expect(watcher.watches.filter((watch) => watch.path === ws.path("pkg"))).toHaveLength(1);
@@ -221,19 +221,19 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
             provider.watchNode(pkg);
-            expect(watcher.live()).toEqual([ws.path("pkg"), ws.path("pkg/a")]);
+            expect(watcher.live()).toEqual([ws.dir, ws.path("pkg"), ws.path("pkg/a")]);
 
             fs.rmSync(ws.path("pkg/a/x.ts"));
             await provider.getChildren(pkg);
             provider.unwatchNode(pkg);
 
-            expect(watcher.live()).toEqual([]);
+            expect(watcher.live()).toEqual([ws.dir]);
         });
 
         it("re-reading a collapsed node does not subscribe it", async () => {
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
-            expect(watcher.live()).toEqual([]);
+            expect(watcher.live()).toEqual([ws.dir]);
         });
 
         it("after unwatchNode re-reading the node does not bring watching back", async () => {
@@ -243,7 +243,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             provider.unwatchNode(pkg);
 
             await provider.getChildren(pkg);
-            expect(watcher.live()).toEqual([]);
+            expect(watcher.live()).toEqual([ws.dir]);
         });
 
         it("notifications do not throw without a subscriber", async () => {
@@ -263,7 +263,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             for (const dir of ["pkg", "pkg/a", "pkg/a/b", "README.md"]) provider.watchDirectory(ws.path(dir));
 
             provider.unwatchNode(pkg);
-            expect(watcher.live()).toEqual([ws.path("README.md")]);
+            expect(watcher.live()).toEqual([ws.dir, ws.path("README.md")]);
         });
 
         it("change in the last folder — the compact node itself (the row object) is re-read", async () => {
@@ -347,7 +347,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             const onChange = vi.fn();
             provider.onChange = onChange;
 
-            watcher.watches[0].fire([ws.path("pkg/new.ts")]);
+            watcher.watches.find((watch) => watch.path === ws.path("pkg"))?.fire([ws.path("pkg/new.ts")]);
             vi.advanceTimersByTime(300);
 
             expect(onChange).toHaveBeenCalledExactlyOnceWith(pkg);

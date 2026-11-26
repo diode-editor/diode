@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-    ICoreCompletionResult,
-    ICoreResolvedCompletion,
+import {
+    CompletionItemInsertTextRule,
+    type ICoreCompletionResult,
+    type ICoreResolvedCompletion,
 } from "../../../editor/common/languages/iCompletionSource.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
@@ -10,7 +11,15 @@ import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
-import { CompletionItem, CompletionList, MarkdownString, Range, SnippetString, TextEdit } from "./vscodeTypes.ts";
+import {
+    CompletionItem,
+    CompletionItemTag,
+    CompletionList,
+    MarkdownString,
+    Range,
+    SnippetString,
+    TextEdit,
+} from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 const REQ = {
@@ -95,7 +104,37 @@ describe("LanguagesNamespace — completion: source field serialization", () => 
         for (const item of result.items.slice(1)) expect(item).not.toHaveProperty("additionalEdits");
     });
 
-    it("a Range from another bundle (duck-typed, not instanceof Range) arrives as the replace range", async () => {
+    it("[api:CompletionItem.tags] [api:CompletionItem.preselect] [api:CompletionItem.commitCharacters] [api:CompletionItem.keepWhitespace] [api:CompletionItem.textEdit] tags, preselect, commitCharacters, keepWhitespace and the old textEdit arrive in wire form", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const old = new CompletionItem("oldFn");
+        old.tags = [CompletionItemTag.Deprecated];
+        old.preselect = true;
+        old.commitCharacters = [".", "("];
+        old.keepWhitespace = true;
+        // Only textEdit: its text goes on its range, not the label on the prefix.
+        (old as { textEdit?: TextEdit }).textEdit = new TextEdit(new Range(0, 0, 0, 2), "oldFn()");
+        languages.registerCompletionItemProvider({ language: "typescript" }, {
+            provideCompletionItems: () => [old, new CompletionItem("plain")],
+        } as never);
+
+        const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
+
+        expect(result.items[0]).toMatchObject({
+            label: "oldFn",
+            insertText: "oldFn()",
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } },
+            tags: [CompletionItemTag.Deprecated],
+            preselect: true,
+            commitCharacters: [".", "("],
+            insertTextRules: CompletionItemInsertTextRule.KeepWhitespace,
+        });
+        for (const key of ["tags", "preselect", "commitCharacters", "insertTextRules", "range"]) {
+            expect(result.items[1]).not.toHaveProperty(key);
+        }
+    });
+
+    it("a Range from another bundle (duck-typed, not instanceof Range) arrives as the range", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const foreign = { start: { line: 0, character: 0 }, end: { line: 0, character: 2 }, isEmpty: false };
@@ -109,7 +148,7 @@ describe("LanguagesNamespace — completion: source field serialization", () => 
 
         const [result] = (await stub.callRequest("languages.provideCompletionItems", REQ)) as ICoreCompletionResult[];
         const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } };
-        expect(result.items.map((item) => item.range)).toEqual([range, range]);
+        expect(result.items.map((item) => item.range)).toEqual([range, { insert: range, replace: range }]);
     });
 
     it("isIncomplete from CompletionList reaches the core", async () => {

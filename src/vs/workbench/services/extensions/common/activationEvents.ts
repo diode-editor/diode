@@ -12,6 +12,8 @@ const ON_COMMAND_PREFIX = "onCommand:";
 
 const ON_LANGUAGE_PREFIX = "onLanguage:";
 
+export const ON_TERMINAL_PROFILE_PREFIX = "onTerminalProfile:";
+
 /**
  * The full set ({@link computeActivationEvents}): the host only compares strings and knows nothing about
  * `contributes`.
@@ -67,6 +69,17 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
             for (const definition of contributes.taskDefinitions ?? NO_CONTRIBUTIONS) {
                 if (typeof definition.type === "string" && definition.type !== "")
                     yield `onTaskType:${definition.type}`;
+            }
+        },
+    },
+    {
+        point: "terminal",
+        *generate(contributes) {
+            const profiles = (contributes.terminal as { readonly profiles?: unknown } | undefined)?.profiles;
+            if (!Array.isArray(profiles)) return;
+            for (const profile of profiles as readonly ({ readonly id?: unknown } | null)[]) {
+                if (typeof profile?.id === "string" && profile.id !== "")
+                    yield `${ON_TERMINAL_PROFILE_PREFIX}${profile.id}`;
             }
         },
     },

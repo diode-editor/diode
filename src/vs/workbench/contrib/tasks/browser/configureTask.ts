@@ -19,6 +19,7 @@ import {
     customizationEntryOf,
     isWritableTasksJson,
     type ITasksJsonIndentation,
+    positionAt,
     taskEntryRange,
     tasksJsonHasTasks,
 } from "../common/tasksJsonEdits.ts";
@@ -69,18 +70,25 @@ export async function configureTaskCommand(accessor: ServiceAccessor): Promise<v
                   | undefined);
     if (entry === undefined || uri === undefined) return;
     if (entry.task !== undefined) {
-        await (isConfiguredTask(entry.task)
-            ? openConfig(context, uri, text, entry.task)
-            : customize(context, uri, entry.task));
+        const { configIndex } = entry.task;
+        await (configIndex === undefined
+            ? customize(context, uri, entry.task)
+            : openConfig(context, uri, text, configIndex));
     } else {
         // An entry without a task is only "Create/Open tasks.json file".
         await openTaskFile(context, uri);
     }
 }
 
-async function openConfig(context: IConfigureContext, uri: Uri, text: string | undefined, task: ITask): Promise<void> {
-    // Stryker disable next-line StringLiteral,UnaryOperator: equivalent: configured task has text and index; fallbacks are for types
-    await openAtEntry(context, uri, text ?? "", task.configIndex ?? -1);
+/** No text: the file went away between the two reads, and no entry is found in any text. */
+async function openConfig(
+    context: IConfigureContext,
+    uri: Uri,
+    text: string | undefined,
+    index: number,
+): Promise<void> {
+    // Stryker disable next-line StringLiteral: equivalent: no text has the entry, whatever stands in for it
+    await openAtEntry(context, uri, text ?? "", index);
 }
 
 async function customize(context: IConfigureContext, uri: Uri, task: ITask): Promise<void> {
@@ -143,12 +151,6 @@ async function openAtEntry(context: IConfigureContext, uri: Uri, text: string, i
     const start = positionAt(text, range.start);
     editor.goToPosition(start.line, start.character);
     editor.revealRange({ start, end: positionAt(text, range.end) });
-}
-
-function positionAt(text: string, offset: number): { line: number; character: number } {
-    const before = text.slice(0, offset);
-    const lineStart = before.lastIndexOf("\n") + 1;
-    return { line: before.split("\n").length - 1, character: offset - lineStart };
 }
 
 function indentationOf(configuration: IConfigurationService): ITasksJsonIndentation {

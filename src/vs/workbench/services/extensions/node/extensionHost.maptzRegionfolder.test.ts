@@ -8,11 +8,13 @@ import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarn
 import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { fetchStockVsix } from "../../../../../TestUtils/stockVsix.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { settle, waitUntil } from "../../../../../TestUtils/timing.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -114,6 +116,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock maptz.regionfolder
             const accessor = new Container();
             accessor.bind(EditorServiceDIToken, () => harness.group);
             accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
+            accessor.bind(IConfigurationServiceDIToken, () => createTestConfigurationService());
             accessor.bind(StatusBarServiceDIToken, () => statusBar);
             registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, formatDocumentAction);
 

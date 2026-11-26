@@ -4,7 +4,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { confirmedMembers, conformanceMembers, extensionGaps, findApiTags, pickCandidates, readClasses, renderMatrix, usage, validateClasses } from "./api-matrix.mjs";
+import {
+    clientMembers,
+    confirmedMembers,
+    conformanceMembers,
+    extensionGaps,
+    findApiTags,
+    LANGUAGE_CLIENT_FOOTPRINT,
+    LANGUAGE_CLIENT_SIGNATURE,
+    pickCandidates,
+    readClasses,
+    renderMatrix,
+    usage,
+    validateClasses,
+} from "./api-matrix.mjs";
+import { loadSurface } from "./ext-survey-analyze.mjs";
 
 const surface = new Map([
     ["window.a", { kind: "namespace", owner: "window" }],
@@ -70,6 +84,37 @@ test("a gap is any non-ok class", () => {
         { member: "window.b", class: "B" },
         { member: "window.x", class: "X" },
     ]);
+});
+
+const clientClasses = new Map([...classes, ...[...LANGUAGE_CLIENT_FOOTPRINT].map((m) => [m, { class: "X", note: "notebook" }]), ["NotebookRange", { class: "X" }]]);
+const withClient = (...own) => [...LANGUAGE_CLIENT_SIGNATURE, "TabInputNotebook", ...own];
+
+test("the footprint of a bundled language client leaves the gap only with the whole signature", () => {
+    const lsp = ext("lsp", 10, withClient("window.a", "window.b"));
+    assert.deepEqual(clientMembers(lsp), [...LANGUAGE_CLIENT_SIGNATURE, "TabInputNotebook"]);
+    assert.deepEqual(extensionGaps(lsp, clientClasses), [{ member: "window.b", class: "B" }]);
+    const partial = ext("partial", 10, [...LANGUAGE_CLIENT_SIGNATURE.slice(1), "TabInputNotebook"]);
+    assert.deepEqual(clientMembers(partial), []);
+    assert.equal(extensionGaps(partial, clientClasses).length, 7);
+    const notebooks = ext("jupyter", 10, withClient("NotebookRange"));
+    assert.deepEqual(extensionGaps(notebooks, clientClasses), [{ member: "NotebookRange", class: "X" }]);
+    assert.deepEqual(pickCandidates([lsp], clientClasses).map((c) => c.extension.id), ["lsp"]);
+});
+
+test("the gap ranking counts usage without the client, the members table with it", () => {
+    const extensions = [ext("lsp", 10, withClient()), ext("own", 5, ["workspace.notebookDocuments"])];
+    assert.deepEqual(usage(extensions, true).get("workspace.notebookDocuments"), { count: 1, weight: 5 });
+    assert.deepEqual(usage(extensions).get("workspace.notebookDocuments"), { count: 2, weight: 15 });
+    const surfaceWithClient = new Map([...surface, ...[...clientClasses.keys()].map((m) => [m, { kind: "class", owner: "types" }])]);
+    const text = renderMatrix({ ...inputs(), surface: surfaceWithClient, classes: clientClasses, survey: { date: "d", top: 2, extensions } });
+    assert.match(text, /## Gap ranking[\s\S]*\| `workspace\.notebookDocuments` \| X \| 1 \| 5 \| notebook \|[\s\S]*## Proposed/);
+    assert.match(text, /\| `lsp` \| 1\.0\.0 \| 10 \|  \| 8 \| 0 \| 0 \| 0 \| 0 \| 0 \| 8 \|/);
+    assert.match(text, /\| `workspace\.notebookDocuments` \| X \|  \| 2 \| 15 \|  \|/);
+});
+
+test("the client footprint names real members of vscode.d.ts", () => {
+    const real = loadSurface();
+    assert.deepEqual([...LANGUAGE_CLIENT_FOOTPRINT].filter((m) => !real.has(m)), []);
 });
 
 test("candidates: only A and B gaps, at least one, API visible, nearest first", () => {

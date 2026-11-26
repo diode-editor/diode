@@ -1,5 +1,20 @@
 {
   "typescript.problemMatchers.tsc.label": "TypeScript problems",
   "javascript.goToProjectConfig.title": "Go to Project Configuration (jsconfig / tsconfig)",
-  "typescript.goToProjectConfig.title": "Go to Project Configuration (tsconfig)"
+  "typescript.goToProjectConfig.title": "Go to Project Configuration (tsconfig)",
+  "configuration.referencesCodeLens.enabled": "Enable/disable references CodeLens in JavaScript and TypeScript files. This CodeLens shows the number of references for classes and exported functions and allows you to peek or navigate to them.",
+  "configuration.referencesCodeLens.showOnAllFunctions": "Enable/disable the [references CodeLens](#js/ts.referencesCodeLens.enabled) on all functions in JavaScript and TypeScript files.",
+  "configuration.implementationsCodeLens.enabled": "Enable/disable implementations CodeLens in TypeScript files. This CodeLens shows the implementers of TypeScript interfaces.",
+  "configuration.implementationsCodeLens.showOnInterfaceMethods": "Enable/disable [implementations CodeLens](#js/ts.implementationsCodeLens.enabled) on TypeScript interface methods.",
+  "configuration.inlayHints.parameterNames.enabled": "Enable/disable inlay hints for parameter names:\n```typescript\n\nparseInt(/* str: */ '123', /* radix: */ 8)\n \n```",
+  "inlayHints.parameterNames.none": "Disable parameter name hints.",
+  "inlayHints.parameterNames.literals": "Enable parameter name hints only for literal arguments.",
+  "inlayHints.parameterNames.all": "Enable parameter name hints for literal and non-literal arguments.",
+  "configuration.inlayHints.parameterNames.suppressWhenArgumentMatchesName": "Suppress parameter name hints on arguments whose text is identical to the parameter name.",
+  "configuration.inlayHints.parameterTypes.enabled": "Enable/disable inlay hints for implicit parameter types:\n```typescript\n\nel.addEventListener('click', e /* :MouseEvent */ => ...)\n \n```",
+  "configuration.inlayHints.variableTypes.enabled": "Enable/disable inlay hints for implicit variable types:\n```typescript\n\nconst foo /* :number */ = Date.now();\n \n```",
+  "configuration.inlayHints.variableTypes.suppressWhenTypeMatchesName": "Suppress type hints on variables whose name is identical to the type name.",
+  "configuration.inlayHints.propertyDeclarationTypes.enabled": "Enable/disable inlay hints for implicit types on property declarations:\n```typescript\n\nclass Foo {\n\tprop /* :number */ = Date.now();\n}\n \n```",
+  "configuration.inlayHints.functionLikeReturnTypes.enabled": "Enable/disable inlay hints for implicit return types on function signatures:\n```typescript\n\nfunction foo() /* :number */ {\n\treturn Date.now();\n} \n \n```",
+  "configuration.inlayHints.enumMemberValues.enabled": "Enable/disable inlay hints for member values in enum declarations:\n```typescript\n\nenum MyValue {\n\tA /* = 0 */;\n\tB /* = 1 */;\n}\n \n```"
 }

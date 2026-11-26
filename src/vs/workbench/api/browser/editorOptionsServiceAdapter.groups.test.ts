@@ -1,5 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
@@ -66,6 +66,22 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         expect(pane instanceof TextEditorPane).toBe(true);
         return pane as TextEditorPane;
     }
+
+    it("revealEditorRange clamps the range to the document; an editor that is gone is a no-op", () => {
+        service.openFile(ws.path("a.ts"));
+        const view = editorAt(0, 0).viewState;
+        const reveal = vi.spyOn(view, "revealRangeByType");
+        const groupId = service.editorGroups.groups[0].id;
+        const uri = Uri.file(ws.path("a.ts")).toString();
+        const range = { start: { line: 1, character: 99 }, end: { line: 99, character: 0 } };
+
+        adapter.revealEditorRange(Uri.file(ws.path("b.ts")).toString(), groupId, range, "top");
+        expect(reveal).not.toHaveBeenCalled();
+
+        adapter.revealEditorRange(uri, groupId, range, "top");
+        const clamped = { start: { line: 1, character: 4 }, end: { line: 1, character: 0 } };
+        expect(reveal).toHaveBeenCalledWith(clamped, "top");
+    });
 
     it("setActiveEditorSelections with groupId sets the selection on THAT group's view (AS-10)", () => {
         service.openFile(ws.path("a.ts"));
@@ -192,6 +208,21 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         subscription.dispose();
     });
 
+    it("[api:window.onDidChangeTextEditorSelection] several changes of an inactive editor in one tick are one notification with the last selection", async () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        const inactive = editorAt(0, 0);
+        const seen: IActiveEditorSelections[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => seen.push(event));
+
+        inactive.viewState.selections = [createSelection(1, 0, 1, 1)];
+        inactive.viewState.selections = [createSelection(1, 0, 1, 2)];
+        await Promise.resolve();
+
+        expect(seen.map((event) => event.selections[0].activeCharacter)).toEqual([2]);
+        subscription.dispose();
+    });
+
     it("setActiveEditorSelections: unknown groupId or foreign uri is a no-op", () => {
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
@@ -223,16 +254,35 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         expect(adapter.applyActiveEditorEdits(Uri.file(ws.path("nope.ts")).toString(), [edit])).toBe(false);
     });
 
-    it("setEditorCursorStyle shapes THAT group's tab; an unknown group or a foreign uri is a no-op", () => {
+    it("setEditorOptions shapes THAT group's tab, not the active one; an unknown group or a foreign uri is a no-op", () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         const uri = editorAt(0, 0).uri.toString();
+        const [first, second] = service.editorGroups.groups;
+        expect(service.editorGroups.activeGroup).toBe(second);
 
-        adapter.setEditorCursorStyle(uri, service.editorGroups.groups[0].id, "block");
-        adapter.setEditorCursorStyle(uri, 999, "underline");
-        adapter.setEditorCursorStyle(Uri.file(ws.path("b.ts")).toString(), service.editorGroups.groups[1].id, "line");
+        const { tabSize, insertSpaces } = editorAt(1, 0).viewState;
 
+        adapter.setEditorOptions(uri, first.id, { tabSize: 7, insertSpaces: !insertSpaces, cursorStyle: "block" });
+        adapter.setEditorOptions(uri, 999, { tabSize: 3, cursorStyle: "underline" });
+        adapter.setEditorOptions(Uri.file(ws.path("b.ts")).toString(), second.id, { tabSize: 3, cursorStyle: "line" });
+
+        expect(editorAt(0, 0).viewState).toMatchObject({ tabSize: 7, insertSpaces: !insertSpaces });
+        expect(editorAt(1, 0).viewState).toMatchObject({ tabSize, insertSpaces });
         expect(cursorOf(editorAt(0, 0))).toEqual({ shape: "block", blinking: true });
+        expect(editorAt(0, 0).cursorStyleSetting).toBe("block");
         expect(cursorOf(editorAt(1, 0))).toBeNull();
+    });
+
+    it("setEditorOptions without a style leaves the override alone", () => {
+        service.openFile(ws.path("a.ts"));
+        const uri = editorAt(0, 0).uri.toString();
+        const groupId = service.editorGroups.groups[0].id;
+
+        adapter.setEditorOptions(uri, groupId, { cursorStyle: "underline" });
+        adapter.setEditorOptions(uri, groupId, { tabSize: 2 });
+
+        expect(editorAt(0, 0).cursorStyleOverride).toBe("underline");
+        expect(editorAt(0, 0).viewState.tabSize).toBe(2);
     });
 });

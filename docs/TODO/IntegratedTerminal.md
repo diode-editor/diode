@@ -20,10 +20,25 @@
   `TerminalService`: пользователь неподдерживаемой платформы увидит падение действия, а не «терминал
   недоступен». Нашлось в #197 (тест перевели на вкладку PROBLEMS, `e2e/outputPanel.test.ts`).
 
+## Shell integration
+
+Волна эпика #1215: #1216 окружение → #1218 инъекция bash/zsh → #1219 fish/pwsh → #1220 разбор OSC 633 →
+#1221 API → #1222 `executeCommand` → #1223 `applyAtShellIntegration` → #1224 ручная приёмка.
+
+- [x] Инъекция скриптов эталона в bash и zsh, упаковка в бинарь (#1218,
+  [Terminal.md](../arch/workbench/Terminal.md#shell-integration-инъекция)).
+- [x] Инъекция в fish и pwsh (#1219).
+- [ ] Разбор OSC 633 и модель команд (#1220), API расширений (#1221–#1223).
+
 ## UX
 
 - [ ] Скролбэк колесом в e2e: инспектор-протокол пока не инъецирует колесо (enabler `TUIDom.sendMouse`),
-  сценарий `terminalScrollback` крутит вьюпорт клавиатурой. Выделение и копирование, bracketed-paste.
+  сценарий `terminalScrollback` крутит вьюпорт клавиатурой. Bracketed-paste.
+- [x] Выделение мышью и копирование: протяжка, `Ctrl+C` с выделением копирует, `Escape`, Select All, цвета
+  `terminal.selectionBackground`/`inactiveSelectionBackground`/`selectionForeground` (#1087,
+  [Terminal.md](../arch/workbench/Terminal.md#выделение-и-копирование)).
+- [x] Двойной и тройной клик, Shift+клик, `terminal.integrated.wordSeparators`, `copyOnSelection` (#1088,
+  [Terminal.md](../arch/workbench/Terminal.md#выделение-и-копирование)).
 - [x] Ссылки на файлы: Ctrl+наведение подчёркивает, Ctrl+клик открывает (#816,
   [Terminal.md](../arch/workbench/Terminal.md#ссылки-на-файлы)); с клавиатуры — quick pick «Open Detected
   Link…» (`Ctrl+Shift+O`) и «Open Last Local File Link» (#817). Дальше — URL и word-ссылки.
@@ -33,10 +48,13 @@
   `separator` с `${process}`, `${cwdFolder}` (нужен трекинг процесса и cwd).
 - [ ] Иконки и цвета вкладок (`tabs.defaultIcon`, `tabs.defaultColor`, Change Icon/Color), статусы
   вкладок (`tabs.enableAnimation`).
-- [ ] Ширина списка вкладок: sash и узкий режим (`singleTerminalOrNarrow`), `tabs.showActions`.
+- [x] Ширина списка вкладок — sash: протяжка, двойной клик по ширине вкладок, ширина в состоянии профиля
+  (#1100, [Terminal.md](../arch/workbench/Terminal.md#ширина-списка-вкладок)).
+- [ ] Узкий режим списка вкладок (только иконки, прилипание к 46 px, `terminalTabsNarrow`,
+  `singleTerminalOrNarrow`), `tabs.showActions`.
 - [ ] Мышь в списке вкладок: средний клик — kill, мультивыделение, drag-and-drop.
 - [ ] Остальная цветовая механика xterm.js: `terminal.integrated.minimumContrastRatio` (дефолт 4.5),
-  `drawBoldTextInBrightColors`, `terminalCursor.*`, `terminal.selectionBackground`.
+  `drawBoldTextInBrightColors`, `terminalCursor.*`.
 - [x] Проброс клавиш à la `terminal.integrated.commandsToSkipShell`: список команд, которые перехватывает
   редактор, плюс `sendKeybindingsToShell`, `allowChords`, `allowMnemonics` (#820).
 - [ ] Не покрыто автоматизацией: живой Ctrl+`` ` `` на tier kitty/csi-u.

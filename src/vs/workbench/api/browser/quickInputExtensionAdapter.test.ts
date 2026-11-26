@@ -30,6 +30,20 @@ function pickRequest(overrides: Partial<IWireQuickPickRequest> = {}): IWireQuick
 }
 
 describe("QuickInputExtensionAdapter.showInputBox", () => {
+    it("[api:window.showInputBox] valueSelection reaches the field: typing replaces only that part", async () => {
+        const { adapter, testApp } = createAdapter();
+        const pending = adapter.showInputBox({
+            handle: 1,
+            value: "foo.ts",
+            valueSelection: [0, 3],
+            password: false,
+            validates: false,
+        });
+        testApp.sendKey("x");
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toBe("x.ts");
+    });
+
     it("raises the overlay with the extension's options and returns the input", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showInputBox({
@@ -404,6 +418,16 @@ describe("QuickInputExtensionAdapter: object picker", () => {
             ["Alpha", "first"],
             ["Gamma", "example.com/gamma"],
         ]);
+    });
+
+    it("a null valueSelection on a quick pick leaves the value unselected: typing appends", () => {
+        const { adapter, component, testApp, emit } = objectPick();
+        adapter.updateQuickPick(
+            { handle: 5, visible: true, value: "abcd", valueSelection: null, items: [{ handle: 0, label: "Alpha" }] },
+            emit,
+        );
+        testApp.sendKey("X");
+        expect(component.view.getQuery()).toBe("abcdX");
     });
 
     it("user actions are sent as events with the extension's item handles", () => {

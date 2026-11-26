@@ -60,10 +60,15 @@ done
 
 # --- shared helpers ------------------------------------------------------------
 
+# fetch_large shows the tool's own progress when stderr is a terminal (the binary is
+# ~200 MB) and is plain fetch otherwise, so logs and CI stay as they were. wget gets no
+# --show-progress: busybox wget and GNU wget < 1.16 lack it, dropping -q is enough.
 if have curl; then
-    fetch() { curl -fsSL --retry 3 -o "$2" "$1"; }
+    fetch()       { curl -fsSL --retry 3 -o "$2" "$1"; }
+    fetch_large() { if [ -t 2 ]; then curl -fL --retry 3 --progress-bar -o "$2" "$1"; else fetch "$@"; fi; }
 elif have wget; then
-    fetch() { wget -q -O "$2" "$1"; }
+    fetch()       { wget -q -O "$2" "$1"; }
+    fetch_large() { if [ -t 2 ]; then wget -O "$2" "$1"; else fetch "$@"; fi; }
 else
     die "need curl or wget"
 fi
@@ -162,7 +167,7 @@ install_binary() {
     fi
 
     say "> Downloading ${url}"
-    fetch "$url" "$tmp/$asset" || die "download failed: $url"
+    fetch_large "$url" "$tmp/$asset" || die "download failed: $url"
 
     if have sha256sum; then
         digest() { sha256sum "$1" | cut -d' ' -f1; }

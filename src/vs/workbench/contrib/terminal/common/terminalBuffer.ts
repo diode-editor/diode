@@ -1,4 +1,4 @@
-/** The subset of xterm's `IBufferCell` that link detection reads. */
+/** The subset of xterm's `IBufferCell` that link detection and the selection read. */
 export interface ITerminalBufferCell {
     getWidth(): number;
     getChars(): string;
@@ -12,8 +12,20 @@ export interface ITerminalBufferLine {
     translateToString(trimRight?: boolean, startColumn?: number, endColumn?: number): string;
 }
 
-/** The emulator's active buffer: scrollback plus screen, rows are absolute and 0-based. */
+/** xterm's `IMarker`: a buffer row that follows its line as the scrollback trims lines off the top. */
+export interface ITerminalMarker {
+    /** The row now; `-1` once the line is trimmed off. */
+    readonly line: number;
+    dispose(): void;
+}
+
+/**
+ * The emulator's active buffer: scrollback plus screen, rows are absolute and 0-based. A live view: its fields follow
+ * scrolling, resizes and the switch to the alternate buffer.
+ */
 export interface ITerminalBuffer {
+    /** Full-screen programs (vim, less, htop) switch to the alternate buffer, which has no scrollback. */
+    readonly type: "normal" | "alternate";
     readonly cols: number;
     /** Viewport height: xterm's `Terminal.rows`. */
     readonly rows: number;
@@ -21,4 +33,9 @@ export interface ITerminalBuffer {
     readonly viewportY: number;
     readonly length: number;
     getLine(y: number): ITerminalBufferLine | undefined;
+    /**
+     * A marker on the cursor row (xterm `registerMarker(0)`); `undefined` on the alternate buffer, which has no
+     * scrollback to trim.
+     */
+    registerMarker(): ITerminalMarker | undefined;
 }

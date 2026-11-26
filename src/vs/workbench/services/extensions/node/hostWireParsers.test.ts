@@ -7,6 +7,7 @@ import {
     parseWireEditorEdits,
     parseWireFileStat,
     parseWireFileSystemSchemes,
+    parseWireOpenTextDocumentParams,
     parseWireProviderHandle,
     parseWireReadFileResult,
     parseWireShowTextDocumentParams,
@@ -54,6 +55,22 @@ describe("hostWireParsers — parseWireEditorEdits", () => {
 
     it("non-array → []", () => {
         expect(parseWireEditorEdits(null)).toEqual([]);
+    });
+});
+
+describe("hostWireParsers — parseWireOpenTextDocumentParams", () => {
+    it("a uri with an encoding passes; an encoding of the wrong shape is dropped", () => {
+        expect(parseWireOpenTextDocumentParams({ uri: "file:///a", encoding: "cp1252" })).toStrictEqual({
+            uri: "file:///a",
+            encoding: "cp1252",
+        });
+        expect(parseWireOpenTextDocumentParams({ uri: "file:///a", encoding: 1 })).toStrictEqual({ uri: "file:///a" });
+    });
+
+    it("no object or no string uri → null", () => {
+        expect(parseWireOpenTextDocumentParams(null)).toBeNull();
+        expect(parseWireOpenTextDocumentParams("file:///a")).toBeNull();
+        expect(parseWireOpenTextDocumentParams({ uri: 1 })).toBeNull();
     });
 });
 

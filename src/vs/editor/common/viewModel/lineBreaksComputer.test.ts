@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { computeLineBreakOffsets, MIN_WRAP_WIDTH } from "./lineBreaksComputer.ts";
+import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
+
+import { computeComposedLineBreakOffsets, computeLineBreakOffsets, MIN_WRAP_WIDTH } from "./lineBreaksComputer.ts";
 import { STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 
 describe("computeLineBreakOffsets — basic cases", () => {
@@ -77,5 +79,43 @@ describe("computeLineBreakOffsets — clamps and thresholds", () => {
         expect(breaks).toHaveLength(STOP_RENDERING_LINE_AFTER / 50 - 1);
         // …and none past the threshold.
         expect(breaks?.at(-1)).toBe(STOP_RENDERING_LINE_AFTER - 50);
+    });
+});
+
+describe("computeComposedLineBreakOffsets — wrapping with insertions", () => {
+    const at = (offset: number, text: string): IInlineInsertion => ({ line: 0, offset, text });
+
+    it("a line that fits only without its insertion wraps", () => {
+        expect(computeLineBreakOffsets("aaaa bbbb", 4, 10)).toBeNull();
+        expect(computeComposedLineBreakOffsets("aaaa bbbb", [at(4, ": int")], 4, 10)).toEqual([5]);
+    });
+
+    it("a line whose insertion still fits does not wrap", () => {
+        expect(computeComposedLineBreakOffsets("aaaa", [at(4, ": int")], 4, 10)).toBeNull();
+    });
+
+    it("breaks are document offsets, past every insertion before them", () => {
+        // Composed "f(a=1, b=2, 3333333)". The space before "b=" is no break, so the cut is at the "," that overflows:
+        // composed offset 10, document offset 6 with both labels out.
+        const breaks = computeComposedLineBreakOffsets("f(1, 2, 3333333)", [at(2, "a="), at(5, "b=")], 4, 10);
+        expect(breaks).toEqual([6]);
+    });
+
+    it("a break never lands right before an insertion: its cells would overflow the fragment before", () => {
+        // Composed "aaaaaaaa" + "bb" + "cc": the overflow is inside the insertion, the cut goes before the last "a".
+        expect(computeComposedLineBreakOffsets("aaaaaaaacc", [at(8, "bb")], 4, 8)).toEqual([7]);
+    });
+
+    it("a break right after an insertion keeps it on the fragment before", () => {
+        // Composed "aaaaaa" + "bb" + "cccc": exactly 8 columns up to the end of the insertion.
+        expect(computeComposedLineBreakOffsets("aaaaaacccc", [at(6, "bb")], 4, 8)).toEqual([6]);
+    });
+
+    it("an insertion at the line start never yields an empty first fragment", () => {
+        expect(computeComposedLineBreakOffsets("abcdefgh", [at(0, "12345678")], 4, 8)).toEqual([1]);
+    });
+
+    it("an insertion wider than the width overflows instead of looping", () => {
+        expect(computeComposedLineBreakOffsets("ab", [at(1, "123456789012")], 4, 8)).toEqual([1]);
     });
 });

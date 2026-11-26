@@ -35,18 +35,24 @@ import {
     cursorWordRightSelectAction,
     scrollLineDownAction,
     scrollLineUpAction,
+    showLensesInCurrentLineAction,
+    toggleInlayHintsAction,
     toggleWordWrapAction,
 } from "./browser/actions/editorActions.ts";
 import {
+    defaultTypeAction,
     deleteAllLeftAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
     deleteWordRightAction,
     indentLinesAction,
+    insertLineAfterAction,
     outdentLinesAction,
     redoAction,
     selectAllAction,
+    tabAction,
+    typeAction,
     undoAction,
 } from "./browser/actions/editorEditActions.ts";
 import { EDITOR_GROUP_ACTIONS } from "./browser/actions/editorGroupActions.ts";
@@ -128,19 +134,36 @@ import { WindowTitleContributionDIToken } from "./browser/parts/titlebar/windowT
 import { ViewProgressContributionDIToken } from "./browser/parts/views/viewProgressContribution.ts";
 import { ViewsServiceDIToken } from "./browser/parts/views/viewsService.ts";
 import { ViewTitleActionsContributionDIToken } from "./browser/parts/views/viewTitleActionsContribution.ts";
+import { ResourceContextKeysDIToken } from "./browser/resourceContextKeys.ts";
 import { SetContextCommandContributionDIToken } from "./browser/setContextCommandContribution.ts";
+import { TerminalRestartNotificationContributionDIToken } from "./browser/terminalRestartNotificationContribution.ts";
 import { UndoRefusalNotificationContributionDIToken } from "./browser/undoRefusalNotificationContribution.ts";
 import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchContribution.ts";
 import { CODE_ACTION_ACTIONS } from "./contrib/codeAction/browser/codeActionActions.ts";
 import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
+import { BreakpointEditorContributionDIToken } from "./contrib/debug/browser/breakpointEditorContribution.ts";
+import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
+import { DebugContentProviderDIToken } from "./contrib/debug/browser/debugContentProvider.ts";
+import { DebugEditorContributionDIToken } from "./contrib/debug/browser/debugEditorContribution.ts";
+import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
+import { DEBUG_MENU_SUBMENUS } from "./contrib/debug/browser/debugMenus.ts";
+import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
+import { DebugStatusContributionDIToken } from "./contrib/debug/browser/debugStatus.ts";
+import { DebugToolbarDIToken, DockedDebugToolbarItemsDIToken } from "./contrib/debug/browser/debugToolbar.ts";
+import { DebugViewletComponentDIToken } from "./contrib/debug/browser/debugViewlet.ts";
+import { InlineValuesContributionDIToken } from "./contrib/debug/browser/inlineValuesContribution.ts";
+import { ReplDIToken } from "./contrib/debug/browser/repl.ts";
+import { StatusBarColorProviderDIToken } from "./contrib/debug/browser/statusbarColorProvider.ts";
 import { COMPARE_ACTIONS } from "./contrib/diff/browser/compareActions.ts";
 import { DiffSnapshotRefreshContributionDIToken } from "./contrib/diff/browser/diffSnapshotRefreshContribution.ts";
 import { VscodeDiffCommandContributionDIToken } from "./contrib/diff/browser/vscodeDiffCommandContribution.ts";
 import { ExtensionAutoUpdateContributionDIToken } from "./contrib/extensions/browser/extensionAutoUpdate.ts";
+import { EXTENSIONS_FILTER_SUBMENUS } from "./contrib/extensions/browser/extensionFilterActions.ts";
 import { EXTENSIONS_ACTIONS } from "./contrib/extensions/browser/extensionsActions.ts";
 import { ExtensionsComponentDIToken } from "./contrib/extensions/browser/extensionsComponent.ts";
 import { ExtensionUpdateContributionDIToken } from "./contrib/extensions/browser/extensionUpdateActions.ts";
 import { ExtensionVersionContributionDIToken } from "./contrib/extensions/browser/extensionVersionActions.ts";
+import { ExtensionVsixContributionDIToken } from "./contrib/extensions/browser/extensionVsixActions.ts";
 import { AutoRevealContributionDIToken } from "./contrib/files/browser/autoRevealContribution.ts";
 import { ExplorerComponentDIToken } from "./contrib/files/browser/explorerComponent.ts";
 import { ExplorerServiceDIToken } from "./contrib/files/browser/explorerService.ts";
@@ -154,6 +177,7 @@ import { FindComponentDIToken } from "./contrib/find/browser/findComponent.ts";
 import { FindServiceDIToken } from "./contrib/find/browser/findService.ts";
 import { FOLDING_ACTIONS } from "./contrib/folding/browser/foldingActions.ts";
 import { FORMAT_ACTIONS } from "./contrib/format/browser/formatActions.ts";
+import { FormatOnTypeServiceDIToken } from "./contrib/format/browser/formatOnTypeService.ts";
 import { GOTO_DEFINITION_ACTIONS } from "./contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
 import { GoToLocationsCommandContributionDIToken } from "./contrib/gotoDefinition/browser/goToLocationsCommandContribution.ts";
 import { HOVER_ACTIONS } from "./contrib/hover/browser/hoverActions.ts";
@@ -161,14 +185,18 @@ import { HoverComponentDIToken } from "./contrib/hover/browser/hoverComponent.ts
 import { HoverServiceDIToken } from "./contrib/hover/browser/hoverService.ts";
 import { INLINE_COMPLETIONS_ACTIONS } from "./contrib/inlineCompletions/browser/inlineCompletionsActions.ts";
 import { InlineCompletionsServiceDIToken } from "./contrib/inlineCompletions/browser/inlineCompletionsService.ts";
-import { KEYBOARD_DOCTOR_ACTIONS } from "./contrib/keyboardDoctor/browser/keyboardDoctorActions.ts";
-import { KeyboardDoctorComponentDIToken } from "./contrib/keyboardDoctor/browser/keyboardDoctorComponent.ts";
 import { LanguageStatusContributionDIToken } from "./contrib/languageStatus/browser/languageStatus.ts";
 import { LARGE_FILE_ACTIONS } from "./contrib/largeFile/browser/largeFileActions.ts";
 import { LargeFileFollowStatusDIToken } from "./contrib/largeFile/browser/largeFileFollowStatus.ts";
 import { LargeFileIndexingStatusDIToken } from "./contrib/largeFile/browser/largeFileIndexingStatus.ts";
 import { LargeFileOptimizationsWarnerDIToken } from "./contrib/largeFile/browser/largeFileOptimizationsWarner.ts";
 import { LINES_OPERATIONS_ACTIONS } from "./contrib/linesOperations/browser/linesOperationsActions.ts";
+import { LINKED_EDITING_ACTIONS } from "./contrib/linkedEditing/browser/linkedEditingActions.ts";
+import { LinkedEditingServiceDIToken } from "./contrib/linkedEditing/browser/linkedEditingService.ts";
+import { ExecuteLinkProviderCommandContributionDIToken } from "./contrib/links/browser/executeLinkProviderCommand.ts";
+import { LINKS_ACTIONS } from "./contrib/links/browser/linksActions.ts";
+import { LinksServiceDIToken } from "./contrib/links/browser/linksService.ts";
+import { LOGS_ACTIONS } from "./contrib/logs/browser/logsActions.ts";
 import { DiagnosticsServiceDIToken } from "./contrib/markers/browser/diagnosticsService.ts";
 import { ProblemsComponentDIToken } from "./contrib/markers/browser/problemsComponent.ts";
 import { MULTI_CURSOR_ACTIONS } from "./contrib/multicursor/browser/multiCursorActions.ts";
@@ -182,8 +210,10 @@ import { KeybindingRecorderComponentDIToken } from "./contrib/preferences/browse
 import { PREFERENCES_ACTIONS } from "./contrib/preferences/browser/preferencesActions.ts";
 import { QUICK_ACCESS_ACTIONS } from "./contrib/quickaccess/browser/quickOpenActions.ts";
 import { QuickOpenServiceDIToken } from "./contrib/quickaccess/browser/quickOpenService.ts";
+import { CALL_HIERARCHY_ACTIONS } from "./contrib/references/browser/callHierarchyActions.ts";
 import { REFERENCES_ACTIONS } from "./contrib/references/browser/referencesActions.ts";
 import { ReferencesComponentDIToken } from "./contrib/references/browser/referencesComponent.ts";
+import { TYPE_HIERARCHY_ACTIONS } from "./contrib/references/browser/typeHierarchyActions.ts";
 import { RENAME_ACTIONS } from "./contrib/rename/browser/renameActions.ts";
 import { ChangesComponentDIToken } from "./contrib/scm/browser/changesComponent.ts";
 import { GIT_MENU_SUBMENUS } from "./contrib/scm/browser/gitMenus.ts";
@@ -197,6 +227,8 @@ import { ScmStatusBarContributionDIToken } from "./contrib/scm/browser/scmStatus
 import { SEARCH_ACTIONS } from "./contrib/search/browser/searchActions.ts";
 import { SearchComponentDIToken } from "./contrib/search/browser/searchComponent.ts";
 import { SMART_SELECT_ACTIONS } from "./contrib/smartSelect/browser/smartSelectActions.ts";
+import { SNIPPET_ACTIONS } from "./contrib/snippet/browser/snippetActions.ts";
+import { SnippetServiceDIToken } from "./contrib/snippet/browser/snippetService.ts";
 import { CompletionServiceDIToken } from "./contrib/suggest/browser/completionService.ts";
 import { SUGGEST_ACTIONS } from "./contrib/suggest/browser/suggestActions.ts";
 import { SuggestComponentDIToken } from "./contrib/suggest/browser/suggestComponent.ts";
@@ -208,7 +240,17 @@ import { TerminalEditorServiceDIToken } from "./contrib/terminal/browser/termina
 import { TerminalKeyRoutingDIToken } from "./contrib/terminal/browser/terminalKeyRouting.ts";
 import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
+import { TERMINAL_DEVELOPER_ACTIONS } from "./contrib/terminalContrib/developer/browser/terminalDeveloperActions.ts";
 import { TERMINAL_LINK_ACTIONS } from "./contrib/terminalContrib/links/browser/terminalLinkActions.ts";
+import { TERMINAL_SELECTION_ACTIONS } from "./contrib/terminalContrib/selection/browser/terminalSelectionActions.ts";
+import { TerminalSelectionServiceDIToken } from "./contrib/terminalContrib/selection/browser/terminalSelectionService.ts";
+import { TESTING_ACTIONS } from "./contrib/testing/browser/testingActions.ts";
+import { TestingDecorationsDIToken } from "./contrib/testing/browser/testingDecorations.ts";
+import { TESTING_EDITOR_ACTIONS } from "./contrib/testing/browser/testingEditorActions.ts";
+import { TestingEditorContextKeysDIToken } from "./contrib/testing/browser/testingEditorContextKeys.ts";
+import { TestingExplorerComponentDIToken } from "./contrib/testing/browser/testingExplorerView.ts";
+import { TestingMessageDecorationsDIToken } from "./contrib/testing/browser/testingMessageDecorations.ts";
+import { TestResultsComponentDIToken } from "./contrib/testing/browser/testResultsView.ts";
 import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
 import { ThemeConfigContributionDIToken } from "./contrib/themes/browser/themeConfigContribution.ts";
 import { URL_ACTIONS } from "./contrib/url/browser/urlActions.ts";
@@ -232,8 +274,17 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: SearchComponentDIToken, phase: "blockStartup" },
     { token: ExtensionsComponentDIToken, phase: "blockStartup" },
     { token: ExtensionVersionContributionDIToken, phase: "blockStartup" },
+    // Before extensions activate: CodeLLDB calls the command on `onStartupFinished`.
+    { token: ExtensionVsixContributionDIToken, phase: "blockStartup" },
     { token: ExtensionUpdateContributionDIToken, phase: "blockStartup" },
     { token: ReferencesComponentDIToken, phase: "blockStartup" },
+    // Its container must be registered before `mount()` builds the sidebar; the view comes with the first controller.
+    { token: TestingExplorerComponentDIToken, phase: "blockStartup" },
+    // Its container, too; the view comes with the first result.
+    { token: TestResultsComponentDIToken, phase: "blockStartup" },
+    // Its container must be registered before `mount()` builds the sidebar.
+    { token: DebugViewletComponentDIToken, phase: "blockStartup" },
+    { token: ReplDIToken, phase: "blockStartup" },
     { token: QuickOpenServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (CompletionService in the next entry holds it) — the entry only hands lifetime ownership to the registry, which a unit test can't observe
     { token: SuggestComponentDIToken, phase: "blockStartup" },
@@ -242,6 +293,11 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: HoverComponentDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the service is resolved anyway (WorkbenchContextKeys holds it) — the entry only hands over lifetime ownership
     { token: HoverServiceDIToken, phase: "blockStartup" },
+    { token: LinkedEditingServiceDIToken, phase: "blockStartup" },
+    // Stryker disable next-line ObjectLiteral,StringLiteral: the service is resolved anyway (WorkbenchContextKeys holds it) — the entry only hands over lifetime ownership
+    { token: SnippetServiceDIToken, phase: "blockStartup" },
+    { token: LinksServiceDIToken, phase: "blockStartup" },
+    { token: FormatOnTypeServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (ParameterHintsService in the next entry holds it) — the entry only hands over lifetime ownership
     { token: ParameterHintsComponentDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: like the hover service, resolved via WorkbenchContextKeys — the entry only hands over lifetime ownership
@@ -267,10 +323,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: TaskServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: without the entry the recorder resolves lazily on the first recording command — the entry only hands over lifetime ownership
     { token: KeybindingRecorderComponentDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: same — the doctor resolves lazily on the launch command
-    { token: KeyboardDoctorComponentDIToken, phase: "blockStartup" },
     // `vscode.diff`: the extension host calls it by id — the command is needed before extensions start.
     { token: VscodeDiffCommandContributionDIToken, phase: "blockStartup" },
+    // `vscode.executeLinkProvider` runs it by id, an extension may do so from activate().
+    { token: ExecuteLinkProviderCommandContributionDIToken, phase: "blockStartup" },
 
     // `afterRestored` is what upstream keeps on `LifecyclePhase.Restored`
     // (`OutputContribution`, `QuickDiffWorkbenchController`, `SCMActiveRepositoryController`,
@@ -293,6 +349,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Subscribe before the first open, otherwise the very first failure goes unnoticed.
     // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it the toast doesn't appear, which the virtualDocument e2e scenario catches
     { token: OpenFailureNotificationContributionDIToken, phase: "ready" },
+    { token: TerminalRestartNotificationContributionDIToken, phase: "ready" },
     { token: LargeFileOptimizationsWarnerDIToken, phase: "ready" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it there is no progress, which the large-file-on-disk e2e scenario catches
     { token: LargeFileIndexingStatusDIToken, phase: "ready" },
@@ -324,6 +381,29 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: see HistoryService above — removing the entry is unobservable in a unit test, the wiring is checked by app startup
     { token: ScmBusyContextContributionDIToken, phase: "ready" },
     { token: TaskStatusBarContributionDIToken, phase: "afterRestored" },
+    // The debug context keys (`debugState`, `debuggersAvailable`) hold from the first frame the user acts on.
+    { token: DebugServiceDIToken, phase: "afterRestored" },
+    // `debug.confirmOnExit`: asks before the window closes with debug sessions.
+    { token: DebugLifecycleDIToken, phase: "afterRestored" },
+    // The breakpoints and stack frames in the restored editors' glyph lanes.
+    { token: BreakpointEditorContributionDIToken, phase: "afterRestored" },
+    // The exception's badge after the line of the frame that threw it.
+    { token: DebugEditorContributionDIToken, phase: "afterRestored" },
+    // The variables' values after the lines of the focused frame's file.
+    { token: InlineValuesContributionDIToken, phase: "afterRestored" },
+    // The `debug:` documents of the frames whose source an adapter gives by reference.
+    { token: DebugContentProviderDIToken, phase: "afterRestored" },
+    // The toolbar in the active editor group and the status bar's colors and `status.debug` while debugging.
+    { token: DebugToolbarDIToken, phase: "afterRestored" },
+    { token: DockedDebugToolbarItemsDIToken, phase: "afterRestored" },
+    { token: StatusBarColorProviderDIToken, phase: "afterRestored" },
+    { token: DebugStatusContributionDIToken, phase: "afterRestored" },
+    // The run glyphs of the restored editors' tests.
+    { token: TestingDecorationsDIToken, phase: "afterRestored" },
+    // The failures of the restored editors' files; "Peek Error" of the glyphs' menu.
+    { token: TestingMessageDecorationsDIToken, phase: "afterRestored" },
+    // The editor context menu's "Run Test at Cursor" and "Run Tests in Current File".
+    { token: TestingEditorContextKeysDIToken, phase: "afterRestored" },
     // The background extension checks: never at startup, after the first frame (ExtensionUpdates stage 3).
     { token: ExtensionAutoUpdateContributionDIToken, phase: "eventually" },
 ];
@@ -337,7 +417,6 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...OPEN_EDITORS_ACTIONS,
     ...LARGE_FILE_ACTIONS,
     ...PREFERENCES_ACTIONS,
-    ...KEYBOARD_DOCTOR_ACTIONS,
     showAboutDialogAction,
     reloadWindowAction,
     quitAction,
@@ -345,6 +424,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...THEME_ACTIONS,
     ...USER_DATA_PROFILE_ACTIONS,
     ...URL_ACTIONS,
+    ...LOGS_ACTIONS,
     changeEncodingAction,
     changeEolAction,
     cursorLeftAction,
@@ -375,9 +455,13 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     cursorPageUpSelectAction,
     scrollLineUpAction,
     scrollLineDownAction,
+    showLensesInCurrentLineAction,
+    toggleInlayHintsAction,
     toggleWordWrapAction,
     ...MULTI_CURSOR_ACTIONS,
     ...SMART_SELECT_ACTIONS,
+    typeAction,
+    defaultTypeAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
@@ -386,7 +470,9 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     undoAction,
     redoAction,
     selectAllAction,
+    tabAction,
     indentLinesAction,
+    insertLineAfterAction,
     outdentLinesAction,
     ...LINES_OPERATIONS_ACTIONS,
     ...COMMENT_ACTIONS,
@@ -397,6 +483,9 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...SUGGEST_ACTIONS,
     ...GOTO_DEFINITION_ACTIONS,
     ...HOVER_ACTIONS,
+    ...LINKED_EDITING_ACTIONS,
+    ...SNIPPET_ACTIONS,
+    ...LINKS_ACTIONS,
     ...PARAMETER_HINTS_ACTIONS,
     ...FORMAT_ACTIONS,
     ...CODE_ACTION_ACTIONS,
@@ -460,14 +549,21 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...VIEW_LOCATION_ACTIONS,
     ...OUTPUT_ACTIONS,
     ...TERMINAL_ACTIONS,
+    ...TERMINAL_DEVELOPER_ACTIONS,
     ...TERMINAL_LINK_ACTIONS,
+    ...TERMINAL_SELECTION_ACTIONS,
     ...TASKS_ACTIONS,
+    ...TESTING_ACTIONS,
+    ...TESTING_EDITOR_ACTIONS,
+    ...DEBUG_ACTIONS,
     clearNotificationsAction,
     focusNotificationAction,
     ...COMPARE_ACTIONS,
     ...SCM_ACTIONS,
     ...EXTENSIONS_ACTIONS,
     ...REFERENCES_ACTIONS,
+    ...CALL_HIERARCHY_ACTIONS,
+    ...TYPE_HIERARCHY_ACTIONS,
     ...RENAME_ACTIONS,
 ];
 
@@ -475,6 +571,8 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
 export const MENU_CONTRIBUTIONS: readonly MenuContribution[] = [
     ...MENUBAR_SUBMENUS,
     ...GIT_MENU_SUBMENUS,
+    ...EXTENSIONS_FILTER_SUBMENUS,
+    ...DEBUG_MENU_SUBMENUS,
     ...OPEN_EDITORS_MENU_ITEMS,
     ...WORKBENCH_ACTIONS.flatMap(menuItemsOfAction),
 ];
@@ -493,12 +591,17 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     ExplorerComponentDIToken,
     OpenEditorsViewDIToken,
     ScmInputComponentDIToken,
+    DebugViewletComponentDIToken,
+    ReplDIToken,
     TerminalServiceDIToken,
     TerminalPanelComponentDIToken,
     TerminalEditorServiceDIToken,
+    TerminalSelectionServiceDIToken,
     TabSwitcherComponentDIToken,
     QuickOpenServiceDIToken,
     LanguageFeatureContextKeysDIToken,
+    SnippetServiceDIToken,
+    ResourceContextKeysDIToken,
     // Not keys, but the active input field for editing commands — in the same poll.
     InputWidgetServiceDIToken,
 ];

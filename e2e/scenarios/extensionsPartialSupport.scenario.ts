@@ -30,9 +30,9 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Partial"));
         await editor.capture("viewlet");
 
-        // The marked extension's page: the heading in the header, the lists in the body.
+        // The marked extension's page (the first catalog entry, where the list's cursor starts): the heading in
+        // the header, the lists in the body.
         await editor.sendKey("Tab");
-        await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Partial support: some features do not work in Diode"));
         await editor.waitForText((t) => t.includes("Does not work:"));

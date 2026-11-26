@@ -11,6 +11,8 @@ import { IEnvironmentServiceDIToken } from "../../platform/environment/common/en
 import type { KeybindingsEditorPane } from "../contrib/preferences/browser/keybindingsEditorPane.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
+import { clickSegment, statusSegments } from "./parts/statusbar/statusBarComponent.testUtils.ts";
+import { StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
 import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
@@ -52,6 +54,19 @@ describe("Workbench — Preferences commands", () => {
 
             expect(fs.readFileSync(settingsFile, "utf-8")).toBe("{}\n");
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
+            h.testApp.render();
+            expect(h.testApp.backend.screenToString()).toContain("settings.json");
+        });
+
+        it("a click on the terminal segment (leftmost in the status bar) opens settings.json", async () => {
+            h.testApp.render();
+            const view = h.container.get(StatusBarComponentDIToken).view;
+            const terminalSegment = statusSegments(view).find((segment) => segment.side === "left");
+            expect(terminalSegment).toBeDefined();
+            clickSegment(view, terminalSegment!.text);
+            await vi.waitFor(() => {
+                expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
+            });
             h.testApp.render();
             expect(h.testApp.backend.screenToString()).toContain("settings.json");
         });
@@ -225,9 +240,11 @@ describe("Workbench — Preferences commands", () => {
             expect(pane.uri.scheme).toBe("keybindings");
 
             const rows = pane.view.querySelectorAll("TextLabelElement");
+            // The row text is clipped to the Command column ("Recorder Targ…" in the framed 48-column editor).
             const row = rows.find((r) =>
-                (r as unknown as { getText(): string }).getText().startsWith("Recorder Target"),
+                (r as unknown as { getText(): string }).getText().startsWith("Recorder Targ"),
             )!;
+            expect(row).toBeDefined();
             const list = pane.view.querySelector("#keybindingsList")!;
             (list as unknown as { onActivate: ((el: unknown) => void) | null }).onActivate?.(row);
             h.testApp.render();
@@ -259,8 +276,8 @@ describe("Workbench — Preferences commands", () => {
                 () => {
                     h.testApp.render();
                     const screen = h.testApp.backend.screenToString();
-                    expect(screen).toContain("Recorder Target");
-                    expect(screen).toContain("F6");
+                    // The row (its title clipped to the Command column) carries the new combination.
+                    expect(screen).toMatch(/Recorder Targ…\s+F6\s/u);
                 },
                 { timeout: 5000 },
             );

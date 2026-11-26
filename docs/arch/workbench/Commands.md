@@ -50,10 +50,8 @@
   палитры и меню. Образец — `searchActions.ts` / `changesActions.ts`:
   `Ctrl+K F` / `Ctrl+K G` безусловны, `Ctrl+Shift+F` / `Ctrl+Shift+G` — под
   гейтом. Обратного гейта (`tier == 'legacy'` НА ФОЛБЭКЕ) быть не должно:
-  индикатор tier ≠ доставка клавиш — под tmux он поднимается и по env-хинту
-  внешнего терминала, и по первой пришедшей CSI-u клавише
-  (`noteExtendedKeysObserved`), а расширенные клавиши tmux при этом не
-  доставляет. Такой гейт снимал фолбэк ровно в том окружении, где он
+  индикатор tier ≠ доставка клавиш — явный `terminal.tier: csi-u` под tmux с
+  `extended-keys off` расширенных клавиш не получит. Такой гейт снимал фолбэк ровно в том окружении, где он
   единственный рабочий путь (F1 у палитры — редактор оставался без палитры
   вовсе). Несколько биндов на команду — норма VS Code.
 - **Досягаемость — гейт сборки.** `browser/actions/keybindingReachability.test.ts`
@@ -68,7 +66,9 @@
   комбинация, и только потом порядок регистрации.
 - Лидер-аккорд досягаемого пути — `Ctrl+K <клавиша>`: вьюлеты и панели берут
   букву без модификатора (`Ctrl+K F` Search, `Ctrl+K G` SCM, `Ctrl+K E`
-  Explorer, `Ctrl+K M` Problems, `Ctrl+K T` Terminal), остальные — вторую
+  Explorer, `Ctrl+K M` Problems, `Ctrl+K T` Terminal, `Ctrl+K Y` Debug Console,
+  `Ctrl+K B` Run and Debug —
+  `D` занята Compare with Saved), остальные — вторую
   часть с модификатором (`Ctrl+K Alt+S` Save As, `Ctrl+K Ctrl+E` Format
   Document). Занятость второй части проверяется гейтом коллизий в том же
   тесте: аккорды разбирают общий префикс, и занятую букву легко не заметить.
@@ -86,14 +86,10 @@
   «действует в обоих», поэтому бинд, досягаемый на любой платформе
   (`Alt+Backspace` у `deleteWordLeft`), объявляется при команде, а не дельтой.
   Подробно — [Keyboard.md](Keyboard.md).
-- Tier определяется по env, но **под мультиплексором env-флаги хост-терминала
-  (`KITTY_WINDOW_ID` и родня) не считаются доказательством**: расширенные клавиши
-  доходят, только если их пропускает сам tmux (`extended-keys on`). Внутри tmux
-  ждём подтверждения — probe `CSI ? u` или реально увиденный CSI-u ввод
-  (`noteExtendedKeysObserved`). Иначе tier завышался и Ctrl+Shift+F приезжал
-  неотличимым от Ctrl+F. Полагаться на точность tier'а в фолбэках нельзя и с
-  этой осторожностью — поэтому они безусловны (см. правило про односторонний
-  гейт выше).
+- Tier фиксирован на сессию и выше `legacy` бывает только по явной настройке
+  (или мак-исключению) — [Keyboard.md](Keyboard.md#tier-фиксирован-на-сессию-1049).
+  Полагаться на то, что клавиши при этом доходят, в фолбэках нельзя — поэтому
+  они безусловны (см. правило про односторонний гейт выше).
 - **Вторая часть аккорда — с модификатором, если команда переключает вкладку.**
   Парный `keypress` закреплён за целью своего `keydown`
   (`TuiApplication.pinnedKeypressTarget`), и когда команда меняет активную панель,
@@ -118,6 +114,9 @@
   без title: в палитре её быть не должно, это программный шов. Значение
   нормализуется: `null`/`undefined` → `false`, массив (только примитивы) и объект
   хранятся как есть — под оператор `in`. Регистрировать имя ключа не нужно.
+  Изменение рассылается сразу (`ContextKeyService.flush()`), а не микрозадачей, как у прочих записей: в
+  эталоне контекст стреляет синхронно, и расширение зовёт `reveal`/`<view>.focus` вида, который показал его
+  ключ, не дожидаясь `setContext` (Show AST у clangd).
 - **When-вычислитель** — `platform/contextkey/common/contextKeyExpr.ts` (+ лексер
   `scanner.ts`), узкий порт upstream: грамматика VS Code (`&& || ! == != < <= > >=`,
   `=~ /regex/flags`, `in`, `not in`, строки в одинарных кавычках, значение справа
@@ -152,6 +151,7 @@
 |---|---|---|---|
 | Ctrl+K Ctrl+F | `workbench.action.navigateForward` (безусловный, вес `WorkbenchContrib`) | `editor.action.formatSelection` (эталон) | наш legacy-фолбэк навигации; в редакторе на pc чорд уходит в навигацию, а не в форматирование |
 | Ctrl+K Ctrl+U | `editor.action.showHover` | `editor.action.removeCommentLine` (эталон) | эталонный Ctrl+K Ctrl+I у hover занят legacy-фолбэком (на legacy Ctrl+I приезжает байтом Tab) |
+| Ctrl+K Ctrl+I в режиме отладки | `editor.debug.action.showDebugHover` (`EditorContrib`, `enablement: inDebugMode`) | `editor.action.insertCursorAtEndOfEachLineSelected` | как в эталоне: вне отладки аккорд остаётся мультикурсору; на legacy Ctrl+I приезжает Tab, поэтому у debug hover рядом Ctrl+K Tab |
 | Escape при открытых hover и suggest | hover (`EditorContrib + 92`) | suggest (`EditorContrib + 90`) | у эталона наоборот; так было при порядке регистрации |
 
 ## Где живут экшены
@@ -177,6 +177,10 @@ EOL); экшены фич — `contrib/<f>/browser/*Actions.ts`. Как они �
   `services/dialogs/browser/simpleFileDialog.ts`); открытие — команда
   `workbench.openFile`, смена воркспейса — шов `IWorkspaceFolderOpener` →
   `WorkbenchComponent` структурно, биндинг в `workbenchModule.ts`.
+- `browser/actions/editorActions.ts`, `codelens.showLensesInCurrentLine` — quick pick
+  с титулами линз строки каретки, `when: textInputFocus && editorHasCodeLensProvider`,
+  без клавиши, как в эталоне; нет линз — пикер не открывается. Выполнение и тост об
+  ошибке — общие с кликом по линзе (`services/editor/browser/codeLensCommand.ts`).
 - Экшены под `findWidgetVisible`/`suggestWidgetVisible`
   (`contrib/find/browser/findActions.ts`, `contrib/suggest/browser/suggestActions.ts`)
   перебивают editor-команды весом правила (`KeybindingWeight`).
@@ -192,7 +196,10 @@ EOL); экшены фич — `contrib/<f>/browser/*Actions.ts`. Как они �
 capture/bubble-листенеры и подключает хук-шов `hasKeyboardCapturingOverlay`; второй
 хук — `updateContextKeys` — замыкает на себя `WorkbenchContextKeys`; третий — `isKeyForFocusedWidget` —
 ставит терминал: клавиша остаётся default action сфокусированного виджета, команда не выполняется,
-мнемоники её не видят ([Terminal.md](Terminal.md#клавиши-в-фокусе-терминала)). Пользовательские
+мнемоники её не видят ([Terminal.md](Terminal.md#клавиши-в-фокусе-терминала)). Четвёртый — `activeElement`:
+capture-фаза запоминает фокус, и если к bubble-фазе он сменился, клавишу уже обработал виджет (Escape закрыл
+quick input, фокус вернулся в терминал) — биндинг не резолвится против восстановленного фокуса (#1087: иначе тот
+же Escape снимал выделение терминала). Пользовательские
 `keybindings.json` применяет `KeybindingsEditorService`
 ([KeybindingsEditor.md](KeybindingsEditor.md)).
 
@@ -211,8 +218,7 @@ capture/bubble-листенеры и подключает хук-шов `hasKeyb
 одной точкой перехода пушит владелец: терминальное окружение
 (tier/os/cap_*/mode_*/macKeys) — `TerminalEnvContextKeysContribution` по
 `onDidChange` сервиса окружения (маппинг `applyTerminalEnvContextKeys` из
-`services/terminalEnvironment/common/terminalEnvContextKeys.ts` общий с
-Keyboard Doctor), `panelVisible` — `LayoutService` по видимости
+`services/terminalEnvironment/common/terminalEnvContextKeys.ts`), `panelVisible` — `LayoutService` по видимости
 `PanelService`. Замыкает на себя хук
 `KeybindingDispatcher.updateContextKeys`; `handleFocusChange` (capture
 focus/blur листенеры вешает владелец дерева) сбрасывает незавершённый чорд,

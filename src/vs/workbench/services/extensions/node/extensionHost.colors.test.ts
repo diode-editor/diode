@@ -127,6 +127,17 @@ describe("ExtensionHost — color providers (subprocess)", () => {
         }
     });
 
+    it("a slow provider still gets its squares: no deadline on colors, as upstream", { timeout: 20_000 }, async () => {
+        // Tailwind's server answers the first request only once its project is built (over 5 s on a busy
+        // machine): the square before `bg-[#ff0000]` never came, the request was cancelled at 5000 ms.
+        const { harness, frame } = await open("/* SLOW */ a { color: red; }\n");
+        try {
+            await waitUntil("the slow provider's square", () => frame().includes("color: ■ red;"), 15_000);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
     it("the extension's squares go away once its registration is disposed", async () => {
         const { harness, frame } = await open("a { color: red; }\n");
         try {

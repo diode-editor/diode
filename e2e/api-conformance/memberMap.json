@@ -1,4 +1,8 @@
 {
+    "commands vscode API - commands api-command: vscode.diff": [
+        "commands.executeCommand",
+        "workspace.registerTextDocumentContentProvider"
+    ],
     "commands vscode API - commands api-command: vscode.open": [
         "commands.executeCommand",
         "window.tabGroups",
@@ -23,6 +27,11 @@
         "window.showTextDocument",
         "workspace.openTextDocument"
     ],
+    "editor vscode API - editors issue #16573: Extension API: insertSpaces and tabSize are undefined": [
+        "TextEditor.options",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
     "editor vscode API - editors issue #20757: Overlapping ranges are not allowed!": [
         "TextEditor.edit",
         "TextEditorEdit.replace"
@@ -39,6 +48,14 @@
     ],
     "editor vscode API - editors throw when using invalid edit": [
         "TextEditorEdit.insert"
+    ],
+    "env vscode API - env env is readonly": [
+        "env.appName",
+        "env.appRoot",
+        "env.language",
+        "env.machineId",
+        "env.sessionId",
+        "env.shell"
     ],
     "env vscode API - env env is set": [
         "env.appName",
@@ -112,6 +129,10 @@
         "ExtensionContext.globalState",
         "ExtensionContext.workspaceState"
     ],
+    "terminal vscode API - terminal Terminal Extension pty terminals creationOptions should be set and readonly for ExtensionTerminalOptions terminals": [
+        "Terminal.creationOptions",
+        "window.createTerminal"
+    ],
     "terminal vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (non-zero)": [
         "EventEmitter",
         "window.createTerminal",
@@ -135,6 +156,10 @@
         "window.createTerminal",
         "window.onDidCloseTerminal",
         "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal creationOptions should be set and readonly for TerminalOptions terminals": [
+        "Terminal.creationOptions",
+        "window.createTerminal"
     ],
     "terminal vscode API - terminal Terminal exitStatus.code should be set to undefined after a terminal is disposed": [
         "window.createTerminal",
@@ -175,9 +200,74 @@
         "window.onDidCloseTerminal",
         "window.onDidOpenTerminal"
     ],
+    "terminal vscode API - terminal Terminal Extension pty terminals should change terminal name": [
+        "EventEmitter",
+        "Pseudoterminal.onDidChangeName",
+        "Terminal.name",
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal environmentVariableCollection get and forEach should work": [
+        "EnvironmentVariableCollection.append",
+        "EnvironmentVariableCollection.forEach",
+        "EnvironmentVariableCollection.get",
+        "EnvironmentVariableCollection.prepend",
+        "EnvironmentVariableCollection.replace",
+        "EnvironmentVariableMutator.options",
+        "EnvironmentVariableMutator.type",
+        "EnvironmentVariableMutator.value",
+        "ExtensionContext.environmentVariableCollection"
+    ],
+    "terminal vscode API - terminal Terminal environmentVariableCollection get and forEach should work (scope)": [
+        "EnvironmentVariableCollection.append",
+        "EnvironmentVariableCollection.forEach",
+        "EnvironmentVariableCollection.get",
+        "EnvironmentVariableCollection.prepend",
+        "EnvironmentVariableCollection.replace",
+        "EnvironmentVariableMutator.options",
+        "EnvironmentVariableMutator.type",
+        "EnvironmentVariableMutator.value",
+        "ExtensionContext.environmentVariableCollection",
+        "GlobalEnvironmentVariableCollection.getScoped"
+    ],
+    "terminal vscode API - terminal Terminal onDidChangeTerminalState should fire with isInteractedWith after writing to a terminal": [
+        "Terminal.sendText",
+        "Terminal.state",
+        "TerminalState.isInteractedWith",
+        "window.createTerminal",
+        "window.onDidChangeTerminalState",
+        "window.onDidCloseTerminal"
+    ],
+    "terminal vscode API - terminal Terminal onDidChangeTerminalState should fire with shellType when created": [
+        "Terminal.state",
+        "TerminalState.shell",
+        "window.createTerminal",
+        "window.onDidChangeTerminalState",
+        "window.onDidCloseTerminal"
+    ],
+    "tree vscode API - tree TreeView - element already registered": [
+        "EventEmitter",
+        "TreeItem",
+        "TreeView.reveal",
+        "window.createTreeView"
+    ],
+    "tree vscode API - tree TreeView - element already registered after rapid root refresh": [
+        "EventEmitter",
+        "TreeItem",
+        "TreeView.reveal",
+        "window.createTreeView"
+    ],
     "tree vscode API - tree TreeView - element already registered after refresh": [
         "EventEmitter",
         "TreeItem",
+        "TreeView.reveal",
+        "window.createTreeView"
+    ],
+    "tree vscode API - tree TreeView - element already registered during switch and update": [
+        "EventEmitter",
+        "TreeItem",
+        "TreeView.reveal",
         "window.createTreeView"
     ],
     "types vscode API - types static properties, es5 compat class": [
@@ -334,6 +424,16 @@
         "window.showTextDocument",
         "workspace.openTextDocument"
     ],
+    "workspace vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 1/3": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillRenameFiles"
+    ],
+    "workspace vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 3/3": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillDeleteFiles"
+    ],
     "workspace vscode API - workspace WorkspaceEdit api - after saving a deleted file, it still shows up as deleted. #42667": [
         "WorkspaceEdit",
         "workspace.applyEdit",
@@ -384,10 +484,21 @@
         "WorkspaceEdit",
         "workspace.applyEdit"
     ],
+    "workspace vscode API - workspace encoding: decode": [
+        "workspace.decode"
+    ],
+    "workspace vscode API - workspace encoding: encode": [
+        "workspace.encode"
+    ],
     "workspace vscode API - workspace encoding: openTextDocument - invalid encoding falls back to default": [
         "workspace.openTextDocument"
     ],
     "workspace vscode API - workspace encoding: text document encodings": [
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace encoding: utf8bom does not explode (https://github.com/microsoft/vscode/issues/242132)": [
+        "workspace.decode",
+        "workspace.encode",
         "workspace.openTextDocument"
     ],
     "workspace vscode API - workspace eol, change via applyEdit": [
@@ -419,6 +530,10 @@
         "workspace.findFiles"
     ],
     "workspace vscode API - workspace findFiles - exclude": [
+        "workspace.asRelativePath",
+        "workspace.findFiles"
+    ],
+    "workspace vscode API - workspace findFiles - null exclude": [
         "workspace.asRelativePath",
         "workspace.findFiles"
     ],
@@ -462,11 +577,26 @@
         "workspace.saveAll",
         "workspace.onDidSaveTextDocument"
     ],
+    "workspace vscode API - workspace textDocuments": [
+        "workspace.textDocuments"
+    ],
     "workspace vscode API - workspace workspaceFile": [
         "workspace.workspaceFile"
     ],
     "workspace vscode API - workspace workspaceFolders": [
         "workspace.workspaceFolders"
+    ],
+    "workspace.event vscode API - workspace events onWillCreate/onDidCreate": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onDidCreateFiles",
+        "workspace.onWillCreateFiles"
+    ],
+    "workspace.event vscode API - workspace events onWillCreate/onDidCreate, make changes, edit another file": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillCreateFiles",
+        "workspace.openTextDocument"
     ],
     "workspace.event vscode API - workspace events onWillCreate/onDidCreate, make changes, edit new file fails": [
         "WorkspaceEdit",
@@ -474,6 +604,12 @@
         "workspace.fs",
         "workspace.onWillCreateFiles",
         "workspace.openTextDocument"
+    ],
+    "workspace.event vscode API - workspace events onWillDelete/onDidDelete": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onDidDeleteFiles",
+        "workspace.onWillDeleteFiles"
     ],
     "workspace.event vscode API - workspace events onWillDelete/onDidDelete, make changes": [
         "WorkspaceEdit",
@@ -490,11 +626,33 @@
         "workspace.applyEdit",
         "workspace.onWillDeleteFiles"
     ],
+    "workspace.event vscode API - workspace events onWillRename - make changes (dirty file)": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillRenameFiles",
+        "workspace.openTextDocument"
+    ],
+    "workspace.event vscode API - workspace events onWillRename - make changes (saved file)": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillRenameFiles",
+        "workspace.openTextDocument"
+    ],
+    "workspace.event vscode API - workspace events onWillRename/onDidRename": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onDidRenameFiles",
+        "workspace.onWillRenameFiles"
+    ],
     "workspace.fs vscode API - workspace-fs fs.createFolder creates recursively": [
         "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs fs.delete folder": [
         "workspace.fs"
+    ],
+    "workspace.watcher vscode API - workspace-watcher createFileSystemWatcher": [
+        "workspace.createFileSystemWatcher",
+        "workspace.registerFileSystemProvider"
     ],
     "workspace.fs vscode API - workspace-fs fs.stat": [
         "workspace.fs"
@@ -530,6 +688,12 @@
         "tasks.executeTask",
         "tasks.fetchTasks",
         "tasks.registerTaskProvider"
+    ],
+    "workspace.tasks vscode API - tasks Tasks CustomExecution A task can be fetched with default task group information": [
+        "Task.group",
+        "WorkspaceConfiguration.update",
+        "tasks.fetchTasks",
+        "workspace.getConfiguration"
     ],
     "workspace.tasks vscode API - tasks Tasks CustomExecution Tasks can be run back to back": [
         "CustomExecution",
@@ -627,5 +791,68 @@
     ],
     "workspace vscode API - workspace registerTextDocumentContentProvider, change event": [
         "workspace.registerTextDocumentContentProvider"
+    ],
+    "configuration vscode API - configuration configuration, defaults": [
+        "WorkspaceConfiguration.get",
+        "WorkspaceConfiguration.has",
+        "workspace.getConfiguration"
+    ],
+    "configuration vscode API - configuration configuration, name vs property": [
+        "WorkspaceConfiguration.get",
+        "WorkspaceConfiguration.has",
+        "workspace.getConfiguration"
+    ],
+    "configuration vscode API - configuration configurations, language defaults": [
+        "WorkspaceConfiguration.get",
+        "workspace.getConfiguration"
+    ],
+    "env vscode API - env env.uiKind": [
+        "env.asExternalUri",
+        "env.uiKind",
+        "env.uriScheme"
+    ],
+    "env vscode API - env env.asExternalUri - with env.uriScheme": [
+        "env.asExternalUri",
+        "env.uiKind",
+        "env.uriScheme"
+    ],
+    "workspace vscode API - workspace MarkdownString": [
+        "MarkdownString",
+        "MarkdownString.appendMarkdown",
+        "MarkdownString.appendText",
+        "MarkdownString.isTrusted",
+        "MarkdownString.value"
+    ],
+    "state vscode API - globalState / workspaceState state - handling of objects": [
+        "ExtensionContext.globalState",
+        "ExtensionContext.workspaceState",
+        "Memento.get",
+        "Memento.keys",
+        "Memento.update"
+    ],
+    "window vscode API - window createStatusBar": [
+        "StatusBarItem.alignment",
+        "StatusBarItem.id",
+        "StatusBarItem.name",
+        "StatusBarItem.priority",
+        "StatusBarItem.tooltip",
+        "window.createStatusBarItem"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument - throws for dirty documents": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding",
+        "TextDocument.isDirty"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument - multiple requests with different encoding work": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
+    ],
+    "workspace vscode API - workspace encoding: save text document with a different encoding": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
     ]
 }

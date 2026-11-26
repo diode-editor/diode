@@ -1,4 +1,5 @@
-import { ConfigurationModel } from "../../../platform/configuration/common/configurationModel.ts";
+import { diffOverrideIdentifiers } from "../../../platform/configuration/common/configurationChangeEvent.ts";
+import { ConfigurationModel, isOverrideKey } from "../../../platform/configuration/common/configurationModel.ts";
 
 /**
  * `get` is synchronous in extensions, so main-process layers arrive via push
@@ -22,23 +23,30 @@ export class WorkspaceConfigStore {
     private workspace = ConfigurationModel.EMPTY;
     private workspaceFolder = ConfigurationModel.EMPTY;
     private merged = ConfigurationModel.EMPTY;
+    private settingIds: ReadonlySet<unknown> = new Set();
 
-    /** Anything that is not an object becomes an empty layer. */
-    public setData(data: unknown): void {
+    /**
+     * Anything that is not an object becomes an empty layer, and anything but an array no ids.
+     * Returns the `[lang]` keys whose section changed: upstream counts them among the event's keys.
+     */
+    public setData(data: unknown, settingIds?: unknown): string[] {
+        const before = this.merged;
+        this.settingIds = new Set<unknown>(Array.isArray(settingIds) ? settingIds : undefined);
         const layers = isPlainObject(data) ? data : {};
         this.defaults = ConfigurationModel.fromRaw(layers.defaults);
         this.user = ConfigurationModel.fromRaw(layers.user);
         this.workspace = ConfigurationModel.fromRaw(layers.workspace);
         this.workspaceFolder = ConfigurationModel.fromRaw(layers.workspaceFolder);
         this.merged = ConfigurationModel.merge(this.defaults, this.user, this.workspace, this.workspaceFolder);
+        return diffOverrideIdentifiers(before, this.merged).map((identifier) => `[${identifier}]`);
     }
 
     public get(dottedKey: string, defaultValue?: unknown, languageId?: string): unknown {
-        return this.model(languageId).get(dottedKey) ?? defaultValue;
+        return this.value(dottedKey, languageId) ?? defaultValue;
     }
 
     public has(dottedKey: string, languageId?: string): boolean {
-        return this.model(languageId).get(dottedKey) !== undefined;
+        return this.value(dottedKey, languageId) !== undefined;
     }
 
     public inspect(dottedKey: string, languageId?: string): IConfigInspectResult {
@@ -67,10 +75,50 @@ export class WorkspaceConfigStore {
         return this[layer].getOverride(languageId).get(dottedKey) !== undefined;
     }
 
+    private value(dottedKey: string, languageId: string | undefined): unknown {
+        return isOverrideKey(dottedKey) ? this.languageSection(dottedKey) : this.model(languageId).get(dottedKey);
+    }
+
+    /**
+     * Upstream keeps `[lang]` in `contents`, so `get('[go]')` is the merged section keyed by setting ids.
+     * Here the section arrives as a nested tree: a registered id is a setting whatever its value, and
+     * an unregistered key (a removed extension's leftover) is guessed by {@link isSettingGroup}.
+     * A combined `[a][b]` key is split into its languages on the way, so it has no section of its own.
+     */
+    private languageSection(key: string): Record<string, unknown> | undefined {
+        const identifier = key.slice(1, -1);
+        if (!this.merged.getOverrideIdentifiers().includes(identifier)) return undefined;
+        const section: Record<string, unknown> = {};
+        this.collectSettings(this.merged.getOverride(identifier).getValue() as Record<string, unknown>, "", section);
+        return section;
+    }
+
+    private collectSettings(
+        group: Readonly<Record<string, unknown>>,
+        prefix: string,
+        out: Record<string, unknown>,
+    ): void {
+        for (const [key, value] of Object.entries(group)) {
+            const id = prefix + key;
+            if (!this.settingIds.has(id) && isSettingGroup(value)) this.collectSettings(value, `${id}.`, out);
+            else out[id] = value;
+        }
+    }
+
     private model(languageId: string | undefined): ConfigurationModel {
         // Stryker disable next-line ConditionalExpression: override() without a section returns the same model anyway — the branch is only for the type
         return languageId === undefined ? this.merged : this.merged.override(languageId);
     }
+}
+
+/**
+ * For an unregistered key: a non-empty object whose keys all look like name segments is a group,
+ * anything else is a value. An unregistered object-valued setting with such keys comes out split.
+ */
+function isSettingGroup(value: unknown): value is Record<string, unknown> {
+    if (!isPlainObject(value)) return false;
+    const keys = Object.keys(value);
+    return keys.length > 0 && keys.every((key) => /^[A-Za-z][\w-]*$/.test(key));
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

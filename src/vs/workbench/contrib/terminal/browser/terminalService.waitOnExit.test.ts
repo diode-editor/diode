@@ -131,6 +131,19 @@ describe("TerminalService — waitOnExit", () => {
         h.service.dispose();
     });
 
+    it("a key between the session's exit flag and its onExit does nothing: the exit is handled when it arrives", () => {
+        const h = buildHarness();
+        const instance = h.service.createInstance({ name: "t" });
+        // The real session sets the flag synchronously and fires onExit after the emulator's queue drains.
+        h.sessions[0].isExited = true;
+        h.sessions[0].write("x");
+        expect(h.events).toStrictEqual([]);
+        expect(h.service.getInstance(instance.id)).toBe(instance);
+        h.sessions[0].emitExit(3);
+        expect(h.events).toStrictEqual(["exit:1:3", "dispose:1:process"]);
+        h.service.dispose();
+    });
+
     it("Kill of a waiting one — removed with reason user, nothing printed again", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ waitOnExit: "bye" });
@@ -161,6 +174,7 @@ describe("TerminalService — relaunchInstance", () => {
         expect(h.sessions[0].relaunches).toStrictEqual([
             {
                 cwd: "/ws",
+                shellIntegrationEnabled: true,
                 shell: "/bin/sh",
                 args: ["-c", "make"],
                 env: { A: "1" },
@@ -194,7 +208,7 @@ describe("TerminalService — relaunchInstance", () => {
         const instance = h.service.createInstance({ name: "a", waitOnExit: true });
         h.sessions[0].emitExit(0);
         h.service.relaunchInstance(instance.id, { name: "b" });
-        expect(h.sessions[0].relaunches).toStrictEqual([{ cwd: process.cwd() }]);
+        expect(h.sessions[0].relaunches).toStrictEqual([{ cwd: process.cwd(), shellIntegrationEnabled: true }]);
         expect(instance.title).toBe("b");
         expect(h.events).toStrictEqual(["exit:1:0", "title:1:b"]);
         h.sessions[0].emitExit(0);

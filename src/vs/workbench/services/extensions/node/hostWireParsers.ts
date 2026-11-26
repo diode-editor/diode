@@ -1,4 +1,5 @@
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import type { InlayHint, InlayHintKind } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type { ICoreRenameLocation } from "../../../../editor/common/languages/iRenameSource.ts";
 import type {
     ISemanticTokens,
@@ -27,8 +28,12 @@ import {
     isFiniteNumber,
     type IWireCloseGroupsParams,
     type IWireCloseTabsParams,
+    type IWireCodeLens,
+    type IWireCodeLensCommand,
+    type IWireCodeLensList,
     type IWireConfigurationUpdate,
     type IWireCreateUntitledParams,
+    type IWireDecorationOptions,
     type IWireDiagnosticsPublish,
     type IWireDialogFilter,
     type IWireEditorEdit,
@@ -43,6 +48,7 @@ import {
     type IWireMementoUpdate,
     type IWireMessageItem,
     type IWireOpenDialogRequest,
+    type IWireOpenTextDocumentParams,
     type IWireOutputAppend,
     type IWireOutputShow,
     type IWireProgressEnd,
@@ -62,9 +68,12 @@ import {
     type IWireStatusBarItem,
     type IWireStatusBarItemDispose,
     type IWireTerminalCreate,
+    type IWireTerminalExecuteCommand,
     type IWireTerminalLocation,
+    type IWireTerminalProfileProvider,
     type IWireTerminalPtyData,
     type IWireTerminalPtyExit,
+    type IWireTerminalPtyName,
     type IWireTerminalRef,
     type IWireTerminalSendText,
     type IWireTerminalShow,
@@ -73,6 +82,7 @@ import {
     type IWireValidationMessage,
     type IWireWatcherCreate,
     type IWireWorkspaceEditOp,
+    type IWireWorkspaceSymbolProviderRegistration,
     parseRange,
     parseWireEnvironmentDescriptions,
     parseWireEnvironmentVariableEntries,
@@ -89,10 +99,12 @@ import {
     type WireMarker,
     type WireMessageSeverity,
     type WireOutputLevel,
+    type WireProgressLocation,
     type WireRenamePrepare,
     type WireSemanticTokensResult,
     type WireValidationSeverity,
 } from "../../../api/common/wireTypes.ts";
+import type { IFileIndexResult, IFileQueryResult, IRawFileMatch } from "../../search/common/fileSearch.ts";
 
 export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocumentParams | null {
     if (typeof raw !== "object" || raw === null) return null;
@@ -107,6 +119,14 @@ export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocu
             ? { selection: parseWireSelections([selections])[0] }
             : {}),
     };
+}
+
+/** A wrong-shaped encoding is dropped: the document opens as if none were asked. */
+export function parseWireOpenTextDocumentParams(raw: unknown): IWireOpenTextDocumentParams | null {
+    // Primitives aren't rejected separately: their fields read as undefined.
+    const obj = (raw ?? {}) as Record<string, unknown>;
+    if (typeof obj.uri !== "string") return null;
+    return { uri: obj.uri, ...(typeof obj.encoding === "string" ? { encoding: obj.encoding } : {}) };
 }
 
 /** A field of the wrong shape is dropped. */
@@ -194,6 +214,14 @@ export function parseWireLanguageConfiguration(raw: unknown): IWireLanguageConfi
     return { handle: p.handle, languageId: p.languageId, configuration };
 }
 
+export function parseWireWorkspaceSymbolProviderRegistration(
+    raw: unknown,
+): IWireWorkspaceSymbolProviderRegistration | null {
+    const p = raw as Partial<Record<keyof IWireWorkspaceSymbolProviderRegistration, unknown>> | null | undefined;
+    if (!isWireHandle(p?.handle) || typeof p.supportsResolve !== "boolean") return null;
+    return { handle: p.handle, supportsResolve: p.supportsResolve };
+}
+
 export function parseWireLanguageProviderRegistration(raw: unknown): IWireLanguageProviderRegistration | null {
     // The handle check below filters primitives: their fields read as undefined.
     if (raw === null || raw === undefined) return null;
@@ -216,6 +244,8 @@ export function parseWireLanguageProviderRegistration(raw: unknown): IWireLangua
             : {}),
         ...readWireLegend(obj.legend),
         ...(obj.hasOnDidChange === true ? { hasOnDidChange: true } : {}),
+        ...(obj.hasResolve === true ? { hasResolve: true } : {}),
+        ...(typeof obj.extensionId === "string" ? { extensionId: obj.extensionId } : {}),
     };
 }
 
@@ -296,6 +326,68 @@ export function wireToCoreSemanticTokens(
     };
 }
 
+function wireToCoreInlayHint(raw: unknown): InlayHint | null {
+    const hint = (raw ?? {}) as Record<string, unknown>;
+    const position = (hint.position ?? {}) as Record<string, unknown>;
+    if (!isFiniteNumber(position.line) || !isFiniteNumber(position.character)) return null;
+    if (hint.kind !== undefined && hint.kind !== 1 && hint.kind !== 2) return null;
+    const label = wireToCoreInlayHintLabel(hint.label);
+    if (label === null) return null;
+    return {
+        position: { line: position.line, character: position.character },
+        label,
+        ...(hint.kind === undefined ? {} : { kind: hint.kind as InlayHintKind }),
+        ...(hint.paddingLeft === true ? { paddingLeft: true } : {}),
+        ...(hint.paddingRight === true ? { paddingRight: true } : {}),
+    };
+}
+
+function wireToCoreInlayHintLabel(raw: unknown): InlayHint["label"] | null {
+    if (typeof raw === "string") return raw;
+    if (!Array.isArray(raw)) return null;
+    const parts = (raw as unknown[]).map((part) => (part as { value?: unknown } | null)?.value);
+    if (!parts.every((value) => typeof value === "string")) return null;
+    return parts.map((label) => ({ label }));
+}
+
+/** A broken hint is dropped, not the whole answer. The part's `value` is the core's `label`. */
+export function wireToCoreInlayHints(wire: readonly unknown[]): InlayHint[] {
+    return wire.map((item) => wireToCoreInlayHint(item)).filter((hint) => hint !== null);
+}
+
+function wireCodeLensCommand(raw: unknown): IWireCodeLensCommand | null {
+    const command = (raw ?? {}) as Record<string, unknown>;
+    if (typeof command.id !== "string" || typeof command.title !== "string") return null;
+    return {
+        id: command.id,
+        title: command.title,
+        ...(typeof command.tooltip === "string" ? { tooltip: command.tooltip } : {}),
+    };
+}
+
+/** `null` — a lens that has no address or range. A broken command leaves a lens that waits for a resolve. */
+export function parseWireCodeLens(raw: unknown): IWireCodeLens | null {
+    const lens = (raw ?? {}) as Record<string, unknown>;
+    const { cacheId } = lens;
+    if (!Array.isArray(cacheId) || cacheId.length !== 2 || !cacheId.every(isFiniteNumber)) return null;
+    const range = parseRange(lens.range);
+    if (range === null) return null;
+    const command = wireCodeLensCommand(lens.command);
+    return {
+        cacheId: [cacheId[0], cacheId[1]],
+        range,
+        ...(command === null ? {} : { command }),
+    };
+}
+
+/** A broken lens is dropped, not the whole answer. */
+export function parseWireCodeLensList(wire: IWireCodeLensList): IWireCodeLensList {
+    return {
+        cacheId: wire.cacheId,
+        lenses: wire.lenses.map((lens) => parseWireCodeLens(lens)).filter((lens) => lens !== null),
+    };
+}
+
 function readWireCharacters(raw: readonly unknown[]): string[] {
     return raw.filter((item): item is string => typeof item === "string" && item !== "");
 }
@@ -320,7 +412,22 @@ export function parseWireProgressStart(raw: unknown): IWireProgressStart | null 
     const p = raw as Record<string, unknown>;
     if (!isFiniteNumber(p.handle)) return null;
     if (typeof p.title !== "string") return null;
-    return { handle: p.handle, title: p.title };
+    return {
+        handle: p.handle,
+        title: p.title,
+        location: parseWireProgressLocation(p.location),
+        cancellable: p.cancellable === true,
+    };
+}
+
+/** Anything unknown is `window`, as upstream falls back for an unknown number. */
+function parseWireProgressLocation(raw: unknown): WireProgressLocation {
+    if (raw === "notification" || raw === "sourceControl") return raw;
+    if (typeof raw === "object" && raw !== null) {
+        const { viewId } = raw as { viewId?: unknown };
+        if (typeof viewId === "string") return { viewId };
+    }
+    return "window";
 }
 
 export function parseWireProgressReport(raw: unknown): IWireProgressReport | null {
@@ -388,6 +495,7 @@ export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | nul
             pty: true,
             ...(typeof p.name === "string" && p.name !== "" ? { name: p.name } : {}),
             ...(location !== undefined ? { location } : {}),
+            ...nonceOf(p),
         };
     }
     const shellArgs = parseWireStringArray(p.shellArgs);
@@ -403,7 +511,18 @@ export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | nul
         ...(p.hideFromUser === true ? { hideFromUser: true } : {}),
         ...(typeof p.message === "string" ? { message: p.message } : {}),
         ...(location !== undefined ? { location } : {}),
+        ...nonceOf(p),
     };
+}
+
+function nonceOf(p: NonNullable<TerminalEnvelope>): { shellIntegrationNonce?: string } {
+    return typeof p.shellIntegrationNonce === "string" ? { shellIntegrationNonce: p.shellIntegrationNonce } : {};
+}
+
+export function parseWireTerminalExecuteCommand(raw: unknown): IWireTerminalExecuteCommand | null {
+    const p = raw as TerminalEnvelope;
+    if (!isFiniteNumber(p?.id) || typeof p.commandLine !== "string") return null;
+    return { id: p.id, commandLine: p.commandLine };
 }
 
 /** Anything unrecognized means "not set": the terminal is placed per the setting. */
@@ -440,6 +559,18 @@ export function parseWireTerminalPtyExit(raw: unknown): IWireTerminalPtyExit | n
     if (target === null) return null;
     const { code } = raw as Record<string, unknown>;
     return { terminal: target.terminal, ...(isFiniteNumber(code) ? { code } : {}) };
+}
+
+export function parseWireTerminalPtyName(raw: unknown): IWireTerminalPtyName | null {
+    const target = parseWireTerminalTarget(raw);
+    if (target === null) return null;
+    const { name } = raw as Record<string, unknown>;
+    return typeof name === "string" ? { terminal: target.terminal, name } : null;
+}
+
+export function parseWireTerminalProfileProvider(raw: unknown): IWireTerminalProfileProvider | null {
+    const { id } = (raw ?? {}) as Record<string, unknown>;
+    return typeof id === "string" ? { id } : null;
 }
 
 export function parseWireTerminalSendText(raw: unknown): IWireTerminalSendText | null {
@@ -588,12 +719,27 @@ export function themeColorIdOf(value: SerializedColor | undefined): string | und
     return undefined;
 }
 
-export function parseDecorationRanges(raw: unknown): IRange[] {
+/**
+ * A broken element (no object, no valid range) is dropped, the rest live; `renderOptions` goes on only as an
+ * object, its fields are checked where they are read; `hoverMessage` keeps only its strings.
+ */
+export function parseDecorationOptions(raw: unknown): IWireDecorationOptions[] {
     if (!Array.isArray(raw)) return [];
-    const result: IRange[] = [];
+    const result: IWireDecorationOptions[] = [];
     for (const item of raw) {
-        const parsed = parseRange(item);
-        if (parsed !== null) result.push(parsed);
+        const {
+            range: rawRange,
+            renderOptions,
+            hoverMessage: rawHover,
+        } = (item ?? {}) as { range?: unknown; renderOptions?: unknown; hoverMessage?: unknown };
+        const range = parseRange(rawRange);
+        if (range === null) continue;
+        const hoverMessage = parseWireStringArray(rawHover) ?? [];
+        result.push({
+            range,
+            ...(typeof renderOptions === "object" && renderOptions !== null ? { renderOptions } : {}),
+            ...(hoverMessage.length === 0 ? {} : { hoverMessage }),
+        });
     }
     return result;
 }
@@ -731,6 +877,7 @@ export function parseWireInputBoxRequest(raw: unknown): IWireInputBoxRequest | n
         prompt: optionalWireString(p.prompt),
         placeHolder: optionalWireString(p.placeHolder),
         value: optionalWireString(p.value),
+        valueSelection: wireValueSelection(p.valueSelection) ?? undefined,
         password: p.password === true,
         validates: p.validates === true,
     };
@@ -804,6 +951,14 @@ function optionalWireHandles(value: unknown): number[] | undefined {
     return value.filter((i): i is number => Number.isInteger(i) && i >= 0);
 }
 
+/** A `[start, end)` pair, `null` ("cleared") or a missing field ("untouched"). */
+function wireValueSelection(value: unknown): readonly [number, number] | null | undefined {
+    if (value === null) return null;
+    if (!Array.isArray(value) || value.length !== 2) return undefined;
+    const [start, end] = value as unknown[];
+    return isFiniteNumber(start) && isFiniteNumber(end) ? [start, end] : undefined;
+}
+
 /** A field of a foreign type reads as "untouched": a diff of one property must not fail the whole update. */
 export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | null {
     // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the check below filters a non-object anyway (it lacks the required field), so replacing the operand with `false` has no observable effect
@@ -812,6 +967,7 @@ export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | n
     if (!isFiniteNumber(p.handle)) return null;
     const fields: Record<string, unknown> = {
         handle: p.handle,
+        inputBox: optionalWireBoolean(p.inputBox),
         visible: optionalWireBoolean(p.visible),
         title: nullableWireString(p.title),
         step: nullableWireNumber(p.step),
@@ -819,6 +975,10 @@ export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | n
         placeholder: nullableWireString(p.placeholder),
         prompt: nullableWireString(p.prompt),
         value: optionalWireString(p.value),
+        valueSelection: wireValueSelection(p.valueSelection),
+        password: optionalWireBoolean(p.password),
+        validationMessage: "validationMessage" in p ? parseWireValidationMessage(p.validationMessage) : undefined,
+        back: optionalWireBoolean(p.back),
         canSelectMany: optionalWireBoolean(p.canSelectMany),
         matchOnDescription: optionalWireBoolean(p.matchOnDescription),
         matchOnDetail: optionalWireBoolean(p.matchOnDetail),
@@ -1150,5 +1310,33 @@ export function parseWireSaveDialogRequest(raw: unknown): IWireSaveDialogRequest
         saveLabel: optionalWireString(p.saveLabel),
         filters: parseWireDialogFilters(p.filters),
         title: optionalWireString(p.title),
+    };
+}
+
+export function parseWireFileIndexResult(raw: unknown): IFileIndexResult {
+    if (typeof raw !== "object" || raw === null) throw new Error("search.fileIndex: result must be an object");
+    return { limitHit: (raw as { limitHit?: unknown }).limitHit === true };
+}
+
+/** Throws on a foreign response; a malformed match is dropped, the rest of the list stands. */
+export function parseWireFileQueryResult(raw: unknown): IFileQueryResult {
+    const { matches, complete, limitHit } = (raw ?? {}) as {
+        matches?: unknown;
+        complete?: unknown;
+        limitHit?: unknown;
+    };
+    if (!Array.isArray(matches)) throw new Error("search.fileQuery: the result must carry a matches array");
+    return {
+        matches: matches.flatMap((m: unknown): IRawFileMatch[] => {
+            const { relativePath, score, matchedIndices } = (m ?? {}) as {
+                relativePath?: unknown;
+                score?: unknown;
+                matchedIndices?: unknown;
+            };
+            if (typeof relativePath !== "string" || !isFiniteNumber(score) || !Array.isArray(matchedIndices)) return [];
+            return [{ relativePath, score, matchedIndices: matchedIndices.filter(isFiniteNumber) }];
+        }),
+        complete: complete === true,
+        limitHit: limitHit === true,
     };
 }

@@ -33,7 +33,6 @@ const VARS = {
 const SIDE_BAR_OPTIONS: IPanelContainerOptions = {
     background: "sideBar.background",
     foreground: "sideBar.foreground",
-    topBorder: false,
     contentLeft: 1,
 };
 
@@ -89,14 +88,14 @@ function row(screen: TerminalScreen, y: number, width = 20): string {
 }
 
 describe("PanelContainerElement: part appearance options", () => {
-    it("defaults to the bottom panel: border strip, header on the second row, content indented by 2", () => {
+    it("defaults to the bottom panel: no strip (the frame separates it), header on the first row, content indented by 2", () => {
         const panel = new PanelContainerElement();
         panel.addView({ id: "a", title: "ONE", content: new MarkerContent("M") });
         const screen = paint(panel);
-        expect(row(screen, 0)).toBe("─".repeat(20));
-        expect(at(screen, 0, 0).fg).toBe(BORDER);
-        expect(row(screen, 1).startsWith("  ONE")).toBe(true);
-        expect(at(screen, 2, 2).char).toBe("M");
+        expect(row(screen, 0).startsWith("  ONE")).toBe(true);
+        expect(row(screen, 0)).not.toContain("─");
+        expect(at(screen, 0, 0).fg).not.toBe(BORDER);
+        expect(at(screen, 2, 1).char).toBe("M");
         expect(at(screen, 5, 4).bg).toBe(PANEL_BG);
     });
 
@@ -112,7 +111,7 @@ describe("PanelContainerElement: part appearance options", () => {
         expect(at(screen, 5, 4).bg).toBe(SIDEBAR_BG);
     });
 
-    it("sidebar look: content fills everything below the header except the sash column", () => {
+    it("sidebar look: content fills everything below the header except the first column", () => {
         const panel = new PanelContainerElement(SIDE_BAR_OPTIONS);
         const content = new MarkerContent("M");
         panel.addView({ id: "a", title: "ONE", content });

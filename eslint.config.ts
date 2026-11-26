@@ -10,6 +10,8 @@ export default tseslint.config(
             "node_modules/",
             "*.config.*",
             "src/vscode-dts/vscode.d.ts",
+            "src/vscode-dts/vscode.proposed.extensionsAny.d.ts",
+            "src/vs/workbench/contrib/debug/common/debugProtocol.d.ts",
             "src/vs/workbench/services/extensions/node/__fixtures__/*.cjs",
             "extensions/*/out/",
             // Vendored copy of upstream: by definition its findings must not be fixed.
@@ -32,6 +34,11 @@ export default tseslint.config(
             "src/vs/base/common/uint.ts",
             // Upstream PieceTree tests are a vendored copy too (mocha style, tabs).
             "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
+            "src/vs/editor/contrib/snippet/browser/snippetParser.ts",
+            "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
+            "extensions/merge-conflict/src/**",
+            "extensions/html-language-features/{client,server}/**",
+            "extensions/debug-auto-launch/src/**",
             // Corpus test DATA: foreign sources, not our code.
             "**/__fixtures__/**",
         ],

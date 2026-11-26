@@ -12,11 +12,13 @@ import { baseColors } from "./baseColors.ts";
 import { chartsColors } from "./chartsColors.ts";
 import { COLOR_CONTRIBUTIONS, type IWorkbenchColors } from "./colorContributions.ts";
 import { controlColors } from "./controlColors.ts";
+import { debugColors } from "./debugColors.ts";
 import { diffColors } from "./diffColors.ts";
 import { editorColors } from "./editorColors.ts";
 import { gitColors } from "./gitColors.ts";
 import { scmGraphColors } from "./scmGraphColors.ts";
 import { terminalColors } from "./terminalColors.ts";
+import { testingColors } from "./testingColors.ts";
 import { workbenchColors } from "./workbenchColors.ts";
 
 /** Keep in sync with `getRequiredColor(...)` calls: a color without a registry default fails the test on themes lacking it. */
@@ -122,6 +124,8 @@ describe("default color registry coverage", () => {
             scmGraphColors,
             terminalColors,
             chartsColors,
+            testingColors,
+            debugColors,
         ];
         const totalKeys = groups.reduce((sum, group) => sum + Object.keys(group).length, 0);
         expect(Object.keys(COLOR_CONTRIBUTIONS)).toHaveLength(totalKeys);

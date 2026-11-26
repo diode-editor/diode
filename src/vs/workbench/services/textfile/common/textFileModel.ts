@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
@@ -24,6 +25,7 @@ import {
     decodeStream,
     decodeStreamByBOM,
     encodeStream,
+    hasNativeCodec,
     type IDecodedStream,
 } from "../../../../editor/common/model/encodingStream.ts";
 import {
@@ -95,9 +97,6 @@ export const MEMORY_PER_FILE_BYTE = 2;
 /** The stream stops when less than this is left: the process must survive the refusal and paint its toast. */
 export const MEMORY_RESERVE_BYTES = 256 * 1024 * 1024;
 
-/** Outcome of {@link TextFileModel.streamIntoMemory}: `modified` — the buffer was edited while the file streamed in. */
-type StreamOutcome = EnableEditingRefusal | "modified" | null;
-
 /**
  * Counterpart of `ITextFileEditorModel`: a file on disk, a resource of an extension's FS provider
  * ({@link openProvided}) or an untitled buffer; synthetic content is `SyntheticTextModel`.
@@ -109,6 +108,11 @@ export class TextFileModel extends BaseTextEditorModel {
      * and not part of isModified, as in VS Code.
      */
     private encodingValue: string = DEFAULT_ENCODING;
+    /**
+     * Upstream `preferredEncoding`: chosen by the user or an extension (reopen or save with an encoding), it
+     * outlives a reload from disk, which otherwise sniffs the BOM and falls back to utf-8.
+     */
+    private preferredEncoding: string | null = null;
     private readonly onDidChangeEncodingEmitter = this.register(new Emitter<void>());
     /** Tells an external change from our own write. `null`: the file did not exist when opened. */
     private diskStat: IDiskStat | null = null;
@@ -310,8 +314,7 @@ export class TextFileModel extends BaseTextEditorModel {
     public override get isModified(): boolean {
         if (this.hasAssociatedResource) return true;
         // Upstream `onModelContentChanged`: an untitled buffer that became empty never shows a dirty indicator.
-        if (this.uriValue.scheme === "untitled" && this.doc.getValueLength() === 0)
-            return this.doc.eol !== this.savedEol;
+        if (this.uriValue.scheme === "untitled" && this.doc.getValueLength() === 0) return false;
         return super.isModified;
     }
 
@@ -361,6 +364,8 @@ export class TextFileModel extends BaseTextEditorModel {
             throw new Error(`TextFileModel.openFile: expected a file: uri, got ${uri.scheme}:`);
         }
         this.uriValue = uri;
+        // The choice belonged to the previous file.
+        this.preferredEncoding = null;
         const filePath = uri.fsPath;
         // Above the size threshold the document stays on disk and the mode is on by construction; otherwise
         // the file is read into memory and the line-count axis decides.
@@ -452,25 +457,27 @@ export class TextFileModel extends BaseTextEditorModel {
     public override enableEditing(): Promise<EnableEditingRefusal | null> {
         const disk = this.doc.onDisk;
         const filePath = this.filePath;
-        // Stryker disable next-line ConditionalExpression: a document on disk always came from a path; the second check is for the type
-        if (disk === null || filePath === null) return super.enableEditing();
+        const opener = this.randomAccessFiles;
+        // Stryker disable next-line ConditionalExpression: a document on disk always came from a path through an opener; the last two checks are for the type
+        if (disk === null || filePath === null || opener === null) return super.enableEditing();
         if (disk.size > MAX_STRING_LENGTH) return Promise.resolve("too-large");
-        this.pendingEnableEditing ??= this.enableEditingFromDisk(filePath).finally(() => {
+        this.pendingEnableEditing ??= this.enableEditingFromDisk(opener, filePath).finally(() => {
             this.pendingEnableEditing = null;
         });
         return this.pendingEnableEditing;
     }
 
-    private async enableEditingFromDisk(filePath: string): Promise<EnableEditingRefusal | null> {
-        let outcome: StreamOutcome;
+    private async enableEditingFromDisk(
+        opener: IRandomAccessFileOpener,
+        filePath: string,
+    ): Promise<EnableEditingRefusal | null> {
+        let outcome: EnableEditingRefusal | null;
         this.streamingForEditing = true;
         try {
-            outcome = await this.streamIntoMemory(filePath);
+            outcome = await this.streamIntoMemory(opener, filePath);
         } finally {
             this.streamingForEditing = false;
         }
-        // Stryker disable next-line ConditionalExpression,StringLiteral: a document on disk is read-only, its version never moves, so "modified" cannot come back here; the mapping is for the type
-        if (outcome === "modified") return "cancelled";
         if (outcome !== null) return outcome;
         super.forcefullyEnableFeatures();
         this.recheckDiskAfterStream(filePath);
@@ -483,14 +490,18 @@ export class TextFileModel extends BaseTextEditorModel {
      * one by one (A4). The text replaces the document only at the end, in one flush (`setText`, as upstream
      * `updateModel` replaces a reloaded model's text); until then the old text stays. The encoding is sniffed by BOM,
      * like any reload. A newer load, a reload or a dispose cancels this one (`loadGeneration`); an edit made
-     * meanwhile wins over the file (`modified`). `null` — the text is in.
+     * meanwhile wins over the file: the buffer stays, in conflict with the disk (`cancelled` too — a document on
+     * disk cannot be edited, so only a streamed reload sees it). `null` — the text is in.
      */
-    private async streamIntoMemory(filePath: string): Promise<StreamOutcome> {
+    private async streamIntoMemory(
+        opener: IRandomAccessFileOpener,
+        filePath: string,
+    ): Promise<EnableEditingRefusal | null> {
         // Stryker disable next-line UpdateOperator: see readDiskBytes
         const generation = ++this.loadGeneration;
         const version = this.doc.versionId;
         const stat = this.readDiskStat(filePath);
-        const file = this.openRandomAccess(filePath);
+        const file = this.openRandomAccess(opener, filePath);
         if (file === null) return "read-failed";
         try {
             if (this.memory !== null && file.size * MEMORY_PER_FILE_BYTE > this.memory.availableBytes()) {
@@ -519,7 +530,11 @@ export class TextFileModel extends BaseTextEditorModel {
                 this.setMemoryLoading(generation, { loadedBytes: loaded, totalBytes: file.size });
             }
             builder.acceptChunk(decoder.end());
-            if (this.doc.versionId !== version) return "modified";
+            if (this.doc.versionId !== version) {
+                this.setDiskConflict(true);
+                // Stryker disable next-line StringLiteral: a document on disk is read-only, so only a streamed reload meets an edit, and it reads the outcome as null or not
+                return "cancelled";
+            }
             const factory = builder.finish();
             this.applyEncoding(info.id);
             this.diskStat = stat;
@@ -543,10 +558,7 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     /** `null`: unreadable (EACCES, a directory) — the caller refuses. Anything that is not the file system's surfaces. */
-    private openRandomAccess(filePath: string): IRandomAccessFile | null {
-        const opener = this.randomAccessFiles;
-        // Stryker disable next-line ConditionalExpression: both callers come here only with an opener (a document on disk, or a streamed reload gated on it); the check is for the type
-        if (opener === null) return null;
+    private openRandomAccess(opener: IRandomAccessFileOpener, filePath: string): IRandomAccessFile | null {
         try {
             return opener.open(filePath);
         } catch (error) {
@@ -628,16 +640,22 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     /**
-     * The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code; an explicit one is
-     * {@link reopenWithEncoding}. A reload of a model in the large-file mode goes back on disk when the file is
+     * The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code, unless one that needs iconv
+     * was chosen ({@link preferredEncoding}): then it is read in that one, asynchronously, as
+     * {@link reopenWithEncoding}. A chosen utf-8 or UTF-16 is what the sniff finds in a file we wrote. A reload of a model in the large-file mode goes back on disk when the file is
      * still above the threshold (a reload never turns the mode on: upstream's "decided once"). A large file in
      * memory (editing enabled) streams in, like "Enable Editing": a synchronous read of 500 MB froze the editor for
      * seconds on every external change. The text is replaced in one flush, not diffed (docs/arch/Editor.md).
      */
     private loadDocumentFromDisk(filePath: string): void {
+        if (this.preferredEncoding !== null && !hasNativeCodec(this.preferredEncoding)) {
+            this.reopenWithEncoding(this.preferredEncoding).catch(onUnexpectedError);
+            return;
+        }
         if (this.isTooLargeForTokenization && this.openOnDisk(filePath)) return;
-        if (this.streamsOnReload(filePath)) {
-            void this.reloadStreaming(filePath);
+        const opener = this.streamsOnReload(filePath);
+        if (opener !== null) {
+            void this.reloadStreaming(opener, filePath);
             return;
         }
         this.readIntoMemory(filePath);
@@ -648,22 +666,24 @@ export class TextFileModel extends BaseTextEditorModel {
         this.applyDecoded(filePath, decodeStreamByBOM(this.readDiskChunks(filePath)));
     }
 
-    /** Above the size threshold, with the means to stream (the opener of the document on disk). */
-    private streamsOnReload(filePath: string): boolean {
-        if (this.randomAccessFiles === null) return false;
+    /** Above the size threshold: the opener of the document on disk; `null` — a small file, or no means to stream. */
+    private streamsOnReload(filePath: string): IRandomAccessFileOpener | null {
         const stat = this.readDiskStat(filePath);
-        return stat !== null && isTooLargeForTokenization(stat.size, 0, this.largeFileOptions(this.doc.languageId));
+        const large =
+            stat !== null && isTooLargeForTokenization(stat.size, 0, this.largeFileOptions(this.doc.languageId));
+        return large ? this.randomAccessFiles : null;
     }
 
     /**
-     * The old text stays editable while the new one streams in. An edit meanwhile, or no memory for a second copy,
-     * leaves the buffer as it is, in conflict with the disk: the user decides, as with a dirty buffer.
+     * The old text stays editable while the new one streams in. An edit meanwhile (the stream's own verdict), or
+     * no memory for a second copy, leaves the buffer as it is, in conflict with the disk: the user decides, as
+     * with a dirty buffer.
      */
-    private async reloadStreaming(filePath: string): Promise<void> {
-        const outcome = await this.streamIntoMemory(filePath);
+    private async reloadStreaming(opener: IRandomAccessFileOpener, filePath: string): Promise<void> {
+        const outcome = await this.streamIntoMemory(opener, filePath);
         if (outcome === null) {
             this.fireDiskStateChange();
-        } else if (outcome === "modified" || outcome === "out-of-memory") {
+        } else if (outcome === "out-of-memory") {
             this.setDiskConflict(true);
         }
     }
@@ -720,8 +740,7 @@ export class TextFileModel extends BaseTextEditorModel {
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
         // The snapshot is the saved state: edits typed while the bytes stream to disk stay unsaved.
-        const savedVersion = this.doc.versionId;
-        const savedEol = this.doc.eol;
+        const savedAlternativeVersion = this.doc.alternativeVersionId;
         let written: IFileStat;
         try {
             // Streamed: the encoded snapshot goes to the file a megabyte at a time, no buffer of the whole file (A4).
@@ -738,7 +757,7 @@ export class TextFileModel extends BaseTextEditorModel {
             return "conflict";
         }
         if (filePath !== null) this.diskStat = { mtimeMs: written.mtime, size: written.size };
-        this.markSaved(savedVersion, savedEol);
+        this.markSaved(savedAlternativeVersion);
         this.setDiskConflict(false);
         this.setOrphaned(false);
         this.fireSaved();
@@ -748,6 +767,7 @@ export class TextFileModel extends BaseTextEditorModel {
     /** "no-file": the caller falls back to Save As; the encoding is already set by then. */
     public async saveWithEncoding(encoding: string, options?: { overwrite?: boolean }): Promise<SaveOutcome> {
         this.setEncoding(encoding);
+        this.preferredEncoding = this.encodingValue;
         return this.save(options);
     }
 
@@ -777,11 +797,14 @@ export class TextFileModel extends BaseTextEditorModel {
 
     /**
      * The caller asks for confirmation on a dirty buffer. `false`: no file, or another
-     * reload overtook this one (non-Unicode decoding waits for iconv).
+     * reload overtook this one (non-Unicode decoding waits for iconv). Any name iconv knows
+     * ("cp1252") is kept verbatim; an unknown one reads as utf-8. Later reloads keep the encoding.
      */
     public async reopenWithEncoding(encoding: string): Promise<boolean> {
         const filePath = this.filePath;
         if (filePath === null) return false;
+        // Before the read, as upstream `updatePreferredEncoding`: a reload that overtakes this one reads the same way.
+        this.preferredEncoding = encoding;
         const chunks = this.readDiskChunks(filePath);
         const generation = this.loadGeneration;
         const decoded = await decodeStream(chunks, encoding);
@@ -791,6 +814,8 @@ export class TextFileModel extends BaseTextEditorModel {
             return false;
         }
         this.applyDecoded(filePath, decoded);
+        // The encoding actually read: "utf8" on a file with a BOM is "utf8bom", an unknown name is "utf8".
+        this.preferredEncoding = decoded.encoding;
         return true;
     }
 
@@ -811,8 +836,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.providedWatch = null;
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
-        const savedVersion = this.doc.versionId;
-        const savedEol = this.doc.eol;
+        const savedAlternativeVersion = this.doc.alternativeVersionId;
         const bytes = encodeStream(this.doc.createSnapshot(), this.encodingValue);
         let written: IFileStat;
         try {
@@ -826,7 +850,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.markedDirtyForExtensions = false;
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
-        this.markSaved(savedVersion, savedEol);
+        this.markSaved(savedAlternativeVersion);
         this.setDiskConflict(false);
         this.setOrphaned(false);
         this.startWatchingFile(newPath);
@@ -862,12 +886,14 @@ export class TextFileModel extends BaseTextEditorModel {
 
     /** A missing file is not a conflict: `save` re-creates it. */
     private hasExternalChange(filePath: string): boolean {
-        return this.differsFromDisk(this.readDiskStat(filePath));
+        return this.changedFrom(this.readDiskStat(filePath)) !== null;
     }
 
-    private differsFromDisk(current: IDiskStat | null): boolean {
-        if (this.diskStat === null || current === null) return false;
-        return current.mtimeMs !== this.diskStat.mtimeMs || current.size !== this.diskStat.size;
+    /** The stat the text was read with, when the file has moved on from it; `null` — nothing changed, or no file known. */
+    private changedFrom(current: IDiskStat | null): IDiskStat | null {
+        const known = this.diskStat;
+        if (known === null || current === null) return null;
+        return current.mtimeMs !== known.mtimeMs || current.size !== known.size ? known : null;
     }
 
     private startWatchingFile(filePath: string): void {
@@ -888,10 +914,12 @@ export class TextFileModel extends BaseTextEditorModel {
         }
         this.cancelOrphanCheck();
         this.setOrphaned(false);
-        if (this.streamingForEditing || !this.differsFromDisk(current)) return;
+        if (this.streamingForEditing) return;
+        const known = this.changedFrom(current);
+        if (known === null) return;
         if (this.isModified) {
             this.setDiskConflict(true);
-        } else if (this.extendOnDisk(current) || this.appendInMemory(filePath, current)) {
+        } else if (this.extendOnDisk(known, current) || this.appendInMemory(filePath, known, current)) {
             this.diskStat = current;
         } else {
             this.revertToDisk();
@@ -904,12 +932,9 @@ export class TextFileModel extends BaseTextEditorModel {
      * and keeps everything before it. Anything else — truncation, a rotated file under the same name (another
      * inode), a rewrite the buffer's tail check catches — re-indexes from scratch like a reload. `false` — not that case.
      */
-    private extendOnDisk(current: IDiskStat): boolean {
+    private extendOnDisk(known: IDiskStat, current: IDiskStat): boolean {
         const disk = this.doc.onDisk;
-        const known = this.diskStat;
         if (disk === null) return false;
-        // Stryker disable next-line ConditionalExpression,BooleanLiteral: a document on disk always has its stat (openOnDisk sets it); the check is for the type
-        if (known === null) return false;
         if (current.ino !== known.ino || current.size <= known.size) return false;
         return disk.extendTo(current.size);
     }
@@ -920,13 +945,10 @@ export class TextFileModel extends BaseTextEditorModel {
      * whole file again on every line of a growing log. A split `\r\n` (the old `\r` was a line break already)
      * and a tail of more than a chunk reload; an incomplete UTF-8 sequence at the end waits for the next event.
      */
-    private appendInMemory(filePath: string, current: IDiskStat): boolean {
+    private appendInMemory(filePath: string, known: IDiskStat, current: IDiskStat): boolean {
         const end = this.memoryEnd;
-        const known = this.diskStat;
         // The document on disk has no end in memory: openOnDisk clears it.
         if (end === null) return false;
-        // Stryker disable next-line ConditionalExpression,BooleanLiteral: differsFromDisk let the event through only with a known stat; the check is for the type
-        if (known === null) return false;
         if (current.ino !== known.ino || current.size <= end.bytes || current.size - end.bytes > READ_CHUNK_SIZE) {
             return false;
         }
@@ -1067,6 +1089,5 @@ function completeUtf8Length(bytes: Buffer): number {
  * bugs, like a thrown `TypeError`.
  */
 function isFileSystemError(error: unknown): boolean {
-    const code = error instanceof Error ? (error as { code?: unknown }).code : undefined;
-    return /^E[A-Z]+$/.test(String(code));
+    return error instanceof Error && /^E[A-Z]+$/.test(String((error as { code?: unknown }).code));
 }

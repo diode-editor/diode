@@ -24,6 +24,9 @@ export interface IInstalledExtension {
     /** An extension installed outside the registry has nothing but its manifest to show on its page. */
     readonly displayName?: string;
     readonly description?: string;
+    /** The manifest's `categories` and `keywords`: the search's `@category:` and `@tag:` outside the registry. */
+    readonly categories: readonly string[];
+    readonly keywords: readonly string[];
     /** A profile takes the extension together with these (`ProfileExtensions.add`), even if they were already on disk. */
     readonly dependencies: readonly string[];
 }
@@ -50,6 +53,13 @@ function readNlsBundleSync(dir: string, locale: string): INlsBundle | undefined 
         }
     }
     return undefined;
+}
+
+/** A broken list is no list: these only feed the search filters. */
+function readStringList(value: unknown): readonly string[] {
+    return Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
+        : [];
 }
 
 /** `displayName`/`description` are **localized**: the manifest usually has `"%displayName%"` there. */
@@ -100,6 +110,8 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
             // An empty name is no name: the store card would show an empty string.
             displayName: typeof displayName === "string" && displayName.length > 0 ? displayName : undefined,
             description: typeof description === "string" ? description : undefined,
+            categories: readStringList(manifest.categories),
+            keywords: readStringList(manifest.keywords),
             dependencies: readExtensionDependencies(manifest),
         });
     }
@@ -116,7 +128,13 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
     return new Promise((resolve, reject) => {
         yauzl.open(vsixPath, { lazyEntries: true }, (openErr, zipfile) => {
             if (openErr !== null) {
-                reject(new Error(`Not a valid .vsix (zip) archive: ${vsixPath}`));
+                // A missing file is not a broken archive: the user mistyped the path.
+                const missing = (openErr as NodeJS.ErrnoException).code === "ENOENT";
+                reject(
+                    new Error(
+                        missing ? `VSIX file not found: ${vsixPath}` : `Not a valid .vsix (zip) archive: ${vsixPath}`,
+                    ),
+                );
                 return;
             }
 

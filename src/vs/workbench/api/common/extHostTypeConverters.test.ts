@@ -23,6 +23,7 @@ import {
 import {
     CompletionItem,
     EndOfLine,
+    MarkdownString,
     ParameterInformation,
     Position,
     Range,
@@ -105,6 +106,13 @@ describe("stripSnippetPlaceholders", () => {
         expect(stripSnippetPlaceholders("cost: \\$5")).toBe("cost: $5");
     });
 
+    it("the escapes of SnippetString builders come out as plain characters, inside placeholders and choices too", () => {
+        expect(stripSnippetPlaceholders("f() {$0\\}")).toBe("f() {}");
+        expect(stripSnippetPlaceholders("C:\\\\Users\\\\")).toBe("C:\\Users\\");
+        expect(stripSnippetPlaceholders("${1:a\\}\\\\b}")).toBe("a}\\b");
+        expect(stripSnippetPlaceholders("${1|a\\,b\\|c\\\\,d|}")).toBe("a,b|c\\");
+    });
+
     it("multi-digit tabstop indices are parsed whole", () => {
         expect(stripSnippetPlaceholders("f(${10:x})")).toBe("f(x)");
         expect(stripSnippetPlaceholders("f(${12})")).toBe("f()");
@@ -148,7 +156,7 @@ describe("decorations", () => {
                     overviewRulerColor: { id: "editorGutter.addedBackground" },
                     backgroundColor: "#111",
                     color: { id: "foreground" },
-                    gutterIconPath: "/ignored.png",
+                    gutterIconSize: "contain",
                     borderWidth: "2px",
                 }),
             ).toEqual({
@@ -157,6 +165,68 @@ describe("decorations", () => {
                 overviewRulerColor: { $themeColor: "editorGutter.addedBackground" },
                 backgroundColor: "#111",
                 color: { $themeColor: "foreground" },
+            });
+        });
+        it("[api:ThemableDecorationRenderOptions.gutterIconPath] a path string goes as a file URI, a Uri as its string, also in theme branches", () => {
+            const data = Uri.parse("data:image/svg+xml,%3Csvg%2F%3E");
+            expect(
+                serializeDecorationRenderOptions({
+                    gutterIconPath: "/icons/error.svg",
+                    dark: { gutterIconPath: data },
+                    light: { gutterIconPath: 42 },
+                }),
+            ).toStrictEqual({
+                gutterIconPath: Uri.file("/icons/error.svg").toString(),
+                dark: { gutterIconPath: data.toString() },
+                light: {},
+            });
+            expect(serializeDecorationRenderOptions({ gutterIconPath: null })).toStrictEqual({});
+        });
+        it("[api:window.createTextEditorDecorationType] font style, weight, text decoration and opacity go as strings, also in theme branches", () => {
+            expect(
+                serializeDecorationRenderOptions({
+                    isWholeLine: true,
+                    opacity: "0.55",
+                    fontWeight: "bold",
+                    fontStyle: "italic",
+                    textDecoration: "line-through",
+                    dark: { opacity: "0.4" },
+                    light: { textDecoration: "underline", fontWeight: 700 },
+                }),
+            ).toStrictEqual({
+                isWholeLine: true,
+                opacity: "0.55",
+                fontWeight: "bold",
+                fontStyle: "italic",
+                textDecoration: "line-through",
+                dark: { opacity: "0.4" },
+                light: { textDecoration: "underline" },
+            });
+        });
+        it("[api:window.createTextEditorDecorationType] before/after carry weight, text decoration, margin and width as strings; borders, padding and height stay behind", () => {
+            expect(
+                serializeDecorationRenderOptions({
+                    after: {
+                        contentText: "Missing ';'",
+                        fontWeight: "bold",
+                        textDecoration: "underline",
+                        margin: "0 0 0 4ch",
+                        width: "calc(10ch - 6px)",
+                        border: "1px solid red",
+                        padding: "0 1ch",
+                        height: "1em",
+                    },
+                    dark: { before: { margin: "2rem", fontWeight: 600, width: 3 } },
+                }),
+            ).toStrictEqual({
+                after: {
+                    contentText: "Missing ';'",
+                    fontWeight: "bold",
+                    textDecoration: "underline",
+                    margin: "0 0 0 4ch",
+                    width: "calc(10ch - 6px)",
+                },
+                dark: { before: { margin: "2rem" } },
             });
         });
         it("empty/invalid options → an empty object", () => {
@@ -235,11 +305,11 @@ describe("toWireEditRange", () => {
 describe("normalizeDecorationRanges", () => {
     it("bare Range and DecorationOptions with .range; a reversed duck-typed one is flipped", () => {
         expect(normalizeDecorationRanges([new Range(0, 1, 0, 2), REVERSED as unknown as vscode.Range])).toStrictEqual([
-            RANGE,
-            RANGE,
+            { range: RANGE },
+            { range: RANGE },
         ]);
         expect(normalizeDecorationRanges([{ range: FOREIGN } as unknown as vscode.DecorationOptions])).toStrictEqual([
-            RANGE,
+            { range: RANGE },
         ]);
     });
 
@@ -250,7 +320,63 @@ describe("normalizeDecorationRanges", () => {
             { range: undefined },
             new Range(0, 1, 0, 2),
         ] as unknown as readonly vscode.Range[];
-        expect(normalizeDecorationRanges(items)).toStrictEqual([RANGE]);
+        expect(normalizeDecorationRanges(items)).toStrictEqual([{ range: RANGE }]);
+    });
+
+    it("renderOptions: missing and malformed fields have no key, the branches keep only before/after", () => {
+        expect(
+            normalizeDecorationRanges([
+                {
+                    range: new Range(0, 1, 0, 2),
+                    renderOptions: {
+                        before: { contentText: 1, color: null, backgroundColor: { nope: 1 }, fontStyle: 2 },
+                        after: "nope",
+                        light: { before: { borderColor: "#000" }, backgroundColor: "red" },
+                        dark: 5,
+                    },
+                },
+            ] as unknown as readonly vscode.DecorationOptions[]),
+        ).toStrictEqual([{ range: RANGE, renderOptions: { before: {}, light: { before: { borderColor: "#000" } } } }]);
+    });
+
+    it("renderOptions without branches carry only their own attachments", () => {
+        expect(
+            normalizeDecorationRanges([
+                { range: new Range(0, 1, 0, 2), renderOptions: { after: { contentText: "x", color: "#f00" } } },
+            ]),
+        ).toStrictEqual([{ range: RANGE, renderOptions: { after: { contentText: "x", color: "#f00" } } }]);
+    });
+
+    it("hoverMessage: a string, a MarkdownString and an array go as raw markdown, blank and broken entries drop", () => {
+        const md = new MarkdownString("**commit** `abc`");
+        expect(
+            normalizeDecorationRanges([
+                { range: new Range(0, 1, 0, 2), hoverMessage: "plain" },
+                { range: new Range(0, 1, 0, 2), hoverMessage: md },
+                {
+                    range: new Range(0, 1, 0, 2),
+                    hoverMessage: [md, "", "  ", undefined, 7, { language: "ts", value: "x" }],
+                },
+            ] as unknown as readonly vscode.DecorationOptions[]),
+        ).toStrictEqual([
+            { range: RANGE, hoverMessage: ["plain"] },
+            { range: RANGE, hoverMessage: ["**commit** `abc`"] },
+            { range: RANGE, hoverMessage: ["**commit** `abc`", "```ts\nx\n```"] },
+        ]);
+    });
+
+    it("an empty or missing hoverMessage has no key; renderOptions ride along", () => {
+        expect(
+            normalizeDecorationRanges([
+                { range: new Range(0, 1, 0, 2), hoverMessage: [] },
+                { range: new Range(0, 1, 0, 2), hoverMessage: null, renderOptions: { after: { contentText: "x" } } },
+                { range: new Range(0, 1, 0, 2), hoverMessage: "m", renderOptions: { after: { contentText: "x" } } },
+            ] as unknown as readonly vscode.DecorationOptions[]),
+        ).toStrictEqual([
+            { range: RANGE },
+            { range: RANGE, renderOptions: { after: { contentText: "x" } } },
+            { range: RANGE, renderOptions: { after: { contentText: "x" } }, hoverMessage: ["m"] },
+        ]);
     });
 });
 
@@ -315,9 +441,17 @@ describe("serializeCompletionItem — replace range", () => {
         expect(rangeOf(FOREIGN)).toStrictEqual(RANGE);
     });
 
-    it("{ inserting, replacing } — replacing is taken, duck-typed too", () => {
-        expect(rangeOf({ inserting: new Range(0, 1, 0, 1), replacing: new Range(0, 1, 0, 2) })).toStrictEqual(RANGE);
-        expect(rangeOf({ inserting: FOREIGN, replacing: FOREIGN })).toStrictEqual(RANGE);
+    it("{ inserting, replacing } — both travel as { insert, replace }, duck-typed too", () => {
+        const insert = { start: { line: 0, character: 1 }, end: { line: 0, character: 1 } };
+        expect(rangeOf({ inserting: new Range(0, 1, 0, 1), replacing: new Range(0, 1, 0, 2) })).toStrictEqual({
+            insert,
+            replace: RANGE,
+        });
+        expect(rangeOf({ inserting: FOREIGN, replacing: FOREIGN })).toStrictEqual({ insert: RANGE, replace: RANGE });
+    });
+
+    it("{ inserting, replacing } with a broken inserting — only the replace range", () => {
+        expect(rangeOf({ inserting: SHAPELESS, replacing: FOREIGN })).toStrictEqual(RANGE);
     });
 
     it("a reversed one is flipped", () => {
@@ -374,6 +508,41 @@ describe("serializeCompletionItem — field boundaries", () => {
                 id: "1.0",
             });
         }
+    });
+
+    it("tags, preselect, commitCharacters and keepWhitespace of a foreign type have no keys", () => {
+        expect(
+            serialize({ tags: [2, "1"], preselect: 1, commitCharacters: [".", "", 5], keepWhitespace: "yes" }),
+        ).toStrictEqual({ label: "x", insertText: "x", id: "1.0", commitCharacters: ["."] });
+        expect(serialize({ tags: 1, preselect: false, commitCharacters: ".", keepWhitespace: false })).toStrictEqual({
+            label: "x",
+            insertText: "x",
+            id: "1.0",
+        });
+    });
+
+    it("an unknown tag next to Deprecated is dropped, Deprecated is sent once", () => {
+        expect(serialize({ tags: [7, 1, 1] })).toMatchObject({ tags: [1] });
+    });
+
+    it("textEdit wins over insertText and range, as upstream", () => {
+        expect(
+            serialize({
+                insertText: "fromInsertText",
+                range: new Range(0, 5, 0, 6),
+                textEdit: new TextEdit(new Range(0, 1, 0, 2), "fromTextEdit"),
+            }),
+        ).toStrictEqual({ label: "x", insertText: "fromTextEdit", id: "1.0", range: RANGE });
+    });
+
+    it("a broken textEdit is ignored: insertText and range are used", () => {
+        expect(
+            serialize({
+                insertText: "ins",
+                range: new Range(0, 1, 0, 2),
+                textEdit: { range: SHAPELESS, newText: "t" },
+            }),
+        ).toStrictEqual({ label: "x", insertText: "ins", id: "1.0", range: RANGE });
     });
 
     it("insertText: null — label is inserted", () => {

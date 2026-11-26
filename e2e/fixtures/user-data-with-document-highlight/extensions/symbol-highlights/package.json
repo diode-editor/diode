@@ -1,0 +1,14 @@
+{
+    "name": "symbol-highlights",
+    "displayName": "Symbol Highlights",
+    "description": "E2E demo extension: a document highlight provider that tells the writes of a variable from its reads and skips an object key of the same name.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:plaintext"
+    ]
+}

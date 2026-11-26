@@ -30,7 +30,7 @@ function findSashes(element: TUIElement): SashElement[] {
     return [...own, ...element.getChildren().flatMap(findSashes)];
 }
 
-describe("Workbench — sash hover feedback", () => {
+describe("Workbench — sash hover feedback (framed parts: the pointer shape, no line)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let configuration: InMemoryConfigurationService;
@@ -53,16 +53,33 @@ describe("Workbench — sash hover feedback", () => {
         ws.dispose();
     });
 
-    /** The sidebar sash's middle cell on screen. */
-    function sidebarSashCell(): Point {
+    function sidebarSash(): SashElement {
         const sash = findSashes(h.testApp.root).find((s) => !s.hidden);
         if (sash === undefined) throw new Error("no visible sash");
-        return new Point(sash.globalPosition.x, sash.globalPosition.y + Math.floor(sash.layoutSize.height / 2));
+        return sash;
     }
 
-    function isLit(cell: Point): boolean {
-        const color = h.container.get(ThemeServiceDIToken).theme.getRequiredColor("sash.hoverBorder");
-        return h.testApp.backend.getTextAt(cell, 1) === "│" && h.testApp.backend.getFgAt(cell) === color;
+    /** The sidebar sash's middle row on screen: its two cells, over both frame lines at the boundary. */
+    function sidebarSashCells(): Point[] {
+        const sash = sidebarSash();
+        const y = sash.globalPosition.y + Math.floor(sash.layoutSize.height / 2);
+        return Array.from({ length: sash.layoutSize.width }, (_, i) => new Point(sash.globalPosition.x + i, y));
+    }
+
+    /** What the cells show: glyph and colour, to compare before and after a hover. */
+    function look(cells: readonly Point[]): string[] {
+        return cells.map((cell) => `${h.testApp.backend.getTextAt(cell, 1)}:${h.testApp.backend.getFgAt(cell)}`);
+    }
+
+    function hoverColor(): number {
+        return h.container.get(ThemeServiceDIToken).theme.getRequiredColor("sash.hoverBorder");
+    }
+
+    /** The cells keep the two frame lines: no hover line is drawn over them. */
+    function expectNoHoverLine(cells: readonly Point[], before: readonly string[]): void {
+        expect(look(cells)).toEqual(before);
+        expect(cells.map((cell) => h.testApp.backend.getTextAt(cell, 1))).toEqual(["│", "│"]);
+        for (const cell of cells) expect(h.testApp.backend.getFgAt(cell)).not.toBe(hoverColor());
     }
 
     function hoverAt(cell: Point): void {
@@ -70,72 +87,82 @@ describe("Workbench — sash hover feedback", () => {
         h.testApp.render();
     }
 
-    it("lights the sidebar sash in the frame right after the hover by default", () => {
+    // The sidebar sash lies over both frame lines at the boundary: the lines already show it, so
+    // no hover line lights up on it — only the mouse pointer turns into the resize arrow.
+    it("the sidebar sash draws no hover line over the frame lines; only the pointer turns into the resize arrow", () => {
         boot();
-        const cell = sidebarSashCell();
-        expect(isLit(cell)).toBe(false);
+        const cells = sidebarSashCells();
+        const before = look(cells);
 
-        hoverAt(cell);
-        expect(isLit(cell)).toBe(true);
+        for (const cell of cells) {
+            hoverAt(cell);
+            expectNoHoverLine(cells, before);
+            expect(h.testApp.backend.pointerShape).toBe("ew-resize");
+        }
 
-        // Leaving puts it out.
-        hoverAt(new Point(cell.x + 10, cell.y));
-        expect(isLit(cell)).toBe(false);
+        // Leaving gives the pointer back.
+        hoverAt(new Point(cells[0].x + 10, cells[0].y));
+        expect(h.testApp.backend.pointerShape).not.toBe("ew-resize");
+        expectNoHoverLine(cells, before);
     });
 
-    it("waits `workbench.sash.hoverDelay` before lighting it", () => {
+    it("`workbench.sash.hoverDelay` reaches the sash, and no line shows after the delay either", () => {
         vi.useFakeTimers();
         boot({ "workbench.sash.hoverDelay": 300 });
-        const cell = sidebarSashCell();
+        expect(sidebarSash().hoverDelay).toBe(300);
+        const cells = sidebarSashCells();
+        const before = look(cells);
 
-        hoverAt(cell);
-        expect(isLit(cell)).toBe(false);
-        vi.advanceTimersByTime(299);
+        hoverAt(cells[0]);
+        vi.advanceTimersByTime(300);
         h.testApp.render();
-        expect(isLit(cell)).toBe(false);
-        vi.advanceTimersByTime(1);
-        h.testApp.render();
-        expect(isLit(cell)).toBe(true);
+        expectNoHoverLine(cells, before);
+        expect(h.testApp.backend.pointerShape).toBe("ew-resize");
     });
 
-    it("applies a changed delay live, from the next hover", async () => {
+    it("applies a changed delay live", async () => {
         vi.useFakeTimers();
         boot();
-        const cell = sidebarSashCell();
+        expect(sidebarSash().hoverDelay).toBe(0);
         await configuration.updateValue("workbench.sash.hoverDelay", 1000);
+        expect(sidebarSash().hoverDelay).toBe(1000);
 
-        hoverAt(cell);
-        expect(isLit(cell)).toBe(false);
+        const cells = sidebarSashCells();
+        const before = look(cells);
+        hoverAt(cells[0]);
         vi.advanceTimersByTime(1000);
         h.testApp.render();
-        expect(isLit(cell)).toBe(true);
+        expectNoHoverLine(cells, before);
 
-        hoverAt(new Point(cell.x + 10, cell.y));
         await configuration.updateValue("workbench.sash.hoverDelay", 0);
-        hoverAt(cell);
-        expect(isLit(cell)).toBe(true);
+        expect(sidebarSash().hoverDelay).toBe(0);
     });
 
-    it("a hidden sidebar's sash does not light up, and lights again once the sidebar is back", async () => {
+    it("a hidden sidebar's sash gives no resize arrow, and gives it again once the sidebar is back", async () => {
         boot();
-        const cell = sidebarSashCell();
+        const cells = sidebarSashCells();
 
         await h.commands.execute("workbench.action.toggleSidebarVisibility");
         h.testApp.render();
-        hoverAt(cell);
-        expect(isLit(cell)).toBe(false);
+        hoverAt(cells[0]);
+        expect(h.testApp.backend.pointerShape).not.toBe("ew-resize");
+        for (const cell of cells) expect(h.testApp.backend.getFgAt(cell)).not.toBe(hoverColor());
 
         await h.commands.execute("workbench.action.toggleSidebarVisibility");
-        hoverAt(new Point(cell.x + 10, cell.y));
-        hoverAt(cell);
-        expect(isLit(cell)).toBe(true);
+        hoverAt(new Point(cells[0].x + 10, cells[0].y));
+        const before = look(cells);
+        hoverAt(cells[0]);
+        expect(h.testApp.backend.pointerShape).toBe("ew-resize");
+        expectNoHoverLine(cells, before);
     });
 
     it("falls back to the instant default for a value outside the schema", () => {
         boot({ "workbench.sash.hoverDelay": 5000 });
-        const cell = sidebarSashCell();
+        expect(sidebarSash().hoverDelay).toBe(0);
+        const cells = sidebarSashCells();
+        const before = look(cells);
 
-        hoverAt(cell);
-        expect(isLit(cell)).toBe(true);
+        hoverAt(cells[0]);
+        expectNoHoverLine(cells, before);
     });
 });

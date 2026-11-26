@@ -14,7 +14,8 @@ import { ViewTitleRowElement } from "./viewTitleRowElement.ts";
  */
 export class ViewContainerHeaderElement extends TUIElement {
     public onMenu?: (anchor: IPaneMenuAnchor) => void;
-    public onAction?: (actionId: string) => void;
+    /** `anchor` is where the press was: a split button's arrow opens its popup there, as "⋯" does. */
+    public onAction?: (actionId: string, anchor: IPaneMenuAnchor) => void;
     public onSwitch?: (anchor: IPaneMenuAnchor) => void;
 
     private readonly row: ViewTitleRowElement;
@@ -34,7 +35,8 @@ export class ViewContainerHeaderElement extends TUIElement {
         this.appendChild(this.row);
 
         this.addEventListener("mousedown", (event) => {
-            if (event.button !== "left") return;
+            // A press on the widget is the widget's: its local X is not the header's.
+            if (event.button !== "left" || event.target !== this) return;
             this.pressed = true;
             this.pressScreenX = event.screenX;
             this.pressScreenY = event.screenY;
@@ -48,7 +50,7 @@ export class ViewContainerHeaderElement extends TUIElement {
             if (zone.kind === "menu") {
                 this.onMenu?.({ screenX: this.pressScreenX, screenY: this.pressScreenY });
             } else if (zone.kind === "action") {
-                this.onAction?.(zone.actionId);
+                this.onAction?.(zone.actionId, { screenX: this.pressScreenX, screenY: this.pressScreenY });
             } else if (zone.kind === "switcher") {
                 this.onSwitch?.(this.switcherAnchor());
             }

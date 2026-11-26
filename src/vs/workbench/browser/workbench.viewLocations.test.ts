@@ -91,7 +91,8 @@ describe("Workbench: moving views with commands", () => {
         expect(h.container.get(ContextKeyServiceDIToken).get("auxiliaryBarFocus")).toBe(true);
         expect(h.container.get(ContextKeyServiceDIToken).get("focusedView")).toBe(SEARCH_VIEW_ID);
         const part = h.workbench.workbenchLayout.getRightPanel()!;
-        expect(frame(h)[1].slice(part.globalPosition.x)).toContain("SEARCH");
+        // The part's first row, inside its frame.
+        expect(frame(h)[part.globalPosition.y].slice(part.globalPosition.x)).toContain("SEARCH");
     });
 
     it("without a focused view Move Focused View is disabled", () => {
@@ -135,13 +136,13 @@ describe("Workbench: moving views with commands", () => {
         h.container.get(PanelServiceDIToken).setActiveView(OUTPUT_VIEW_ID);
         void h.commands.execute("workbench.action.movePanelToSecondarySideBar");
         expect(panelTabs(h)).toEqual([]);
-        expect(auxiliaryTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
+        expect(auxiliaryTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"]);
         expect(h.container.get(AuxiliaryBarServiceDIToken).visible).toBe(true);
         expect(h.container.get(AuxiliaryBarServiceDIToken).getActiveViewId()).toBe(OUTPUT_VIEW_ID);
 
         void h.commands.execute("workbench.action.moveSecondarySideBarToPanel");
         expect(auxiliaryTabs(h)).toEqual([]);
-        expect(panelTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
+        expect(panelTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"]);
         expect(h.container.get(PanelServiceDIToken).visible).toBe(true);
     });
 
@@ -154,7 +155,7 @@ describe("Workbench: moving views with commands", () => {
         void h.commands.execute("workbench.action.movePanelToSecondarySideBar");
         void h.commands.execute("workbench.action.resetViewLocations");
         expect(auxiliaryTabs(h)).toEqual([]);
-        expect(panelTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
+        expect(panelTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"]);
     });
 
     it("Reset Focused View Location returns the focused view home", () => {
@@ -170,9 +171,12 @@ describe("Workbench: moving views with commands", () => {
     it("an empty secondary side bar hints how to get views into it", () => {
         void h.commands.execute("workbench.action.toggleAuxiliaryBar");
         const part = h.workbench.workbenchLayout.getRightPanel()!;
-        const text = frame(h)
-            .slice(1, 5)
-            .map((row) => row.slice(part.globalPosition.x))
+        const rows = frame(h);
+        // The part's own first rows, without its frame's lines.
+        const { x, y } = part.globalPosition;
+        const text = rows
+            .slice(y, y + 4)
+            .map((row) => row.slice(x, x + part.layoutSize.width))
             .join(" ");
         expect(text.replace(/\s+/g, " ")).toContain("Use 'View: Move View' to display a view here.");
     });

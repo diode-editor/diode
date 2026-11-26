@@ -2,7 +2,7 @@ import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { explorerPathArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
+import { explorerPathArg, explorerTargetsArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 
 import { EXPLORER_VIEW_ID, ExplorerComponentDIToken } from "./explorerComponent.ts";
 import { ExplorerServiceDIToken } from "./explorerService.ts";
@@ -18,10 +18,13 @@ export const fileDeleteAction: CommandAction = {
     keybinding: parseKeybinding("delete"),
     when: "filesExplorerFocus",
     // Delete is bound to `delete`, but the menu doesn't show the shortcut — suppress it.
-    menus: [{ menuId: MenuId.ExplorerContext, group: "4_modify", order: 20, args: explorerPathArg, shortcut: false }],
-    run(accessor, filePath: unknown) {
-        const target = (filePath as string | undefined) ?? accessor.get(ExplorerServiceDIToken).getSelectedPaths()[0];
-        if (target) accessor.get(FileOperationsServiceDIToken).requestDeleteFile(target);
+    menus: [
+        { menuId: MenuId.ExplorerContext, group: "4_modify", order: 20, args: explorerTargetsArg, shortcut: false },
+    ],
+    run(accessor, targets: unknown) {
+        accessor
+            .get(FileOperationsServiceDIToken)
+            .requestDelete(accessor.get(ExplorerServiceDIToken).getCommandTargets(targets));
     },
 };
 

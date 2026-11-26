@@ -74,6 +74,19 @@ export const acceptSelectedSuggestionAction: CommandAction = {
     },
 };
 
+/** Upstream: the other `editor.suggest.insertMode` — Insert when it is `replace`, Replace when it is `insert`. */
+export const acceptAlternativeSelectedSuggestionAction: CommandAction = {
+    id: "acceptAlternativeSelectedSuggestion",
+    weight: SUGGEST_WEIGHT,
+    title: "Suggest: Accept Selected Alternative",
+    keybinding: parseKeybinding("shift+enter"),
+    keybindings: [parseKeybinding("shift+tab")],
+    when: "suggestWidgetVisible",
+    run(accessor) {
+        accessor.get(CompletionServiceDIToken).acceptSelected(true);
+    },
+};
+
 /**
  * The same Ctrl+Space as triggerSuggest — on purpose, like VS Code: `when: suggestWidgetVisible`
  * and a higher weight make it win while the popup is open.
@@ -107,6 +120,7 @@ export const SUGGEST_ACTIONS: readonly CommandAction[] = [
     selectNextPageSuggestionAction,
     selectPrevPageSuggestionAction,
     acceptSelectedSuggestionAction,
+    acceptAlternativeSelectedSuggestionAction,
     hideSuggestWidgetAction,
     toggleSuggestionDetailsAction,
 ];

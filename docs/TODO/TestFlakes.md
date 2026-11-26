@@ -33,10 +33,92 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `quickOpenHistory.scenario.ts`, «quick-open-history» (только Windows): за 10 с после Ctrl+P и ввода
+  `e2e/fixtures/sample.ts` вкладка `sample.ts` не появилась, обе попытки e2e (run 44478670132, PR #1239, дифф —
+  `TextEditor.visibleRanges`, сценарий расширений не открывает); перезапуск job'а и `main` зелёные.
+- [ ] `extensionHost.javaLsp.features.test.ts`, «references finds the declaration and the call»: `references for greet`
+  не дождались за 60 с в initial test run Stryker'а mutation-гейта (run 44455464286, PR #1243, дифф — поля
+  `CompletionItem` и список подсказок, сьют их не касается); в unit-job зелёный.
+- [ ] `embeddedTerminalSession.shellIntegrationEdges.test.ts`, «two zsh terminals started at once — both injected»: за
+  10 с в выводе нет `OSC 633;A`, только маркер prompt-sp zsh, под покрытием в CI (run 44461762533, PR #1239, дифф —
+  `TextEditor.visibleRanges`, терминала не касается); `main` на той же базе зелёный. Видимо, два zsh разом не успевают
+  стартовать на нагруженном раннере.
+- [ ] `httpRegistrySource.test.ts`, «the registry's size beats Content-Length»: два отчёта прогресса вместо трёх под
+  покрытием в CI (run 44424532677, PR #1238, дифф — команды разработчика терминала, сьют их не касается); `main` на той
+  же базе зелёный. Видимо, чанки ответа склеились в один на нагруженном раннере.
+- [ ] `extensionHost.settingsCompletion.test.ts`, «the range covers both quotes when the key is already closed»: у
+  пункта completion не было `range` под покрытием в CI (run 44214863415, PR #1209, дифф — `vscode.executeHoverProvider`
+  и порядок равных провайдеров в `execute*Provider`, которые этот сьют не зовёт); локально 12/12 зелёные.
+- [ ] `debugContextMenus.app.test.ts`, «a frame: Restart Frame and Copy Call Stack»: Copy Call Stack скопировал одну
+  строку (ждали больше двух) в initial test run Stryker'а mutation-гейта (run 44155048648, PR #1195, дифф — inline
+  values редактора); в unit-job и локально зелёный. Видимо, остальные кадры потока ещё не догружены к моменту
+  копирования. Лечение — до меню дождаться в виде больше одного кадра.
+
+- [ ] `testResultsOutput.test.ts`, «a live test's output takes only its own appends»: терминал вывода ещё пуст
+  (только переводы строк, без `mine`) в initial test run Stryker'а mutation-гейта (run 43948216044, PR #1184, дифф —
+  тулбар отладки и цвета статус-бара); в unit-job и локально зелёный. Лечение — ждать текст, а не один кадр.
+
+- [ ] `workbench.encoding.test.ts` (не в `test-flakes.json`: это необработанная ошибка файла, `retry` теста её не
+  ловит): после «Escape at any level changes nothing» — `FileOperationError ENOENT` на `lstat` уже удалённого
+  `plain.txt` временного каталога, `stat` файлового сервиса пережил тест (run 44099949637, PR #1193, дифф — виды
+  брейкпоинтов отладки); `gh run rerun --failed` зелёный. Лечение — дождаться отложенного `stat` до уборки каталога.
+
+- [ ] `extensionHost.onDidChangeWorkspaceFolders.test.ts`, «updateWorkspaceFolders onto one folder»: `expect.poll`
+  (1 с) видит только две строки журнала первого субпроцесса — перезапуск не успел под полной локальной нагрузкой,
+  дважды (`check:diff` и initial test run Stryker'а, PR #1178, дифф — адаптеры отладки расширений); в одиночку
+  зелёный. Лечение — явный срок у `expect.poll` по реальной цене перезапуска.
+
+- [ ] `testingDecorations.test.ts`, «the progress clock redraws only the editors with a running test»: `vi.waitFor`
+  за 1 с увидел лишь 2 разных кадра настоящего 100-мс тикера `ProgressService` под coverage (run 42780424813,
+  PR #1124, дифф — пассивный прогресс вида, тик непассивных не тронут); тот же код зелёный в прошлом прогоне и
+  локально. Лечение — фейковые таймеры в тесте вместо реального тикера.
+
+- [ ] `extensionHost.vitestExplorer.test.ts`, стоковый vitest.explorer (#1068): прогон vitest расширения вывел
+  `DEV` без `FAIL` в initial test run Stryker'а мутационного гейта (run 42741891573, PR #1117, дифф — sash
+  списка вкладок терминала); юнит-job того же прогона зелёный.
+- [ ] `e2e/bench/xlargeBudget.bench.ts`: `undoInsert` median 16 > 16 на ubuntu, ровно на границе бюджета (run
+  42745526700, PR #1119, дифф — тест и доки `onDidChangeWorkspaceFolders`). Бенч, не юнит — в `test-flakes.json` не стоит.
+- [ ] `testResultsOutput.test.ts`, «a new subject starts from a clean surface»: на экране пусто вместо `new` в
+  initial test run Stryker'а мутационного гейта (run 42538740300, PR #1094, дифф — вьюлет Extensions); юнит-job
+  того же прогона зелёный.
+- [ ] Сценарий `linked-editing`: `waitUntil(screen text predicate) timed out after 10000ms` на ubuntu (run 41933177040,
+  PR #1065, дифф — сопоставление хорд в реестре клавиш); `--failed` зеленит.
+- [ ] `e2e/todoTreeStock.test.ts`, «a click on a tag line moves the keyboard to the editor»: набор не дошёл до строки
+  тега за 30 с на ubuntu, все повторы (run 41933177040, PR #1065, тот же дифф); `--failed` зеленит. Тот же прогон —
+  первый после #1062 (`auto` снова включает расширенные клавиши на старте), связь не проверена.
+- [ ] Сценарий `typescript-navigation`: `waitUntil(the linked tag ranges) timed out after 60000ms` — в `tag.tsx`
+  подсветка связанных тегов не пришла за минуту. Ubuntu: `main` e082b0a6 (run 41632750011) и PR #1045 дважды подряд
+  (run 41649556011 и его `--failed`), дифф — переменные сниппетов; на той же базе PR #1045 при 29c0db1b зелёный.
+  Ещё: `main` fab4d676 (run 42736514194) и PR #1119 (run 42751223918, дифф — тест и доки
+  `onDidChangeWorkspaceFolders`); следующий `main` e03f2ec7 зелёный.
+- [ ] `workbench.workspaceSymbols.accept.test.ts`, «a large answer renders and Enter takes the first row»: 20000
+  символов под покрытием упёрлись в таймаут 5 с (run 41405396154, PR #1015); локально 1,1 с и с правкой
+  `matchSymbol` этого PR, и без неё. Повторилось в run 41408127273, PR #1017, дифф — redhat.java и references-view. И в run 41578220575 (PR #1042, дифф — сниппеты) все повторы подряд; на `main` тот же тест под покрытием идёт 4,7 с при таймауте 5 с (run 41570204078) — тест на грани, а не случайный флак. Дан явный таймаут 15 с в PR #1042 (замер на `main` и на ветке
+  локально под покрытием — 4,7/4,6 с); почему 20 000 строк быстрой выборки идут 2 с даже без покрытия — не разобрано.
+- [ ] `extensionHost.typescriptLsp.projectStatus.test.ts`, «No jsconfig → Configure JSConfig…»: метка статуса уже
+  `jsconfig.json`, а команда ещё `_typescript.createOrOpenConfig`; проверка команды идёт без ожидания, сразу после
+  ожидания метки (run 41297584473, PR #1000, дифф — только тесты terraform).
+- [ ] `editorElement.performance.test.ts`, «displayLineFor caps the visible long line»: замер времени, 336 мс при пороге
+  298 в dry run Stryker, из-за этого mutation-job остался без вердикта (run 41260477522, PR #985, дифф — команда `type`).
+- [ ] Сценарий `java-lens-hints` (heavy): после записи настроек счётчики CodeLens не появились за 180 с, обе попытки
+  e2e, в кадре `Java: Ready` и подсказки параметров есть. Ubuntu, `main` 5dc77f229 (run 41990980003, дифф — версия 0.14.3);
+  соседние прогоны `main` зелёные.
+- [ ] e2e `install-from-vsix`, только windows-latest: `waitUntil(screen text predicate)` не дождался за 10 с — PR #1172
+  (run 43708145083, дифф — launch.json дебага, при перезапуске зелёный) и PR #1174 (run 43751747031, дифф — удаление
+  профиля). Теперь и на ubuntu: PR #1183 (run 43957528110, дифф — API сессий `vscode.debug`), снят фильтр
+  `platforms` в `test-flakes.json`; там же снова `extension-untitled-uri`. И PR #1187 (run 43974946894, дифф — кнопка
+  Run в заголовке редактора; кадр стоит на «Please enter a path that exists» в Install from VSIX).
+- [ ] e2e `quick-input-validation` и `extension-untitled-uri`, только windows-latest: `waitUntil(screen text predicate)`
+  не дождался за 10 с (run 41255028793, PR #959, дифф — inlay hints); на ubuntu и при перезапуске зелёные.
+  `extension-untitled-uri` теперь и на ubuntu: `main` fab4d676 (run 42736514194) и PR #1119 (run 42751223918), снят
+  фильтр `platforms` в `test-flakes.json`.
 - [ ] `workbench.saveConflict.test.ts`, последний тест перед ошибкой — «saves without a prompt when the file was not
   changed externally»: все тесты зелёные, но прогон красный от необработанного rejection `FileOperationError … ENOENT,
   lstat …/diode-saveconflict-*/doc.txt`, похоже, фоновая проверка файла пережила удаление временного каталога.
   Ubuntu, PR #930 (ран 41213738904), `--failed` позеленил. Не в `test-flakes.json`: повтор теста не ловит ошибку вне теста.
+- [ ] `extensionHost.todoTree.test.ts` › «TODOS shows the workspace's tags, follows an edit, a click on a tag opens
+  its line, the status bar counts them»: `waitUntil: the cursor on FIXME's line did not happen within 10000 ms` —
+  похоже на сценарий `todo-tree` ниже (курсор не доехал после клика по узлу). Ubuntu, PR #984 (ран 41256229694), дифф не задет.
 - [ ] Сценарий `todo-tree` (`e2e/scenarios/todo-tree.scenario.ts`): `waitUntil(screen text predicate) timed out
   after 10000ms` на ожидании `Ln 4, Col 1` — клик по узлу «FIXME : fixed port» дерево отрисовал, а курсор остался
   на `Ln 1, Col 1`. Ubuntu, `main` 0.12.0 (ран 40334352898, обе попытки, дифф — версия); прогоны до и после зелёные.

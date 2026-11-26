@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import { Emitter } from "../../../../base/common/event.ts";
-import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -93,6 +93,8 @@ export class ExplorerService extends Disposable {
     ] as const;
 
     public provider: FileTreeDataProvider | null = null;
+    /** Owns the current provider: a new root disposes the old one with its watches (the root's included). */
+    private readonly providerOwner = this.register(new MutableDisposable<FileTreeDataProvider>());
 
     private rootPath: string | null = null;
     private view: IExplorerView | null = null;
@@ -147,16 +149,15 @@ export class ExplorerService extends Disposable {
 
     public setRootPath(rootPath: string): void {
         this.rootPath = rootPath;
-        this.provider = this.register(
-            new FileTreeDataProvider(
-                rootPath,
-                () => filesExcludeGlobs(this.configurationService),
-                this.files,
-                this.treeWatcher,
-                () => this.configurationService.get(COMPACT_FOLDERS_SETTING),
-                this.icons,
-            ),
+        this.provider = new FileTreeDataProvider(
+            rootPath,
+            () => filesExcludeGlobs(this.configurationService),
+            this.files,
+            this.treeWatcher,
+            () => this.configurationService.get(COMPACT_FOLDERS_SETTING),
+            this.icons,
         );
+        this.providerOwner.value = this.provider;
         this.onDidChangeRootEmitter.fire();
     }
 
@@ -236,6 +237,29 @@ export class ExplorerService extends Disposable {
         const nodes = this.view?.getSelectedNodes() ?? [];
         if (nodes.length === 1) return [this.nodePath(nodes[0])];
         return nodes.flatMap((node) => nodeSegments(node));
+    }
+
+    /**
+     * Targets of a context-menu action on the row at `rowPath` (upstream `getMultiSelectedResources`): the
+     * whole selection when the row is part of it, else the row alone.
+     */
+    public getContextTargets(rowPath: string): string[] {
+        const selected = this.getSelectedPaths();
+        return selected.includes(rowPath) ? selected : [rowPath];
+    }
+
+    /**
+     * Targets of an explorer command by its argument: the menu's list (`explorerTargetsArg`), an explicit
+     * path (an editor tab, the command API) or, from a keybinding (no argument), the selection.
+     */
+    public getCommandTargets(arg: unknown): readonly string[] {
+        if (typeof arg === "string") return [arg];
+        return (arg as readonly string[] | undefined) ?? this.getSelectedPaths();
+    }
+
+    /** By the listed tree rows: a path the tree hasn't listed counts as a file. */
+    public isDirectory(filePath: string): boolean {
+        return this.provider?.findNode(filePath) !== undefined;
     }
 
     /** `null` for a directory or an empty tree. */

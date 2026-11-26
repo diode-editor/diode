@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
-import { CancellationTokenNone, CancellationTokenSource } from "../../../../../base/common/cancellation.ts";
+import {
+    CancellationTokenNone,
+    CancellationTokenSource,
+    type ICancellationToken,
+} from "../../../../../base/common/cancellation.ts";
+import type { ILinkRequest } from "../../../../../editor/common/languages/iLinkSource.ts";
 import type { ITextDocument } from "../../../../../editor/common/model/iTextDocument.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
@@ -16,11 +21,11 @@ const TIMEOUTS: RequestTimeouts = {
     "languages.resolveCompletionItem": 102,
     "languages.provideInlineCompletions": 103,
     "languages.provideFoldingRanges": 104,
-    "languages.provideDefinition": 105,
+    "languages.provideDocumentSymbols": 125,
+    "languages.provideWorkspaceSymbols": 126,
+    "languages.resolveWorkspaceSymbol": 127,
     "languages.provideHover": 106,
-    "languages.provideReferences": 107,
     "languages.provideSignatureHelp": 108,
-    "languages.provideFormattingEdits": 109,
     "languages.provideCodeActions": 110,
     "languages.applyCodeAction": 111,
     "languages.prepareRename": 112,
@@ -132,6 +137,30 @@ const REQUEST_CASES: readonly IRequestCase[] = [
         empty: [],
     },
     {
+        name: "implementation",
+        method: "languages.provideImplementation",
+        call: (c, u) => c.provideImplementation(1, anyRequest(u)),
+        empty: [],
+    },
+    {
+        name: "type definition",
+        method: "languages.provideTypeDefinition",
+        call: (c, u) => c.provideTypeDefinition(1, anyRequest(u)),
+        empty: [],
+    },
+    {
+        name: "declaration",
+        method: "languages.provideDeclaration",
+        call: (c, u) => c.provideDeclaration(1, anyRequest(u)),
+        empty: [],
+    },
+    {
+        name: "document symbols",
+        method: "languages.provideDocumentSymbols",
+        call: (c, u) => c.provideDocumentSymbols(1, anyRequest(u)),
+        empty: [],
+    },
+    {
         name: "hover",
         method: "languages.provideHover",
         call: (c, u) => c.provideHover(1, anyRequest(u)),
@@ -181,6 +210,10 @@ const EMPTY_WIRE: Readonly<Record<string, unknown>> = {
     "languages.provideInlineCompletions": [],
     "languages.provideFoldingRanges": [],
     "languages.provideDefinition": [],
+    "languages.provideImplementation": [],
+    "languages.provideTypeDefinition": [],
+    "languages.provideDeclaration": [],
+    "languages.provideDocumentSymbols": [],
     "languages.provideHover": null,
     "languages.provideReferences": [],
     "languages.provideSignatureHelp": null,
@@ -192,6 +225,8 @@ const EMPTY_WIRE: Readonly<Record<string, unknown>> = {
 };
 
 const SYNCED = "file:///synced.ts";
+/** The customer reads no text: only the identity of the document goes over the wire. */
+const LINK_REQ = { uri: SYNCED, languageId: "typescript", versionId: 7 } as ILinkRequest;
 const UNSYNCED = "file:///unsynced.ts";
 
 function setupWithSync() {
@@ -254,6 +289,7 @@ describe("LanguageFeaturesCustomer — requests only for synced documents", () =
         ]);
         const positionless = new Set([
             "languages.provideFoldingRanges",
+            "languages.provideDocumentSymbols",
             "languages.provideFormattingEdits",
             "languages.provideCodeActions",
         ]);
@@ -280,13 +316,14 @@ describe("LanguageFeaturesCustomer — requests only for synced documents", () =
             ),
         );
         expect(seen).toContainEqual(["languages.provideCompletionItems", undefined]);
-        expect(seen.filter(([, timeoutMs]) => timeoutMs === undefined)).toHaveLength(1);
+        expect(seen).toContainEqual(["languages.provideFormattingEdits", undefined]);
+        expect(seen).toContainEqual(["languages.provideImplementation", undefined]);
     });
 });
 
 const CORE_RANGE = { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } };
 
-type Answer = (params: unknown) => unknown;
+type Answer = (params: unknown, token: ICancellationToken) => unknown;
 
 function setupAnswering(answers: Readonly<Record<string, Answer>>) {
     const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
@@ -294,9 +331,9 @@ function setupAnswering(answers: Readonly<Record<string, Answer>>) {
     const peer = new RpcEndpoint(b);
     const hostRpc: HostRpc = new RpcEndpoint(a);
     const sent = vi.spyOn(hostRpc, "request");
-    customer.attach({ rpc: hostRpc, logger: undefined });
+    const attachment = customer.attach({ rpc: hostRpc, logger: undefined });
     for (const [method, answer] of Object.entries(answers)) peer.handleRequest(method, answer);
-    return { customer, sent };
+    return { customer, sent, peer, attachment };
 }
 
 function answerAll(answer: Answer): Record<string, Answer> {
@@ -346,6 +383,9 @@ describe("LanguageFeaturesCustomer — subprocess reply in core form", () => {
                 additionalEdits: [{ range: CORE_RANGE, text: "import x\n" }],
             }),
             "languages.provideDefinition": () => [{ uri: "file:///b.ts", range: CORE_RANGE }],
+            "languages.provideImplementation": () => [{ uri: "file:///i.ts", range: CORE_RANGE }],
+            "languages.provideTypeDefinition": () => [{ uri: "file:///t.ts", range: CORE_RANGE }],
+            "languages.provideDeclaration": () => [{ uri: "file:///e.ts", range: CORE_RANGE }],
             "languages.provideHover": () => ({ contents: ["**x**"], range: CORE_RANGE }),
             "languages.provideReferences": () => [{ uri: "file:///c.ts", range: CORE_RANGE }],
             "languages.provideSignatureHelp": () => ({
@@ -365,6 +405,13 @@ describe("LanguageFeaturesCustomer — subprocess reply in core form", () => {
             additionalEdits: [{ range: CORE_RANGE, text: "import x\n" }],
         });
         expect(await c.provideDefinition(1, anyRequest(SYNCED))).toEqual([{ uri: "file:///b.ts", range: CORE_RANGE }]);
+        expect(await c.provideImplementation(1, anyRequest(SYNCED))).toEqual([
+            { uri: "file:///i.ts", range: CORE_RANGE },
+        ]);
+        expect(await c.provideTypeDefinition(1, anyRequest(SYNCED))).toEqual([
+            { uri: "file:///t.ts", range: CORE_RANGE },
+        ]);
+        expect(await c.provideDeclaration(1, anyRequest(SYNCED))).toEqual([{ uri: "file:///e.ts", range: CORE_RANGE }]);
         expect(await c.provideHover(1, anyRequest(SYNCED))).toEqual({ contents: ["**x**"], range: CORE_RANGE });
         expect(await c.provideReferences(1, anyRequest(SYNCED))).toEqual([{ uri: "file:///c.ts", range: CORE_RANGE }]);
         expect(await c.provideSignatureHelp(1, anyRequest(SYNCED))).toEqual({
@@ -541,6 +588,30 @@ describe("LanguageFeaturesCustomer — semantic tokens", () => {
         expect(h.sent).not.toHaveBeenCalled();
     });
 
+    it("releaseCallHierarchy goes as a notification with handle and session", async () => {
+        const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        const [a, b] = createInProcessChannelPair();
+        const peer = new RpcEndpoint(b);
+        const released: unknown[] = [];
+        peer.handleNotification("languages.releaseCallHierarchy", (params) => released.push(params));
+        customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        customer.releaseCallHierarchy(3, 9);
+        await flushMicrotasks();
+        expect(released).toStrictEqual([{ handle: 3, sessionId: 9 }]);
+    });
+
+    it("releaseTypeHierarchy goes as a notification with handle and session", async () => {
+        const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        const [a, b] = createInProcessChannelPair();
+        const peer = new RpcEndpoint(b);
+        const released: unknown[] = [];
+        peer.handleNotification("languages.releaseTypeHierarchy", (params) => released.push(params));
+        customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        customer.releaseTypeHierarchy(3, 9);
+        await flushMicrotasks();
+        expect(released).toStrictEqual([{ handle: 3, sessionId: 9 }]);
+    });
+
     it("releaseDocumentSemanticTokens goes as a notification with handle and id", async () => {
         const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         const [a, b] = createInProcessChannelPair();
@@ -587,6 +658,96 @@ describe("LanguageFeaturesCustomer — selection ranges", () => {
         expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
     });
 
+    it("call hierarchy: position params, session and item ids go over the wire, replies as is", async () => {
+        const seen: unknown[] = [];
+        const session = { sessionId: 40, items: [] };
+        const h = setupAnswering({
+            "languages.prepareCallHierarchy": (params) => {
+                seen.push(params);
+                return session;
+            },
+            "languages.provideCallHierarchyIncomingCalls": (params) => {
+                seen.push(params);
+                return [{ incoming: true }];
+            },
+            "languages.provideCallHierarchyOutgoingCalls": (params) => {
+                seen.push(params);
+                return [{ outgoing: true }];
+            },
+        });
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, line: 2, character: 3 };
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.prepareCallHierarchy(1, request, caller.token)).toEqual(session);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(await h.customer.provideCallHierarchyIncomingCalls(1, 40, 2, caller.token)).toEqual([
+            { incoming: true },
+        ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(await h.customer.provideCallHierarchyOutgoingCalls(1, 40, 3, caller.token)).toEqual([
+            { outgoing: true },
+        ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(seen).toEqual([
+            { handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 3 },
+            { handle: 1, sessionId: 40, itemId: 2 },
+            { handle: 1, sessionId: 40, itemId: 3 },
+        ]);
+    });
+
+    it("call hierarchy without a subprocess: no session, no calls, a release is silent", async () => {
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, line: 0, character: 0 };
+        expect(await detached.prepareCallHierarchy(1, request)).toBeNull();
+        expect(await detached.provideCallHierarchyIncomingCalls(1, 40, 2)).toEqual([]);
+        expect(await detached.provideCallHierarchyOutgoingCalls(1, 40, 2)).toEqual([]);
+        expect(() => {
+            detached.releaseCallHierarchy(1, 40);
+        }).not.toThrow();
+    });
+
+    it("type hierarchy: session, supertypes and subtypes go with the handle and the caller's token", async () => {
+        const seen: unknown[] = [];
+        const session = { sessionId: 40, items: [] };
+        const h = setupAnswering({
+            "languages.prepareTypeHierarchy": (params) => {
+                seen.push(params);
+                return session;
+            },
+            "languages.provideTypeHierarchySupertypes": (params) => {
+                seen.push(params);
+                return [{ supertype: true }];
+            },
+            "languages.provideTypeHierarchySubtypes": (params) => {
+                seen.push(params);
+                return [{ subtype: true }];
+            },
+        });
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, line: 2, character: 3 };
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.prepareTypeHierarchy(1, request, caller.token)).toEqual(session);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(await h.customer.provideTypeHierarchySupertypes(1, 40, 2, caller.token)).toEqual([{ supertype: true }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(await h.customer.provideTypeHierarchySubtypes(1, 40, 3, caller.token)).toEqual([{ subtype: true }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(seen).toEqual([
+            { handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 3 },
+            { handle: 1, sessionId: 40, itemId: 2 },
+            { handle: 1, sessionId: 40, itemId: 3 },
+        ]);
+    });
+
+    it("type hierarchy without a subprocess: no session, no types, a release is silent", async () => {
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, line: 0, character: 0 };
+        expect(await detached.prepareTypeHierarchy(1, request)).toBeNull();
+        expect(await detached.provideTypeHierarchySupertypes(1, 40, 2)).toEqual([]);
+        expect(await detached.provideTypeHierarchySubtypes(1, 40, 2)).toEqual([]);
+        expect(() => {
+            detached.releaseTypeHierarchy(1, 40);
+        }).not.toThrow();
+    });
+
     it("RPC rejection or no spawn — no selection ranges", async () => {
         const h = setupAnswering({
             "languages.provideSelectionRanges": () => {
@@ -596,6 +757,274 @@ describe("LanguageFeaturesCustomer — selection ranges", () => {
         expect(await h.customer.provideSelectionRanges(1, REQ)).toEqual([]);
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideSelectionRanges(1, REQ)).toEqual([]);
+    });
+});
+
+/** A provider that is busy until it sees `$/cancelRequest`: the reply to a cancelled request still comes from the peer. */
+function untilCancelled(_params: unknown, token: ICancellationToken): Promise<null> {
+    return new Promise((resolve) => {
+        token.onCancellationRequested(() => {
+            resolve(null);
+        });
+    });
+}
+
+/** A minute of fake time leaves the request pending; the caller's cancel is what ends it, with the empty answer. */
+async function expectWaitsUntilCancelled(start: (token: ICancellationToken) => Promise<unknown>): Promise<void> {
+    vi.useFakeTimers();
+    try {
+        const caller = new CancellationTokenSource();
+        const settled = vi.fn();
+        const reply = start(caller.token);
+        void reply.finally(settled);
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(settled).not.toHaveBeenCalled();
+        caller.cancel();
+        expect(await reply).toBeNull();
+    } finally {
+        vi.useRealTimers();
+    }
+}
+
+describe("LanguageFeaturesCustomer — no deadline on what a busy jdt.ls takes over 5 s to answer", () => {
+    const AT = { uri: SYNCED, languageId: "java", versionId: 7, line: 0, character: 1 };
+
+    it("implementations: only the token ends the wait, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideImplementation": untilCancelled });
+            return hung.customer.provideImplementation(1, AT, token);
+        });
+    });
+
+    // The first `;` after the import takes jdt.ls about 6 s: with a deadline the format is lost, the second `;` formats.
+    it("format on type: only the token ends the wait, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideOnTypeFormattingEdits": untilCancelled });
+            return hung.customer.provideOnTypeFormattingEdits(
+                1,
+                {
+                    uri: SYNCED,
+                    languageId: "java",
+                    versionId: 7,
+                    position: { line: 0, character: 1 },
+                    ch: ";",
+                    tabSize: 4,
+                    insertSpaces: true,
+                },
+                token,
+            );
+        });
+    });
+
+    it("call hierarchy: prepare, incoming and outgoing wait only for the token, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.prepareCallHierarchy": untilCancelled });
+            return hung.customer.prepareCallHierarchy(1, AT, token);
+        });
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideCallHierarchyIncomingCalls": untilCancelled });
+            return hung.customer.provideCallHierarchyIncomingCalls(1, 2, 3, token);
+        });
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideCallHierarchyOutgoingCalls": untilCancelled });
+            return hung.customer.provideCallHierarchyOutgoingCalls(1, 2, 3, token);
+        });
+    });
+
+    it("type hierarchy: prepare, supertypes and subtypes wait only for the token, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.prepareTypeHierarchy": untilCancelled });
+            return hung.customer.prepareTypeHierarchy(1, AT, token);
+        });
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideTypeHierarchySupertypes": untilCancelled });
+            return hung.customer.provideTypeHierarchySupertypes(1, 2, 3, token);
+        });
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideTypeHierarchySubtypes": untilCancelled });
+            return hung.customer.provideTypeHierarchySubtypes(1, 2, 3, token);
+        });
+    });
+});
+
+describe("LanguageFeaturesCustomer — inlay hints", () => {
+    const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, range: CORE_RANGE };
+    const AT = { line: 0, character: 1 };
+
+    it("the document, the range and the token go over the wire; the reply becomes core hints without the broken ones", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideInlayHints": (params) => {
+                seen.push(params);
+                return [
+                    { position: AT, label: [{ value: "name" }], kind: 2 },
+                    { position: AT, label: "broken", kind: 9 as 1 },
+                ];
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideInlayHints(1, REQ, caller.token)).toEqual([
+            { position: AT, label: [{ label: "name" }], kind: 2 },
+        ]);
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, range: CORE_RANGE }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: undefined });
+    });
+
+    it("no deadline, as upstream: a slow server's answer still arrives, only the token ends the wait", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideInlayHints": untilCancelled });
+            return hung.customer.provideInlayHints(1, REQ, token);
+        });
+    });
+
+    it("RPC rejection, no spawn or an unsynced document — no hints (null)", async () => {
+        const h = setupAnswering({
+            "languages.provideInlayHints": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideInlayHints(1, REQ)).toBeNull();
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideInlayHints(1, REQ)).toBeNull();
+        const unsynced = new LanguageFeaturesCustomer(TIMEOUTS, () => false, undefined);
+        const [a] = createInProcessChannelPair();
+        unsynced.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        expect(await unsynced.provideInlayHints(1, REQ)).toBeNull();
+    });
+
+    it("onDidChangeInlayHints — only for a declared handle", async () => {
+        const h = setup();
+        const changed = vi.fn();
+        h.customer.onDidChangeInlayHints(changed);
+        h.peer.notify("languages.register", { handle: 4, kind: "inlayHints", selector: [] });
+        await flushMicrotasks();
+        h.peer.notify("languages.didChangeInlayHints", { handle: 4 });
+        h.peer.notify("languages.didChangeInlayHints", { handle: 8 });
+        h.peer.notify("languages.didChangeInlayHints", null);
+        await flushMicrotasks();
+        expect(changed.mock.calls).toStrictEqual([[4]]);
+    });
+});
+
+describe("LanguageFeaturesCustomer — code lens", () => {
+    const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7 };
+    const LENS = { cacheId: [3, 0] as const, range: CORE_RANGE, command: { id: "run", title: "Run" } };
+
+    it("provide: the document and the token go over the wire, a broken lens costs itself", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideCodeLenses": (params) => {
+                seen.push(params);
+                return { cacheId: 3, lenses: [LENS, { range: CORE_RANGE }] };
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideCodeLenses(1, REQ, caller.token)).toEqual({ cacheId: 3, lenses: [LENS] });
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: undefined });
+    });
+
+    it("provide: no deadline, as upstream — only the token ends the wait", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideCodeLenses": untilCancelled });
+            return hung.customer.provideCodeLenses(1, REQ, token);
+        });
+    });
+
+    it("resolve: no deadline, as upstream — jdt.ls counts references only after its import, only the token ends the wait", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.resolveCodeLens": untilCancelled });
+            return hung.customer.resolveCodeLens(1, [3, 0], token);
+        });
+    });
+
+    it("provide: RPC rejection, no spawn or an unsynced document — null", async () => {
+        const h = setupAnswering({
+            "languages.provideCodeLenses": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideCodeLenses(1, REQ)).toBeNull();
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideCodeLenses(1, REQ)).toBeNull();
+        const unsynced = new LanguageFeaturesCustomer(TIMEOUTS, () => false, undefined);
+        const [a] = createInProcessChannelPair();
+        unsynced.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        expect(await unsynced.provideCodeLenses(1, REQ)).toBeNull();
+    });
+
+    it("resolve: the address and the token go over the wire; no answer and a failure are null", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.resolveCodeLens": (params) => {
+                seen.push(params);
+                return LENS;
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.resolveCodeLens(1, [3, 0], caller.token)).toEqual(LENS);
+        expect(seen).toEqual([{ handle: 1, cacheId: [3, 0] }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: undefined });
+
+        const empty = setupAnswering({ "languages.resolveCodeLens": () => null });
+        expect(await empty.customer.resolveCodeLens(1, [3, 0])).toBeNull();
+        const failing = setupAnswering({
+            "languages.resolveCodeLens": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await failing.customer.resolveCodeLens(1, [3, 0])).toBeNull();
+    });
+
+    it("release: a notification with the session; no spawn — nothing", async () => {
+        const h = setup();
+        const released = vi.fn();
+        h.peer.handleNotification("languages.releaseCodeLenses", released);
+        h.customer.releaseCodeLenses(2, 3);
+        await flushMicrotasks();
+        expect(released).toHaveBeenCalledWith({ handle: 2, cacheId: 3 });
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(() => {
+            detached.releaseCodeLenses(2, 3);
+        }).not.toThrow();
+    });
+
+    it("execute: the address goes over the wire without a timeout, the failure of the command rejects", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.executeCodeLensCommand": (params) => {
+                seen.push(params);
+            },
+        });
+        await h.customer.executeCodeLensCommand(1, [3, 0]);
+        expect(seen).toEqual([{ handle: 1, cacheId: [3, 0] }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ timeoutMs: undefined });
+
+        const failing = setupAnswering({
+            "languages.executeCodeLensCommand": () => {
+                throw new Error("command exploded");
+            },
+        });
+        await expect(failing.customer.executeCodeLensCommand(1, [3, 0])).rejects.toThrow("command exploded");
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        await expect(detached.executeCodeLensCommand(1, [3, 0])).resolves.toBeUndefined();
+    });
+
+    it("onDidChangeCodeLenses — only for a declared handle", async () => {
+        const h = setup();
+        const changed = vi.fn();
+        h.customer.onDidChangeCodeLenses(changed);
+        h.peer.notify("languages.register", { handle: 4, kind: "codeLens", selector: [] });
+        await flushMicrotasks();
+        h.peer.notify("languages.didChangeCodeLenses", { handle: 4 });
+        h.peer.notify("languages.didChangeCodeLenses", { handle: 8 });
+        h.peer.notify("languages.didChangeCodeLenses", null);
+        await flushMicrotasks();
+        expect(changed.mock.calls).toStrictEqual([[4]]);
     });
 });
 
@@ -614,10 +1043,11 @@ describe("LanguageFeaturesCustomer — document colors", () => {
         const caller = new CancellationTokenSource();
         expect(await h.customer.provideDocumentColors(1, REQ, caller.token)).toEqual([RED]);
         expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "css", version: 7 }]);
-        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+        // No deadline, as upstream: Tailwind's server answers only once its project is built, and nothing asks again.
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: undefined });
     });
 
-    it("RPC rejection, a hung request past its timeout, no spawn or an unsynced document — no colors (null)", async () => {
+    it("RPC rejection, no spawn or an unsynced document — no colors (null)", async () => {
         const h = setupAnswering({
             "languages.provideDocumentColors": () => {
                 throw new Error("boom");
@@ -625,22 +1055,292 @@ describe("LanguageFeaturesCustomer — document colors", () => {
         });
         expect(await h.customer.provideDocumentColors(1, REQ)).toBeNull();
 
-        // A hung extension holds the detector at most for the timeout.
-        vi.useFakeTimers();
-        try {
-            const hung = setupAnswering({ "languages.provideDocumentColors": () => new Promise(() => undefined) });
-            const reply = hung.customer.provideDocumentColors(1, REQ);
-            await vi.advanceTimersByTimeAsync(5000);
-            expect(await reply).toBeNull();
-        } finally {
-            vi.useRealTimers();
-        }
-
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideDocumentColors(1, REQ)).toBeNull();
         const unsynced = new LanguageFeaturesCustomer(TIMEOUTS, () => false, undefined);
         const [a] = createInProcessChannelPair();
         unsynced.attach({ rpc: new RpcEndpoint(a), logger: undefined });
         expect(await unsynced.provideDocumentColors(1, REQ)).toBeNull();
+    });
+});
+
+describe("LanguageFeaturesCustomer — document symbols", () => {
+    it("the caller's token goes over the wire", async () => {
+        const h = setupAnswering({ "languages.provideDocumentSymbols": () => [] });
+        const caller = new CancellationTokenSource();
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7 };
+        await h.customer.provideDocumentSymbols(1, request, caller.token);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+});
+
+describe("LanguageFeaturesCustomer — document highlights", () => {
+    const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, position: { line: 2, character: 4 } };
+
+    it("the position and the token go over the wire, the reply is returned as is", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideDocumentHighlights": (params) => {
+                seen.push(params);
+                return [{ range: CORE_RANGE, kind: 2 }];
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideDocumentHighlights(1, REQ, caller.token)).toEqual([
+            { range: CORE_RANGE, kind: 2 },
+        ]);
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 4 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("RPC rejection or no spawn — declined", async () => {
+        const h = setupAnswering({
+            "languages.provideDocumentHighlights": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideDocumentHighlights(1, REQ)).toBeNull();
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideDocumentHighlights(1, REQ)).toBeNull();
+    });
+
+    it("on type formatting: the position, the character and the options go over the wire", async () => {
+        const seen: unknown[] = [];
+        const edit = { range: CORE_RANGE, text: "x" };
+        const h = setupAnswering({
+            "languages.provideOnTypeFormattingEdits": (params) => {
+                seen.push(params);
+                return [edit];
+            },
+        });
+        const caller = new CancellationTokenSource();
+        const request = { ...REQ, ch: "\n", tabSize: 2, insertSpaces: false };
+        expect(await h.customer.provideOnTypeFormattingEdits(1, request, caller.token)).toEqual([edit]);
+        expect(seen).toEqual([
+            {
+                handle: 1,
+                uri: SYNCED,
+                languageId: "typescript",
+                version: 7,
+                line: 2,
+                character: 4,
+                ch: "\n",
+                tabSize: 2,
+                insertSpaces: false,
+            },
+        ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("document links: the document and the token go over the wire, the list comes back", async () => {
+        const seen: unknown[] = [];
+        const list = { cacheId: 3, links: [{ id: 0, range: CORE_RANGE, target: "https://a.b/" }] };
+        const h = setupAnswering({
+            "languages.provideDocumentLinks": (params) => {
+                seen.push(params);
+                return list;
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideDocumentLinks(1, LINK_REQ, caller.token)).toEqual(list);
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("document links: RPC rejection or no spawn — no list, no target", async () => {
+        const h = setupAnswering({
+            "languages.provideDocumentLinks": () => {
+                throw new Error("boom");
+            },
+            "languages.resolveDocumentLink": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideDocumentLinks(1, LINK_REQ)).toBeNull();
+        expect(await h.customer.resolveDocumentLink(1, 3, 0)).toBeNull();
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideDocumentLinks(1, LINK_REQ)).toBeNull();
+        expect(await detached.resolveDocumentLink(1, 3, 0)).toBeNull();
+    });
+
+    it("resolve document link: the ids and the token go over the wire, the target comes back", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.resolveDocumentLink": (params) => {
+                seen.push(params);
+                return "https://resolved/";
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.resolveDocumentLink(1, 3, 2, caller.token)).toBe("https://resolved/");
+        expect(seen).toEqual([{ handle: 1, cacheId: 3, id: 2 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("on type formatting: RPC rejection or no spawn — no edits", async () => {
+        const request = { ...REQ, ch: ";", tabSize: 4, insertSpaces: true };
+        const h = setupAnswering({
+            "languages.provideOnTypeFormattingEdits": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideOnTypeFormattingEdits(1, request)).toEqual([]);
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideOnTypeFormattingEdits(1, request)).toEqual([]);
+    });
+
+    it("linked editing: the position and the token go over the wire, the pattern comes back a RegExp", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideLinkedEditingRanges": (params) => {
+                seen.push(params);
+                return { ranges: [CORE_RANGE], wordPattern: "[a-z]+", wordPatternFlags: "i" };
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideLinkedEditingRanges(1, REQ, caller.token)).toEqual({
+            ranges: [CORE_RANGE],
+            wordPattern: /[a-z]+/i,
+        });
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 4 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("linked editing: no pattern stays absent, so the language's applies", async () => {
+        const h = setupAnswering({ "languages.provideLinkedEditingRanges": () => ({ ranges: [CORE_RANGE] }) });
+        expect(await h.customer.provideLinkedEditingRanges(1, REQ)).toStrictEqual({ ranges: [CORE_RANGE] });
+    });
+
+    it("evaluatable expression: the position and the token go over the wire, the answer comes back as is", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideEvaluatableExpression": (params) => {
+                seen.push(params);
+                return { range: CORE_RANGE, expression: "nums" };
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideEvaluatableExpression(1, REQ, caller.token)).toEqual({
+            range: CORE_RANGE,
+            expression: "nums",
+        });
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 4 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("evaluatable expression: RPC rejection or no spawn — nothing at the position", async () => {
+        const h = setupAnswering({
+            "languages.provideEvaluatableExpression": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideEvaluatableExpression(1, REQ)).toBeNull();
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideEvaluatableExpression(1, REQ)).toBeNull();
+    });
+
+    it("linked editing: RPC rejection or no spawn — declined", async () => {
+        const h = setupAnswering({
+            "languages.provideLinkedEditingRanges": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideLinkedEditingRanges(1, REQ)).toBeNull();
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideLinkedEditingRanges(1, REQ)).toBeNull();
+    });
+
+    it("inline values: the view port, the context and the token go over the wire, the values come back", async () => {
+        const seen: unknown[] = [];
+        const values = [{ type: "variable", range: CORE_RANGE, caseSensitiveLookup: true }];
+        const h = setupAnswering({
+            "languages.provideInlineValues": (params) => {
+                seen.push(params);
+                return values;
+            },
+        });
+        const caller = new CancellationTokenSource();
+        const context = { frameId: 3, stoppedLocation: CORE_RANGE };
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, viewPort: CORE_RANGE, context };
+        expect(await h.customer.provideInlineValues(1, request, caller.token)).toEqual(values);
+        expect(seen).toEqual([
+            { handle: 1, uri: SYNCED, languageId: "typescript", version: 7, viewPort: CORE_RANGE, context },
+        ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideInlineValues(1, request)).toBeNull();
+    });
+});
+
+describe("LanguageFeaturesCustomer — workspace symbols", () => {
+    it("registration, an unknown one and unregister; each change is announced", async () => {
+        const h = setupAnswering({});
+        const changed = vi.fn();
+        h.customer.onProvidersChanged(changed);
+
+        h.peer.notify("languages.registerWorkspaceSymbol", { handle: 3, supportsResolve: true });
+        await flushMicrotasks();
+        expect(h.customer.getWorkspaceSymbolProviders()).toEqual([{ handle: 3, supportsResolve: true }]);
+        expect(changed).toHaveBeenCalledTimes(1);
+
+        h.peer.notify("languages.registerWorkspaceSymbol", { handle: "bad" });
+        await flushMicrotasks();
+        expect(h.customer.getWorkspaceSymbolProviders()).toHaveLength(1);
+        expect(changed).toHaveBeenCalledTimes(1);
+
+        h.peer.notify("languages.unregister", { handle: 99 });
+        await flushMicrotasks();
+        expect(changed).toHaveBeenCalledTimes(1);
+
+        h.peer.notify("languages.unregister", { handle: 3 });
+        await flushMicrotasks();
+        expect(h.customer.getWorkspaceSymbolProviders()).toEqual([]);
+        expect(changed).toHaveBeenCalledTimes(2);
+    });
+
+    it("the host going away takes the providers, and says so even when only these were there", async () => {
+        const h = setupAnswering({});
+        const changed = vi.fn();
+        h.peer.notify("languages.registerWorkspaceSymbol", { handle: 3, supportsResolve: false });
+        await flushMicrotasks();
+        h.customer.onProvidersChanged(changed);
+
+        h.attachment.dispose();
+
+        expect(h.customer.getWorkspaceSymbolProviders()).toEqual([]);
+        expect(changed).toHaveBeenCalledTimes(1);
+    });
+
+    it("the query, the handle and the caller's token go over the wire", async () => {
+        const answer = { cacheId: 2, symbols: [] };
+        const h = setupAnswering({ "languages.provideWorkspaceSymbols": () => answer });
+        const caller = new CancellationTokenSource();
+
+        expect(await h.customer.provideWorkspaceSymbols(1, "foo", caller.token)).toEqual(answer);
+
+        const call = h.sent.mock.calls.at(-1);
+        expect(call?.[1]).toEqual({ handle: 1, query: "foo" });
+        expect(call?.[2]).toMatchObject({ token: caller.token, timeoutMs: 126 });
+    });
+
+    it("resolve answers the location; a null answer stays null", async () => {
+        const location = { uri: "file:///a.ts" };
+        let answer: { location: typeof location } | null = { location };
+        const h = setupAnswering({ "languages.resolveWorkspaceSymbol": () => answer });
+
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.resolveWorkspaceSymbol(1, 2, 3, caller.token)).toEqual(location);
+        expect(h.sent.mock.calls.at(-1)?.[1]).toEqual({ handle: 1, cacheId: 2, id: 3 });
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+
+        answer = null;
+        expect(await h.customer.resolveWorkspaceSymbol(1, 2, 3)).toBeNull();
+    });
+
+    it("no host: an empty list, no location", async () => {
+        const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await customer.provideWorkspaceSymbols(1, "foo")).toEqual({ cacheId: 0, symbols: [] });
+        expect(await customer.resolveWorkspaceSymbol(1, 2, 3)).toBeNull();
     });
 });

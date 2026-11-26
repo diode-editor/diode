@@ -29,6 +29,12 @@ export interface IConfigurationService {
      * are rejected; reads would not place them there either (`filterWorkspaceSettings`).
      */
     updateValue(key: string, value: unknown, target?: ConfigurationTarget): Promise<void>;
+
+    /**
+     * Upstream `reloadConfiguration`: rereads the files now, without waiting for the file watcher (a debug start
+     * reads launch.json right after saving it). A service without files has nothing to reread.
+     */
+    reloadConfiguration?(): Promise<void>;
 }
 
 /** There is only one folder for now, so the folder target carries no resource. */

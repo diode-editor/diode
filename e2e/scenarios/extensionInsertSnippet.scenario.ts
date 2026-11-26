@@ -1,0 +1,88 @@
+import { resolve } from "node:path";
+
+import { defineScenario, repoRoot } from "./framework.ts";
+
+// `TextEditor.insertSnippet` (#967): an extension's Enter between brackets, the shape of KevinRose.vsc-python-indent.
+// The snippet opens a hanging indent with the caret inside, and undo takes it back in one step; a variable transform
+// and a nested placeholder are parsed in the core (#1031); the file name and the clipboard fill snippet variables (#1034).
+
+const textFile = resolve(repoRoot, "e2e", "fixtures", "insert-snippet.txt");
+const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-insert-snippet");
+
+export default defineScenario({
+    name: "extension-insert-snippet",
+    title: "TextEditor.insertSnippet: a hanging indent with the caret inside, one undo step",
+    seedUserData: userData,
+    open: [repoRoot, textFile],
+    cols: 100,
+    rows: 20,
+    // Linux only: the extension host subprocess is flaky on Windows.
+    skipOn: ["win32"],
+    userKeybindings: [
+        { key: "f6", command: "insertSnippetDemo.hang" },
+        { key: "f7", command: "insertSnippetDemo.link" },
+        { key: "f8", command: "insertSnippetDemo.tab" },
+        { key: "f9", command: "insertSnippetDemo.lineBelow" },
+        { key: "f10", command: "insertSnippetDemo.upcase" },
+        { key: "f11", command: "insertSnippetDemo.header" },
+    ],
+    async run(editor) {
+        await editor.waitForText((text) => text.includes("foo()"));
+        await editor.waitForReady();
+        await editor.sendKey("End");
+        await editor.sendKey("ArrowLeft");
+        await editor.waitForText((text) => text.includes("Ln 1, Col 9"));
+        await editor.capture("caret-between-brackets");
+
+        await editor.sendKey("F6");
+        await editor.waitForText((text) => text.includes("foo(") && !text.includes("foo()") && text.includes("Ln 2, Col 9"));
+        await editor.capture("hanging-indent");
+
+        await editor.sendKey("Ctrl+Z");
+        await editor.waitForText((text) => text.includes("foo()"));
+        await editor.capture("one-undo-step");
+
+        // Core commands called by an extension (#968): the hermetic gate of what yzhang.markdown-all-in-one needs.
+        await editor.sendKey("End");
+        await editor.waitForText((text) => text.includes("Ln 1, Col 10"));
+        await editor.sendKey("F8");
+        await editor.waitForText((text) => text.includes("Ln 1, Col 13"));
+        await editor.capture("core-tab");
+        await editor.sendKey("Ctrl+Z");
+        await editor.waitForText((text) => text.includes("Ln 1, Col 10"));
+
+        await editor.sendKey("Home");
+        await editor.sendKey("F9");
+        await editor.waitForText((text) => text.includes("Ln 2, Col 5"));
+        await editor.capture("core-line-below");
+        await editor.sendKey("Ctrl+Z");
+        await editor.waitForText((text) => text.includes("Ln 1,"));
+
+        await editor.sendKey("End");
+        await editor.sendKey("Shift+Home");
+        await editor.sendKey("F7");
+        await editor.waitForText((text) => text.includes("[foo()](url)") && text.includes("Ln 1, Col 11"));
+        await editor.capture("link-over-selection");
+        await editor.sendKey("Ctrl+Z");
+        await editor.waitForText((text) => text.includes("    foo()") && !text.includes("[foo()]"));
+
+        // #1031: upstream's grammar, parsed in the core; the outer placeholder comes out selected.
+        await editor.sendKey("End");
+        await editor.sendKey("Shift+Home");
+        await editor.sendKey("F10");
+        await editor.waitForText((text) => text.includes("FOO() nested placeholder"));
+        await editor.capture("selection-upper-cased");
+
+        // #1034: copied in Diode, then `${LINE_COMMENT:#} $TM_FILENAME, $CLIPBOARD` (plain text has no comment token).
+        await editor.sendKey("Escape");
+        await editor.sendKey("Ctrl+Z");
+        await editor.waitForText((text) => text.includes("    foo()") && !text.includes("FOO()"));
+        await editor.sendKey("End");
+        await editor.sendKey("Shift+Home");
+        await editor.sendKey("Ctrl+C");
+        await editor.sendKey("End");
+        await editor.sendKey("F11");
+        await editor.waitForText((text) => text.includes("foo()# insert-snippet.txt, foo()"));
+        await editor.capture("snippet-variables");
+    },
+});

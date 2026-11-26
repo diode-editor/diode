@@ -7,6 +7,7 @@ import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
+import { ExtensionsComponentDIToken } from "../contrib/extensions/browser/extensionsComponent.ts";
 import { themeTypeLabel } from "../contrib/themes/browser/themeActions.ts";
 import {
     type HostColorSchemeService,
@@ -24,6 +25,7 @@ interface ThemeContext {
     commands: CommandRegistry;
     themeService: ThemeService;
     writes: { key: string; value: unknown }[];
+    container: ReturnType<typeof createTestContainer>["container"];
 }
 
 function createThemeApp(
@@ -50,7 +52,7 @@ function createThemeApp(
     bindApp(testApp.app);
     const commands = container.get(CommandRegistryDIToken);
     const themeService = container.get(ThemeServiceDIToken);
-    return { testApp, workbench, commands, themeService, writes };
+    return { testApp, workbench, commands, themeService, writes, container };
 }
 
 const flush = (): Promise<void> =>
@@ -65,7 +67,7 @@ describe("Workbench color-theme picker", () => {
     });
 
     it("previews a theme live as you navigate, then reverts on Escape", async () => {
-        const { commands, themeService, testApp } = createThemeApp();
+        const { commands, themeService, testApp, container } = createThemeApp();
         expect(themeService.theme.name).toBe("Dark+");
 
         commands.execute("workbench.action.selectTheme");
@@ -77,6 +79,8 @@ describe("Workbench color-theme picker", () => {
         testApp.sendKey("Escape");
         await flush();
         expect(themeService.theme.name).toBe("Dark+");
+        // Escape is no request for more themes: the marketplace search stays untouched.
+        expect(container.get(ExtensionsComponentDIToken).getQuery()).toBe("");
     });
 
     it("applies and persists the picked theme on Enter", async () => {
@@ -104,6 +108,32 @@ describe("Workbench color-theme picker", () => {
         await flush();
 
         expect(writes).toEqual([{ key: "workbench.preferredLightColorTheme", value: "Monokai" }]);
+    });
+
+    it("the last item opens the marketplace's themes and keeps the original theme", async () => {
+        const writes: { key: string; value: unknown }[] = [];
+        const { commands, themeService, testApp, container } = createThemeApp(writes);
+
+        commands.execute("workbench.action.selectTheme");
+        testApp.sendKey("ArrowDown");
+        expect(themeService.theme.name).toBe("Monokai");
+        for (const ch of "Install Additional") testApp.sendKey(ch);
+        // Highlighting the install item previews nothing: the last preview stays.
+        expect(themeService.theme.name).toBe("Monokai");
+        testApp.sendKey("Enter");
+        await flush();
+
+        expect(themeService.theme.name).toBe("Dark+");
+        expect(writes).toEqual([]);
+        expect(container.get(ExtensionsComponentDIToken).getQuery()).toBe("category:themes");
+    });
+
+    it("Browse Color Themes in Marketplace opens the marketplace's themes", () => {
+        const { commands, container } = createThemeApp();
+
+        commands.execute("workbench.action.browseColorThemesInMarketplace");
+
+        expect(container.get(ExtensionsComponentDIToken).getQuery()).toBe("category:themes");
     });
 
     it("does not preview anything while the query filters every theme out", async () => {

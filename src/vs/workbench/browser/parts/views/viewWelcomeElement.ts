@@ -88,11 +88,6 @@ class WelcomeLinkElement extends TUIElement {
         event.preventDefault();
         this.activate();
     }
-
-    /** The parent has painted the label under it. */
-    public override render(): void {
-        // Nothing of its own: the parent paints the label.
-    }
 }
 
 /**
@@ -169,8 +164,11 @@ export class ViewWelcomeElement extends TUIElement {
         for (const [y, row] of this.rowsFor(width).entries()) {
             if (row.kind !== "button") continue;
             const button = this.buttons[row.index].element;
-            const height = button.getMaxIntrinsicHeight(width);
-            this.layoutChild(button, LEFT_PADDING, y, BoxConstraints.loose(new Size(width, height)));
+            // A section shorter than its welcome clips the trailing buttons to zero height (nesting
+            // invariant), as a pane view clips its trailing headers.
+            const top = Math.min(y, size.height);
+            const height = Math.min(button.getMaxIntrinsicHeight(width), size.height - top);
+            this.layoutChild(button, LEFT_PADDING, top, BoxConstraints.loose(new Size(width, height)));
         }
         for (const link of this.links) this.layoutChild(link, 0, 0, BoxConstraints.tight(new Size(0, 0)));
         return size;

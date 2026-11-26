@@ -25,7 +25,10 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         installedVersion: null,
         availability: "available",
         pinned: false,
+        categories: [],
+        tags: [],
         needsReload: false,
+        operation: null,
         ...overrides,
     };
 }
@@ -33,9 +36,17 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
 function fakeService(initial: IExtensionListEntry[]): {
     service: IExtensionsWorkbenchService;
     update: (entries: IExtensionListEntry[]) => void;
+    /** Sets the reason the last operation of an id failed; the next `update` brings it to the pages. */
+    fail: (id: string, error: string | null) => void;
+    /** Sets the download percent of an id and fires its change. */
+    download: (id: string, percent: number | null) => void;
+    downloadListeners: () => number;
 } {
     let entries = initial;
     const listeners = new Set<() => void>();
+    const downloads = new Map<string, number | null>();
+    const errors = new Map<string, string | null>();
+    const downloadListeners = new Set<(id: string) => void>();
     const service: IExtensionsWorkbenchService = {
         ensureLoaded: () => Promise.resolve(),
         refresh: () => Promise.resolve(),
@@ -48,9 +59,16 @@ function fakeService(initial: IExtensionListEntry[]): {
         updateExtensions: () => Promise.resolve({ updated: [], failed: [] }),
         setPinned: () => Promise.resolve({ ok: true }),
         onDidReadCatalog: () => ({ dispose: () => undefined }),
+        installVsix: () => Promise.reject(new Error("not used")),
         getCompatibleVersions: () => Promise.resolve([]),
         install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true }),
+        getDownloadProgress: (id) => downloads.get(id) ?? null,
+        getOperationError: (id) => errors.get(id) ?? null,
+        onDidChangeDownloadProgress: (listener) => {
+            downloadListeners.add(listener);
+            return { dispose: () => downloadListeners.delete(listener) };
+        },
         onDidChange: (listener) => {
             listeners.add(listener);
             return { dispose: () => listeners.delete(listener) };
@@ -58,6 +76,14 @@ function fakeService(initial: IExtensionListEntry[]): {
     };
     return {
         service,
+        download: (id, percent) => {
+            downloads.set(id, percent);
+            for (const listener of [...downloadListeners]) listener(id);
+        },
+        downloadListeners: () => downloadListeners.size,
+        fail: (id, error) => {
+            errors.set(id, error);
+        },
         update: (next) => {
             entries = next;
             for (const listener of [...listeners]) listener();
@@ -84,14 +110,29 @@ function fakeActions(
         uninstall?: IExtensionOperationResult;
         /** `Error` rejects. */
         pick?: string | undefined | Error;
+        /** Rejects with the value as is — a registry layer that throws something other than an `Error`. */
+        pickRejectsWith?: unknown;
         setAutoUpdate?: IExtensionOperationResult;
     } = {},
-): IExtensionPageActions & { calls: string[]; setAutoUpdateSetting: (enabled: boolean) => void } {
+): IExtensionPageActions & {
+    calls: string[];
+    setAutoUpdateSetting: (enabled: boolean) => void;
+    /** Advances the shared ticker to the given frame. */
+    tick: (frame: string) => void;
+} {
     const calls: string[] = [];
     let autoUpdate = true;
     const autoUpdateChanged = new Emitter<void>();
+    let spinner = "⠋";
+    const spinnerChanged = new Emitter<void>();
     return {
         calls,
+        spinner: () => spinner,
+        onDidChangeSpinner: spinnerChanged.event,
+        tick: (frame) => {
+            spinner = frame;
+            spinnerChanged.fire();
+        },
         setAutoUpdateSetting: (enabled) => {
             autoUpdate = enabled;
             autoUpdateChanged.fire();
@@ -108,6 +149,8 @@ function fakeActions(
         },
         pickVersion: (id) => {
             calls.push(`pick:${id}`);
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the point of the test: the registry layer rejects with a non-Error value
+            if (results.pickRejectsWith !== undefined) return Promise.reject(results.pickRejectsWith);
             return results.pick instanceof Error ? Promise.reject(results.pick) : Promise.resolve(results.pick);
         },
         uninstall: (id) => {
@@ -356,27 +399,115 @@ describe("ExtensionEditorPane", () => {
         expect(enabledFlags(pane)).toEqual([true, true]);
     });
 
-    it("buttons are disabled during an operation — a second install cannot start", async () => {
-        const { service } = fakeService([entry()]);
-        let finish = (): void => {};
-        const actions: IExtensionPageActions = {
-            ...fakeActions(),
-            install: () =>
-                new Promise((resolve) => {
-                    finish = () => {
-                        resolve({ ok: true, version: "1.0.0" });
-                    };
-                }),
-        };
-        const pane = new ExtensionEditorPane(service, actions, entry(), META, null);
-        mount(pane);
+    describe("an operation in progress is the service's state, not the tab's", () => {
+        const INSTALLING = entry({ operation: "installing" });
 
-        const running = press(pane, "install");
-        expect(enabledFlags(pane)).toEqual([false, false]);
+        it("the service switches the page: Installing, disabled, and the status line says so", () => {
+            const { service, update } = fakeService([entry()]);
+            const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
+            mount(pane);
 
-        finish();
-        await running;
-        expect(enabledFlags(pane)).toEqual([true, true, true]);
+            update([INSTALLING]);
+
+            expect(buttonLabels(pane)).toEqual(["⠋ Installing", "Install Specific Version..."]);
+            expect(enabledFlags(pane)).toEqual([false, false]);
+            expect(headerLines(pane)).toContain("Installing…");
+            // Disabled buttons take no focus: nothing to press a second time.
+            pane.focusEditor();
+            expect(pane.view.querySelector("#extensionPageButton-installing")?.isFocused).toBe(false);
+        });
+
+        it("a tab opened in the middle of an install shows it; two tabs show the same", () => {
+            const { service, download } = fakeService([INSTALLING]);
+            const first = new ExtensionEditorPane(service, fakeActions(), INSTALLING, META, null);
+            const second = new ExtensionEditorPane(service, fakeActions(), INSTALLING, META, null);
+            mount(first);
+            mount(second);
+
+            download("acme.tools", 47);
+
+            expect(buttonLabels(first)).toEqual(["⠋ Installing 47%", "Install Specific Version..."]);
+            expect(buttonLabels(second)).toEqual(buttonLabels(first));
+        });
+
+        it("a tab opened in the middle of an install shows its failure, and drops it once the next one starts", () => {
+            const { service, update, fail } = fakeService([INSTALLING]);
+            const pane = new ExtensionEditorPane(service, fakeActions(), INSTALLING, META, null);
+            mount(pane);
+
+            fail("acme.tools", "sha256 mismatch");
+            update([entry()]);
+            expect(headerLines(pane)).toContain("sha256 mismatch");
+            expect(buttonLabels(pane)[0]).toBe("Install");
+
+            fail("acme.tools", null);
+            update([INSTALLING]);
+            expect(headerLines(pane)).not.toContain("sha256 mismatch");
+        });
+
+        it("the percent of the page's own extension only", () => {
+            const { service, download } = fakeService([INSTALLING]);
+            const pane = new ExtensionEditorPane(service, fakeActions(), INSTALLING, META, null);
+            mount(pane);
+
+            download("acme.other", 12);
+            expect(buttonLabels(pane)[0]).toBe("⠋ Installing");
+            download("acme.tools", 12);
+            download("acme.tools", null);
+            expect(buttonLabels(pane)[0]).toBe("⠋ Installing");
+        });
+
+        it("the shared ticker spins the button and leaves an idle page alone", () => {
+            const { service, update } = fakeService([INSTALLING]);
+            const actions = fakeActions();
+            const pane = new ExtensionEditorPane(service, actions, INSTALLING, META, null);
+            mount(pane);
+
+            actions.tick("⠙");
+            expect(buttonLabels(pane)[0]).toBe("⠙ Installing");
+
+            update([entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true })]);
+            const idle = pane.view.querySelector("#extensionPageButton-reload");
+            actions.tick("⠹");
+            // The same element, not a rebuilt one: a tick ten times a second must not reset an idle page's buttons.
+            expect(pane.view.querySelector("#extensionPageButton-reload")).toBe(idle);
+        });
+
+        it("a spinner tick does not rewrap the readme", () => {
+            const { service } = fakeService([INSTALLING]);
+            const actions = fakeActions();
+            const pane = new ExtensionEditorPane(service, actions, INSTALLING, META, null);
+            mount(pane);
+            const firstLine = pane.view.querySelector("#extensionPageLine-0");
+            expect(firstLine).not.toBeNull();
+
+            actions.tick("⠙");
+
+            // The same row element: the body was not rebuilt.
+            expect(pane.view.querySelector("#extensionPageLine-0")).toBe(firstLine);
+        });
+
+        it("uninstalling disables the page and names the operation", () => {
+            const installed = entry({ installedVersion: "1.0.0", availability: "installed" });
+            const { service, update } = fakeService([installed]);
+            const pane = new ExtensionEditorPane(service, fakeActions(), installed, META, null);
+            mount(pane);
+
+            update([{ ...installed, operation: "uninstalling" }]);
+
+            expect(buttonLabels(pane)).toEqual(["Install Specific Version...", "⠋ Uninstalling", "[x] Auto Update"]);
+            expect(enabledFlags(pane)).toEqual([false, false, false]);
+            expect(headerLines(pane)).toContain("Uninstalling…");
+        });
+
+        it("dispose drops the download subscription", () => {
+            const { service, downloadListeners } = fakeService([entry()]);
+            const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
+
+            pane.dispose();
+
+            expect(downloadListeners()).toBe(0);
+        });
     });
 
     it("a pending reload also comes from the card — installed from elsewhere", () => {
@@ -457,6 +588,17 @@ describe("ExtensionEditorPane", () => {
 
             expect(headerLines(pane)).toContain("registry offline");
             expect(actions.calls).toEqual(["pick:acme.tools"]);
+        });
+
+        it("a failure that is not an Error is shown as its text", async () => {
+            const { service } = fakeService([entry()]);
+            const actions = fakeActions({ pickRejectsWith: "registry offline" });
+            const pane = new ExtensionEditorPane(service, actions, entry(), META, null);
+            mount(pane);
+
+            await press(pane, "installAnotherVersion");
+
+            expect(headerLines(pane)).toContain("registry offline");
         });
 
         it("US-1.13: a failed install of the picked version stays on the page, nothing to reload", async () => {

@@ -1,5 +1,5 @@
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
-import { SUPPORTED_ENCODINGS } from "../../../../editor/common/model/encoding.ts";
+import { SUPPORTED_ENCODINGS } from "../../../../editor/common/model/supportedEncodings.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { IFileServiceDIToken } from "../../../../platform/files/common/files.ts";

@@ -3,16 +3,15 @@ import {
     cursorStyleFromApi,
     type EditorCursorStyleSetting,
 } from "../../../../../editor/common/config/editorCursorStyle.ts";
+import type { RangeRevealType } from "../../../../../editor/common/viewModel/editorViewState.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorLayoutService } from "../../../../api/common/iEditorLayoutService.ts";
-import type {
-    IEditorOptionsPatch,
-    IEditorOptionsService,
-    IEditorOptionsState,
-} from "../../../../api/common/iEditorOptionsService.ts";
+import type { IEditorOptionsPatch, IEditorOptionsService } from "../../../../api/common/iEditorOptionsService.ts";
 import {
+    isFiniteNumber,
     type IWireSaveResult,
     type IWireShowTextDocumentResult,
+    parseRange,
     parseWireSelections,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
@@ -22,8 +21,17 @@ import {
     parseWireCloseTabsParams,
     parseWireCreateUntitledParams,
     parseWireEditorEdits,
+    parseWireOpenTextDocumentParams,
     parseWireShowTextDocumentParams,
 } from "../hostWireParsers.ts";
+
+/** By the value of `vscode.TextEditorRevealType`. */
+const REVEAL_TYPES: ReadonlyMap<unknown, RangeRevealType> = new Map<unknown, RangeRevealType>([
+    [0, "default"],
+    [1, "center"],
+    [2, "centerIfOutsideViewport"],
+    [3, "top"],
+]);
 
 export class EditorCustomer implements IExtensionHostCustomer {
     private rpc: HostRpc | null = null;
@@ -47,18 +55,11 @@ export class EditorCustomer implements IExtensionHostCustomer {
         const store = new DisposableStore();
         store.add(
             rpc.handleRequest("editor.setOptions", (params): null => {
-                const patch = sanitizeOptionsPatch(params);
-                this.editorOptions.setActiveEditorOptions(patch);
-                const cursorStyle = parseCursorStyleTarget(params);
-                if (cursorStyle !== null) {
-                    this.editorOptions.setEditorCursorStyle(cursorStyle.uri, cursorStyle.groupId, cursorStyle.style);
-                }
+                // Upstream `$trySetOptions` addresses the editor by id: the patch goes to that tab, not the active one.
+                const p = params as { uri?: unknown; groupId?: unknown } | null;
+                if (typeof p?.uri !== "string" || typeof p.groupId !== "number") return null;
+                this.editorOptions.setEditorOptions(p.uri, p.groupId, sanitizeOptionsPatch(p));
                 return null;
-            }),
-        );
-        store.add(
-            rpc.handleRequest("editor.getOptions", (): IEditorOptionsState | null => {
-                return this.editorOptions.getActiveEditorOptions();
             }),
         );
         // Fire-and-forget for the extension, but in arrival order — before a subsequent executeCommand.
@@ -71,6 +72,18 @@ export class EditorCustomer implements IExtensionHostCustomer {
                     parseWireSelections(p.selections),
                     typeof p.groupId === "number" ? p.groupId : undefined,
                 );
+            }),
+        );
+        // Arrives after the edits the extension awaited, and the range is clamped against their result.
+        store.add(
+            rpc.handleNotification("editor.revealRange", (params): void => {
+                const p: { uri?: unknown; groupId?: unknown; range?: unknown; revealType?: unknown } = params;
+                const range = parseRange(p.range);
+                const revealType = REVEAL_TYPES.get(p.revealType);
+                // Upstream `MainThreadTextEditor.revealRange` ignores an unknown type too.
+                if (typeof p.uri !== "string" || typeof p.groupId !== "number" || range === null) return;
+                if (revealType === undefined) return;
+                this.editorOptions.revealEditorRange(p.uri, p.groupId, range, revealType);
             }),
         );
         store.add(
@@ -90,6 +103,44 @@ export class EditorCustomer implements IExtensionHostCustomer {
                     ...(p.undoStopBefore === false ? { undoStopBefore: false } : {}),
                     ...(p.undoStopAfter === false ? { undoStopAfter: false } : {}),
                 });
+            }),
+        );
+        store.add(
+            rpc.handleRequest("editor.insertSnippet", async (params): Promise<boolean> => {
+                const p: {
+                    uri?: unknown;
+                    groupId?: unknown;
+                    version?: unknown;
+                    template?: unknown;
+                    ranges?: unknown;
+                    undoStopBefore?: unknown;
+                    undoStopAfter?: unknown;
+                    keepWhitespace?: unknown;
+                } = params;
+                if (
+                    typeof p.uri !== "string" ||
+                    typeof p.template !== "string" ||
+                    typeof p.version !== "number" ||
+                    !Array.isArray(p.ranges)
+                ) {
+                    return false;
+                }
+                const raw: readonly unknown[] = p.ranges;
+                const ranges = raw.map(parseRange).filter((range) => range !== null);
+                // A junk range is an honest `false`, not an insert at the others.
+                if (ranges.length !== raw.length) return false;
+                return this.editorOptions.insertSnippet(
+                    p.uri,
+                    typeof p.groupId === "number" ? p.groupId : undefined,
+                    p.template,
+                    ranges,
+                    {
+                        version: p.version,
+                        ...(p.undoStopBefore === false ? { undoStopBefore: false } : {}),
+                        ...(p.undoStopAfter === false ? { undoStopAfter: false } : {}),
+                        ...(p.keepWhitespace === true ? { keepWhitespace: true } : {}),
+                    },
+                );
             }),
         );
         // Garbage in params is an honest `false`, not a partial edit.
@@ -133,9 +184,11 @@ export class EditorCustomer implements IExtensionHostCustomer {
         );
         // `editor.didOpen` goes out synchronously during opening — the reply doesn't overtake it.
         store.add(
-            rpc.handleRequest("workspace.openTextDocument", (params) =>
-                this.editorLayout.openTextDocument({ uri: params.uri }),
-            ),
+            rpc.handleRequest("workspace.openTextDocument", (params) => {
+                const parsed = parseWireOpenTextDocumentParams(params);
+                if (parsed === null) throw new Error("workspace.openTextDocument: malformed params");
+                return this.editorLayout.openTextDocument(parsed);
+            }),
         );
         // `editor.didOpen` goes out synchronously during creation — the reply doesn't overtake it.
         store.add(
@@ -148,7 +201,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
             rpc.handleRequest("languages.getLanguageOfDocument", (params) => {
                 const p: { uri?: unknown } = params;
                 if (typeof p.uri !== "string") throw new Error("languages.getLanguageOfDocument: malformed params");
-                return { languageId: this.editorLayout.getLanguageOfDocument(p.uri) };
+                return { languageId: this.editorLayout.openDocumentWithoutModel(p.uri) };
             }),
         );
         // The model's `onDidChangeLanguage` sends `editor.didClose`/`editor.didOpen` synchronously: the reply doesn't overtake them.
@@ -192,6 +245,13 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 rpc.notify("editor.selectionChanged", selections);
             }),
         );
+        // The editor must already be in the extension's layout: its properties are keyed by its tab.
+        store.add(
+            this.editorLayout.onDidChangeEditorProperties((properties) => {
+                this.editorLayout.flushPendingLayout();
+                rpc.notify("editor.propertiesChanged", properties);
+            }),
+        );
         store.add({
             dispose: () => {
                 this.rpc = null;
@@ -201,35 +261,17 @@ export class EditorCustomer implements IExtensionHostCustomer {
     }
 }
 
-function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {
-    if (typeof raw !== "object" || raw === null) return {};
-    const obj = raw as { tabSize?: unknown; insertSpaces?: unknown; indentSize?: unknown };
-    const patch: { tabSize?: number; insertSpaces?: boolean } = {};
+function sanitizeOptionsPatch(raw: object): IEditorOptionsPatch {
+    const obj = raw as { tabSize?: unknown; insertSpaces?: unknown; cursorStyle?: unknown };
+    const patch: { tabSize?: number; insertSpaces?: boolean; cursorStyle?: EditorCursorStyleSetting } = {};
     if (isFiniteNumber(obj.tabSize) && obj.tabSize > 0) {
         patch.tabSize = Math.floor(obj.tabSize);
-    }
-    // `indentSize` is an alias of tabSize (Diode doesn't distinguish them yet): applied only
-    // when there is no explicit tabSize. editorconfig sends indent_size exactly this way.
-    if (patch.tabSize === undefined && isFiniteNumber(obj.indentSize) && obj.indentSize > 0) {
-        patch.tabSize = Math.floor(obj.indentSize);
     }
     if (typeof obj.insertSpaces === "boolean") {
         patch.insertSpaces = obj.insertSpaces;
     }
+    // Anything but 1..6 is no style.
+    const cursorStyle = cursorStyleFromApi(obj.cursorStyle);
+    if (cursorStyle !== undefined) patch.cursorStyle = cursorStyle;
     return patch;
-}
-
-/** `null` unless the style is 1..6 and the editor is addressed by uri and group. */
-function parseCursorStyleTarget(
-    raw: unknown,
-): { readonly uri: string; readonly groupId: number; readonly style: EditorCursorStyleSetting } | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as { cursorStyle?: unknown; uri?: unknown; groupId?: unknown };
-    const style = cursorStyleFromApi(obj.cursorStyle);
-    if (style === undefined || typeof obj.uri !== "string" || typeof obj.groupId !== "number") return null;
-    return { uri: obj.uri, groupId: obj.groupId, style };
-}
-
-function isFiniteNumber(value: unknown): value is number {
-    return Number.isFinite(value);
 }

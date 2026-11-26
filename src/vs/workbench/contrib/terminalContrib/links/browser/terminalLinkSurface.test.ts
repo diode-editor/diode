@@ -275,12 +275,16 @@ describe("TerminalLinkSurface", () => {
         expect(opened).toEqual([]);
     });
 
-    it("Ctrl+click on plain text, with a link elsewhere on the row, opens nothing", async () => {
+    it("Ctrl+click on plain text, with a link elsewhere on the row, opens nothing and reports nothing", async () => {
         await setup("echo src/a.ts:3:2");
+        const errors = await import("../../../../../base/common/errors.ts");
+        const reported = vi.spyOn(errors, "onUnexpectedError").mockImplementation(() => undefined);
         surface.sendMouse(mouse(1, 0, { action: "down", button: "left" }));
         surface.sendMouse(mouse(1, 0, { action: "up", button: "left" }));
         await new Promise((resolve) => setTimeout(resolve, 20));
         expect(opened).toEqual([]);
+        expect(reported).not.toHaveBeenCalled();
+        reported.mockRestore();
     });
 
     it("an opener failure is reported, not thrown into the input path", async () => {

@@ -1,31 +1,32 @@
-import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
+import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 
-import { computeLineBreakOffsets } from "./lineBreaksComputer.ts";
+import { computeComposedLineBreakOffsets, computeLineBreakOffsets } from "./lineBreaksComputer.ts";
+import { type LineInsertions, NO_LINE_INSERTIONS } from "./lineInsertions.ts";
 
 /**
  * Without the cache every projection rebuild would re-segment the whole document. Per-line value:
  * `null` means not wrapped, `undefined` means not computed yet.
+ *
+ * Not subscribed to the document: the owner passes each change to {@link handleContentChange} first thing in
+ * the handler that moves its revision (upstream `ViewModel` updates its lines before it emits view events).
+ * A subscription of its own, made lazily, ran after the older subscribers, and one of them reading the
+ * projection got the old lines' breaks memoized under the new revision (#1098).
  */
-export class LineBreaksCache extends Disposable {
+export class LineBreaksCache {
     private readonly document: ITextDocument;
     private tabSize: number;
     private wrapWidth: number;
+    private insertions: LineInsertions = NO_LINE_INSERTIONS;
 
     private breaks: (number[] | null | undefined)[];
 
     public constructor(document: ITextDocument, tabSize: number, wrapWidth: number) {
-        super();
         this.document = document;
         this.tabSize = tabSize;
         this.wrapWidth = wrapWidth;
         this.breaks = new Array<number[] | null | undefined>(document.lineCount);
-        this.register(
-            document.onDidChangeContent((change) => {
-                this.handleContentChange(change);
-            }),
-        );
     }
 
     /** No-op for the same params: called on every projection rebuild. */
@@ -36,6 +37,18 @@ export class LineBreaksCache extends Disposable {
         this.breaks = new Array<number[] | null | undefined>(this.document.lineCount);
     }
 
+    /** `true` when some line wraps by other text now: the rows built from this cache are stale. */
+    public setInsertions(insertions: LineInsertions): boolean {
+        let changed = false;
+        for (const line of new Set([...this.insertions.keys(), ...insertions.keys()])) {
+            if (sameCells(this.insertions.get(line), insertions.get(line))) continue;
+            this.breaks[line] = undefined;
+            changed = true;
+        }
+        this.insertions = insertions;
+        return changed;
+    }
+
     /** Desync guard, same as {@link LineWidthCache.getMaxWidth}. */
     public getBreaks(line: number): number[] | null {
         if (this.breaks.length > this.document.lineCount) {
@@ -43,13 +56,18 @@ export class LineBreaksCache extends Disposable {
         }
         let entry = this.breaks[line];
         if (entry === undefined) {
-            entry = computeLineBreakOffsets(this.document.getLineContent(line), this.tabSize, this.wrapWidth);
+            const content = this.document.getLineContent(line);
+            const insertions = this.insertions.get(line);
+            entry =
+                insertions === undefined
+                    ? computeLineBreakOffsets(content, this.tabSize, this.wrapWidth)
+                    : computeComposedLineBreakOffsets(content, insertions, this.tabSize, this.wrapWidth);
             this.breaks[line] = entry;
         }
         return entry;
     }
 
-    private handleContentChange(change: IDocumentContentChange): void {
+    public handleContentChange(change: IDocumentContentChange): void {
         const { startLine, oldEndLine, newEndLine } = change;
         const lineDelta = newEndLine - oldEndLine;
 
@@ -63,4 +81,10 @@ export class LineBreaksCache extends Disposable {
             this.breaks[i] = undefined;
         }
     }
+}
+
+/** Looks do not wrap: a recolored hint keeps its rows. Lines come from either map, so at most one side is absent. */
+function sameCells(a: readonly IInlineInsertion[] | undefined, b: readonly IInlineInsertion[] | undefined): boolean {
+    if (a === undefined || b === undefined) return false;
+    return a.length === b.length && a.every((item, i) => item.offset === b[i].offset && item.text === b[i].text);
 }

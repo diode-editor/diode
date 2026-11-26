@@ -9,11 +9,18 @@ export interface TmuxClientInfo {
     readonly termType?: string;
     readonly envPlatform?: string;
     readonly lcTerminal?: string;
+    /**
+     * tmux passes extended keys to us if asked: `extended-keys` is not `off` and the client
+     * terminal has the `extkeys` feature (`#{client_termfeatures}`).
+     */
+    readonly extendedKeys?: boolean;
 }
 
 export type TmuxRunner = (args: readonly string[]) => Promise<string | undefined>;
 
 const TMUX_TIMEOUT_MS = 1000;
+
+const CLIENT_FORMAT = "#{client_termtype}\t#{client_termfeatures}\t#{extended-keys}";
 
 export const runTmux: TmuxRunner = (args) =>
     new Promise((resolve) => {
@@ -38,14 +45,25 @@ function nonEmpty(value: string | undefined): string | undefined {
 
 /** Queries tmux about the current client; never throws. */
 export async function queryTmuxClient(run: TmuxRunner = runTmux): Promise<TmuxClientInfo> {
-    const [termType, platform, lcTerminal] = await Promise.all([
-        run(["display-message", "-p", "#{client_termtype}"]),
+    const [client, platform, lcTerminal] = await Promise.all([
+        // One spawn for the client and the server option: a format expands option names too.
+        run(["display-message", "-p", CLIENT_FORMAT]),
         run(["show-environment", "LC_DIODE_PLATFORM"]),
         run(["show-environment", "LC_TERMINAL"]),
     ]);
+    // Each field is trimmed where it is read: the trailing newline goes with the last one.
+    const [termType, termFeatures, extendedKeys] = (client ?? "").split("\t");
     return {
         termType: nonEmpty(termType),
         envPlatform: parseShowEnvironment(platform, "LC_DIODE_PLATFORM"),
         lcTerminal: parseShowEnvironment(lcTerminal, "LC_TERMINAL"),
+        extendedKeys: tmuxPassesExtendedKeys(extendedKeys, termFeatures),
     };
+}
+
+/** `extended-keys` is `on` or `always` (empty on a tmux without the option) and `extkeys` is a client feature. */
+export function tmuxPassesExtendedKeys(option: string | undefined, termFeatures: string | undefined): boolean {
+    const value = nonEmpty(option);
+    if (value === undefined || value === "off") return false;
+    return termFeatures?.split(",").includes("extkeys") ?? false;
 }

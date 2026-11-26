@@ -1,0 +1,24 @@
+{
+    "name": "ungrouped-menu-demo",
+    "displayName": "Ungrouped Menu Demo",
+    "description": "Two editor/context items shaped like clangd: one in the navigation group, one without a group (like clangd.ast) that VS Code shows as the last section.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "ungroupedMenuDemo.nav", "title": "Ungrouped Demo: Navigate" },
+            { "command": "ungroupedMenuDemo.ast", "title": "Ungrouped Demo: Show AST" }
+        ],
+        "menus": {
+            "editor/context": [
+                { "command": "ungroupedMenuDemo.ast" },
+                { "command": "ungroupedMenuDemo.nav", "group": "navigation" }
+            ]
+        }
+    }
+}

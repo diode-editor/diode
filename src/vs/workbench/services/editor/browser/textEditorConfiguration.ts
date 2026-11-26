@@ -16,6 +16,8 @@ import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPan
 export class TextEditorConfiguration extends Disposable {
     /** Transient Alt+Z state: `null` — the configuration applies (see {@link toggleWordWrap}). */
     private wordWrapSessionOverride: "off" | "on" | null = null;
+    /** Transient state of the toggle command: `null` — the configuration applies (see {@link toggleInlayHints}). */
+    private inlayHintsSessionOverride: boolean | null = null;
 
     public constructor(
         private readonly configurationService: IConfigurationService,
@@ -30,7 +32,8 @@ export class TextEditorConfiguration extends Disposable {
         );
         this.register(
             this.configurationService.onDidChangeConfiguration((event) => {
-                if (!event.affectsConfiguration("editor")) return;
+                if (event.affectsConfiguration("editor.inlayHints.enabled")) this.inlayHintsSessionOverride = null;
+                if (!event.affectsConfiguration("editor") && !event.affectsConfiguration("diode.editor")) return;
                 this.reapply();
             }),
         );
@@ -53,15 +56,29 @@ export class TextEditorConfiguration extends Disposable {
         // "singleFile"/"multiFile" both enable: we only support single-file scope.
         const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight", overrides);
         editor.setOccurrenceHighlightEnabled(occurrencesHighlight !== "off");
+        editor.setOccurrenceHighlightDelay(
+            this.configurationService.get("editor.occurrencesHighlightDelay", overrides),
+        );
 
         this.applyCursorStyle(editor);
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
         editor.setScrollbarMarkers(this.configurationService.get("editor.scrollbarMarkers", overrides));
         editor.setFoldingMaximumRegions(this.configurationService.get("editor.foldingMaximumRegions", overrides));
+        editor.setLinksEnabled(this.configurationService.get("editor.links", overrides));
         editor.setColorDecorators({
             enabled: this.configurationService.get("editor.colorDecorators", overrides),
             defaultEnablement: this.configurationService.get("editor.defaultColorDecorators", overrides),
             limit: this.configurationService.get("editor.colorDecoratorsLimit", overrides),
+        });
+        editor.setInlayHints({
+            enabled: this.inlayHintsSessionOverride ?? this.configuredInlayHints(overrides),
+            padding: this.configurationService.get("editor.inlayHints.padding", overrides),
+            maximumLength: this.configurationService.get("editor.inlayHints.maximumLength", overrides),
+            fontStyle: this.configurationService.get("diode.editor.inlayHints.fontStyle", overrides),
+        });
+        editor.setCodeLens({
+            enabled: this.configurationService.get("editor.codeLens", overrides),
+            nerdFont: this.icons.nerdFont,
         });
         editor.setNerdFont(this.icons.nerdFont);
 
@@ -78,11 +95,10 @@ export class TextEditorConfiguration extends Disposable {
     /** The extension's override beats the setting; the blinking always comes from the setting. */
     public applyCursorStyle(editor: TextEditorPane): void {
         const overrides = { overrideIdentifier: editor.languageId };
+        const setting = editor.cursorStyleOverride ?? this.configurationService.get("editor.cursorStyle", overrides);
         editor.setCursorStyle(
-            toTerminalCursorStyle(
-                editor.cursorStyleOverride ?? this.configurationService.get("editor.cursorStyle", overrides),
-                this.configurationService.get("editor.cursorBlinking", overrides),
-            ),
+            setting,
+            toTerminalCursorStyle(setting, this.configurationService.get("editor.cursorBlinking", overrides)),
         );
     }
 
@@ -101,8 +117,25 @@ export class TextEditorConfiguration extends Disposable {
         this.reapply();
     }
 
+    /**
+     * Flips what the active editor shows, in every editor, for the session and without touching settings.json. Back at
+     * the configured value the override goes away, so a `[language]` section applies again.
+     */
+    public toggleInlayHints(languageId: string | undefined): void {
+        const configured = this.configuredInlayHints({ overrideIdentifier: languageId });
+        const next = !(this.inlayHintsSessionOverride ?? configured);
+        this.inlayHintsSessionOverride = next === configured ? null : next;
+        this.reapply();
+    }
+
     public reapply(): void {
         for (const editor of this.surfaces()) this.apply(editor);
+    }
+
+    /** A terminal does not report key releases: the "pressed" modes stay in their resting state. */
+    private configuredInlayHints(overrides?: IConfigurationOverrides): boolean {
+        const enabled = this.configurationService.get("editor.inlayHints.enabled", overrides);
+        return enabled === "on" || enabled === "onUnlessPressed";
     }
 
     /** The service has already replaced invalid settings.json values with the schema default. */

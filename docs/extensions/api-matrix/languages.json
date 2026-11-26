@@ -20,15 +20,13 @@
       "class": "ok"
     },
     "languages.registerCallHierarchyProvider": {
-      "class": "C",
-      "note": "registration is accepted, the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "languages.registerCodeActionsProvider": {
       "class": "ok"
     },
     "languages.registerCodeLensProvider": {
-      "class": "C",
-      "note": "registration is accepted, the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "languages.registerColorProvider": {
       "class": "ok"
@@ -37,8 +35,7 @@
       "class": "ok"
     },
     "languages.registerDeclarationProvider": {
-      "class": "B",
-      "note": "registration is accepted, the provider is never called"
+      "class": "ok"
     },
     "languages.registerDefinitionProvider": {
       "class": "ok"
@@ -51,12 +48,11 @@
       "class": "ok"
     },
     "languages.registerDocumentHighlightProvider": {
-      "class": "B",
-      "note": "registration is accepted, the provider is never called"
+      "class": "ok",
+      "note": "highlight borders are not drawn"
     },
     "languages.registerDocumentLinkProvider": {
-      "class": "C",
-      "note": "registration is accepted, the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "languages.registerDocumentPasteEditProvider": {
       "class": "B",
@@ -72,12 +68,11 @@
       "class": "ok"
     },
     "languages.registerDocumentSymbolProvider": {
-      "class": "B",
-      "note": "registration is accepted, the provider is never called"
+      "class": "ok",
+      "note": "Go to Symbol in Editor only: no Outline view or breadcrumbs yet"
     },
     "languages.registerEvaluatableExpressionProvider": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "languages.registerFoldingRangeProvider": {
       "class": "ok"
@@ -86,27 +81,23 @@
       "class": "ok"
     },
     "languages.registerImplementationProvider": {
-      "class": "B",
-      "note": "registration is accepted, the provider is never called"
+      "class": "ok"
     },
     "languages.registerInlayHintsProvider": {
-      "class": "C",
-      "note": "registration is accepted, the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "languages.registerInlineCompletionItemProvider": {
       "class": "ok"
     },
     "languages.registerInlineValuesProvider": {
-      "class": "C",
-      "note": "registration is accepted, the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "languages.registerLinkedEditingRangeProvider": {
-      "class": "B",
-      "note": "registration is accepted, the provider is never called"
+      "class": "ok"
     },
     "languages.registerOnTypeFormattingEditProvider": {
-      "class": "B",
-      "note": "registration is accepted, the provider is never called"
+      "class": "ok",
+      "note": "skipped with several cursors or a selection"
     },
     "languages.registerReferenceProvider": {
       "class": "ok"
@@ -121,16 +112,14 @@
       "class": "ok"
     },
     "languages.registerTypeDefinitionProvider": {
-      "class": "B",
-      "note": "registration is accepted, the provider is never called"
+      "class": "ok"
     },
     "languages.registerTypeHierarchyProvider": {
-      "class": "C",
-      "note": "registration is accepted, the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "languages.registerWorkspaceSymbolProvider": {
-      "class": "B",
-      "note": "registration is accepted, the provider is never called"
+      "class": "ok",
+      "note": "no Open to Side"
     },
     "languages.setLanguageConfiguration": {
       "class": "ok"

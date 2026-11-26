@@ -188,6 +188,36 @@ describe("tracedNamespace", () => {
         expect(ns.shell).toBe("sh");
     });
 
+    it("a frozen namespace (env) stays frozen: reads and calls are recorded, every assignment throws", () => {
+        const { trace, rows } = makeTrace();
+        const ns = tracedNamespace(
+            Object.freeze({
+                appName: "Diode",
+                get shell(): string {
+                    return "sh";
+                },
+                run: (): number => 1,
+            }),
+            "env",
+            "pub.a",
+            trace,
+        );
+        expect(ns.appName).toBe("Diode");
+        expect(ns.shell).toBe("sh");
+        expect(ns.run()).toBe(1);
+        expect(new Set(rows().map((r) => `${r.member} ${r.kind}`))).toEqual(
+            new Set(["env.appName read", "env.shell read", "env.run call"]),
+        );
+        expect(Object.isFrozen(ns)).toBe(true);
+        expect(() => {
+            (ns as { appName: string }).appName = "Other";
+        }).toThrow(TypeError);
+        expect(() => {
+            (ns as { run: () => number }).run = () => 2;
+        }).toThrow(TypeError);
+        expect(ns.appName).toBe("Diode");
+    });
+
     it("a member that only looks like a registration is a plain call", () => {
         const { trace, rows } = makeTrace();
         const ns = tracedNamespace({ registerProviderHelper: () => 1 }, "window", "pub.a", trace);

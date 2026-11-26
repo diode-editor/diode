@@ -1,0 +1,16 @@
+{
+    // The launch configuration of the launch-json e2e scenario and of manual testing:
+    //   diode e2e/fixtures/launch-json → F5: the build task runs in the terminal, then the session starts.
+    // A live session needs a debug type from an extension; until then the start ends with
+    // "Configured debug type 'synthetic' is not supported."
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Build and debug hello",
+            "type": "synthetic",
+            "request": "launch",
+            "program": "${workspaceFolder}/hello",
+            "preLaunchTask": "build"
+        }
+    ]
+}

@@ -1,4 +1,10 @@
-import { isColorReference, themeKindOf } from "./colorRegistry.ts";
+import {
+    type ColorContribution,
+    DEFAULT_COLOR_CONFIG_VALUE,
+    deriveDefaultColors,
+    isColorReference,
+    themeKindOf,
+} from "./colorRegistry.ts";
 import { defaultWorkbenchColors, type IWorkbenchColors } from "./colors/colorContributions.ts";
 import { parseHexColor } from "./colorUtils.ts";
 import type { IEditorTokenTheme } from "./iEditorTokenTheme.ts";
@@ -27,12 +33,35 @@ export class WorkbenchTheme {
      * on any theme; a reference in a default (`quickInput.background` → `editorWidget.background`)
      * resolves against the merged table. Alpha is kept: the engine composites when painting
      * (tuidom STYLES.md, "Color model").
+     *
+     * `extensionColors` (`contributes.colors`) go under the registry defaults, so a built-in key always
+     * wins. A broken reference (cycle, unknown key) leaves the color unset: for an extension color the
+     * contributor has logged it, the built-in table is guarded by colorContributions.test.ts.
+     *
+     * `customColors` (`workbench.colorCustomizations` for this theme) go on top: a hex wins over the theme,
+     * `"default"` drops the theme's value back to the registry default. References resolve over the result,
+     * so a color derived from a customized one follows it, as upstream `getColor` → `getDefault`.
      */
-    public static fromThemeFile(json: IThemeFile): WorkbenchTheme {
-        const merged: Record<string, string> = { ...defaultWorkbenchColors(themeKindOf(json.type)), ...json.colors };
-        const colors: IWorkbenchColors = {};
+    public static fromThemeFile(
+        json: IThemeFile,
+        extensionColors: ColorContribution = {},
+        customColors: Readonly<Record<string, string>> = {},
+    ): WorkbenchTheme {
+        const kind = themeKindOf(json.type);
+        const defaults: Record<string, string> = {
+            ...deriveDefaultColors(extensionColors, kind),
+            ...defaultWorkbenchColors(kind),
+        };
+        const merged: Record<string, string> = { ...defaults, ...json.colors };
+        for (const [key, value] of Object.entries(customColors)) {
+            if (value !== DEFAULT_COLOR_CONFIG_VALUE) merged[key] = value;
+            else if (key in defaults) merged[key] = defaults[key];
+            else Reflect.deleteProperty(merged, key);
+        }
+        const colors: Record<string, number> = {};
         for (const key of Object.keys(merged)) {
-            (colors as Record<string, number>)[key] = parseHexColor(resolveReference(merged, key));
+            const resolved = followReference(merged, key);
+            if ("value" in resolved) colors[key] = parseHexColor(resolved.value);
         }
 
         const tokenTheme: IEditorTokenTheme = {
@@ -41,7 +70,7 @@ export class WorkbenchTheme {
             semanticTokenRules: json.semanticTokenRules ?? [],
         };
 
-        return new WorkbenchTheme(json.name ?? "Unnamed", json.type ?? "dark", colors, tokenTheme);
+        return new WorkbenchTheme(json.name ?? "Unnamed", json.type ?? "dark", colors as IWorkbenchColors, tokenTheme);
     }
 
     /** `undefined` only for colors without a registry default; for required chrome use {@link getRequiredColor}. */
@@ -62,20 +91,23 @@ export class WorkbenchTheme {
     }
 }
 
-/** Follows references along the chain; a cycle or a reference to an unregistered key is a color definition error (guarded by colorContributions.test.ts). */
-function resolveReference(table: Readonly<Record<string, string>>, key: string): string {
+/** Follows references along the chain to a hex value, or names why the chain is broken (a cycle, an unknown key). */
+export function followReference(
+    table: Readonly<Record<string, string>>,
+    key: string,
+): { readonly value: string } | { readonly problem: string } {
     const trail = [key];
     let value = table[key];
     while (isColorReference(value)) {
         if (trail.includes(value)) {
-            throw new Error(`Color reference cycle: ${[...trail, value].join(" → ")}`);
+            return { problem: `Color reference cycle: ${[...trail, value].join(" → ")}` };
         }
         const next = (table as Readonly<Partial<Record<string, string>>>)[value];
         if (next === undefined) {
-            throw new Error(`Color "${trail[trail.length - 1]}" refers to unknown color "${value}"`);
+            return { problem: `Color "${trail[trail.length - 1]}" refers to unknown color "${value}"` };
         }
         trail.push(value);
         value = next;
     }
-    return value;
+    return { value };
 }

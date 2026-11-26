@@ -28,7 +28,9 @@ export const GO_TOOLS_DIR = path.join(REPO_ROOT, "node_modules", ".cache", "diod
 /** The extension looks here too: `getBinPath` checks `GOBIN`. */
 export const GO_TOOLS_BIN = path.join(GO_TOOLS_DIR, "bin");
 
-const EXE = process.platform === "win32" ? ".exe" : "";
+function exe(platform: NodeJS.Platform): string {
+    return platform === "win32" ? ".exe" : "";
+}
 
 export const GO_MODCACHE = path.join(REPO_ROOT, "node_modules", ".cache", "diode-go-modcache");
 
@@ -41,7 +43,6 @@ export const GO_SESSION_ENV: Readonly<Record<string, string>> = { GOMODCACHE: GO
 export const GO_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".go") ? "go" : undefined),
-    getLanguageDisplayName: () => undefined,
 };
 
 export function goSampleFiles(): Record<string, string> {
@@ -57,36 +58,50 @@ export function goSampleFiles(): Record<string, string> {
     return files;
 }
 
-export function findGoBinary(): string | undefined {
-    for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
+/** The machine's `go`, as the extension finds it: the first `PATH` entry that has one. */
+export function findGoBinary(
+    env: NodeJS.ProcessEnv = process.env,
+    platform: NodeJS.Platform = process.platform,
+): string | undefined {
+    for (const dir of (env.PATH ?? "").split(path.delimiter)) {
         if (dir === "") continue;
-        const candidate = path.join(dir, `go${EXE}`);
+        const candidate = path.join(dir, `go${exe(platform)}`);
         if (fs.existsSync(candidate)) return candidate;
     }
     return undefined;
 }
 
-export function goToolchainMissing(): string | undefined {
-    return findGoBinary() === undefined
+export function goToolchainMissing(
+    env: NodeJS.ProcessEnv = process.env,
+    platform: NodeJS.Platform = process.platform,
+): string | undefined {
+    return findGoBinary(env, platform) === undefined
         ? "Go toolchain not found in PATH — golang.go suites skipped (CI installs it via actions/setup-go)"
         : undefined;
 }
 
-/** gopls version is not pinned — as with stock vsix. */
-export function ensureGopls(): string {
-    const gopls = path.join(GO_TOOLS_BIN, `gopls${EXE}`);
+/**
+ * gopls version is not pinned — as with stock vsix. The build lands in `<toolsDir>/bin`; the
+ * parameters exist for the hermetic tests (a fake `go` on `PATH`), the suites take the defaults.
+ */
+export function ensureGopls(
+    toolsDir: string = GO_TOOLS_DIR,
+    env: NodeJS.ProcessEnv = process.env,
+    platform: NodeJS.Platform = process.platform,
+): string {
+    const gopls = path.join(toolsDir, "bin", `gopls${exe(platform)}`);
     if (fs.existsSync(gopls)) return gopls;
-    const go = findGoBinary();
-    if (go === undefined) throw new Error(goToolchainMissing());
-    fs.mkdirSync(path.dirname(GO_TOOLS_DIR), { recursive: true });
-    const staging = fs.mkdtempSync(`${GO_TOOLS_DIR}.`);
+    const go = findGoBinary(env, platform);
+    if (go === undefined) throw new Error(goToolchainMissing(env, platform));
+    fs.mkdirSync(path.dirname(toolsDir), { recursive: true });
+    const staging = fs.mkdtempSync(`${toolsDir}.`);
     execFileSync(go, ["install", "golang.org/x/tools/gopls@latest"], {
-        env: { ...process.env, GOBIN: path.join(staging, "bin"), GOFLAGS: "-mod=mod" },
+        env: { ...env, GOBIN: path.join(staging, "bin"), GOFLAGS: "-mod=mod" },
         stdio: "pipe",
         timeout: 600_000,
     });
     try {
-        fs.renameSync(staging, GO_TOOLS_DIR);
+        fs.renameSync(staging, toolsDir);
     } catch {
         // A parallel worker got there first — its build is just as good.
         fs.rmSync(staging, { recursive: true, force: true });

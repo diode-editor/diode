@@ -99,7 +99,12 @@ const FOCUS_TARGETS: readonly (readonly string[])[] = [
     ["listFocus"],
     ["listFocus", "filesExplorerFocus"],
     ["listFocus", "firstMatchFocus"],
+    ["listFocus", "variablesFocused"],
+    ["listFocus", "watchExpressionsFocused"],
+    ["listFocus", "breakpointsFocused"],
+    ["listFocus", "callStackFocused"],
     ["terminalFocus"],
+    ["terminalTabsFocus"],
 ];
 const FOCUS_KEYS = new Set(FOCUS_TARGETS.flat());
 

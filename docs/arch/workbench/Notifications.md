@@ -40,6 +40,19 @@ info/warning уезжает по таймауту и достаётся из ц�
 `notifications.*`). Провод расширений — `INotificationSink` хоста и адаптер
 `api/browser/notificationExtensionAdapter.ts`.
 
+**Прогресс** — третий род (`showProgress`, эталонный `withNotificationProgress`):
+info-тост в пассивном стеке (занимает один из видимых слотов), ЛИПКИЙ — таймер
+не ставится, — без `×`, пока работа идёт (`canClose` эталона), с кнопкой
+**Cancel** при `cancellable`. Обновляется на месте (`update` хэндла): компонент
+переиспользует виджет тоста по id и перекладывает только его строки, иначе
+каждый `report` снимал бы фокус с Cancel. До первого процента в тосте крутится
+спиннер, потом — `42%` текстом. Исходы различаются: Cancel (`answer(id, 0)`) →
+`onCancel`, работа идёт дальше без UI; скрытие (Escape на тосте, «Clear All») →
+`onHide`, и адаптер переносит прогресс в статус-бар, как эталон; `close()`
+хэндла — молча. `notifications.focusMessage` без вопроса фокусирует Cancel
+прогресса, а когда тост уходит, фокус возвращается туда, где был. Минимум
+800 мс показа и маршрут по `location` — в `api/browser/extensionProgressAdapter.ts`.
+
 ## Внешние ссылки
 
 Каталог — `services/externalOpener/` (`env.openExternal`

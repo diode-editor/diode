@@ -23,7 +23,9 @@ import { ExtensionMode, Uri } from "../../../api/common/vscodeTypes.ts";
 import { parseWireMementoValue } from "../../../api/common/wireTypes.ts";
 import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigStore.ts";
 import { openApiTrace } from "../../../api/node/apiTraceFile.ts";
+import { createNodeDebugAdapter } from "../../../api/node/extHostDebugAdapters.ts";
 import { createNodeExtHostDisk } from "../../../api/node/extHostDisk.ts";
+import { registerExtHostFileSearch } from "../../../api/node/extHostFileSearch.ts";
 
 import { deactivateExtension } from "./extensionDeactivation.ts";
 import { createExtensionMemento, type IExtensionMemento } from "./extensionMemento.ts";
@@ -116,6 +118,8 @@ export function runExtensionHostSubprocess(): void {
         paths,
         extensions: catalog,
     } = installVscodeStub(rpc, logger);
+    // Lives as long as the process: nothing to unregister on the way out.
+    registerExtHostFileSearch(rpc);
 
     const extensions = new Map<string, ActivatedExtension>();
 
@@ -367,7 +371,7 @@ function installVscodeStub(
     paths: ExtensionPaths;
     extensions: typeof vscode.extensions;
 } {
-    const host = buildVscodeNamespace(rpc, createNodeExtHostDisk());
+    const host = buildVscodeNamespace(rpc, createNodeExtHostDisk(), createNodeDebugAdapter);
     const { configStore, extensionExports, secrets, environmentVariableCollections } = host;
     // Shared namespace: the overlay doesn't override `extensions`.
     const extensions = host.namespace.extensions;

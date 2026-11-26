@@ -1,12 +1,25 @@
+import "./rangeJsonShape.ts";
 import { describe, expect, it } from "vitest";
 
-import { Position, Range } from "./vscodeTypes.ts";
+import { Position, Range, Selection } from "./vscodeTypes.ts";
 
 describe("VscodeTypes — Range", () => {
     it("constructors from positions and from 4 numbers are equivalent", () => {
         const a = new Range(new Position(1, 2), new Position(3, 4));
         const b = new Range(1, 2, 3, 4);
         expect(a.isEqual(b)).toBe(true);
+    });
+
+    it("JSON is the upstream [start, end] pair, a Selection stays an object", () => {
+        const start = { line: 1, character: 2 };
+        const end = { line: 3, character: 4 };
+        expect(JSON.parse(JSON.stringify(new Range(1, 2, 3, 4)))).toEqual([start, end]);
+        expect(JSON.parse(JSON.stringify(new Selection(3, 4, 1, 2)))).toEqual({
+            start,
+            end,
+            active: start,
+            anchor: end,
+        });
     });
 
     it("swaps start/end if start is after end", () => {

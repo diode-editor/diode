@@ -309,6 +309,37 @@ describe("EditorService.openUri — non-disk resources", () => {
     });
 });
 
+describe("EditorService.registerDocumentSource — the workbench's own schemes", () => {
+    it("a workbench scheme opens read-only beside the extensions' source, which an assignment replaces alone", async () => {
+        const service = createEditorService();
+        const registration = service.registerDocumentSource("debug", (uri) => Promise.resolve(`frame ${uri.path}`));
+        service.virtualDocumentSource = makeSource("jdt", () => Promise.resolve("class A {}"));
+        service.virtualDocumentSource = makeSource("demo", () => Promise.resolve("demo"));
+
+        expect(service.virtualDocumentSource.canProvide("debug")).toBe(true);
+        expect(service.virtualDocumentSource.canProvide("demo")).toBe(true);
+        expect(service.virtualDocumentSource.canProvide("jdt")).toBe(false);
+        await service.openUri(Uri.parse("debug:/lib/futex.S"));
+        await service.openUri(Uri.parse("demo:///scratch"));
+        expect(service.getEditors().map((e) => [e.getText(), e.readOnly])).toEqual([
+            ["frame /lib/futex.S", true],
+            ["demo", true],
+        ]);
+
+        registration.dispose();
+        expect(service.virtualDocumentSource.canProvide("debug")).toBe(false);
+        service.dispose();
+    });
+
+    it("a workbench scheme's document is not restored: its content needs a session", () => {
+        const service = createEditorService();
+        service.registerDocumentSource("debug", () => Promise.resolve("x"));
+
+        expect(service.canRestore(Uri.parse("debug:/lib/futex.S"))).toBe(false);
+        service.dispose();
+    });
+});
+
 describe("EditorService.canRestore — what history can reopen", () => {
     it("disk and untitled buffer: always", () => {
         const service = createEditorService();

@@ -5,7 +5,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
 export const API_TESTS_DIR = "extensions/vscode-api-tests";
@@ -40,5 +40,19 @@ export function extractUpstreamApiTests(repoRoot, destination) {
     const tarPath = path.join(destination, "upstream.tar");
     writeFileSync(tarPath, archive);
     execFileSync("tar", ["-xf", tarPath, "-C", destination, "--strip-components=2"], { stdio: "inherit" });
+    adoptWorkspaceSettings(path.join(destination, "testWorkspace"));
     return destination;
+}
+
+/**
+ * Diode's workspace layer is the folder's `.diode/settings.json` and `.vscode/settings.json` is ignored on purpose
+ * (docs/arch/Configuration.md), so the upstream workspace settings (`files.exclude`, `search.exclude`, …) are
+ * copied there; without them `findFiles` has no `files.exclude` to honour. `.vscode/` stays as upstream ships it.
+ * @param {string} workspace
+ */
+export function adoptWorkspaceSettings(workspace) {
+    const source = path.join(workspace, ".vscode", "settings.json");
+    if (!existsSync(source)) return;
+    mkdirSync(path.join(workspace, ".diode"), { recursive: true });
+    cpSync(source, path.join(workspace, ".diode", "settings.json"));
 }

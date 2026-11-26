@@ -4,6 +4,7 @@ import {
     arrayInsert,
     compareBy,
     CompareResult,
+    distinct,
     equals,
     forEachAdjacent,
     forEachWithNeighbors,
@@ -152,5 +153,20 @@ describe("spliceInChunks", () => {
         spliceInChunks(target, 1, 2, items);
 
         expect(target).toEqual([1, ...items, 4]);
+    });
+});
+
+describe("distinct", () => {
+    it("keeps the first of equal elements, in order", () => {
+        expect(distinct([3, 1, 3, 2, 1])).toEqual([3, 1, 2]);
+    });
+
+    it("compares by the key function", () => {
+        const items = [
+            { id: "a", n: 1 },
+            { id: "b", n: 2 },
+            { id: "a", n: 3 },
+        ];
+        expect(distinct(items, (item) => item.id)).toEqual([items[0], items[1]]);
     });
 });

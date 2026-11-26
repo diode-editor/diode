@@ -12,7 +12,7 @@ class TestDocumentModel implements IDocumentColorComputerTarget {
         return { line: lines.length - 1, character: lines[lines.length - 1].length };
     }
 
-    public findMatches(regex: RegExp): RegExpMatchArray[] {
+    public findMatches(regex: RegExp): RegExpExecArray[] {
         return [...this.content.matchAll(regex)];
     }
 }

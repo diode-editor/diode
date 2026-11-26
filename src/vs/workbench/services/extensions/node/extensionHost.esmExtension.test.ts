@@ -7,12 +7,14 @@ import {
     EXTENSION_FIXTURES_DIR,
     extensionFixture,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import {
     type ILanguageFeaturesService,
     LanguageFeaturesServiceDIToken,
 } from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { formatDocumentAction } from "../../../contrib/format/browser/formatActions.ts";
@@ -51,6 +53,7 @@ function registerFormatAction(harness: {
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => harness.group as never);
     accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
+    accessor.bind(IConfigurationServiceDIToken, () => createTestConfigurationService());
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
     registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, formatDocumentAction);
     return notices;

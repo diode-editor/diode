@@ -78,7 +78,8 @@ export default defineScenario({
 
         const header = await editor.waitForNode("#paneHeader-workbench-scm-graph");
         const rowX = header.box.x + 4;
-        const rowY = header.box.y + 1;
+        // The expanded header has a line under it: the first commit is two rows below the header.
+        const rowY = header.box.y + 2;
         await editor.sendMouse({ action: "press", button: "right", x: rowX, y: rowY });
         await editor.sendMouse({ action: "release", button: "right", x: rowX, y: rowY });
         await editor.waitForText((t) => t.includes("Reset to Commit") && t.includes("Cherry Pick"));

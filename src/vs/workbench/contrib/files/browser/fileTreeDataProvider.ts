@@ -80,6 +80,10 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
     ) {
         super();
         this.rootPath = rootPath;
+        // The root is always shown expanded and never gets an expand event, so it is watched for the
+        // provider's whole life. Upstream watches workspace folders recursively; we stay with
+        // "watch what is visible" — non-recursive, like an expanded folder.
+        this.watchDirectory(rootPath);
     }
 
     public getTreeItem(element: FileTreeNode): ITreeItem {
@@ -185,7 +189,9 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         this.watchers.set(dirPath, watch);
     }
 
+    /** The root can't be collapsed: its subscription goes only with the provider (`dispose`). */
     public unwatchDirectory(dirPath: string): void {
+        if (dirPath === this.rootPath) return;
         this.watchers.deleteAndDispose(dirPath);
 
         const timer = this.debounceTimers.get(dirPath);
@@ -295,6 +301,11 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
      * may have gained a second child and broken the chain: forget it and reread the head's parent.
      */
     private notifyChanged(dirPath: string): void {
+        // The root has no node; `undefined` rereads the top level.
+        if (dirPath === this.rootPath) {
+            this.onChange?.(undefined);
+            return;
+        }
         const chain = this.chainOf.get(dirPath);
         if (!chain || chain[chain.length - 1] === dirPath) {
             this.onChange?.(

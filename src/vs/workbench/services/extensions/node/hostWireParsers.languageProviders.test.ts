@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireLanguageProviderRegistration, parseWireLanguageProviderUnregistration } from "./hostWireParsers.ts";
+import {
+    parseWireLanguageProviderRegistration,
+    parseWireLanguageProviderUnregistration,
+    parseWireWorkspaceSymbolProviderRegistration,
+} from "./hostWireParsers.ts";
 
 describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
     it("a valid registration passes as is", () => {
@@ -14,6 +18,16 @@ describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
             ],
         };
         expect(parseWireLanguageProviderRegistration(raw)).toStrictEqual(raw);
+    });
+
+    it("hasResolve: only a true one is kept", () => {
+        const base = { handle: 1, kind: "documentLink", selector: [] };
+        expect(parseWireLanguageProviderRegistration({ ...base, hasResolve: true })).toEqual({
+            ...base,
+            hasResolve: true,
+        });
+        expect(parseWireLanguageProviderRegistration({ ...base, hasResolve: false })).toEqual(base);
+        expect(parseWireLanguageProviderRegistration({ ...base, hasResolve: "yes" })).toEqual(base);
     });
 
     it("trigger characters: non-empty strings only; a non-array leaves no field", () => {
@@ -109,6 +123,15 @@ describe("hostWireParsers — semantic tokens registration", () => {
         });
     });
 
+    it("extensionId passes only as a string", () => {
+        const registration = { handle: 6, kind: "formatting", selector: [] };
+        expect(parseWireLanguageProviderRegistration({ ...registration, extensionId: "acme.fmt" })).toStrictEqual({
+            ...registration,
+            extensionId: "acme.fmt",
+        });
+        expect(parseWireLanguageProviderRegistration({ ...registration, extensionId: 7 })).toStrictEqual(registration);
+    });
+
     it("a non-object legend leaves no field; hasOnDidChange only on true", () => {
         for (const legend of [null, "x", 3, undefined]) {
             expect(
@@ -121,5 +144,24 @@ describe("hostWireParsers — semantic tokens registration", () => {
                 }),
             ).toStrictEqual({ handle: 5, kind: "rangeSemanticTokens", selector: [] });
         }
+    });
+});
+
+describe("hostWireParsers — parseWireWorkspaceSymbolProviderRegistration", () => {
+    it("takes the handle and whether it resolves, nothing else", () => {
+        expect(parseWireWorkspaceSymbolProviderRegistration({ handle: 2, supportsResolve: true, x: 1 })).toStrictEqual({
+            handle: 2,
+            supportsResolve: true,
+        });
+    });
+
+    it.each([
+        ["null", null],
+        ["undefined", undefined],
+        ["a handle of the wrong type", { handle: "1", supportsResolve: true }],
+        ["no flag", { handle: 1 }],
+        ["a flag of the wrong type", { handle: 1, supportsResolve: "yes" }],
+    ])("%s is rejected", (_name, raw) => {
+        expect(parseWireWorkspaceSymbolProviderRegistration(raw)).toBeNull();
     });
 });

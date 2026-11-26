@@ -126,6 +126,8 @@ export class WorkbenchContextKeys extends Disposable {
         );
         // Upstream key: workspace commands show in the command palette only with a folder open.
         this.contextKeys.set("workbenchState", this.workspaceContext.getWorkbenchState());
+        // Upstream key. No trust model here: every workspace is trusted, same as `workspace.isTrusted`.
+        this.contextKeys.set("isWorkspaceTrusted", true);
         for (const contributor of this.contributors) {
             contributor.updateContextKeys(this.contextKeys, active);
         }

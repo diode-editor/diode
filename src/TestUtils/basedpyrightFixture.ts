@@ -48,7 +48,11 @@ export async function installBasedpyright(): Promise<IInstalledBasedpyright> {
 }
 
 /** A cold start of the bundled server takes tens of seconds; sleeps won't do. */
-export async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 120_000): Promise<T> {
+export async function until<T>(
+    what: string,
+    probe: () => T | null | Promise<T | null>,
+    timeoutMs = 120_000,
+): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
         const result = await probe();

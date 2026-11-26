@@ -49,3 +49,13 @@ describe("NULL_LOG_SERVICE", () => {
         }).not.toThrow();
     });
 });
+
+describe("NULL_LOG_SERVICE — window level", () => {
+    it("is Off and never changes", () => {
+        expect(NULL_LOG_SERVICE.getWindowLevel()).toBe(LogLevel.Off);
+        const sub = NULL_LOG_SERVICE.onDidChangeWindowLevel(() => {});
+        expect(() => {
+            sub.dispose();
+        }).not.toThrow();
+    });
+});

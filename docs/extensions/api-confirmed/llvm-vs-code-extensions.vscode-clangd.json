@@ -1,0 +1,30 @@
+{
+    "members": [
+        "commands.executeCommand",
+        "commands.registerCommand",
+        "commands.registerTextEditorCommand",
+        "env.appName",
+        "env.language",
+        "languages.createDiagnosticCollection",
+        "languages.match",
+        "languages.registerDocumentLinkProvider",
+        "languages.registerDocumentSemanticTokensProvider",
+        "languages.registerInlayHintsProvider",
+        "window.activeTextEditor",
+        "window.createOutputChannel",
+        "window.createStatusBarItem",
+        "window.createTreeView",
+        "window.onDidChangeActiveTextEditor",
+        "window.onDidChangeVisibleTextEditors",
+        "window.visibleTextEditors",
+        "workspace.getConfiguration",
+        "workspace.onDidChangeConfiguration",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidCloseTextDocument",
+        "workspace.onDidOpenTextDocument",
+        "workspace.onDidSaveTextDocument",
+        "workspace.rootPath",
+        "workspace.textDocuments",
+        "workspace.workspaceFolders"
+    ]
+}

@@ -102,4 +102,30 @@ exports.activate = function activate(context) {
         const text = await vscode.env.clipboard.readText();
         channel.appendLine("clipboard readText: " + text);
     });
+
+    // A Notification progress with Cancel: 2% every half second, so a frame catches it half-way.
+    // What `withProgress` resolved to goes to Output — the token, not the toast, says it was cancelled.
+    register("diodeNotify.longProgress", async function () {
+        const outcome = await vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Notification, title: "Diode Notify", cancellable: true },
+            function (progress, token) {
+                return new Promise(function (resolve) {
+                    let step = 0;
+                    const timer = setInterval(function () {
+                        step++;
+                        progress.report({ message: "Long Progress step " + step, increment: 2 });
+                        if (step === 50) {
+                            clearInterval(timer);
+                            resolve("done");
+                        }
+                    }, 500);
+                    token.onCancellationRequested(function () {
+                        clearInterval(timer);
+                        resolve("cancelled");
+                    });
+                });
+            },
+        );
+        channel.appendLine("Long progress: " + outcome);
+    });
 };

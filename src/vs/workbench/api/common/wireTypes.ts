@@ -4,10 +4,15 @@ import type { IPosition } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { CompletionTriggerKind } from "../../../editor/common/languages/iCompletionSource.ts";
+import type { IInlineValueContext } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ICoreSignatureHelp,
     SignatureHelpTriggerKind,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ICoreWorkspaceSymbol,
+    ICoreWorkspaceSymbolLocation,
+} from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import type { IConfigurationData } from "../../../platform/configuration/common/iConfigurationService.ts";
 import type { ILanguageConfiguration } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type {
@@ -18,6 +23,8 @@ import type {
     SerializableEnvironmentDescriptionMap,
     SerializableEnvironmentVariableCollection,
 } from "../../../platform/terminal/common/environmentVariable.ts";
+
+import type { LogLevel } from "./vscodeTypes.ts";
 
 /** `setEndOfLine` is the whole document's `vscode.EndOfLine`: 1=LF, 2=CRLF. */
 export type WireTextEdit = ITextEdit | { readonly setEndOfLine: 1 | 2 };
@@ -54,13 +61,25 @@ export interface IWireWorkspaceFolder {
 
 export interface IWireWorkspaceInitialize {
     readonly configuration: IConfigurationData;
+    /**
+     * Ids of the registered settings, core and extensions' (upstream `IConfigurationInitData.configurationScopes`):
+     * the layers carry `[lang]` sections as nested trees, and `get('[lang]')` restores the ids by them.
+     */
+    readonly settingIds: readonly string[];
     readonly workspaceFolders: readonly IWireWorkspaceFolder[];
     /** Absent when the window is not opened from a `.code-workspace`. */
     readonly workspaceFile?: string;
+    /** A path, not a uri: `user-data/User`, where settings are always utf-8 for `workspace.decode`/`encode`. */
+    readonly userRoamingDataHome?: string;
 }
 
 export interface IWireConfigurationChanged {
     readonly configuration: IConfigurationData;
+    /**
+     * Ids of the registered settings, core and extensions' (upstream `IConfigurationInitData.configurationScopes`):
+     * the layers carry `[lang]` sections as nested trees, and `get('[lang]')` restores the ids by them.
+     */
+    readonly settingIds: readonly string[];
     readonly affectedKeys: readonly string[];
 }
 
@@ -171,7 +190,7 @@ export function parseWireDocumentSyncSnapshot(raw: unknown): IWireDocumentSyncSn
     };
 }
 
-/** `selections` only on the group's active tab: they seed `visibleTextEditors[i].selection`. */
+/** `selections` and `visibleRanges` only on the group's active tab: they seed `visibleTextEditors[i]`. */
 export interface IWireTabSnapshot {
     readonly uri: string;
     readonly label: string;
@@ -187,8 +206,15 @@ export interface IWireTabSnapshot {
      * diff editors; a snapshot side (git revision) has no document of its own and is left out.
      */
     readonly sideEditors?: readonly string[];
+    /** The visible ranges of {@link sideEditors}, in their order; the active tab only. */
+    readonly sideVisibleRanges?: readonly (readonly IRange[])[];
     readonly languageId?: string;
     readonly selections?: readonly IWireSelection[];
+    /** Seeds `TextEditor.visibleRanges` before `editor.propertiesChanged`: an extension reads them on activation. */
+    readonly visibleRanges?: readonly IRange[];
+    /** The editor's resolved indentation, detection included; a text tab only. */
+    readonly tabSize?: number;
+    readonly insertSpaces?: boolean;
 }
 
 export interface IWireTabGroupSnapshot {
@@ -225,6 +251,8 @@ export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
             if (typeof t.isActive !== "boolean" || typeof t.isDirty !== "boolean") return null;
             if (t.kind !== "text" && t.kind !== "diff" && t.kind !== "unknown") return null;
             const sideEditors = parseWireStringArray(t.sideEditors);
+            const sideVisibleRanges = parseWireSideVisibleRanges(t.sideVisibleRanges);
+            const visibleRanges = parseWireVisibleRanges(t.visibleRanges);
             tabs.push({
                 uri: t.uri,
                 label: t.label,
@@ -234,8 +262,12 @@ export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
                 ...(typeof t.original === "string" ? { original: t.original } : {}),
                 ...(typeof t.modified === "string" ? { modified: t.modified } : {}),
                 ...(sideEditors !== undefined ? { sideEditors } : {}),
+                ...(sideVisibleRanges !== undefined ? { sideVisibleRanges } : {}),
                 ...(typeof t.languageId === "string" ? { languageId: t.languageId } : {}),
                 ...(Array.isArray(t.selections) ? { selections: parseWireSelections(t.selections) } : {}),
+                ...(visibleRanges !== undefined ? { visibleRanges } : {}),
+                ...(isFiniteNumber(t.tabSize) ? { tabSize: t.tabSize } : {}),
+                ...(typeof t.insertSpaces === "boolean" ? { insertSpaces: t.insertSpaces } : {}),
             });
         }
         groups.push({ groupId: g.groupId, viewColumn: g.viewColumn, isActive: g.isActive, tabs });
@@ -249,6 +281,13 @@ export interface IWireShowTextDocumentParams {
     readonly viewColumn?: number;
     readonly preserveFocus?: boolean;
     readonly selection?: IWireSelection;
+}
+
+/** Upstream `$tryOpenDocument(uri, { encoding })`: a file document without a tab. */
+export interface IWireOpenTextDocumentParams {
+    readonly uri: string;
+    /** Rereads the file in it; unvalidated, the host turns a name iconv does not know into utf-8. */
+    readonly encoding?: string;
 }
 
 /** Upstream `$tryCreateDocument`: an untitled document without a tab; the reply is {@link IWireUriParams}. */
@@ -340,6 +379,37 @@ export interface WireFoldingRange {
 
 export type IWireFoldingParams = IWireDocumentParams & IWireProviderHandles;
 
+export type IWireDocumentSymbolParams = IWireDocumentParams & IWireProviderHandle;
+
+/** No selector: a workspace symbol provider has no document to score against. */
+export interface IWireWorkspaceSymbolProviderRegistration {
+    readonly handle: number;
+    readonly supportsResolve: boolean;
+}
+
+export interface IWireWorkspaceSymbolsParams extends IWireProviderHandle {
+    readonly query: string;
+}
+
+/** `id` is the index in the provider's answer, the address of the original on resolve. */
+export interface IWireWorkspaceSymbol extends ICoreWorkspaceSymbol {
+    readonly id: number;
+}
+
+export interface IWireWorkspaceSymbols {
+    readonly cacheId: number;
+    readonly symbols: readonly IWireWorkspaceSymbol[];
+}
+
+export interface IWireResolveWorkspaceSymbolParams extends IWireProviderHandle {
+    readonly cacheId: number;
+    readonly id: number;
+}
+
+export interface IWireResolvedWorkspaceSymbol {
+    readonly location: ICoreWorkspaceSymbolLocation;
+}
+
 /** Sent as registration metadata — the core styles tokens without RPC. */
 export interface IWireSemanticTokensLegend {
     readonly tokenTypes: readonly string[];
@@ -380,10 +450,148 @@ export interface IWireSelectionRangeParams extends IWireDocumentParams, IWirePro
     readonly positions: readonly IPosition[];
 }
 
+/** Upstream `$provideDocumentHighlights`: the reply is `null` when the provider declined. */
+export interface IWireDocumentHighlightParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+}
+
+export interface IWireDocumentHighlight {
+    readonly range: IRange;
+    /** `DocumentHighlightKind`; absent when the extension gave a plain object without one. */
+    readonly kind?: number;
+}
+
+/** Upstream `$provideEvaluatableExpression`: the reply is `null` when the provider has nothing at the position. */
+export interface IWireEvaluatableExpressionParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+}
+
+export interface IWireEvaluatableExpression {
+    readonly range: IRange;
+    readonly expression?: string;
+}
+
+/** Upstream `$provideLinkedEditingRanges`: the reply is `null` when the provider declined. */
+export interface IWireLinkedEditingRangeParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+}
+
+export interface IWireLinkedEditingRanges {
+    readonly ranges: IRange[];
+    /** `RegExp.source`. */
+    readonly wordPattern?: string;
+    /** `RegExp.flags`: `/x/i` must not lose its `i` on the way to the core. */
+    readonly wordPatternFlags?: string;
+}
+
+export type IWireDocumentLinksParams = IWireDocumentParams & IWireProviderHandle;
+
+export interface IWireDocumentLink {
+    /** Index in the list; with `cacheId` it finds the provider's own object for `resolveDocumentLink`. */
+    readonly id: number;
+    readonly range: IRange;
+    readonly target?: string;
+    readonly tooltip?: string;
+}
+
+/** Upstream `_executeLinkProvider`'s answer: what the core found, `target` as the provider or resolve gave it. */
+export type IWireExecutedDocumentLink = Omit<IWireDocumentLink, "id">;
+
+export interface IWireDocumentLinkList {
+    readonly cacheId: number;
+    readonly links: readonly IWireDocumentLink[];
+}
+
+export interface IWireResolveDocumentLinkParams extends IWireProviderHandle {
+    readonly cacheId: number;
+    readonly id: number;
+}
+
 /** Upstream `$provideDocumentColors`: the reply is `null` when the provider gave no colors. */
 export type IWireDocumentColorParams = IWireDocumentParams & IWireProviderHandle;
 
+/** Upstream `$provideInlineValues`: the reply is `null` when the provider gave no array. */
+export interface IWireInlineValuesParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly viewPort: IRange;
+    readonly context: IInlineValueContext;
+}
+
+/** Upstream `$provideInlayHints`: the reply is `null` when the provider gave no hints. */
+export interface IWireInlayHintsParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly range: IRange;
+}
+
+/** Upstream `IInlayHintDto` without what nothing draws yet: tooltips, part locations and commands, text edits. */
+export interface IWireInlayHint {
+    readonly position: IPosition;
+    readonly label: string | readonly { readonly value: string }[];
+    readonly kind?: 1 | 2;
+    readonly paddingLeft?: boolean;
+    readonly paddingRight?: boolean;
+}
+
+/** Upstream `$provideCodeLenses`: the reply is `null` when the provider gave no lenses. */
+export type IWireCodeLensParams = IWireDocumentParams & IWireProviderHandle;
+
+/** The session of the answer and the index of the lens in what the provider returned. */
+export type WireCodeLensCacheId = readonly [number, number];
+
+/** Upstream `ICommandDto` without `arguments`: they stay in the subprocess, the command runs by the lens address. */
+export interface IWireCodeLensCommand {
+    /** Empty: a plain label, as upstream. */
+    readonly id: string;
+    readonly title: string;
+    readonly tooltip?: string;
+}
+
+export interface IWireCodeLens {
+    readonly cacheId: WireCodeLensCacheId;
+    readonly range: IRange;
+    readonly command?: IWireCodeLensCommand;
+}
+
+export interface IWireCodeLensList {
+    /** The session, released by `languages.releaseCodeLenses`. */
+    readonly cacheId: number;
+    readonly lenses: readonly IWireCodeLens[];
+}
+
+/** One lens of a session, for its resolve and for running its command. */
+export interface IWireCodeLensAddress extends IWireProviderHandle {
+    readonly cacheId: WireCodeLensCacheId;
+}
+
+export interface IWireReleaseCodeLenses extends IWireProviderHandle {
+    readonly cacheId: number;
+}
+
 export type IWireDefinitionParams = IWirePositionParams & IWireProviderHandle;
+
+/** Upstream `$prepareCallHierarchy`: the reply is `null` when the provider found nothing at the position. */
+export type IWirePrepareCallHierarchyParams = IWirePositionParams & IWireProviderHandle;
+
+/** Upstream `$provideCallHierarchyIncomingCalls`/`OutgoingCalls`: the original item stays in the subprocess. */
+export interface IWireCallHierarchyCallsParams extends IWireProviderHandle {
+    readonly sessionId: number;
+    readonly itemId: number;
+}
+
+/** Upstream `$releaseCallHierarchy`. */
+export interface IWireReleaseCallHierarchy extends IWireProviderHandle {
+    readonly sessionId: number;
+}
+
+/** Upstream `$prepareTypeHierarchy`: the reply is `null` when the provider found nothing at the position. */
+export type IWirePrepareTypeHierarchyParams = IWirePositionParams & IWireProviderHandle;
+
+/** Upstream `$provideTypeHierarchySupertypes`/`Subtypes`: the original item stays in the subprocess. */
+export type IWireTypeHierarchyParams = IWireCallHierarchyCallsParams;
+
+/** Upstream `$releaseTypeHierarchy`. */
+export type IWireReleaseTypeHierarchy = IWireReleaseCallHierarchy;
 
 export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
 
@@ -391,17 +599,31 @@ export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
 export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "hover",
     "definition",
+    "implementation",
+    "typeDefinition",
+    "declaration",
     "references",
     "signatureHelp",
     "completion",
     "formatting",
     "rangeFormatting",
+    "onTypeFormatting",
     "codeActions",
     "folding",
+    "documentSymbol",
     "inlineCompletions",
     "rename",
     "selectionRange",
+    "callHierarchy",
+    "typeHierarchy",
+    "documentHighlight",
+    "linkedEditingRange",
+    "evaluatableExpression",
     "color",
+    "documentLink",
+    "inlayHints",
+    "inlineValues",
+    "codeLens",
     "semanticTokens",
     "rangeSemanticTokens",
 ] as const;
@@ -421,6 +643,8 @@ export interface IWireLanguageProviderMetadata {
     readonly triggerCharacters?: readonly string[];
     /** Characters that re-request the hint while it is shown (signature help). */
     readonly retriggerCharacters?: readonly string[];
+    /** The provider has `resolveDocumentLink`. */
+    readonly hasResolve?: boolean;
     /** The core skips a provider whose kinds do not intersect the requested `only`. */
     readonly providedCodeActionKinds?: readonly string[];
     readonly legend?: IWireSemanticTokensLegend;
@@ -429,6 +653,8 @@ export interface IWireLanguageProviderMetadata {
 }
 
 export interface IWireLanguageProviderRegistration extends IWireLanguageProviderMetadata {
+    /** The registering extension: `editor.defaultFormatter` names it. */
+    readonly extensionId?: string;
     readonly handle: number;
     readonly kind: WireLanguageFeatureKind;
     readonly selector: readonly IWireLanguageFilter[];
@@ -495,6 +721,14 @@ export interface IWireFormattingParams extends IWireDocumentParams {
     readonly range?: IRange;
 }
 
+export interface IWireOnTypeFormattingParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+    readonly ch: string;
+    readonly tabSize: number;
+    readonly insertSpaces: boolean;
+}
+
 /**
  * Context diagnostics are not sent: the subprocess collects them from its own
  * DiagnosticCollections so the provider gets the same objects the server published.
@@ -532,9 +766,20 @@ export interface WireRenameResult {
     readonly error?: string;
 }
 
+/** `vscode.ProgressLocation` or `{ viewId }`; upstream sends the same over `$startProgress`. */
+export type WireProgressLocation = "window" | "notification" | "sourceControl" | { readonly viewId: string };
+
 export interface IWireProgressStart {
     readonly handle: number;
     readonly title: string;
+    readonly location: WireProgressLocation;
+    /** Upstream `ProgressOptions.cancellable`: the UI offers Cancel, which comes back as `window.progress.cancel`. */
+    readonly cancellable: boolean;
+}
+
+/** Host → subprocess: the user pressed Cancel (upstream `$acceptProgressCanceled`). */
+export interface IWireProgressCancel {
+    readonly handle: number;
 }
 
 export interface IWireProgressReport {
@@ -613,6 +858,8 @@ export interface IWireTerminalCreate {
     readonly message?: string;
     /** Absent means `terminal.integrated.defaultLocation`. */
     readonly location?: IWireTerminalLocation;
+    /** `TerminalOptions.shellIntegrationNonce`: shell integration sequences carrying it are trusted. */
+    readonly shellIntegrationNonce?: string;
 }
 
 /**
@@ -651,13 +898,106 @@ export interface IWireTerminalLaunch {
     readonly hideFromUser?: boolean;
 }
 
-/** `extHostId` only for this subprocess's terminals; `pid` only for a real shell. */
+/**
+ * `extHostId` only for this subprocess's terminals; `pid` only for a real shell. `shellType` — upstream's
+ * `TerminalShellType` guessed from the shell executable (`terminal.state.shell`); absent when unknown.
+ * `isInteractedWith` — only `true`: input reached it before this subprocess learned of it (snapshot).
+ */
 export interface IWireTerminalOpened {
     readonly id: number;
     readonly extHostId?: number;
     readonly name: string;
     readonly pid?: number;
+    readonly shellType?: string;
+    readonly isInteractedWith?: true;
     readonly launch: IWireTerminalLaunch;
+}
+
+/** Upstream `$acceptTerminalInteraction`: the first input (keys or `sendText`) into the instance. */
+export interface IWireTerminalInteraction {
+    readonly id: number;
+}
+
+/** Upstream `$acceptTerminalTitleChange`: the instance was renamed (a pty's `onDidChangeName`, a task rerun). */
+export interface IWireTerminalTitleChanged {
+    readonly id: number;
+    readonly name: string;
+}
+
+/**
+ * Upstream `$shellIntegrationChange`: shell integration came alive in the instance (its first command sequence).
+ * `supportsExecuteCommand` — not a task terminal.
+ */
+export interface IWireTerminalShellIntegration {
+    readonly id: number;
+    readonly supportsExecuteCommand: boolean;
+}
+
+/** Upstream `$cwdChange`: the cwd the shell reported; an empty one is "unknown". */
+export interface IWireTerminalShellIntegrationCwd {
+    readonly id: number;
+    readonly cwd: string;
+}
+
+/** Upstream `$shellEnvChange`: the environment the shell reported, whole. */
+export interface IWireTerminalShellIntegrationEnv {
+    readonly id: number;
+    readonly env: Readonly<Record<string, string>>;
+    readonly isTrusted: boolean;
+}
+
+/** `vscode.TerminalShellExecutionCommandLine`; `confidence` is the `TerminalShellExecutionCommandLineConfidence` number. */
+export interface IWireTerminalCommandLine {
+    readonly value: string;
+    readonly confidence: 0 | 1 | 2;
+    readonly isTrusted: boolean;
+}
+
+/** Upstream `$shellExecutionStart`: the shell started a command (`C`). */
+export interface IWireTerminalShellExecutionStart {
+    readonly id: number;
+    readonly supportsExecuteCommand: boolean;
+    readonly commandLine: IWireTerminalCommandLine;
+    readonly cwd?: string;
+}
+
+/** Upstream `$shellExecutionData`: raw output of the running command, batched. */
+export interface IWireTerminalShellExecutionData {
+    readonly id: number;
+    readonly data: string;
+}
+
+/** Upstream `$shellExecutionEnd`: the command finished (`D`); no code — the shell reported none. */
+export interface IWireTerminalShellExecutionEnd {
+    readonly id: number;
+    readonly commandLine: IWireTerminalCommandLine;
+    readonly exitCode?: number;
+}
+
+/** Upstream `$executeCommand`: `TerminalShellIntegration.executeCommand` runs the line in the instance. */
+export interface IWireTerminalExecuteCommand {
+    readonly id: number;
+    readonly commandLine: string;
+}
+
+/** Upstream `$sendProcessProperty(Title)`: the pty's `onDidChangeName` renames its terminal. */
+export interface IWireTerminalPtyName {
+    readonly terminal: IWireTerminalRef;
+    readonly name: string;
+}
+
+/**
+ * Upstream `$registerProfileProvider`: `id` is the `contributes.terminal.profiles` id, unique across extensions
+ * (the subprocess refuses a second provider), so it alone addresses the provider.
+ */
+export interface IWireTerminalProfileProvider {
+    readonly id: string;
+}
+
+/** Upstream `$createContributedProfileTerminal`; `location` overrides the profile's own, as upstream's internal options. */
+export interface IWireCreateContributedProfileTerminal {
+    readonly id: string;
+    readonly location: 1 | 2;
 }
 
 export interface IWireTerminalPtyData {
@@ -694,14 +1034,6 @@ export interface IWireTerminalActive {
     readonly id: number | null;
 }
 
-const WIRE_TERMINAL_EXIT_REASONS: readonly WireTerminalExitReason[] = [
-    "unknown",
-    "shutdown",
-    "process",
-    "user",
-    "extension",
-];
-
 export function parseWireStringRecord(raw: unknown): Record<string, string | null> | undefined {
     if (typeof raw !== "object" || raw === null) return undefined;
     const out: Record<string, string | null> = {};
@@ -713,64 +1045,6 @@ export function parseWireStringRecord(raw: unknown): Record<string, string | nul
 
 export function parseWireStringArray(raw: unknown): string[] | undefined {
     return Array.isArray(raw) ? raw.filter((a): a is string => typeof a === "string") : undefined;
-}
-
-/** Fields are read via optional chaining: a primitive lacks them just like `null` does. */
-type WireEnvelope = Readonly<Record<string, unknown>> | null | undefined;
-
-function parseWireTerminalLaunch(raw: unknown): IWireTerminalLaunch {
-    const p = raw as WireEnvelope;
-    const shellArgs = parseWireStringArray(p?.shellArgs);
-    const env = parseWireStringRecord(p?.env);
-    return {
-        ...(typeof p?.name === "string" ? { name: p.name } : {}),
-        ...(typeof p?.shellPath === "string" ? { shellPath: p.shellPath } : {}),
-        ...(shellArgs !== undefined ? { shellArgs } : {}),
-        ...(typeof p?.cwd === "string" ? { cwd: p.cwd } : {}),
-        ...(env !== undefined ? { env } : {}),
-        ...(typeof p?.hideFromUser === "boolean" ? { hideFromUser: p.hideFromUser } : {}),
-    };
-}
-
-export function parseWireTerminalOpened(raw: unknown): IWireTerminalOpened | null {
-    const p = raw as WireEnvelope;
-    if (typeof p?.id !== "number" || typeof p.name !== "string") return null;
-    return {
-        id: p.id,
-        name: p.name,
-        ...(typeof p.extHostId === "number" ? { extHostId: p.extHostId } : {}),
-        ...(typeof p.pid === "number" ? { pid: p.pid } : {}),
-        launch: parseWireTerminalLaunch(p.launch),
-    };
-}
-
-/** An unfamiliar reason (newer host) becomes `unknown`. */
-export function parseWireTerminalClosed(raw: unknown): IWireTerminalClosed | null {
-    const p = raw as WireEnvelope;
-    if (typeof p?.id !== "number") return null;
-    const reason = WIRE_TERMINAL_EXIT_REASONS.find((r) => r === p.reason) ?? "unknown";
-    return { id: p.id, ...(typeof p.code === "number" ? { code: p.code } : {}), reason };
-}
-
-export function parseWireTerminalPtyDimensions(raw: unknown): IWireTerminalPtyDimensions | null {
-    const p = raw as WireEnvelope;
-    if (typeof p?.id !== "number" || !isPositiveInteger(p.cols) || !isPositiveInteger(p.rows)) return null;
-    return { id: p.id, cols: p.cols, rows: p.rows };
-}
-
-function isPositiveInteger(v: unknown): v is number {
-    return Number.isInteger(v) && (v as number) > 0;
-}
-
-export function parseWireTerminalPtyInput(raw: unknown): IWireTerminalPtyInput | null {
-    const p = raw as WireEnvelope;
-    if (typeof p?.id !== "number" || typeof p.data !== "string") return null;
-    return { id: p.id, data: p.data };
-}
-
-export function parseWireTerminalActive(raw: unknown): IWireTerminalActive {
-    const id = (raw as WireEnvelope)?.id;
-    return { id: typeof id === "number" ? id : null };
 }
 
 /** `severity` is `vscode.DiagnosticSeverity` (0=Error…3=Hint); the sink's consumer maps it to `MarkerSeverity`. */
@@ -819,6 +1093,23 @@ export interface IWireApplyEditParams {
     readonly undoStopAfter?: boolean;
 }
 
+/**
+ * Upstream `$tryInsertSnippet`: the core parses the template and makes an edit per range; the text and the first
+ * caret land in one call, so a key typed right after it reaches the moved caret.
+ */
+export interface IWireInsertSnippetParams {
+    readonly uri: string;
+    /** A `TextEditor` is addressed by the group + document pair. */
+    readonly groupId: number;
+    /** The template was built against this text; another version is refused. */
+    readonly version: number;
+    readonly template: string;
+    readonly ranges: readonly IRange[];
+    readonly undoStopBefore?: boolean;
+    readonly undoStopAfter?: boolean;
+    readonly keepWhitespace?: boolean;
+}
+
 export interface IWireSetSelectionParams {
     readonly uri: string;
     readonly selections: readonly IWireSelection[];
@@ -828,10 +1119,10 @@ export interface IWireSetSelectionParams {
 
 /** A normalized `TextEditor.options` patch; `indentSize` is an alias of `tabSize`. */
 export interface IWireSetEditorOptionsParams {
+    /** An assigned `indentSize` arrives here: Diode's indent size is its tab size. */
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
-    readonly indentSize?: number;
-    /** `vscode.TextEditorCursorStyle`, 1..6: applies to the editor at `uri` + `groupId`, not the active one. */
+    /** `vscode.TextEditorCursorStyle`, 1..6. */
     readonly cursorStyle?: number;
     readonly uri: string;
     readonly groupId: number;
@@ -918,6 +1209,27 @@ export type IWireWorkspaceEditOp =
           readonly ignoreIfExists?: boolean;
       };
 
+/** Upstream `SourceTargetPair`; uris. */
+export interface IWireFileOperationPair {
+    readonly source?: string;
+    readonly target: string;
+}
+
+/** Upstream `FileOperation`: a copy reaches the extension as a create, a move as a rename. */
+export interface IWireFileOperationEvent {
+    readonly operation: "create" | "copy" | "move" | "delete";
+    readonly files: readonly IWireFileOperationPair[];
+}
+
+export interface IWireFileOperationParams extends IWireFileOperationEvent {
+    /** `files.participants.timeout`: past it the request is cancelled and the operation goes on without edits. */
+    readonly timeoutMs: number;
+}
+
+export interface IWireFileOperationSubscriptions {
+    readonly will: boolean;
+}
+
 export interface IWireApplyWorkspaceEditParams {
     readonly ops: readonly IWireWorkspaceEditOp[];
     /** After applying, affected files are saved per `files.refactoring.autoSave`. */
@@ -931,7 +1243,7 @@ export interface IWireSaveAllParams {
 /** `null` when not open or not saved (upstream's `undefined`). */
 export type IWireSaveResult = IWireUriParams | null;
 
-/** A bare `string` in the same fields is a CSS color the host ignores: inline hex colors are not parsed. */
+/** A bare `string` in the same fields is a CSS color: the host parses it (`parseCssColor`). */
 export interface ISerializedThemeColor {
     readonly $themeColor: string;
 }
@@ -939,15 +1251,70 @@ export interface ISerializedThemeColor {
 export type SerializedColor = string | ISerializedThemeColor;
 
 /**
- * Only the fields the host projects: `overviewRulerColor` makes the type a
- * "gutter change-bar"; other CSS fields are not rendered in the TUI.
+ * The fields of `ThemableDecorationAttachmentRenderOptions` the host projects: the text, its colors and italic.
+ * `borderColor` only colors a swatch; sizes, margins, borders and icons have nothing to draw with in a cell.
  */
-export interface SerializedDecorationRenderOptions {
-    readonly isWholeLine?: boolean;
-    readonly overviewRulerLane?: number;
+export interface SerializedDecorationAttachmentRenderOptions {
+    readonly contentText?: string;
+    readonly color?: SerializedColor;
+    readonly backgroundColor?: SerializedColor;
+    readonly borderColor?: SerializedColor;
+    /** CSS strings, as the extension gave them: the host turns them into cell attributes and cell counts. */
+    readonly fontStyle?: string;
+    readonly fontWeight?: string;
+    readonly textDecoration?: string;
+    readonly margin?: string;
+    readonly width?: string;
+}
+
+/** Upstream `ThemableDecorationInstanceRenderOptions`. */
+export interface SerializedThemableDecorationInstanceRenderOptions {
+    readonly before?: SerializedDecorationAttachmentRenderOptions;
+    readonly after?: SerializedDecorationAttachmentRenderOptions;
+}
+
+/** The fields of `ThemableDecorationRenderOptions` the host projects. */
+export interface SerializedThemableDecorationRenderOptions extends SerializedThemableDecorationInstanceRenderOptions {
     readonly backgroundColor?: SerializedColor;
     readonly color?: SerializedColor;
     readonly overviewRulerColor?: SerializedColor;
+    /** CSS strings, as the extension gave them: the host turns them into cell attributes and a color blend. */
+    readonly fontStyle?: string;
+    readonly fontWeight?: string;
+    readonly textDecoration?: string;
+    readonly opacity?: string;
+    /** `uri.toString()`, a file or a `data:` URI; a path string arrives as a `file:` URI. */
+    readonly gutterIconPath?: string;
+}
+
+/**
+ * Only the fields the host projects: `overviewRulerColor` marks the scrollbar, `gutterIconPath` puts a glyph in the
+ * gutter's glyph lane,
+ * `backgroundColor`/`color` paint the text, `fontStyle`/`fontWeight`/`textDecoration` add cell attributes,
+ * `opacity` fades the text, `before`/`after` draw cells at its edges; borders, outlines and sizes have nothing to
+ * draw with in a cell.
+ */
+export interface SerializedDecorationRenderOptions extends SerializedThemableDecorationRenderOptions {
+    readonly isWholeLine?: boolean;
+    /** `vscode.DecorationRangeBehavior`. */
+    readonly rangeBehavior?: number;
+    readonly overviewRulerLane?: number;
+    readonly light?: SerializedThemableDecorationRenderOptions;
+    readonly dark?: SerializedThemableDecorationRenderOptions;
+}
+
+/** Upstream `DecorationInstanceRenderOptions`. */
+export interface SerializedDecorationInstanceRenderOptions extends SerializedThemableDecorationInstanceRenderOptions {
+    readonly light?: SerializedThemableDecorationInstanceRenderOptions;
+    readonly dark?: SerializedThemableDecorationInstanceRenderOptions;
+}
+
+/** `vscode.DecorationOptions`; a bare `Range` goes without `renderOptions` and `hoverMessage`. */
+export interface IWireDecorationOptions {
+    readonly range: IRange;
+    readonly renderOptions?: SerializedDecorationInstanceRenderOptions;
+    /** Raw markdown of each non-blank `hoverMessage` entry, as `contents` of a hover provider; absent — none. */
+    readonly hoverMessage?: readonly string[];
 }
 
 export interface IWireCreateDecorationType {
@@ -958,9 +1325,17 @@ export interface IWireCreateDecorationType {
 export interface IWireSetDecorations {
     readonly key: number;
     readonly uri: string;
-    readonly ranges: readonly IRange[];
+    readonly ranges: readonly IWireDecorationOptions[];
     /** The host currently decorates the resource in all groups and ignores this field. */
     readonly groupId: number;
+}
+
+export interface IWireRevealRange {
+    readonly uri: string;
+    readonly groupId: number;
+    readonly range: IRange;
+    /** `vscode.TextEditorRevealType`. */
+    readonly revealType: number;
 }
 
 export interface IWireFileDecoration {
@@ -980,9 +1355,12 @@ export interface IWireFileDecorationsChanged {
 
 export function parseRange(raw: unknown): IRange | null {
     if (typeof raw !== "object" || raw === null) return null;
+    // `Range.toJSON()` is a pair: that is what a `vscode.Range` becomes on the JSON fallback of the transport.
     const r = raw as { start?: unknown; end?: unknown };
-    const start = r.start as { line?: unknown; character?: unknown } | undefined;
-    const end = r.end as { line?: unknown; character?: unknown } | undefined;
+    const [start, end] = (Array.isArray(raw) ? raw : [r.start, r.end]) as (
+        | { line?: unknown; character?: unknown }
+        | undefined
+    )[];
     if (
         start == null ||
         end == null ||
@@ -994,6 +1372,71 @@ export function parseRange(raw: unknown): IRange | null {
         return null;
     }
     return createRange(start.line, start.character, end.line, end.character);
+}
+
+/**
+ * Upstream `IResolvedTextEditorConfiguration` without `indentSize` (Diode's is `tabSize`) and `lineNumbers` (Diode
+ * draws plain numbers and has no `editor.lineNumbers`).
+ */
+export interface IWireEditorOptions {
+    readonly tabSize: number;
+    readonly insertSpaces: boolean;
+    /** `vscode.TextEditorCursorStyle`: an unset `editor.cursorStyle` is `Line`, upstream's default. */
+    readonly cursorStyle: number;
+}
+
+/** Upstream `IEditorPropertiesChangeData` of one visible editor: a property is present only when it changed. */
+export interface IWireEditorPropertiesChanged {
+    readonly uri: string;
+    readonly groupId: number;
+    /** All of them when any changed, as upstream. */
+    readonly options?: IWireEditorOptions;
+    /** Upstream `codeEditor.getVisibleRanges()`: never empty. */
+    readonly visibleRanges?: readonly IRange[];
+}
+
+/** `null` for a message without an editor address; a malformed property is dropped, not the message. */
+export function parseWireEditorPropertiesChanged(raw: unknown): IWireEditorPropertiesChanged | null {
+    // A primitive reads as an object without an address.
+    const p = raw as
+        | { uri?: unknown; groupId?: unknown; options?: unknown; visibleRanges?: unknown }
+        | null
+        | undefined;
+    if (typeof p?.uri !== "string" || !isFiniteNumber(p.groupId)) return null;
+    const options = parseWireEditorOptions(p.options);
+    const visibleRanges = parseWireVisibleRanges(p.visibleRanges);
+    return {
+        uri: p.uri,
+        groupId: p.groupId,
+        ...(options !== undefined ? { options } : {}),
+        ...(visibleRanges !== undefined ? { visibleRanges } : {}),
+    };
+}
+
+function parseWireEditorOptions(raw: unknown): IWireEditorOptions | undefined {
+    const o = raw as { tabSize?: unknown; insertSpaces?: unknown; cursorStyle?: unknown } | null | undefined;
+    if (!isFiniteNumber(o?.tabSize) || typeof o.insertSpaces !== "boolean" || !isFiniteNumber(o.cursorStyle)) {
+        return undefined;
+    }
+    return { tabSize: o.tabSize, insertSpaces: o.insertSpaces, cursorStyle: o.cursorStyle };
+}
+
+function parseWireSideVisibleRanges(raw: unknown): IRange[][] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const sides: IRange[][] = [];
+    for (const side of raw) {
+        const ranges = parseWireVisibleRanges(side);
+        if (ranges === undefined) return undefined;
+        sides.push(ranges);
+    }
+    return sides;
+}
+
+/** `undefined` unless a non-empty list of valid ranges: an editor always shows something. */
+function parseWireVisibleRanges(raw: unknown): IRange[] | undefined {
+    if (!Array.isArray(raw) || raw.length === 0) return undefined;
+    const ranges = raw.map(parseRange);
+    return ranges.every((range) => range !== null) ? ranges : undefined;
 }
 
 /** Base64: a `Uint8Array` does not survive a JSON round-trip. */
@@ -1103,6 +1546,7 @@ export interface IWireInputBoxRequest {
     readonly prompt?: string;
     readonly placeHolder?: string;
     readonly value?: string;
+    readonly valueSelection?: readonly [number, number];
     readonly password: boolean;
     /** Without the flag the host skips the `window.inputBox.validate` round-trip. */
     readonly validates: boolean;
@@ -1199,6 +1643,8 @@ export interface IWireQuickPickSessionItem {
 /** Absent means "untouched", `null` means "reset to `undefined`" (upstream `_pendingUpdate`). */
 export interface IWireQuickPickUpdate {
     readonly handle: number;
+    /** Only in the first update, the one that creates the host's side: `window.createInputBox`. */
+    readonly inputBox?: boolean;
     readonly visible?: boolean;
     readonly title?: string | null;
     readonly step?: number | null;
@@ -1206,6 +1652,12 @@ export interface IWireQuickPickUpdate {
     readonly placeholder?: string | null;
     readonly prompt?: string | null;
     readonly value?: string;
+    /** `null` selects the whole value, as upstream's unset `InputBox.valueSelection`. */
+    readonly valueSelection?: readonly [number, number] | null;
+    readonly password?: boolean;
+    readonly validationMessage?: IWireValidationMessage | null;
+    /** `QuickInputButtons.Back` is among the buttons; the overlay draws no other. */
+    readonly back?: boolean;
     readonly canSelectMany?: boolean;
     readonly matchOnDescription?: boolean;
     readonly matchOnDetail?: boolean;
@@ -1227,7 +1679,8 @@ export type IWireQuickPickEvent =
     | { readonly handle: number; readonly kind: "accept" }
     | { readonly handle: number; readonly kind: "changeActive"; readonly items: readonly number[] }
     | { readonly handle: number; readonly kind: "changeSelection"; readonly items: readonly number[] }
-    | { readonly handle: number; readonly kind: "hide" };
+    | { readonly handle: number; readonly kind: "hide" }
+    | { readonly handle: number; readonly kind: "back" };
 
 export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | null {
     // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the check below rejects a non-object anyway (it lacks the needed field), so replacing the operand with `false` has no observable effect
@@ -1240,6 +1693,7 @@ export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | nul
             return typeof p.value === "string" ? { handle, kind: "changeValue", value: p.value } : null;
         case "accept":
         case "hide":
+        case "back":
             return { handle, kind: p.kind };
         case "changeActive":
         case "changeSelection":
@@ -1345,25 +1799,18 @@ export function parseWireClipboardText(raw: unknown): IWireClipboardText {
     return { text: typeof text === "string" ? text : "" };
 }
 
-/** Arrives before the first activation: `env.machineId`, `env.shell` and `env.appRoot` are synchronous and read already in `activate()`. */
+/** Arrives before the first activation: `env.machineId`, `env.shell`, `env.appRoot` and `env.logLevel` are synchronous and read already in `activate()`. */
 export interface IWireEnvInitialize {
     readonly machineId: string;
     readonly shell: string;
     readonly appRoot: string;
+    /** The API's `LogLevel` (Off 0 … Error 5), not the core's numbering. */
+    readonly logLevel: LogLevel;
 }
 
-/** A non-string becomes an empty string, like upstream's "unknown". */
-export function parseWireEnvInitialize(raw: unknown): IWireEnvInitialize {
-    const { machineId, shell, appRoot } = (typeof raw === "object" && raw !== null ? raw : {}) as {
-        machineId?: unknown;
-        shell?: unknown;
-        appRoot?: unknown;
-    };
-    return {
-        machineId: typeof machineId === "string" ? machineId : "",
-        shell: typeof shell === "string" ? shell : "",
-        appRoot: typeof appRoot === "string" ? appRoot : "",
-    };
+/** `env.didChangeLogLevel`: the window's new level, in the API's numbering. */
+export interface IWireEnvLogLevel {
+    readonly logLevel: LogLevel;
 }
 
 export interface IWireEnvironmentVariableCollections {
@@ -1620,6 +2067,11 @@ export interface IWireExecuteCommandParams {
 
 export interface IWireCommandId {
     readonly id: string;
+}
+
+export interface IWireRegisterCommandParams extends IWireCommandId {
+    /** `registerTextEditorCommand`: keys wait for its answer, an edit built on a stale version would be refused. */
+    readonly textEditor?: true;
 }
 
 export interface IWireChangeLanguageParams {

@@ -283,6 +283,36 @@ describe("ExtensionInstaller", () => {
         });
     });
 
+    it("list returns the manifest categories and keywords for the search filters, dropping broken items", async () => {
+        await installVsix(
+            await makeVsix(
+                "tagged.vsix",
+                vsixEntries({
+                    name: "hello",
+                    publisher: "acme",
+                    version: "1.0.0",
+                    categories: ["Themes", "", 5],
+                    keywords: ["dark", null],
+                }),
+            ),
+            extensionsDir,
+        );
+
+        expect(listInstalledExtensions(extensionsDir)[0]).toMatchObject({ categories: ["Themes"], keywords: ["dark"] });
+    });
+
+    it("a manifest without the lists, or with non-arrays there, gives empty lists", async () => {
+        await installVsix(
+            await makeVsix(
+                "untagged.vsix",
+                vsixEntries({ name: "hello", publisher: "acme", version: "1.0.0", categories: "Themes" }),
+            ),
+            extensionsDir,
+        );
+
+        expect(listInstalledExtensions(extensionsDir)[0]).toMatchObject({ categories: [], keywords: [] });
+    });
+
     it("list resolves %keys% in displayName/description via package.nls.json", async () => {
         await installVsix(
             await makeVsix(
@@ -441,6 +471,30 @@ describe("ExtensionInstaller", () => {
             expect(fs.readdirSync(extensionsDir)).toEqual([]);
         },
     );
+
+    it("an entry that is both corrupt and unwritable fails twice (read stream, write stream) and rejects once", async () => {
+        // "extension/clash" is a directory by the time its file entry is written (EISDIR), and its deflate
+        // stream is broken too: the first byte of the compressed data says "final block of a reserved type".
+        const clash = "extension/clash";
+        const vsix = await makeVsix(
+            "corrupt-clash.vsix",
+            vsixEntries(
+                { name: "hello", publisher: "acme", version: "1.0.0" },
+                { "extension/clash/inside.txt": "x", [clash]: "file content that deflates to a few bytes" },
+            ),
+        );
+        const buf = fs.readFileSync(vsix);
+        // The local file header: name length (2 bytes LE), extra length 0, then the name, then the data.
+        const header = Buffer.concat([Buffer.from([clash.length, 0, 0, 0]), Buffer.from(clash)]);
+        const at = buf.indexOf(header);
+        expect(at).toBeGreaterThan(0);
+        buf[at + header.length] = 0b111;
+        fs.writeFileSync(vsix, buf);
+
+        await expect(installVsix(vsix, extensionsDir)).rejects.toThrow(/EISDIR|invalid block type/u);
+
+        expect(fs.readdirSync(extensionsDir)).toEqual([]);
+    });
 
     it("a manifest without publisher fails, nothing is installed, temp is cleaned up", async () => {
         const vsix = await makeVsix("nopub.vsix", vsixEntries({ name: "hello", version: "1.0.0" }));

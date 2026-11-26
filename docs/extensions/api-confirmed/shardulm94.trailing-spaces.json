@@ -1,0 +1,14 @@
+{
+    "members": [
+        "commands.registerTextEditorCommand",
+        "window.createTextEditorDecorationType",
+        "window.onDidChangeActiveTextEditor",
+        "window.setStatusBarMessage",
+        "window.visibleTextEditors",
+        "workspace.getConfiguration",
+        "workspace.onDidChangeConfiguration",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidOpenTextDocument",
+        "workspace.onWillSaveTextDocument"
+    ]
+}

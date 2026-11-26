@@ -1,76 +1,58 @@
 {
   "members": {
     "debug.activeDebugConsole": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.activeDebugSession": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.activeStackItem": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.addBreakpoints": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.asDebugSourceUri": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.breakpoints": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.onDidChangeActiveDebugSession": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.onDidChangeActiveStackItem": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.onDidChangeBreakpoints": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.onDidReceiveDebugSessionCustomEvent": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.onDidStartDebugSession": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.onDidTerminateDebugSession": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.registerDebugAdapterDescriptorFactory": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.registerDebugAdapterTrackerFactory": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.registerDebugConfigurationProvider": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.removeBreakpoints": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.startDebugging": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.stopDebugging": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     }
   }
 }

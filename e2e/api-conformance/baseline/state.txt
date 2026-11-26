@@ -1,1 +1,2 @@
+vscode API - globalState / workspaceState state - handling of objects
 vscode API - globalState / workspaceState state basics

@@ -2,11 +2,21 @@ import { getCharDisplayWidth } from "@tuidom/core/common/unicodeWidth";
 import { describe, expect, it } from "vitest";
 
 import { CODICON_GLYPHS } from "./codicons.generated.ts";
-import { codicon, iconGlyph, renderCodicons } from "./codicons.ts";
+import { codicon, iconGlyph, renderCodicons, stripCodicons } from "./codicons.ts";
 import { CODICON_UNICODE } from "./codiconsUnicode.ts";
 
 const CHECK = CODICON_GLYPHS.check;
 const SYNC = CODICON_GLYPHS.sync;
+
+describe("stripCodicons", () => {
+    it("drops known and unknown icons with modifiers, keeps an escaped one literal", () => {
+        expect(stripCodicons("$(sync~spin) Indexing $(nope) \\$(check) done")).toBe(" Indexing  $(check) done");
+    });
+
+    it("text without markup is unchanged", () => {
+        expect(stripCodicons("plain $ (x)")).toBe("plain $ (x)");
+    });
+});
 
 describe("renderCodicons", () => {
     it("leaves text without markup as is", () => {
@@ -104,5 +114,23 @@ describe("codicon", () => {
     it("gives an empty glyph for a name a table lacks", () => {
         expect(codicon("beaker").unicode).toBe("");
         expect(codicon("definitely-not-a-codicon")).toEqual({ nerdFont: "", unicode: "" });
+    });
+});
+
+describe("Unicode fallback for symbol kinds", () => {
+    it.each([
+        "symbol-namespace",
+        "symbol-package",
+        "symbol-string",
+        "symbol-number",
+        "symbol-boolean",
+        "symbol-array",
+        "symbol-object",
+        "symbol-key",
+        "symbol-null",
+    ])("%s draws a one-cell glyph, not an empty string", (name) => {
+        const glyph = iconGlyph(codicon(name), false);
+        expect(glyph).not.toBe("");
+        expect(getCharDisplayWidth(glyph.codePointAt(0) ?? 0)).toBe(1);
     });
 });

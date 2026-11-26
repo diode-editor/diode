@@ -12,6 +12,7 @@ import type { ViewsService } from "../../../browser/parts/views/viewsService.ts"
 import { PROBLEMS_VIEW_ID } from "../../markers/browser/problemsComponent.ts";
 import type { TerminalEditorService } from "../../terminal/browser/terminalEditorService.ts";
 import {
+    type ITerminalCreateOptions,
     type ITerminalInstance,
     TERMINAL_VIEW_ID,
     type TerminalExitReason,
@@ -33,7 +34,6 @@ import {
     type ITask,
     type ShellQuoting,
 } from "../common/tasks.ts";
-import { type ITaskVariableContext, resolveVariables } from "../common/taskVariables.ts";
 
 export type ITaskEvent =
     | { readonly kind: "changed" }
@@ -97,18 +97,44 @@ interface IActiveTask {
     readonly problems: IProblemCollection | undefined;
 }
 
-interface ILaunch {
-    readonly kind: TerminalKind;
+interface ILaunchBase {
     readonly name: string;
-    readonly shellPath?: string;
-    readonly shellArgs?: readonly string[];
-    readonly cwd?: string;
-    readonly env?: Readonly<Record<string, string>>;
     readonly message?: string;
     readonly waitOnExit: TerminalWaitOnExit;
     readonly resolvedDefinition: Readonly<Record<string, unknown>>;
     /** Resolved, with task variables substituted in `filePrefix`. */
     readonly matchers: readonly IProblemMatcher[];
+}
+
+/** The extension host runs the process in a pty of its own. */
+interface ICustomLaunch extends ILaunchBase {
+    readonly kind: "custom";
+}
+
+interface IProcessLaunch extends ILaunchBase {
+    readonly kind: "process";
+    readonly shellPath: string;
+    readonly shellArgs: readonly string[];
+    readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string>>;
+}
+
+type ILaunch = ICustomLaunch | IProcessLaunch;
+
+/** `TerminalService` reads an undefined-valued key as absent; the spreads are for types only. */
+function processOptionsOf(
+    launch: IProcessLaunch,
+): Pick<ITerminalCreateOptions, "shellPath" | "shellArgs" | "cwd" | "env" | "isFeatureTerminal"> {
+    return {
+        // Upstream `_createShellLaunchConfig`: a task's shell is not injected with shell integration.
+        isFeatureTerminal: true,
+        shellPath: launch.shellPath,
+        shellArgs: launch.shellArgs,
+        // Stryker disable ConditionalExpression: equivalent, see above
+        ...(launch.cwd !== undefined ? { cwd: launch.cwd } : {}),
+        ...(launch.env !== undefined ? { env: launch.env } : {}),
+        // Stryker restore ConditionalExpression
+    };
 }
 
 /** Where task problems go; `warn` writes to the `Tasks` log. */
@@ -122,7 +148,8 @@ export interface ITaskProblemsHost extends IProblemCollectorHost {
 export type ITaskEditorTerminals = Pick<TerminalEditorService, "reveal">;
 
 export interface ITaskRunContext {
-    readonly variables: ITaskVariableContext;
+    /** Substitutes the variables of a string or a JSON tree (a copy); an unresolvable one throws. */
+    readonly resolve: <T>(value: T) => T;
     readonly platform: TaskPlatform;
 }
 
@@ -211,17 +238,25 @@ export class TerminalTaskSystem extends Disposable {
      * If the same task is already running, returns `active` with its promise; the service decides (`instancePolicy`).
      * A variable that cannot be resolved is a refusal.
      */
+    public isActive(task: ITask): boolean {
+        return this.active.has(getMapKey(task));
+    }
+
     public run(task: ITask, context: ITaskRunContext): ITaskExecuteResult {
         const running = this.active.get(getMapKey(task));
         if (running !== undefined) return { kind: "active", task: running.task, promise: running.summary.promise };
         return this.execute(task, this.launchOf(task, context));
     }
 
-    /** With `reevaluateOnRerun` variables are recomputed; without it, the run reuses the previous launch. */
-    public rerun(context: ITaskRunContext): ITaskExecuteResult | undefined {
+    /** The task {@link rerun} runs; with `reevaluateOnRerun` the service runs it anew instead. */
+    public getLastTask(): ITask | undefined {
+        return this.lastTask?.task;
+    }
+
+    /** Runs the last task again with its previous launch, variables included. */
+    public rerun(): ITaskExecuteResult | undefined {
         if (this.lastTask === undefined) return undefined;
         const { task, launch } = this.lastTask;
-        if (task.runOptions.reevaluateOnRerun) return this.run(task, context);
         const running = this.active.get(getMapKey(task));
         if (running !== undefined) return { kind: "active", task: running.task, promise: running.summary.promise };
         return this.execute(task, launch);
@@ -320,14 +355,9 @@ export class TerminalTaskSystem extends Disposable {
             // An idle terminal is always relaunched: a removed one is already forgotten (`forgetTerminal`).
             const relaunched = this.terminalService.relaunchInstance(reuse.id, {
                 name: launch.name,
-                // Stryker disable ConditionalExpression: TerminalService reads an undefined-valued key as absent;
-                // the spreads are for types only
-                ...(launch.shellPath !== undefined ? { shellPath: launch.shellPath } : {}),
-                ...(launch.shellArgs !== undefined ? { shellArgs: launch.shellArgs } : {}),
-                ...(launch.cwd !== undefined ? { cwd: launch.cwd } : {}),
-                ...(launch.env !== undefined ? { env: launch.env } : {}),
+                ...(launch.kind === "process" ? processOptionsOf(launch) : {}),
+                // Stryker disable next-line ConditionalExpression: equivalent, see `processOptionsOf`
                 ...(launch.message !== undefined ? { message: launch.message } : {}),
-                // Stryker restore ConditionalExpression
                 waitOnExit: launch.waitOnExit,
                 clear,
             });
@@ -383,14 +413,9 @@ export class TerminalTaskSystem extends Disposable {
         }
         return this.terminalService.createInstance({
             name: launch.name,
-            // Stryker disable ConditionalExpression: TerminalService reads an undefined-valued key as absent;
-            // the spreads are for types only
-            ...(launch.shellPath !== undefined ? { shellPath: launch.shellPath } : {}),
-            ...(launch.shellArgs !== undefined ? { shellArgs: launch.shellArgs } : {}),
-            ...(launch.cwd !== undefined ? { cwd: launch.cwd } : {}),
-            ...(launch.env !== undefined ? { env: launch.env } : {}),
+            ...processOptionsOf(launch),
+            // Stryker disable next-line ConditionalExpression: equivalent, see `processOptionsOf`
             ...(launch.message !== undefined ? { message: launch.message } : {}),
-            // Stryker restore ConditionalExpression
             waitOnExit: launch.waitOnExit,
         });
     }
@@ -433,7 +458,8 @@ export class TerminalTaskSystem extends Disposable {
         const { task, terminalId } = active;
         const { reveal, revealProblems } = task.command.presentation;
         const foundProblems = collector !== undefined && collector.numberOfMatches > 0;
-        const foundErrors = foundProblems && (collector.maxMarkerSeverity ?? 0) >= MarkerSeverity.Error;
+        // Error is the highest severity: "at least an error" is "an error".
+        const foundErrors = foundProblems && collector.maxMarkerSeverity === MarkerSeverity.Error;
         if (revealProblems === "onProblem" && foundProblems) {
             this.views.openView(PROBLEMS_VIEW_ID);
         } else if (reason === undefined && reveal === "silent" && (exitCode !== 0 || foundErrors)) {
@@ -486,10 +512,10 @@ export class TerminalTaskSystem extends Disposable {
 
     private launchOf(task: ITask, context: ITaskRunContext): ILaunch {
         const { command } = task;
-        const resolve = (value: string): string => resolveVariables(value, context.variables);
+        const { resolve } = context;
         const waitOnExit = waitOnExitOf(command.presentation, task.isBackground);
         const name = task.name;
-        const resolvedDefinition = resolveDeep(task.definition, resolve);
+        const { _key: _ignored, ...resolvedDefinition } = resolve(task.definition);
         const matchers = this.resolveMatchers(task, resolve);
         if (command.runtime === "custom") {
             return {
@@ -503,9 +529,10 @@ export class TerminalTaskSystem extends Disposable {
         }
         const options = command.options ?? {};
         const cwd = this.cwdOf(task, options.cwd === undefined ? undefined : resolve(options.cwd));
-        const env = options.env === undefined ? undefined : resolveRecord(options.env, resolve);
-        const commandName = resolveCommandString(command.name ?? "", resolve);
-        const args = (command.args ?? []).map((arg) => resolveCommandString(arg, resolve));
+        const env = resolve(options.env);
+        const unresolvedCommand = command.name ?? "";
+        const commandName = resolve(unresolvedCommand);
+        const args = resolve(command.args ?? []);
         const base = {
             kind: "process" as const,
             name,
@@ -534,8 +561,7 @@ export class TerminalTaskSystem extends Disposable {
             shell.executable,
             options.shell,
             commandName,
-            // Stryker disable next-line StringLiteral: equivalent: without a command the resolved string is empty, and any source with spaces leaves it as is
-            command.name ?? "",
+            unresolvedCommand,
             args,
         );
         return {
@@ -602,31 +628,16 @@ function commandValue(value: CommandString): string {
     return typeof value === "string" ? value : value.value;
 }
 
-function resolveCommandString(value: CommandString, resolve: (v: string) => string): CommandString {
-    return typeof value === "string" ? resolve(value) : { value: resolve(value.value), quoting: value.quoting };
-}
-
-function resolveRecord(
-    record: Readonly<Record<string, string>>,
-    resolve: (v: string) => string,
-): Record<string, string> {
-    return Object.fromEntries(Object.entries(record).map(([k, v]) => [k, resolve(v)]));
-}
-
-function resolveDeep(
-    value: Readonly<Record<string, unknown>>,
-    resolve: (v: string) => string,
-): Record<string, unknown> {
-    const walk = (v: unknown): unknown => {
-        if (typeof v === "string") return resolve(v);
-        if (Array.isArray(v)) return v.map(walk);
-        if (typeof v === "object" && v !== null) {
-            return Object.fromEntries(Object.entries(v).map(([k, inner]) => [k, walk(inner)]));
-        }
-        return v;
-    };
-    const { _key: _ignored, ...definition } = value;
-    return walk(definition) as Record<string, unknown>;
+/**
+ * What {@link TerminalTaskSystem} resolves variables in (upstream's `_collectTaskVariables`): the command with its
+ * options, the definition and the `filePrefix` of inline matchers. A named matcher brings no `${input:…}`.
+ */
+export function variableSourcesOf(task: ITask): unknown {
+    const prefixes = task.problemMatchers.map((matcher) =>
+        // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent: a string has no `filePrefix` either
+        typeof matcher === "string" ? undefined : matcher.filePrefix,
+    );
+    return [task.command, task.definition, prefixes];
 }
 
 /** By the shell's OS (upstream uses the process OS, which is the same thing). */

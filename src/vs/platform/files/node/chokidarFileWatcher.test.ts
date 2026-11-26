@@ -209,6 +209,37 @@ describe("ChokidarFileWatcher", () => {
             expect(calls).toBe(2);
         });
 
+        it("a directory made during the initial scan is not missed: the scan's end moves the watch to it", async () => {
+            const watcher = new TestFileWatcher();
+            watcher.existing = new Set(["/ws"]);
+            let calls = 0;
+            watcher.watchFile("/ws/.diode/settings.json", () => {
+                calls++;
+            });
+
+            // Made before chokidar is ready: part of the initial scan, no `addDir` with `ignoreInitial`.
+            watcher.existing.add("/ws/.diode").add("/ws/.diode/settings.json");
+            watcher.created[0].emit("ready");
+
+            expect(watcher.created[0].closed).toBe(1);
+            expect(watcher.created[1].target).toBe("/ws/.diode");
+            await settle();
+            expect(calls).toBe(1);
+        });
+
+        it("the initial scan ends without the directory: the watch stays on the ancestor", () => {
+            const watcher = new TestFileWatcher();
+            watcher.existing = new Set(["/ws"]);
+            watcher.watchFile("/ws/.diode/settings.json", () => {
+                /* no-op */
+            });
+
+            watcher.created[0].emit("ready");
+
+            expect(watcher.created).toHaveLength(1);
+            expect(watcher.created[0].closed).toBe(0);
+        });
+
         it("when an empty directory appears there is no file and no change", async () => {
             const watcher = new TestFileWatcher();
             watcher.existing = new Set(["/ws"]);

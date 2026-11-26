@@ -85,8 +85,9 @@ describe("Workbench: Ctrl+Tab overlay and Ctrl+PgUp/PgDn cycling", () => {
         h.testApp.render();
         expect(switcher.isOpen()).toBe(false);
         expect(editorService.editorGroups.activeGroup.getMruOrder()[0]?.label).toBe("a.ts");
-        const frameAfter = h.testApp.backend.screenToString();
-        expect(frameAfter).not.toMatch(/│\s*\S+ c\.ts.*│/);
+        // The overlay's item rows (y=3..5) no longer list c.ts; the tab row above still does.
+        const rowsAfter = h.testApp.backend.screenToString().split("\n");
+        for (const row of rowsAfter.slice(3, 6)) expect(row).not.toMatch(/c\.ts/);
     });
 
     // A legacy terminal never sends the modifier keyup, so the series must end

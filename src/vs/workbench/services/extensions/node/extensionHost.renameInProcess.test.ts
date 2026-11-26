@@ -14,8 +14,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 // The channel is wired in-process: the wire is visible, plus branches unreachable through a real fork.
 
 const NOOP_EDITOR_OPTIONS = {
-    getActiveEditorOptions: () => null,
-    setActiveEditorOptions: () => undefined,
+    setEditorOptions: () => undefined,
     getActiveEditorFilePath: () => null,
     getActiveEditorMeta: () => ({ uri: null, languageId: null, isDirty: false }),
     onActiveEditorChanged: () => ({ dispose: () => undefined }),

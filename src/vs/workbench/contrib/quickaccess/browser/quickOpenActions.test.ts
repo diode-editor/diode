@@ -5,9 +5,11 @@ import { parseChord, parseKeybinding } from "../../../../platform/keybinding/com
 
 import {
     gotoLineAction,
+    gotoSymbolAction,
     QUICK_ACCESS_ACTIONS,
     quickOpenAction,
     showAllEditorsAction,
+    showAllSymbolsAction,
     showCommandsAction,
 } from "./quickOpenActions.ts";
 import type { QuickOpenService } from "./quickOpenService.ts";
@@ -48,6 +50,23 @@ describe("quick open actions — prefill argument", () => {
         quickOpenAction.run(accessor, { text: "src/" });
         quickOpenAction.run(accessor, 42);
         expect(shown).toEqual(["", ""]);
+    });
+
+    it("showAllSymbols: opens `#`", () => {
+        const { accessor, shown } = makeAccessor();
+        showAllSymbolsAction.run(accessor);
+        expect(shown).toEqual(["#"]);
+        expect(showAllSymbolsAction.id).toBe("workbench.action.showAllSymbols");
+        expect(showAllSymbolsAction.title).toBe("Go to Symbol in Workspace...");
+    });
+
+    it("gotoSymbol: opens `@`, with the argument after the prefix", () => {
+        const { accessor, shown } = makeAccessor();
+        gotoSymbolAction.run(accessor);
+        gotoSymbolAction.run(accessor, ":foo");
+        expect(shown).toEqual(["@", "@:foo"]);
+        expect(gotoSymbolAction.id).toBe("workbench.action.gotoSymbol");
+        expect(gotoSymbolAction.title).toBe("Go to Symbol in Editor...");
     });
 
     it("gotoLine: the argument is appended after the `:` prefix", () => {
@@ -112,6 +131,7 @@ describe("quick input commands, as upstream quickAccessActions.ts", () => {
             "acceptOpen",
             "focusOpen",
             "toggleOpen",
+            "backOpen",
             "navigateOpen true",
             "navigateOpen false",
             "navigateOpen true",

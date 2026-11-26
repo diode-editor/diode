@@ -224,7 +224,7 @@ describe("Workbench: Output channel selector", () => {
 
     it("the selector caption is the active channel's label, not the raw id", () => {
         expect(frame()).toContain("Bootstrap");
-        expect(frame()).not.toContain("PROBLEMS  OUTPUT  TERMINAL   bootstrap");
+        expect(frame()).not.toContain("PROBLEMS  OUTPUT  DEBUG CONSOLE  TERMINAL   bootstrap");
     });
 
     it("the header selector is not duplicated by a ⋯ button with the same list", () => {
@@ -232,7 +232,7 @@ describe("Workbench: Output channel selector", () => {
         // with `isSelection` renders as a SelectBox and stays out of the overflow.
         const tabRow = frame()
             .split("\n")
-            .find((line) => line.includes("PROBLEMS  OUTPUT  TERMINAL"));
+            .find((line) => line.includes("PROBLEMS  OUTPUT  DEBUG CONSOLE  TERMINAL"));
         expect(tabRow).toContain("Bootstrap");
         expect(tabRow).not.toContain("⋯");
     });

@@ -139,12 +139,40 @@ describe("MenuRegistry", () => {
             { menuId: MenuId.EditorContext, command: "ungrouped-b" },
             { menuId: MenuId.EditorContext, command: "ungrouped-a" },
         ]);
-        // "" sorts before "1_g"; within "" the insertion order is stable (order defaults to 0).
+        // "" comes after every named group; within "" the insertion order is stable (order defaults to 0).
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual([
+            "Title:grouped",
+            "─",
             "Title:ungrouped-b",
             "Title:ungrouped-a",
+        ]);
+    });
+
+    it("group sorting: navigation, named groups by string, the unnamed group last (VS Code `group sorting`)", () => {
+        const h = setup([
+            { menuId: MenuId.EditorContext, command: "unnamed", group: "" },
+            { menuId: MenuId.EditorContext, command: "hello", group: "hello" },
+            { menuId: MenuId.EditorContext, command: "zero", group: "0_hello" },
+            { menuId: MenuId.EditorContext, command: "nav", group: "navigation" },
+        ]);
+        expect(h.registry.getMenuItemGroups(MenuId.EditorContext).map((g) => g.group)).toEqual([
+            "navigation",
+            "0_hello",
+            "hello",
+            "",
+        ]);
+        // The unnamed group on the right-hand side of the comparison too.
+        const reversed = setup([
+            { menuId: MenuId.EditorContext, command: "nav", group: "navigation" },
+            { menuId: MenuId.EditorContext, command: "unnamed" },
+            { menuId: MenuId.EditorContext, command: "other", group: "1_other" },
+        ]);
+        expect(labels(reversed.registry.getMenuItems(MenuId.EditorContext))).toEqual([
+            "Title:nav",
             "─",
-            "Title:grouped",
+            "Title:other",
+            "─",
+            "Title:unnamed",
         ]);
     });
 
@@ -397,6 +425,20 @@ describe("MenuRegistry — enablement", () => {
         const h = setup([item({ enablement: "!gitOperationInProgress" })]);
         h.contextKeys.set("gitOperationInProgress", true);
         expect(h.registry.hasItems(MenuId.ExplorerContext)).toBe(true);
+    });
+
+    it("the command palette leaves out an item whose enablement is false, as upstream's disabled one", () => {
+        const h = setup([
+            item({ menuId: MenuId.CommandPalette, when: "inDebugMode", enablement: "suspendDebuggeeSupported" }),
+        ]);
+        h.contextKeys.set("inDebugMode", true);
+        expect(h.registry.isInCommandPalette("git.commit")).toBe(false);
+
+        h.contextKeys.set("suspendDebuggeeSupported", true);
+        expect(h.registry.isInCommandPalette("git.commit")).toBe(true);
+
+        h.contextKeys.set("inDebugMode", false);
+        expect(h.registry.isInCommandPalette("git.commit")).toBe(false);
     });
 });
 

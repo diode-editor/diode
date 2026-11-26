@@ -51,7 +51,7 @@ export function openDocumentSyncSources(group: IEditorService): IDocumentSyncSou
 }
 
 /** Plus models without a tab: `openTextDocument` opens the document before showing it, as upstream. */
-function openDocumentModels(group: IEditorService): Set<BaseTextEditorModel> {
+export function openDocumentModels(group: IEditorService): Set<BaseTextEditorModel> {
     const models = new Set<BaseTextEditorModel>();
     for (const editor of group.getTextSurfaces()) models.add(editor.model);
     for (const model of group.getUntitledModelsWithoutEditor()) models.add(model);

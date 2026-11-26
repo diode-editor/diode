@@ -51,7 +51,7 @@ export function getSettingsCompletionContext(
  * exactly in half-typed states (`{ edi`, `"x": t`). Quotes are included so the
  * provider's `"editor.tabSize"` replaces `"edi"` instead of doubling them.
  */
-function tokenRangeAt(text: string, offset: number): IOffsetRange {
+export function tokenRangeAt(text: string, offset: number): IOffsetRange {
     let start = offset;
     while (start > 0 && TOKEN_CHAR.test(text[start - 1])) start--;
     const quoted = start > 0 && text[start - 1] === '"';

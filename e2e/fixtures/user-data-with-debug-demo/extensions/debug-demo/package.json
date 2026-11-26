@@ -1,0 +1,101 @@
+{
+    "name": "debug-demo",
+    "displayName": "Debug Demo",
+    "description": "A debugger extension shaped like CodeLLDB: the `demo` debug type, its configuration provider, `${command:pickProgram}`, an inline adapter that stops on entry and a tracker, a menu item on a call stack frame and a debug toolbar button.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onDebugResolve:demo",
+        "onDebugDynamicConfigurations:demo",
+        "onCommand:debugDemo.breakOnPrintf",
+        "onCommand:debugDemo.frameMenu",
+        "onCommand:debugDemo.ping"
+    ],
+    "contributes": {
+        "breakpoints": [{ "language": "c" }],
+        "commands": [
+            {
+                "command": "debugDemo.breakOnPrintf",
+                "title": "Break on printf",
+                "category": "Debug Demo"
+            },
+            {
+                "command": "debugDemo.frameMenu",
+                "title": "Show Frame in Status",
+                "category": "Debug Demo"
+            },
+            {
+                "command": "debugDemo.ping",
+                "title": "Ping the Demo",
+                "category": "Debug Demo",
+                "icon": "$(bell)"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "demo",
+                "label": "Debug Demo",
+                "languages": [
+                    "cpp"
+                ],
+                "variables": {
+                    "pickProgram": "debugDemo.pickProgram"
+                },
+                "configurationAttributes": {
+                    "launch": {
+                        "properties": {
+                            "program": {
+                                "type": "string",
+                                "description": "Path to the program to debug."
+                            },
+                            "stopOnEntry": {
+                                "type": "boolean",
+                                "description": "Stop on the first line of the program.",
+                                "default": true
+                            }
+                        }
+                    }
+                },
+                "configurationSnippets": [
+                    {
+                        "label": "Debug Demo: Launch",
+                        "description": "A new configuration for the demo debugger.",
+                        "body": {
+                            "type": "demo",
+                            "request": "launch",
+                            "name": "${1:Debug Demo}",
+                            "program": "${2:./hello}"
+                        }
+                    }
+                ],
+                "initialConfigurations": [
+                    {
+                        "type": "demo",
+                        "request": "launch",
+                        "name": "Debug Demo",
+                        "program": "${command:pickProgram}"
+                    }
+                ]
+            }
+        ],
+        "menus": {
+            "debug/callstack/context": [
+                {
+                    "command": "debugDemo.frameMenu",
+                    "when": "callStackItemType == 'stackFrame' && debugType == 'demo'"
+                }
+            ],
+            "debug/toolBar": [
+                {
+                    "command": "debugDemo.ping",
+                    "when": "debugType == 'demo'",
+                    "group": "navigation@80"
+                }
+            ]
+        }
+    }
+}

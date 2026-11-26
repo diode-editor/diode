@@ -14,13 +14,12 @@ export default defineConfig({
       skipFull: true,
       reportOnFailure: true,
       provider: "v8",
-      // Ratchet: autoUpdate raises the numbers after coverage; exclusions are in docs/TESTING.md.
+      // The gate is 100 and is not lowered (scripts/check-coverage-thresholds.mjs); exclusions are in docs/TESTING.md.
       thresholds: {
-        autoUpdate: true,
-        statements: 54.86,
-        branches: 48.71,
-        functions: 37.5,
-        lines: 57.28,
+        statements: 100,
+        branches: 100,
+        functions: 100,
+        lines: 100,
       },
       reporter: ["text", "lcov", "json", "json-summary", "text-summary"],
       include: ["src/**/*.ts", "extensions/**/*.ts"],
@@ -31,8 +30,12 @@ export default defineConfig({
         "src/TestUtils/perfFixtures.ts", // fixtures for benches only (shim)
         "src/vs/workbench/api/common/testStubRpc.ts", // test RpcEndpoint stub for namespace unit tests
         "src/TestUtils/basedpyrightFixture.ts", // pythonLsp* suite harness: the until() timeout branch is reachable only in a red run
+        "src/TestUtils/javaHarness.ts", // javaLsp* suite harness: skipped without a JDK, and its guards are reachable only in a red run
         "src/TestUtils/stockVsix.ts", // downloads a vsix from the marketplace (error branches, network/broken registry, are reachable only in a red run)
         "src/TestUtils/eslintFixture.ts", // eslintLsp* suite harness: npm install of the library is reachable only on a cold cache (network), the rename race only in a parallel run
+        "src/TestUtils/goLspSession.ts", // goLsp* suite harness: its guards are reachable only in a red run, the skip only without Go
+        "src/TestUtils/clangdSession.ts", // clangd* suite harness: its guards are reachable only in a red run, the skip only without clangd
+        "src/TestUtils/clangdFixture.ts", // clangd* suite fixture: the PATH miss is reachable only without clangd, the .exe name only on Windows
         "src/**/*.stories.ts",
         "src/demos/**",
         "src/vs/diode/main.ts",
@@ -68,6 +71,8 @@ export default defineConfig({
         "src/vs/editor/common/model/textModelSearch.ts",
         "src/vs/editor/common/core/{textChange,wordCharacterClassifier,characterClassifier}.ts",
         "src/vs/base/common/uint.ts",
+        // Snippet grammar: gate is the upstream parser test next to it (contrib/snippet/test/browser/).
+        "src/vs/editor/contrib/snippet/browser/snippetParser.ts",
         "**/__fixtures__/**", // test DATA (foreign sources), not executable code
 
         // --- Pure types: nothing to execute ---
@@ -121,6 +126,13 @@ export default defineConfig({
         "src/vs/platform/files/node/treeWatcherMain.testEntry.ts", // child-process entry of the same suite, runs only in a fork
         "extensions/git/main.ts", // extension entry (subprocess IO/glue); logic is in git/lib/* (units), e2e covers integration
         "extensions/diode-lsp-typescript/main.ts", // extension entry (spawns languageclient); resolution logic is in lib/* (units), integration: the stock server in extensionHost.typescriptLsp.test
+        "extensions/references-view/main.ts", // extension entry (loaded in a subprocess); behavior: e2e/javaHierarchyCommands.test.ts
+        "extensions/merge-conflict/main.ts", // extension entry (re-export, loaded in a subprocess)
+        "extensions/merge-conflict/src/**", // vendored upstream (scripts/import-vscode-editor.mjs), runs in a subprocess; gate: e2e/mergeConflict.test.ts
+        "extensions/html-language-features/main.ts", // extension entry (starts the vendored client); settings shim in lib/* (units), integration: extensionHost.htmlLsp.*.test
+        "extensions/html-language-features/{client,server}/**", // vendored upstream (scripts/import-vscode-editor.mjs), runs in the extension host and a server process; gate: extensionHost.htmlLsp.*.test
+        "extensions/debug-auto-launch/main.ts", // extension entry (re-export, loaded in a subprocess)
+        "extensions/debug-auto-launch/src/**", // vendored upstream (scripts/import-vscode-editor.mjs), runs in a subprocess; gate: e2e/scenarios/jsDebug.scenario.ts
         "extensions/diode-settings/main.ts", // extension entry (loaded in a subprocess); behavior: ExtensionHost.SettingsCompletion.test.ts + e2e
         "src/**/*.generated.ts", // generated data files (e.g. settings-schema.generated.ts), run in a subprocess
         "src/vs/workbench/api/common/vscodeNamespace.ts", // RPC wiring in a subprocess

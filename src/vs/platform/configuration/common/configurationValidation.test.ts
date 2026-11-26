@@ -93,6 +93,26 @@ describe("sanitizeConfiguration", () => {
         expect(sanitized.get("git.enabled")).toBe("whatever");
     });
 
+    it("a boolean in a key that outgrew it reads as its equivalent; other garbage is still the default", () => {
+        const enabled = new Map([
+            [
+                "a.mode",
+                schema({
+                    type: "string",
+                    enum: ["on", "off", "auto"],
+                    default: "auto",
+                    booleanEquivalents: { true: "on", false: "off" },
+                }),
+            ],
+        ]);
+        const sanitized = (value: unknown): unknown =>
+            sanitizeConfiguration(ConfigurationModel.fromRaw({ "a.mode": value }), enabled).get("a.mode");
+        expect(sanitized(true)).toBe("on");
+        expect(sanitized(false)).toBe("off");
+        expect(sanitized("sideways")).toBe("auto");
+        expect(sanitized(1)).toBe("auto");
+    });
+
     it("everything valid — the same model, no rebuild", () => {
         const model = ConfigurationModel.fromRaw({ "editor.tabSize": 2 });
 

@@ -157,7 +157,13 @@ describe("Workbench — keys in the focused terminal go to the shell, like VS Co
 
         it("a bound key with Meta stays with the workbench: Cmd+B (kitty Super) toggles the sidebar", () => {
             // Under tmux there is no Cmd (it shares a bit with Alt): pin the mode off, the test may run inside tmux.
-            boot({ "keyboard.platform": "mac", "terminal.modes": { tmux: false } });
+            // The tier and Cmd are fixed at startup (#1049): a kitty terminal with super, set explicitly.
+            boot({
+                "keyboard.platform": "mac",
+                "terminal.modes": { tmux: false },
+                "terminal.tier": "kitty",
+                "terminal.capabilities": { super: true },
+            });
             const before = sidebarVisible();
 
             h.testApp.backend.sendRaw("\x1b[98;9u");
@@ -290,7 +296,8 @@ describe("Workbench — keys in the focused terminal go to the shell, like VS Co
     /** #857: a program switched on the kitty keyboard protocol (CSI > 1 u); the outer terminal speaks kitty too. */
     describe("kitty keyboard protocol in the terminal", () => {
         function bootKitty(flags: number): void {
-            boot();
+            // The outer terminal speaks kitty because the user turned it on (#1049).
+            boot({ "terminal.tier": "kitty" });
             surface.kittyKeyboardFlags = flags;
         }
 

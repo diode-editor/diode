@@ -19,6 +19,204 @@
 
 declare module "vscode" {
 	/**
+	 * An event that is fired when files are going to be created.
+	 *
+	 * To make modifications to the workspace before the files are created,
+	 * call the {@linkcode FileWillCreateEvent.waitUntil waitUntil}-function with a
+	 * thenable that resolves to a {@link WorkspaceEdit workspace edit}.
+	 */
+	export interface FileWillCreateEvent {
+
+		/**
+		 * A cancellation token.
+		 */
+		readonly token: CancellationToken;
+
+		/**
+		 * The files that are going to be created.
+		 */
+		readonly files: readonly Uri[];
+
+		/**
+		 * Allows to pause the event and to apply a {@link WorkspaceEdit workspace edit}.
+		 *
+		 * *Note:* This function can only be called during event dispatch and not
+		 * in an asynchronous manner:
+		 *
+		 * ```ts
+		 * workspace.onWillCreateFiles(event => {
+		 * 	// async, will *throw* an error
+		 * 	setTimeout(() => event.waitUntil(promise));
+		 *
+		 * 	// sync, OK
+		 * 	event.waitUntil(promise);
+		 * })
+		 * ```
+		 *
+		 * @param thenable A thenable that delays saving.
+		 */
+		waitUntil(thenable: Thenable<WorkspaceEdit>): void;
+
+		/**
+		 * Allows to pause the event until the provided thenable resolves.
+		 *
+		 * *Note:* This function can only be called during event dispatch.
+		 *
+		 * @param thenable A thenable that delays saving.
+		 */
+		waitUntil(thenable: Thenable<any>): void;
+	}
+
+	/**
+	 * An event that is fired after files are created.
+	 */
+	export interface FileCreateEvent {
+
+		/**
+		 * The files that got created.
+		 */
+		readonly files: readonly Uri[];
+	}
+
+	/**
+	 * An event that is fired when files are going to be deleted.
+	 *
+	 * To make modifications to the workspace before the files are deleted,
+	 * call the {@link FileWillCreateEvent.waitUntil `waitUntil`}-function with a
+	 * thenable that resolves to a {@link WorkspaceEdit workspace edit}.
+	 */
+	export interface FileWillDeleteEvent {
+
+		/**
+		 * A cancellation token.
+		 */
+		readonly token: CancellationToken;
+
+		/**
+		 * The files that are going to be deleted.
+		 */
+		readonly files: readonly Uri[];
+
+		/**
+		 * Allows to pause the event and to apply a {@link WorkspaceEdit workspace edit}.
+		 *
+		 * *Note:* This function can only be called during event dispatch and not
+		 * in an asynchronous manner:
+		 *
+		 * ```ts
+		 * workspace.onWillCreateFiles(event => {
+		 * 	// async, will *throw* an error
+		 * 	setTimeout(() => event.waitUntil(promise));
+		 *
+		 * 	// sync, OK
+		 * 	event.waitUntil(promise);
+		 * })
+		 * ```
+		 *
+		 * @param thenable A thenable that delays saving.
+		 */
+		waitUntil(thenable: Thenable<WorkspaceEdit>): void;
+
+		/**
+		 * Allows to pause the event until the provided thenable resolves.
+		 *
+		 * *Note:* This function can only be called during event dispatch.
+		 *
+		 * @param thenable A thenable that delays saving.
+		 */
+		waitUntil(thenable: Thenable<any>): void;
+	}
+
+	/**
+	 * An event that is fired after files are deleted.
+	 */
+	export interface FileDeleteEvent {
+
+		/**
+		 * The files that got deleted.
+		 */
+		readonly files: readonly Uri[];
+	}
+
+	/**
+	 * An event that is fired when files are going to be renamed.
+	 *
+	 * To make modifications to the workspace before the files are renamed,
+	 * call the {@link FileWillCreateEvent.waitUntil `waitUntil`}-function with a
+	 * thenable that resolves to a {@link WorkspaceEdit workspace edit}.
+	 */
+	export interface FileWillRenameEvent {
+
+		/**
+		 * A cancellation token.
+		 */
+		readonly token: CancellationToken;
+
+		/**
+		 * The files that are going to be renamed.
+		 */
+		readonly files: ReadonlyArray<{
+			/**
+			 * The old uri of a file.
+			 */
+			readonly oldUri: Uri;
+			/**
+			 * The new uri of a file.
+			 */
+			readonly newUri: Uri;
+		}>;
+
+		/**
+		 * Allows to pause the event and to apply a {@link WorkspaceEdit workspace edit}.
+		 *
+		 * *Note:* This function can only be called during event dispatch and not
+		 * in an asynchronous manner:
+		 *
+		 * ```ts
+		 * workspace.onWillCreateFiles(event => {
+		 * 	// async, will *throw* an error
+		 * 	setTimeout(() => event.waitUntil(promise));
+		 *
+		 * 	// sync, OK
+		 * 	event.waitUntil(promise);
+		 * })
+		 * ```
+		 *
+		 * @param thenable A thenable that delays saving.
+		 */
+		waitUntil(thenable: Thenable<WorkspaceEdit>): void;
+
+		/**
+		 * Allows to pause the event until the provided thenable resolves.
+		 *
+		 * *Note:* This function can only be called during event dispatch.
+		 *
+		 * @param thenable A thenable that delays saving.
+		 */
+		waitUntil(thenable: Thenable<any>): void;
+	}
+
+	/**
+	 * An event that is fired after files are renamed.
+	 */
+	export interface FileRenameEvent {
+
+		/**
+		 * The files that got renamed.
+		 */
+		readonly files: ReadonlyArray<{
+			/**
+			 * The old uri of a file.
+			 */
+			readonly oldUri: Uri;
+			/**
+			 * The new uri of a file.
+			 */
+			readonly newUri: Uri;
+		}>;
+	}
+
+	/**
 	 * Options to configure the behavior of the {@link WorkspaceFolder workspace folder} pick UI.
 	 */
 	export interface WorkspaceFolderPickOptions {
@@ -133,6 +331,51 @@ declare module "vscode" {
 	}
 
 	/**
+	 * Rendering style of the line numbers.
+	 */
+	export enum TextEditorLineNumbersStyle {
+		/**
+		 * Do not render the line numbers.
+		 */
+		Off = 0,
+		/**
+		 * Render the line numbers.
+		 */
+		On = 1,
+		/**
+		 * Render the line numbers with values relative to the primary cursor location.
+		 */
+		Relative = 2,
+		/**
+		 * Render the line numbers on every 10th line number.
+		 */
+		Interval = 3,
+	}
+
+	/**
+	 * Represents different {@link TextEditor.revealRange reveal} strategies in a text editor.
+	 */
+	export enum TextEditorRevealType {
+		/**
+		 * The range will be revealed with as little scrolling as possible.
+		 */
+		Default = 0,
+		/**
+		 * The range will always be revealed in the center of the viewport.
+		 */
+		InCenter = 1,
+		/**
+		 * If the range is outside the viewport, it will be revealed in the center of the viewport.
+		 * Otherwise, it will be revealed with as little scrolling as possible.
+		 */
+		InCenterIfOutsideViewport = 2,
+		/**
+		 * The range will always be revealed at the top of the viewport.
+		 */
+		AtTop = 3
+	}
+
+	/**
 	 * Represents a {@link TextEditor text editor}'s {@link TextEditor.options options}.
 	 */
 	export interface TextEditorOptions {
@@ -169,6 +412,13 @@ declare module "vscode" {
 		 * When setting a text editor's options, this property is optional.
 		 */
 		cursorStyle?: TextEditorCursorStyle;
+
+		/**
+		 * Render relative line numbers w.r.t. the current line number.
+		 * When getting a text editor's options, this property will always be present.
+		 * When setting a text editor's options, this property is optional.
+		 */
+		lineNumbers?: TextEditorLineNumbersStyle;
 	}
 
 	/**
@@ -190,6 +440,12 @@ declare module "vscode" {
 		 * The selections in this text editor. The primary selection is always at index 0.
 		 */
 		selections: readonly Selection[];
+
+		/**
+		 * The current visible ranges in the editor (vertically).
+		 * This accounts only for vertical scrolling, and not for horizontal scrolling.
+		 */
+		readonly visibleRanges: readonly Range[];
 
 		/**
 		 * Text editor options.
@@ -226,6 +482,32 @@ declare module "vscode" {
 		}): Thenable<boolean>;
 
 		/**
+		 * Insert a {@link SnippetString snippet} and put the editor into snippet mode. "Snippet mode"
+		 * means the editor adds placeholders and additional cursors so that the user can complete
+		 * or accept the snippet.
+		 *
+		 * @param snippet The snippet to insert in this edit.
+		 * @param location Position or range at which to insert the snippet, defaults to the current editor selection or selections.
+		 * @param options The undo/redo behavior around this edit. By default, undo stops will be created before and after this edit.
+		 * @returns A promise that resolves with a value indicating if the snippet could be inserted. Note that the promise does not signal
+		 * that the snippet is completely filled-in or accepted.
+		 */
+		insertSnippet(snippet: SnippetString, location?: Position | Range | readonly Position[] | readonly Range[], options?: {
+			/**
+			 * Add undo stop before making the edits.
+			 */
+			readonly undoStopBefore: boolean;
+			/**
+			 * Add undo stop after making the edits.
+			 */
+			readonly undoStopAfter: boolean;
+			/**
+			 * Keep whitespace of the {@link SnippetString.value} as is.
+			 */
+			readonly keepWhitespace?: boolean;
+		}): Thenable<boolean>;
+
+		/**
 		 * Adds a set of decorations to the text editor. If a set of decorations already exists with
 		 * the given {@link TextEditorDecorationType decoration type}, they will be replaced. If
 		 * `rangesOrOptions` is empty, the existing decorations with the given {@link TextEditorDecorationType decoration type}
@@ -237,6 +519,14 @@ declare module "vscode" {
 		 * @param rangesOrOptions Either {@link Range ranges} or more detailed {@link DecorationOptions options}.
 		 */
 		setDecorations(decorationType: TextEditorDecorationType, rangesOrOptions: readonly Range[] | readonly DecorationOptions[]): void;
+
+		/**
+		 * Scroll as indicated by `revealType` in order to reveal the given range.
+		 *
+		 * @param range A range.
+		 * @param revealType The scrolling strategy for revealing `range`.
+		 */
+		revealRange(range: Range, revealType?: TextEditorRevealType): void;
 	}
 
 	/**
@@ -335,6 +625,70 @@ declare module "vscode" {
 		 * Dispose and free associated resources.
 		 */
 		dispose(): void;
+	}
+
+	/**
+	 * A channel for containing log output.
+	 *
+	 * To get an instance of a `LogOutputChannel` use
+	 * {@link window.createOutputChannel createOutputChannel}.
+	 */
+	export interface LogOutputChannel extends OutputChannel {
+
+		/**
+		 * The current log level of the channel. Defaults to {@link env.logLevel editor log level}.
+		 */
+		readonly logLevel: LogLevel;
+
+		/**
+		 * An {@link Event} which fires when the log level of the channel changes.
+		 */
+		readonly onDidChangeLogLevel: Event<LogLevel>;
+
+		/**
+		 * Outputs the given trace message to the channel. Use this method to log verbose information.
+		 *
+		 * The message is only logged if the channel is configured to display {@link LogLevel.Trace trace} log level.
+		 *
+		 * @param message trace message to log
+		 */
+		trace(message: string, ...args: any[]): void;
+
+		/**
+		 * Outputs the given debug message to the channel.
+		 *
+		 * The message is only logged if the channel is configured to display {@link LogLevel.Debug debug} log level or lower.
+		 *
+		 * @param message debug message to log
+		 */
+		debug(message: string, ...args: any[]): void;
+
+		/**
+		 * Outputs the given information message to the channel.
+		 *
+		 * The message is only logged if the channel is configured to display {@link LogLevel.Info info} log level or lower.
+		 *
+		 * @param message info message to log
+		 */
+		info(message: string, ...args: any[]): void;
+
+		/**
+		 * Outputs the given warning message to the channel.
+		 *
+		 * The message is only logged if the channel is configured to display {@link LogLevel.Warning warning} log level or lower.
+		 *
+		 * @param message warning message to log
+		 */
+		warn(message: string, ...args: any[]): void;
+
+		/**
+		 * Outputs the given error or error message to the channel.
+		 *
+		 * The message is only logged if the channel is configured to display {@link LogLevel.Error error} log level or lower.
+		 *
+		 * @param error Error or error message to log
+		 */
+		error(error: string | Error, ...args: any[]): void;
 	}
 
 	/**
@@ -569,6 +923,16 @@ declare module "vscode" {
 		 * An {@link Event} which fires when the selection in an editor has changed.
 		 */
 		export const onDidChangeTextEditorSelection: Event<TextEditorSelectionChangeEvent>;
+
+		/**
+		 * An {@link Event} which fires when the visible ranges of an editor has changed.
+		 */
+		export const onDidChangeTextEditorVisibleRanges: Event<TextEditorVisibleRangesChangeEvent>;
+
+		/**
+		 * An {@link Event} which fires when the options of an editor have changed.
+		 */
+		export const onDidChangeTextEditorOptions: Event<TextEditorOptionsChangeEvent>;
 
 		/**
 		 * An {@link Event} which fires when the view column of an editor has changed.
@@ -858,6 +1222,17 @@ declare module "vscode" {
 		export function createQuickPick<T extends QuickPickItem>(): QuickPick<T>;
 
 		/**
+		 * Creates a {@link InputBox} to let the user enter some text input.
+		 *
+		 * Note that in many cases the more convenient {@link window.showInputBox} is easier to use.
+		 * {@link window.createInputBox} should be used when {@link window.showInputBox} does not offer
+		 * the required flexibility.
+		 *
+		 * @returns A new {@link InputBox}.
+		 */
+		export function createInputBox(): InputBox;
+
+		/**
 		 * Creates a new {@link OutputChannel output channel} with the given name and language id
 		 * If language id is not provided, then **Log** is used as default language id.
 		 *
@@ -869,6 +1244,15 @@ declare module "vscode" {
 		 * @returns A new output channel.
 		 */
 		export function createOutputChannel(name: string, languageId?: string): OutputChannel;
+
+		/**
+		 * Creates a new {@link LogOutputChannel log output channel} with the given name.
+		 *
+		 * @param name Human-readable string which will be used to represent the channel in the UI.
+		 * @param options Options for the log output channel.
+		 * @returns A new log output channel.
+		 */
+		export function createOutputChannel(name: string, options: { /** literal-type defines return type */log: true }): LogOutputChannel;
 
 		/**
 		 * Set a message to the status bar. This is a short hand for the more powerful
@@ -970,6 +1354,15 @@ declare module "vscode" {
 		export function registerFileDecorationProvider(provider: FileDecorationProvider): Disposable;
 
 		/**
+		 * Registers a provider for a contributed terminal profile.
+		 *
+		 * @param id The ID of the contributed terminal profile.
+		 * @param provider The terminal profile provider.
+		 * @returns A {@link Disposable disposable} that unregisters the provider.
+		 */
+		export function registerTerminalProfileProvider(id: string, provider: TerminalProfileProvider): Disposable;
+
+		/**
 		 * The currently active color theme as configured in the settings. The active
 		 * theme can be changed via the `workbench.colorTheme` setting.
 		 */
@@ -1008,6 +1401,11 @@ declare module "vscode" {
 		 * An {@link Event} which fires when a terminal is disposed.
 		 */
 		export const onDidCloseTerminal: Event<Terminal>;
+
+		/**
+		 * An {@link Event} which fires when a {@link Terminal.state terminal's state} has changed.
+		 */
+		export const onDidChangeTerminalState: Event<Terminal>;
 
 		/**
 		 * Fires when shell integration activates or one of its properties changes in a terminal.
@@ -1247,6 +1645,42 @@ declare module "vscode" {
 		 * Extension runs where the remote extension host runs.
 		 */
 		Workspace = 2
+	}
+
+	/**
+	 * Log levels
+	 */
+	export enum LogLevel {
+
+		/**
+		 * No messages are logged with this level.
+		 */
+		Off = 0,
+
+		/**
+		 * All messages are logged with this level.
+		 */
+		Trace = 1,
+
+		/**
+		 * Messages with debug and higher log level are logged with this level.
+		 */
+		Debug = 2,
+
+		/**
+		 * Messages with info and higher log level are logged with this level.
+		 */
+		Info = 3,
+
+		/**
+		 * Messages with warning and higher log level are logged with this level.
+		 */
+		Warning = 4,
+
+		/**
+		 * Only error messages are logged with this level.
+		 */
+		Error = 5
 	}
 
 	/**
@@ -2030,6 +2464,34 @@ declare module "vscode" {
 		 * event. Can be `undefined`.
 		 */
 		readonly kind: TextEditorSelectionChangeKind | undefined;
+	}
+
+	/**
+	 * Represents an event describing the change in a {@link TextEditor.visibleRanges text editor's visible ranges}.
+	 */
+	export interface TextEditorVisibleRangesChangeEvent {
+		/**
+		 * The {@link TextEditor text editor} for which the visible ranges have changed.
+		 */
+		readonly textEditor: TextEditor;
+		/**
+		 * The new value for the {@link TextEditor.visibleRanges text editor's visible ranges}.
+		 */
+		readonly visibleRanges: readonly Range[];
+	}
+
+	/**
+	 * Represents an event describing the change in a {@link TextEditor.options text editor's options}.
+	 */
+	export interface TextEditorOptionsChangeEvent {
+		/**
+		 * The {@link TextEditor text editor} for which the options have changed.
+		 */
+		readonly textEditor: TextEditor;
+		/**
+		 * The new value for the {@link TextEditor.options text editor's options}.
+		 */
+		readonly options: TextEditorOptions;
 	}
 
 	/**
@@ -4044,6 +4506,76 @@ declare module "vscode" {
 	 */
 	export namespace workspace {
 		/**
+		 * An event that is emitted when files are being created.
+		 *
+		 * *Note 1:* This event is triggered by user gestures, like creating a file from the
+		 * explorer, or from the {@linkcode workspace.applyEdit}-api. This event is *not* fired when
+		 * files change on disk, e.g triggered by another application, or when using the
+		 * {@linkcode FileSystem workspace.fs}-api.
+		 *
+		 * *Note 2:* When this event is fired, edits to files that are are being created cannot be applied.
+		 */
+		export const onWillCreateFiles: Event<FileWillCreateEvent>;
+
+		/**
+		 * An event that is emitted when files have been created.
+		 *
+		 * *Note:* This event is triggered by user gestures, like creating a file from the
+		 * explorer, or from the {@linkcode workspace.applyEdit}-api, but this event is *not* fired when
+		 * files change on disk, e.g triggered by another application, or when using the
+		 * {@linkcode FileSystem workspace.fs}-api.
+		 */
+		export const onDidCreateFiles: Event<FileCreateEvent>;
+
+		/**
+		 * An event that is emitted when files are being deleted.
+		 *
+		 * *Note 1:* This event is triggered by user gestures, like deleting a file from the
+		 * explorer, or from the {@linkcode workspace.applyEdit}-api, but this event is *not* fired when
+		 * files change on disk, e.g triggered by another application, or when using the
+		 * {@linkcode FileSystem workspace.fs}-api.
+		 *
+		 * *Note 2:* When deleting a folder with children only one event is fired.
+		 */
+		export const onWillDeleteFiles: Event<FileWillDeleteEvent>;
+
+		/**
+		 * An event that is emitted when files have been deleted.
+		 *
+		 * *Note 1:* This event is triggered by user gestures, like deleting a file from the
+		 * explorer, or from the {@linkcode workspace.applyEdit}-api, but this event is *not* fired when
+		 * files change on disk, e.g triggered by another application, or when using the
+		 * {@linkcode FileSystem workspace.fs}-api.
+		 *
+		 * *Note 2:* When deleting a folder with children only one event is fired.
+		 */
+		export const onDidDeleteFiles: Event<FileDeleteEvent>;
+
+		/**
+		 * An event that is emitted when files are being renamed.
+		 *
+		 * *Note 1:* This event is triggered by user gestures, like renaming a file from the
+		 * explorer, and from the {@linkcode workspace.applyEdit}-api, but this event is *not* fired when
+		 * files change on disk, e.g triggered by another application, or when using the
+		 * {@linkcode FileSystem workspace.fs}-api.
+		 *
+		 * *Note 2:* When renaming a folder with children only one event is fired.
+		 */
+		export const onWillRenameFiles: Event<FileWillRenameEvent>;
+
+		/**
+		 * An event that is emitted when files have been renamed.
+		 *
+		 * *Note 1:* This event is triggered by user gestures, like renaming a file from the
+		 * explorer, and from the {@linkcode workspace.applyEdit}-api, but this event is *not* fired when
+		 * files change on disk, e.g triggered by another application, or when using the
+		 * {@linkcode FileSystem workspace.fs}-api.
+		 *
+		 * *Note 2:* When renaming a folder with children only one event is fired.
+		 */
+		export const onDidRenameFiles: Event<FileRenameEvent>;
+
+		/**
 		 * The uri of the first entry of {@linkcode workspace.workspaceFolders workspaceFolders}
 		 * as `string`. `undefined` if there is no first entry.
 		 *
@@ -4592,6 +5124,129 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerTaskProvider(type: string, provider: TaskProvider): Disposable;
+
+		/**
+		 * Decodes the content from a `Uint8Array` to a `string`. You MUST
+		 * provide the entire content at once to ensure that the encoding
+		 * can properly apply. Do not use this method to decode content
+		 * in chunks, as that may lead to incorrect results.
+		 *
+		 * Will pick an encoding based on settings and the content of the
+		 * buffer (for example byte order marks).
+		 *
+		 * *Note* that if you decode content that is unsupported by the
+		 * encoding, the result may contain substitution characters as
+		 * appropriate.
+		 *
+		 * @throws This method will throw an error when the content is binary.
+		 *
+		 * @param content The text content to decode as a `Uint8Array`.
+		 * @returns A thenable that resolves to the decoded `string`.
+		 */
+		export function decode(content: Uint8Array): Thenable<string>;
+
+		/**
+		 * Decodes the content from a `Uint8Array` to a `string` using the
+		 * provided encoding. You MUST provide the entire content at once
+		 * to ensure that the encoding can properly apply. Do not use this
+		 * method to decode content in chunks, as that may lead to incorrect
+		 * results.
+		 *
+		 * *Note* that if you decode content that is unsupported by the
+		 * encoding, the result may contain substitution characters as
+		 * appropriate.
+		 *
+		 * @throws This method will throw an error when the content is binary.
+		 *
+		 * @param content The text content to decode as a `Uint8Array`.
+		 * @param options Additional context for picking the encoding.
+		 * @returns A thenable that resolves to the decoded `string`.
+		 */
+		export function decode(content: Uint8Array, options: {
+			/**
+			 * Allows to explicitly pick the encoding to use.
+			 * See {@link TextDocument.encoding} for more information
+			 * about valid values for encoding.
+			 * Using an unsupported encoding will fallback to the
+			 * default configured encoding.
+			 */
+			readonly encoding: string;
+		}): Thenable<string>;
+
+		/**
+		 * Decodes the content from a `Uint8Array` to a `string`. You MUST
+		 * provide the entire content at once to ensure that the encoding
+		 * can properly apply. Do not use this method to decode content
+		 * in chunks, as that may lead to incorrect results.
+		 *
+		 * The encoding is picked based on settings and the content
+		 * of the buffer (for example byte order marks).
+		 *
+		 * *Note* that if you decode content that is unsupported by the
+		 * encoding, the result may contain substitution characters as
+		 * appropriate.
+		 *
+		 * @throws This method will throw an error when the content is binary.
+		 *
+		 * @param content The content to decode as a `Uint8Array`.
+		 * @param options Additional context for picking the encoding.
+		 * @returns A thenable that resolves to the decoded `string`.
+		 */
+		export function decode(content: Uint8Array, options: {
+			/**
+			 * The URI that represents the file if known. This information
+			 * is used to figure out the encoding related configuration
+			 * for the file if any.
+			 */
+			readonly uri: Uri;
+		}): Thenable<string>;
+
+		/**
+		 * Encodes the content of a `string` to a `Uint8Array`.
+		 *
+		 * Will pick an encoding based on settings.
+		 *
+		 * @param content The content to decode as a `string`.
+		 * @returns A thenable that resolves to the encoded `Uint8Array`.
+		 */
+		export function encode(content: string): Thenable<Uint8Array>;
+
+		/**
+		 * Encodes the content of a `string` to a `Uint8Array` using the
+		 * provided encoding.
+		 *
+		 * @param content The content to decode as a `string`.
+		 * @param options Additional context for picking the encoding.
+		 * @returns A thenable that resolves to the encoded `Uint8Array`.
+		 */
+		export function encode(content: string, options: {
+			/**
+			 * Allows to explicitly pick the encoding to use.
+			 * See {@link TextDocument.encoding} for more information
+			 * about valid values for encoding.
+			 * Using an unsupported encoding will fallback to the
+			 * default configured encoding.
+			 */
+			readonly encoding: string;
+		}): Thenable<Uint8Array>;
+
+		/**
+		 * Encodes the content of a `string` to a `Uint8Array`.
+		 *
+		 * The encoding is picked based on settings.
+		 *
+		 * @param content The content to decode as a `string`.
+		 * @param options Additional context for picking the encoding.
+		 * @returns A thenable that resolves to the encoded `Uint8Array`.
+		 */
+		export function encode(content: string, options: {
+			/**
+			 * The URI that represents the file if known. This information
+			 * is used to figure out the encoding related configuration
+			 * for the file if any.
+			 */
+			readonly uri: Uri;
+		}): Thenable<Uint8Array>;
 	}
 
 	/**
@@ -4900,6 +5555,14 @@ declare module "vscode" {
 		value?: string;
 
 		/**
+		 * Selection of the pre-filled {@linkcode InputBoxOptions.value value}. Defined as tuple of two number where the
+		 * first is the inclusive start index and the second the exclusive end index. When `undefined` the whole
+		 * pre-filled value will be selected, when empty (start equals end) only the cursor will be set,
+		 * otherwise the defined range will be selected.
+		 */
+		valueSelection?: [number, number];
+
+		/**
 		 * The text to display underneath the input box.
 		 */
 		prompt?: string;
@@ -5147,6 +5810,26 @@ declare module "vscode" {
 		readonly onDidAccept: Event<void>;
 
 		/**
+		 * Buttons for actions in the UI.
+		 */
+		buttons: readonly QuickInputButton[];
+
+		/**
+		 * An event signaling when a button was triggered.
+		 *
+		 * This event fires for buttons stored in the {@link QuickPick.buttons buttons} array. This event does
+		 * not fire for buttons on a {@link QuickPickItem}.
+		 */
+		readonly onDidTriggerButton: Event<QuickInputButton>;
+
+		/**
+		 * An event signaling when a button in a particular {@link QuickPickItem} was triggered.
+		 *
+		 * This event does not fire for buttons in the title bar which are part of {@link QuickPick.buttons buttons}.
+		 */
+		readonly onDidTriggerItemButton: Event<QuickPickItemButtonEvent<T>>;
+
+		/**
 		 * Items to pick from. This can be read and updated by the extension.
 		 */
 		items: readonly T[];
@@ -5190,6 +5873,163 @@ declare module "vscode" {
 		 * An event signaling when the selected items have changed.
 		 */
 		readonly onDidChangeSelection: Event<readonly T[]>;
+	}
+
+	/**
+	 * A concrete {@link QuickInput} to let the user input a text value.
+	 *
+	 * Note that in many cases the more convenient {@link window.showInputBox} is easier to use.
+	 * {@link window.createInputBox} should be used when {@link window.showInputBox} does not offer
+	 * the required flexibility.
+	 */
+	export interface InputBox extends QuickInput {
+
+		/**
+		 * The current input value.
+		 */
+		value: string;
+
+		/**
+		 * Selection range in the input value.
+		 *
+		 * Defined as tuple of two numbers where the first is the inclusive start index and the second the
+		 * exclusive end index. When `undefined` the whole pre-filled value will be selected, when empty
+		 * (start equals end) only the cursor will be set, otherwise the defined range will be selected.
+		 *
+		 * This property does not get updated when the user types or makes a selection, but it can be updated
+		 * by the extension.
+		 */
+		valueSelection: readonly [number, number] | undefined;
+
+		/**
+		 * Optional placeholder text shown when no value has been input.
+		 */
+		placeholder: string | undefined;
+
+		/**
+		 * Determines if the input value should be hidden. Defaults to `false`.
+		 */
+		password: boolean;
+
+		/**
+		 * An event signaling when the value has changed.
+		 */
+		readonly onDidChangeValue: Event<string>;
+
+		/**
+		 * An event signaling when the user indicated acceptance of the input value.
+		 */
+		readonly onDidAccept: Event<void>;
+
+		/**
+		 * Buttons for actions in the UI.
+		 */
+		buttons: readonly QuickInputButton[];
+
+		/**
+		 * An event signaling when a button was triggered.
+		 */
+		readonly onDidTriggerButton: Event<QuickInputButton>;
+
+		/**
+		 * An optional prompt text providing some ask or explanation to the user.
+		 */
+		prompt: string | undefined;
+
+		/**
+		 * An optional validation message indicating a problem with the current input value.
+		 *
+		 * By setting a string, the InputBox will use a default {@link InputBoxValidationSeverity} of Error.
+		 * Returning `undefined` clears the validation message.
+		 */
+		validationMessage: string | InputBoxValidationMessage | undefined;
+	}
+
+	/**
+	 * Specifies the location where a {@link QuickInputButton} should be rendered.
+	 */
+	export enum QuickInputButtonLocation {
+		/**
+		 * The button is rendered in the title bar.
+		 */
+		Title = 1,
+
+		/**
+		 * The button is rendered inline to the right of the input box.
+		 */
+		Inline = 2,
+
+		/**
+		 * The button is rendered at the far end inside the input box.
+		 */
+		Input = 3
+	}
+
+	/**
+	 * A button for an action in a {@link QuickPick} or {@link InputBox}.
+	 */
+	export interface QuickInputButton {
+		/**
+		 * The icon for the button.
+		 */
+		readonly iconPath: IconPath;
+
+		/**
+		 * An optional tooltip displayed when hovering over the button.
+		 */
+		readonly tooltip?: string | undefined;
+
+		/**
+		 * The location where the button should be rendered.
+		 *
+		 * Defaults to {@link QuickInputButtonLocation.Title}.
+		 *
+		 * **Note:** This property is ignored if the button was added to a {@link QuickPickItem}.
+		 */
+		location?: QuickInputButtonLocation;
+
+		/**
+		 * When present, indicates that the button is a toggle button that can be checked or unchecked.
+		 */
+		readonly toggle?: {
+			/**
+			 * Indicates whether the toggle button is currently checked.
+			 * This property will be updated when the button is toggled.
+			 */
+			checked: boolean;
+		};
+	}
+
+	/**
+	 * Predefined buttons for {@link QuickPick} and {@link InputBox}.
+	 */
+	export class QuickInputButtons {
+		/**
+		 * A predefined back button for {@link QuickPick} and {@link InputBox}.
+		 *
+		 * This button should be used for consistency when a navigation back button is needed. It comes
+		 * with a predefined icon, tooltip, and location.
+		 */
+		static readonly Back: QuickInputButton;
+
+		/**
+		 * @hidden
+		 */
+		private constructor();
+	}
+
+	/**
+	 * An event describing a button that was pressed on a {@link QuickPickItem}.
+	 */
+	export interface QuickPickItemButtonEvent<T extends QuickPickItem> {
+		/**
+		 * The button that was pressed.
+		 */
+		readonly button: QuickInputButton;
+		/**
+		 * The item that the button belongs to.
+		 */
+		readonly item: T;
 	}
 
 	/**
@@ -5681,6 +6521,17 @@ declare module "vscode" {
 	}
 
 	/**
+	 * Completion item tags are extra annotations that tweak the rendering of a completion
+	 * item.
+	 */
+	export enum CompletionItemTag {
+		/**
+		 * Render a completion as obsolete, usually using a strike-out.
+		 */
+		Deprecated = 1
+	}
+
+	/**
 	 * A completion item represents a text snippet that is proposed to complete text that is being typed.
 	 *
 	 * It is sufficient to create a completion item from just a {@link CompletionItem.label label}. In that
@@ -5711,6 +6562,11 @@ declare module "vscode" {
 		kind?: CompletionItemKind;
 
 		/**
+		 * Tags for this completion item.
+		 */
+		tags?: readonly CompletionItemTag[];
+
+		/**
 		 * A human-readable string with additional information
 		 * about this item, like type or symbol information.
 		 */
@@ -5722,6 +6578,20 @@ declare module "vscode" {
 		documentation?: string | MarkdownString;
 
 		/**
+		 * A string that should be used when comparing this item
+		 * with other items. When `falsy` the {@link CompletionItem.label label}
+		 * is used.
+		 *
+		 * Note that `sortText` is only used for the initial ordering of completion
+		 * items. When having a leading word (prefix) ordering is based on how
+		 * well completions match that prefix and the initial ordering is only used
+		 * when completions match equally well. The prefix is defined by the
+		 * {@linkcode CompletionItem.range range}-property and can therefore be different
+		 * for each completion.
+		 */
+		sortText?: string;
+
+		/**
 		 * A string that should be used when filtering a set of
 		 * completion items. When `falsy` the {@link CompletionItem.label label}
 		 * is used.
@@ -5730,6 +6600,13 @@ declare module "vscode" {
 		 * by the {@linkcode CompletionItem.range range}-property.
 		 */
 		filterText?: string;
+
+		/**
+		 * Select this item when showing. *Note* that only one completion item can be selected and
+		 * that the editor decides which item that is. The rule is that the *first* item of those
+		 * that match best is selected.
+		 */
+		preselect?: boolean;
 
 		/**
 		 * A string or snippet that should be inserted in a document when selecting
@@ -5759,6 +6636,39 @@ declare module "vscode" {
 			 */
 			replacing: Range;
 		};
+
+		/**
+		 * An optional set of characters that when pressed while this completion is active will accept it first and
+		 * then type that character. *Note* that all commit characters should have `length=1` and that superfluous
+		 * characters will be ignored.
+		 */
+		commitCharacters?: string[];
+
+		/**
+		 * Keep whitespace of the {@link CompletionItem.insertText insertText} as is. By default, the editor adjusts leading
+		 * whitespace of new lines so that they match the indentation of the line for which the item is accepted - setting
+		 * this to `true` will prevent that.
+		 */
+		keepWhitespace?: boolean;
+
+		/**
+		 * @deprecated Use `CompletionItem.insertText` and `CompletionItem.range` instead.
+		 *
+		 * An {@link TextEdit edit} which is applied to a document when selecting
+		 * this completion. When an edit is provided the value of
+		 * {@link CompletionItem.insertText insertText} is ignored.
+		 *
+		 * The {@link Range} of the edit must be single-line and on the same
+		 * line completions were {@link CompletionItemProvider.provideCompletionItems requested} at.
+		 */
+		textEdit?: TextEdit;
+
+		/**
+		 * An optional array of additional {@link TextEdit text edits} that are applied when
+		 * selecting this completion. Edits must not overlap with the main {@link CompletionItem.textEdit edit}
+		 * nor with themselves.
+		 */
+		additionalTextEdits?: TextEdit[];
 
 		/**
 		 * An optional {@link Command} that is executed *after* inserting this completion. *Note* that
@@ -6055,6 +6965,66 @@ declare module "vscode" {
 	}
 
 	/**
+	 * The implementation provider interface defines the contract between extensions and
+	 * the go to implementation feature.
+	 */
+	export interface ImplementationProvider {
+
+		/**
+		 * Provide the implementations of the symbol at the given position and document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns A definition or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideImplementation(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Definition | DefinitionLink[]>;
+	}
+
+	/**
+	 * The type definition provider defines the contract between extensions and
+	 * the go to type definition feature.
+	 */
+	export interface TypeDefinitionProvider {
+
+		/**
+		 * Provide the type definition of the symbol at the given position and document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns A definition or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideTypeDefinition(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Definition | DefinitionLink[]>;
+	}
+
+	/**
+	 * The declaration of a symbol representation as one or many {@link Location locations}
+	 * or {@link LocationLink location links}.
+	 */
+	export type Declaration = Location | Location[] | LocationLink[];
+
+	/**
+	 * The declaration provider interface defines the contract between extensions and
+	 * the go to declaration feature.
+	 */
+	export interface DeclarationProvider {
+
+		/**
+		 * Provide the declaration of the symbol at the given position and document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns A declaration or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideDeclaration(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Declaration>;
+	}
+
+	/**
 	 * A hover represents additional information for a symbol or word. Hovers are
 	 * rendered in a tooltip-like widget.
 	 */
@@ -6099,6 +7069,353 @@ declare module "vscode" {
 		 * signaled by returning `undefined` or `null`.
 		 */
 		provideHover(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Hover>;
+	}
+
+	/**
+	 * An EvaluatableExpression represents an expression in a document that can be evaluated by an active debugger or runtime.
+	 * The result of this evaluation is shown in a tooltip-like widget.
+	 * If only a range is specified, the expression will be extracted from the underlying document.
+	 * An optional expression can be used to override the extracted expression.
+	 * In this case the range is still used to highlight the range in the document.
+	 */
+	export class EvaluatableExpression {
+
+		/**
+		 * The range is used to extract the evaluatable expression from the underlying document and to highlight it.
+		 */
+		readonly range: Range;
+
+		/**
+		 * If specified the expression overrides the extracted expression.
+		 */
+		readonly expression?: string | undefined;
+
+		/**
+		 * Creates a new evaluatable expression object.
+		 *
+		 * @param range The range in the underlying document from which the evaluatable expression is extracted.
+		 * @param expression If specified overrides the extracted expression.
+		 */
+		constructor(range: Range, expression?: string);
+	}
+
+	/**
+	 * The evaluatable expression provider interface defines the contract between extensions and
+	 * the debug hover. In this contract the provider returns an evaluatable expression for a given position
+	 * in a document and the editor evaluates this expression in the active debug session and shows the result in a debug hover.
+	 */
+	export interface EvaluatableExpressionProvider {
+
+		/**
+		 * Provide an evaluatable expression for the given document and position.
+		 * The editor will evaluate this expression in the active debug session and will show the result in the debug hover.
+		 * The expression can be implicitly specified by the range in the underlying document or by explicitly returning an expression.
+		 *
+		 * @param document The document for which the debug hover is about to appear.
+		 * @param position The line and character position in the document where the debug hover is about to appear.
+		 * @param token A cancellation token.
+		 * @returns An EvaluatableExpression or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideEvaluatableExpression(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<EvaluatableExpression>;
+	}
+
+	/**
+	 * A symbol kind.
+	 */
+	export enum SymbolKind {
+		/**
+		 * The `File` symbol kind.
+		 */
+		File = 0,
+		/**
+		 * The `Module` symbol kind.
+		 */
+		Module = 1,
+		/**
+		 * The `Namespace` symbol kind.
+		 */
+		Namespace = 2,
+		/**
+		 * The `Package` symbol kind.
+		 */
+		Package = 3,
+		/**
+		 * The `Class` symbol kind.
+		 */
+		Class = 4,
+		/**
+		 * The `Method` symbol kind.
+		 */
+		Method = 5,
+		/**
+		 * The `Property` symbol kind.
+		 */
+		Property = 6,
+		/**
+		 * The `Field` symbol kind.
+		 */
+		Field = 7,
+		/**
+		 * The `Constructor` symbol kind.
+		 */
+		Constructor = 8,
+		/**
+		 * The `Enum` symbol kind.
+		 */
+		Enum = 9,
+		/**
+		 * The `Interface` symbol kind.
+		 */
+		Interface = 10,
+		/**
+		 * The `Function` symbol kind.
+		 */
+		Function = 11,
+		/**
+		 * The `Variable` symbol kind.
+		 */
+		Variable = 12,
+		/**
+		 * The `Constant` symbol kind.
+		 */
+		Constant = 13,
+		/**
+		 * The `String` symbol kind.
+		 */
+		String = 14,
+		/**
+		 * The `Number` symbol kind.
+		 */
+		Number = 15,
+		/**
+		 * The `Boolean` symbol kind.
+		 */
+		Boolean = 16,
+		/**
+		 * The `Array` symbol kind.
+		 */
+		Array = 17,
+		/**
+		 * The `Object` symbol kind.
+		 */
+		Object = 18,
+		/**
+		 * The `Key` symbol kind.
+		 */
+		Key = 19,
+		/**
+		 * The `Null` symbol kind.
+		 */
+		Null = 20,
+		/**
+		 * The `EnumMember` symbol kind.
+		 */
+		EnumMember = 21,
+		/**
+		 * The `Struct` symbol kind.
+		 */
+		Struct = 22,
+		/**
+		 * The `Event` symbol kind.
+		 */
+		Event = 23,
+		/**
+		 * The `Operator` symbol kind.
+		 */
+		Operator = 24,
+		/**
+		 * The `TypeParameter` symbol kind.
+		 */
+		TypeParameter = 25
+	}
+
+	/**
+	 * Symbol tags are extra annotations that tweak the rendering of a symbol.
+	 */
+	export enum SymbolTag {
+
+		/**
+		 * Render a symbol as obsolete, usually using a strike-out.
+		 */
+		Deprecated = 1
+	}
+
+	/**
+	 * Represents information about programming constructs like variables, classes,
+	 * interfaces etc.
+	 */
+	export class SymbolInformation {
+
+		/**
+		 * The name of this symbol.
+		 */
+		name: string;
+
+		/**
+		 * The name of the symbol containing this symbol.
+		 */
+		containerName: string;
+
+		/**
+		 * The kind of this symbol.
+		 */
+		kind: SymbolKind;
+
+		/**
+		 * Tags for this symbol.
+		 */
+		tags?: readonly SymbolTag[];
+
+		/**
+		 * The location of this symbol.
+		 */
+		location: Location;
+
+		/**
+		 * Creates a new symbol information object.
+		 *
+		 * @param name The name of the symbol.
+		 * @param kind The kind of the symbol.
+		 * @param containerName The name of the symbol containing the symbol.
+		 * @param location The location of the symbol.
+		 */
+		constructor(name: string, kind: SymbolKind, containerName: string, location: Location);
+
+		/**
+		 * Creates a new symbol information object.
+		 *
+		 * @deprecated Please use the constructor taking a {@link Location} object.
+		 *
+		 * @param name The name of the symbol.
+		 * @param kind The kind of the symbol.
+		 * @param range The range of the location of the symbol.
+		 * @param uri The resource of the location of symbol, defaults to the current document.
+		 * @param containerName The name of the symbol containing the symbol.
+		 */
+		constructor(name: string, kind: SymbolKind, range: Range, uri?: Uri, containerName?: string);
+	}
+
+	/**
+	 * Represents programming constructs like variables, classes, interfaces etc. that appear in a document. Document
+	 * symbols can be hierarchical and they have two ranges: one that encloses its definition and one that points to
+	 * its most interesting range, e.g. the range of an identifier.
+	 */
+	export class DocumentSymbol {
+
+		/**
+		 * The name of this symbol.
+		 */
+		name: string;
+
+		/**
+		 * More detail for this symbol, e.g. the signature of a function.
+		 */
+		detail: string;
+
+		/**
+		 * The kind of this symbol.
+		 */
+		kind: SymbolKind;
+
+		/**
+		 * Tags for this symbol.
+		 */
+		tags?: readonly SymbolTag[];
+
+		/**
+		 * The range enclosing this symbol not including leading/trailing whitespace but everything else, e.g. comments and code.
+		 */
+		range: Range;
+
+		/**
+		 * The range that should be selected and reveal when this symbol is being picked, e.g. the name of a function.
+		 * Must be contained by the {@linkcode DocumentSymbol.range range}.
+		 */
+		selectionRange: Range;
+
+		/**
+		 * Children of this symbol, e.g. properties of a class.
+		 */
+		children: DocumentSymbol[];
+
+		/**
+		 * Creates a new document symbol.
+		 *
+		 * @param name The name of the symbol.
+		 * @param detail Details for the symbol.
+		 * @param kind The kind of the symbol.
+		 * @param range The full range of the symbol.
+		 * @param selectionRange The range that should be reveal.
+		 */
+		constructor(name: string, detail: string, kind: SymbolKind, range: Range, selectionRange: Range);
+	}
+
+	/**
+	 * The document symbol provider interface defines the contract between extensions and
+	 * the [go to symbol](https://code.visualstudio.com/docs/editor/editingevolved#_go-to-symbol)-feature.
+	 */
+	export interface DocumentSymbolProvider {
+
+		/**
+		 * Provide symbol information for the given document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of document highlights or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideDocumentSymbols(document: TextDocument, token: CancellationToken): ProviderResult<SymbolInformation[] | DocumentSymbol[]>;
+	}
+
+	/**
+	 * Metadata about a document symbol provider.
+	 */
+	export interface DocumentSymbolProviderMetadata {
+		/**
+		 * A human-readable string that is shown when multiple outlines trees show for one document.
+		 */
+		label?: string;
+	}
+
+	/**
+	 * The workspace symbol provider interface defines the contract between extensions and
+	 * the [symbol search](https://code.visualstudio.com/docs/editor/editingevolved#_open-symbol-by-name)-feature.
+	 */
+	export interface WorkspaceSymbolProvider<T extends SymbolInformation = SymbolInformation> {
+
+		/**
+		 * Project-wide search for a symbol matching the given query string.
+		 *
+		 * The `query`-parameter should be interpreted in a *relaxed way* as the editor will apply its own highlighting
+		 * and scoring on the results. A good rule of thumb is to match case-insensitive and to simply check that the
+		 * characters of *query* appear in their order in a candidate symbol. Don't use prefix, substring, or similar
+		 * strict matching.
+		 *
+		 * To improve performance implementors can implement `resolveWorkspaceSymbol` and then provide symbols with partial
+		 * {@link SymbolInformation.location location}-objects, without a `range` defined. The editor will then call
+		 * `resolveWorkspaceSymbol` for selected symbols only, e.g. when opening a workspace symbol.
+		 *
+		 * @param query A query string, can be the empty string in which case all symbols should be returned.
+		 * @param token A cancellation token.
+		 * @returns An array of document highlights or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideWorkspaceSymbols(query: string, token: CancellationToken): ProviderResult<T[]>;
+
+		/**
+		 * Given a symbol fill in its {@link SymbolInformation.location location}. This method is called whenever a symbol
+		 * is selected in the UI. Providers can implement this method and return incomplete symbols from
+		 * {@linkcode WorkspaceSymbolProvider.provideWorkspaceSymbols provideWorkspaceSymbols} which often helps to improve
+		 * performance.
+		 *
+		 * @param symbol The symbol that is to be resolved. Guaranteed to be an instance of an object returned from an
+		 * earlier call to `provideWorkspaceSymbols`.
+		 * @param token A cancellation token.
+		 * @returns The resolved symbol or a thenable that resolves to that. When no result is returned,
+		 * the given `symbol` is used.
+		 */
+		resolveWorkspaceSymbol?(symbol: T, token: CancellationToken): ProviderResult<T>;
 	}
 
 	/**
@@ -6379,6 +7696,30 @@ declare module "vscode" {
 		 * signaled by returning `undefined`, `null`, or an empty array.
 		 */
 		provideDocumentRangeFormattingEdits(document: TextDocument, range: Range, options: FormattingOptions, token: CancellationToken): ProviderResult<TextEdit[]>;
+	}
+
+	/**
+	 * The document formatting provider interface defines the contract between extensions and
+	 * the formatting-feature.
+	 */
+	export interface OnTypeFormattingEditProvider {
+
+		/**
+		 * Provide formatting edits after a character has been typed.
+		 *
+		 * The given position and character should hint to the provider
+		 * what range the position to expand to, like find the matching `{`
+		 * when `}` has been entered.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param ch The character that has been typed.
+		 * @param options Options controlling formatting.
+		 * @param token A cancellation token.
+		 * @returns A set of text edits or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideOnTypeFormattingEdits(document: TextDocument, position: Position, ch: string, options: FormattingOptions, token: CancellationToken): ProviderResult<TextEdit[]>;
 	}
 
 	/**
@@ -7252,6 +8593,45 @@ declare module "vscode" {
 		export function registerDefinitionProvider(selector: DocumentSelector, provider: DefinitionProvider): Disposable;
 
 		/**
+		 * Register an implementation provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider An implementation provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerImplementationProvider(selector: DocumentSelector, provider: ImplementationProvider): Disposable;
+
+		/**
+		 * Register a type definition provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A type definition provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerTypeDefinitionProvider(selector: DocumentSelector, provider: TypeDefinitionProvider): Disposable;
+
+		/**
+		 * Register a declaration provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A declaration provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDeclarationProvider(selector: DocumentSelector, provider: DeclarationProvider): Disposable;
+
+		/**
 		 * Register a hover provider.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are asked in
@@ -7263,6 +8643,44 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerHoverProvider(selector: DocumentSelector, provider: HoverProvider): Disposable;
+
+		/**
+		 * Register a provider that locates evaluatable expressions in text documents.
+		 * The editor will evaluate the expression in the active debug session and will show the result in the debug hover.
+		 *
+		 * If multiple providers are registered for a language an arbitrary provider will be used.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider An evaluatable expression provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerEvaluatableExpressionProvider(selector: DocumentSelector, provider: EvaluatableExpressionProvider): Disposable;
+
+		/**
+		 * Register a document symbol provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A document symbol provider.
+		 * @param metaData metadata about the provider
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDocumentSymbolProvider(selector: DocumentSelector, provider: DocumentSymbolProvider, metaData?: DocumentSymbolProviderMetadata): Disposable;
+
+		/**
+		 * Register a workspace symbol provider.
+		 *
+		 * Multiple providers can be registered. In that case providers are asked in parallel and
+		 * the results are merged. A failing provider (rejected promise or exception) will not cause
+		 * a failure of the whole operation.
+		 *
+		 * @param provider A workspace symbol provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerWorkspaceSymbolProvider(provider: WorkspaceSymbolProvider): Disposable;
 
 		/**
 		 * Register a reference provider.
@@ -7377,6 +8795,21 @@ declare module "vscode" {
 		export function registerDocumentRangeFormattingEditProvider(selector: DocumentSelector, provider: DocumentRangeFormattingEditProvider): Disposable;
 
 		/**
+		 * Register a formatting provider that works on type. The provider is active when the user enables the setting `editor.formatOnType`.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are sorted
+		 * by their {@link languages.match score} and the best-matching provider is used. Failure
+		 * of the selected provider will cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider An on type formatting edit provider.
+		 * @param firstTriggerCharacter A character on which formatting should be triggered, like `}`.
+		 * @param moreTriggerCharacter More trigger characters.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerOnTypeFormattingEditProvider(selector: DocumentSelector, provider: OnTypeFormattingEditProvider, firstTriggerCharacter: string, ...moreTriggerCharacter: string[]): Disposable;
+
+		/**
 		 * Register a code action provider.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are asked in
@@ -7421,6 +8854,24 @@ declare module "vscode" {
 		export function registerSelectionRangeProvider(selector: DocumentSelector, provider: SelectionRangeProvider): Disposable;
 
 		/**
+		 * Register a call hierarchy provider.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A call hierarchy provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerCallHierarchyProvider(selector: DocumentSelector, provider: CallHierarchyProvider): Disposable;
+
+		/**
+		 * Register a type hierarchy provider.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A type hierarchy provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerTypeHierarchyProvider(selector: DocumentSelector, provider: TypeHierarchyProvider): Disposable;
+
+		/**
 		 * Register a color provider.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are asked in
@@ -7431,7 +8882,76 @@ declare module "vscode" {
 		 * @param provider A color provider.
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
+		export function registerDocumentHighlightProvider(selector: DocumentSelector, provider: DocumentHighlightProvider): Disposable;
+
 		export function registerColorProvider(selector: DocumentSelector, provider: DocumentColorProvider): Disposable;
+
+		/**
+		 * Register a code lens provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A code lens provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerCodeLensProvider(selector: DocumentSelector, provider: CodeLensProvider): Disposable;
+
+		/**
+		 * Register a inlay hints provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider An inlay hints provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerInlayHintsProvider(selector: DocumentSelector, provider: InlayHintsProvider): Disposable;
+
+		/**
+		 * Register a provider that returns data for the debugger's 'inline value' feature.
+		 * Whenever the generic debugger has stopped in a source file, providers registered for the language of the file
+		 * are called to return textual data that will be shown in the editor at the end of lines.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider An inline values provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerInlineValuesProvider(selector: DocumentSelector, provider: InlineValuesProvider): Disposable;
+
+		/**
+		 * Register a linked editing range provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are sorted
+		 * by their {@link languages.match score} and the best-matching provider that has a result is used. Failure
+		 * of the selected provider will cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A linked editing range provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerLinkedEditingRangeProvider(selector: DocumentSelector, provider: LinkedEditingRangeProvider): Disposable;
+
+		/**
+		 * Register a document link provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A document link provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDocumentLinkProvider(selector: DocumentSelector, provider: DocumentLinkProvider): Disposable;
 
 		/**
 		 * Creates a new {@link LanguageStatusItem language status item}.
@@ -7541,6 +9061,230 @@ declare module "vscode" {
 	 * A selection range represents a part of a selection hierarchy. A selection range
 	 * may have a parent selection range that contains it.
 	 */
+	export enum DocumentHighlightKind {
+
+		/**
+		 * A textual occurrence.
+		 */
+		Text = 0,
+
+		/**
+		 * Read-access of a symbol, like reading a variable.
+		 */
+		Read = 1,
+
+		/**
+		 * Write-access of a symbol, like writing to a variable.
+		 */
+		Write = 2
+	}
+
+	export class DocumentHighlight {
+
+		/**
+		 * The range this highlight applies to.
+		 */
+		range: Range;
+
+		/**
+		 * The highlight kind, default is {@link DocumentHighlightKind.Text text}.
+		 */
+		kind?: DocumentHighlightKind;
+
+		/**
+		 * Creates a new document highlight object.
+		 *
+		 * @param range The range the highlight applies to.
+		 * @param kind The highlight kind, default is {@link DocumentHighlightKind.Text text}.
+		 */
+		constructor(range: Range, kind?: DocumentHighlightKind);
+	}
+
+	export interface DocumentHighlightProvider {
+
+		/**
+		 * Provide a set of document highlights, like all occurrences of a variable or
+		 * all exit-points of a function.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of document highlights or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideDocumentHighlights(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<DocumentHighlight[]>;
+	}
+
+	/**
+	 * A document link is a range in a text document that links to an internal or external resource, like another
+	 * text document or a web site.
+	 */
+	export class DocumentLink {
+
+		/**
+		 * The range this link applies to.
+		 */
+		range: Range;
+
+		/**
+		 * The uri this link points to.
+		 */
+		target?: Uri;
+
+		/**
+		 * The tooltip text when you hover over this link.
+		 *
+		 * If a tooltip is provided, is will be displayed in a string that includes instructions on how to
+		 * trigger the link, such as `{0} (ctrl + click)`. The specific instructions vary depending on OS,
+		 * user settings, and localization.
+		 */
+		tooltip?: string;
+
+		/**
+		 * Creates a new document link.
+		 *
+		 * @param range The range the document link applies to. Must not be empty.
+		 * @param target The uri the document link points to.
+		 */
+		constructor(range: Range, target?: Uri);
+	}
+
+	/**
+	 * The document link provider defines the contract between extensions and feature of showing
+	 * links in the editor.
+	 */
+	export interface DocumentLinkProvider<T extends DocumentLink = DocumentLink> {
+
+		/**
+		 * Provide links for the given document. Note that the editor ships with a default provider that detects
+		 * `http(s)` and `file` links.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of {@link DocumentLink document links} or a thenable that resolves to such. The lack of a result
+		 * can be signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideDocumentLinks(document: TextDocument, token: CancellationToken): ProviderResult<T[]>;
+
+		/**
+		 * Given a link fill in its {@link DocumentLink.target target}. This method is called when an incomplete
+		 * link is selected in the UI. Providers can implement this method and return incomplete links
+		 * (without target) from the {@linkcode DocumentLinkProvider.provideDocumentLinks provideDocumentLinks} method which
+		 * often helps to improve performance.
+		 *
+		 * @param link The link that is to be resolved.
+		 * @param token A cancellation token.
+		 */
+		resolveDocumentLink?(link: T, token: CancellationToken): ProviderResult<T>;
+	}
+
+	/**
+	 * Represents a list of ranges that can be edited together along with a word pattern to describe valid range contents.
+	 */
+	export class LinkedEditingRanges {
+		/**
+		 * Create a new linked editing ranges object.
+		 *
+		 * @param ranges A list of ranges that can be edited together
+		 * @param wordPattern An optional word pattern that describes valid contents for the given ranges
+		 */
+		constructor(ranges: Range[], wordPattern?: RegExp);
+
+		/**
+		 * A list of ranges that can be edited together. The ranges must have
+		 * identical length and text content. The ranges cannot overlap.
+		 */
+		readonly ranges: Range[];
+
+		/**
+		 * An optional word pattern that describes valid contents for the given ranges.
+		 * If no pattern is provided, the language configuration's word pattern will be used.
+		 */
+		readonly wordPattern: RegExp | undefined;
+	}
+
+	/**
+	 * The linked editing range provider interface defines the contract between extensions and
+	 * the linked editing feature.
+	 */
+	export interface LinkedEditingRangeProvider {
+		/**
+		 * For a given position in a document, returns the range of the symbol at the position and all ranges
+		 * that have the same content. A change to one of the ranges can be applied to all other ranges if the new content
+		 * is valid. An optional word pattern can be returned with the result to describe valid contents.
+		 * If no result-specific word pattern is provided, the word pattern from the language configuration is used.
+		 *
+		 * @param document The document in which the provider was invoked.
+		 * @param position The position at which the provider was invoked.
+		 * @param token A cancellation token.
+		 * @returns A list of ranges that can be edited together
+		 */
+		provideLinkedEditingRanges(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<LinkedEditingRanges>;
+	}
+
+	/**
+	 * Identifies a {@linkcode DocumentDropEdit} or {@linkcode DocumentPasteEdit}
+	 */
+	export class DocumentDropOrPasteEditKind {
+		static readonly Empty: DocumentDropOrPasteEditKind;
+
+		/**
+		 * The root kind for basic text edits.
+		 *
+		 * This kind should be used for edits that insert basic text into the document. A good example of this is
+		 * an edit that pastes the clipboard text while also updating imports in the file based on the pasted text.
+		 * For this we could use a kind such as `text.updateImports.someLanguageId`.
+		 *
+		 * Even though most drop/paste edits ultimately insert text, you should not use {@linkcode Text} as the base kind
+		 * for every edit as this is redundant. Instead a more specific kind that describes the type of content being
+		 * inserted should be used instead. For example, if the edit adds a Markdown link, use `markdown.link` since even
+		 * though the content being inserted is text, it's more important to know that the edit inserts Markdown syntax.
+		 */
+		static readonly Text: DocumentDropOrPasteEditKind;
+
+		/**
+		 * Root kind for edits that update imports in a document in addition to inserting text.
+		 */
+		static readonly TextUpdateImports: DocumentDropOrPasteEditKind;
+
+		/**
+		 * Use {@linkcode DocumentDropOrPasteEditKind.Empty} instead.
+		 */
+		private constructor(value: string);
+
+		/**
+		 * The raw string value of the kind.
+		 */
+		readonly value: string;
+
+		/**
+		 * Create a new kind by appending additional scopes to the current kind.
+		 *
+		 * Does not modify the current kind.
+		 */
+		append(...parts: string[]): DocumentDropOrPasteEditKind;
+
+		/**
+		 * Checks if this kind intersects `other`.
+		 *
+		 * The kind `"text.plain"` for example intersects `text`, `"text.plain"` and `"text.plain.list"`,
+		 * but not `"unicorn"`, or `"textUnicorn.plain"`.
+		 *
+		 * @param other Kind to check.
+		 */
+		intersects(other: DocumentDropOrPasteEditKind): boolean;
+
+		/**
+		 * Checks if `other` is a sub-kind of this `DocumentDropOrPasteEditKind`.
+		 *
+		 * The kind `"text.plain"` for example contains `"text.plain"` and `"text.plain.list"`,
+		 * but not `"text"` or `"unicorn.text.plain"`.
+		 *
+		 * @param other Kind to check.
+		 */
+		contains(other: DocumentDropOrPasteEditKind): boolean;
+	}
+
 	export class SelectionRange {
 
 		/**
@@ -7580,6 +9324,247 @@ declare module "vscode" {
 		 * signaled by returning `undefined` or `null`.
 		 */
 		provideSelectionRanges(document: TextDocument, positions: readonly Position[], token: CancellationToken): ProviderResult<SelectionRange[]>;
+	}
+
+	/**
+	 * Represents programming constructs like functions or constructors in the context
+	 * of call hierarchy.
+	 */
+	export class CallHierarchyItem {
+		/**
+		 * The name of this item.
+		 */
+		name: string;
+
+		/**
+		 * The kind of this item.
+		 */
+		kind: SymbolKind;
+
+		/**
+		 * Tags for this item.
+		 */
+		tags?: readonly SymbolTag[];
+
+		/**
+		 * More detail for this item, e.g. the signature of a function.
+		 */
+		detail?: string;
+
+		/**
+		 * The resource identifier of this item.
+		 */
+		uri: Uri;
+
+		/**
+		 * The range enclosing this symbol not including leading/trailing whitespace but everything else, e.g. comments and code.
+		 */
+		range: Range;
+
+		/**
+		 * The range that should be selected and revealed when this symbol is being picked, e.g. the name of a function.
+		 * Must be contained by the {@linkcode CallHierarchyItem.range range}.
+		 */
+		selectionRange: Range;
+
+		/**
+		 * Creates a new call hierarchy item.
+		 */
+		constructor(kind: SymbolKind, name: string, detail: string, uri: Uri, range: Range, selectionRange: Range);
+	}
+
+	/**
+	 * Represents an incoming call, e.g. a caller of a method or constructor.
+	 */
+	export class CallHierarchyIncomingCall {
+
+		/**
+		 * The item that makes the call.
+		 */
+		from: CallHierarchyItem;
+
+		/**
+		 * The range at which at which the calls appears. This is relative to the caller
+		 * denoted by {@linkcode CallHierarchyIncomingCall.from this.from}.
+		 */
+		fromRanges: Range[];
+
+		/**
+		 * Create a new call object.
+		 *
+		 * @param item The item making the call.
+		 * @param fromRanges The ranges at which the calls appear.
+		 */
+		constructor(item: CallHierarchyItem, fromRanges: Range[]);
+	}
+
+	/**
+	 * Represents an outgoing call, e.g. calling a getter from a method or a method from a constructor etc.
+	 */
+	export class CallHierarchyOutgoingCall {
+
+		/**
+		 * The item that is called.
+		 */
+		to: CallHierarchyItem;
+
+		/**
+		 * The range at which this item is called. This is the range relative to the caller, e.g the item
+		 * passed to {@linkcode CallHierarchyProvider.provideCallHierarchyOutgoingCalls provideCallHierarchyOutgoingCalls}
+		 * and not {@linkcode CallHierarchyOutgoingCall.to this.to}.
+		 */
+		fromRanges: Range[];
+
+		/**
+		 * Create a new call object.
+		 *
+		 * @param item The item being called
+		 * @param fromRanges The ranges at which the calls appear.
+		 */
+		constructor(item: CallHierarchyItem, fromRanges: Range[]);
+	}
+
+	/**
+	 * The call hierarchy provider interface describes the contract between extensions
+	 * and the call hierarchy feature which allows to browse calls and caller of function,
+	 * methods, constructor etc.
+	 */
+	export interface CallHierarchyProvider {
+
+		/**
+		 * Bootstraps call hierarchy by returning the item that is denoted by the given document
+		 * and position. This item will be used as entry into the call graph. Providers should
+		 * return `undefined` or `null` when there is no item at the given location.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns One or multiple call hierarchy items or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		prepareCallHierarchy(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<CallHierarchyItem | CallHierarchyItem[]>;
+
+		/**
+		 * Provide all incoming calls for an item, e.g all callers for a method. In graph terms this describes directed
+		 * and annotated edges inside the call graph, e.g the given item is the starting node and the result is the nodes
+		 * that can be reached.
+		 *
+		 * @param item The hierarchy item for which incoming calls should be computed.
+		 * @param token A cancellation token.
+		 * @returns A set of incoming calls or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideCallHierarchyIncomingCalls(item: CallHierarchyItem, token: CancellationToken): ProviderResult<CallHierarchyIncomingCall[]>;
+
+		/**
+		 * Provide all outgoing calls for an item, e.g call calls to functions, methods, or constructors from the given item. In
+		 * graph terms this describes directed and annotated edges inside the call graph, e.g the given item is the starting
+		 * node and the result is the nodes that can be reached.
+		 *
+		 * @param item The hierarchy item for which outgoing calls should be computed.
+		 * @param token A cancellation token.
+		 * @returns A set of outgoing calls or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideCallHierarchyOutgoingCalls(item: CallHierarchyItem, token: CancellationToken): ProviderResult<CallHierarchyOutgoingCall[]>;
+	}
+
+	/**
+	 * Represents an item of a type hierarchy, like a class or an interface.
+	 */
+	export class TypeHierarchyItem {
+		/**
+		 * The name of this item.
+		 */
+		name: string;
+
+		/**
+		 * The kind of this item.
+		 */
+		kind: SymbolKind;
+
+		/**
+		 * Tags for this item.
+		 */
+		tags?: ReadonlyArray<SymbolTag>;
+
+		/**
+		 * More detail for this item, e.g. the signature of a function.
+		 */
+		detail?: string;
+
+		/**
+		 * The resource identifier of this item.
+		 */
+		uri: Uri;
+
+		/**
+		 * The range enclosing this symbol not including leading/trailing whitespace
+		 * but everything else, e.g. comments and code.
+		 */
+		range: Range;
+
+		/**
+		 * The range that should be selected and revealed when this symbol is being
+		 * picked, e.g. the name of a class. Must be contained by the {@link TypeHierarchyItem.range range}-property.
+		 */
+		selectionRange: Range;
+
+		/**
+		 * Creates a new type hierarchy item.
+		 *
+		 * @param kind The kind of the item.
+		 * @param name The name of the item.
+		 * @param detail The details of the item.
+		 * @param uri The Uri of the item.
+		 * @param range The whole range of the item.
+		 * @param selectionRange The selection range of the item.
+		 */
+		constructor(kind: SymbolKind, name: string, detail: string, uri: Uri, range: Range, selectionRange: Range);
+	}
+
+	/**
+	 * The type hierarchy provider interface describes the contract between extensions
+	 * and the type hierarchy feature.
+	 */
+	export interface TypeHierarchyProvider {
+
+		/**
+		 * Bootstraps type hierarchy by returning the item that is denoted by the given document
+		 * and position. This item will be used as entry into the type graph. Providers should
+		 * return `undefined` or `null` when there is no item at the given location.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns One or multiple type hierarchy items or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		prepareTypeHierarchy(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<TypeHierarchyItem | TypeHierarchyItem[]>;
+
+		/**
+		 * Provide all supertypes for an item, e.g all types from which a type is derived/inherited. In graph terms this describes directed
+		 * and annotated edges inside the type graph, e.g the given item is the starting node and the result is the nodes
+		 * that can be reached.
+		 *
+		 * @param item The hierarchy item for which super types should be computed.
+		 * @param token A cancellation token.
+		 * @returns A set of direct supertypes or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideTypeHierarchySupertypes(item: TypeHierarchyItem, token: CancellationToken): ProviderResult<TypeHierarchyItem[]>;
+
+		/**
+		 * Provide all subtypes for an item, e.g all types which are derived/inherited from the given item. In
+		 * graph terms this describes directed and annotated edges inside the type graph, e.g the given item is the starting
+		 * node and the result is the nodes that can be reached.
+		 *
+		 * @param item The hierarchy item for which subtypes should be computed.
+		 * @param token A cancellation token.
+		 * @returns A set of direct subtypes or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideTypeHierarchySubtypes(item: TypeHierarchyItem, token: CancellationToken): ProviderResult<TypeHierarchyItem[]>;
 	}
 
 	/**
@@ -7715,6 +9700,374 @@ declare module "vscode" {
 			 */
 			readonly range: Range;
 		}, token: CancellationToken): ProviderResult<ColorPresentation[]>;
+	}
+
+	/**
+	 * A code lens represents a {@link Command} that should be shown along with
+	 * source text, like the number of references, a way to run tests, etc.
+	 *
+	 * A code lens is _unresolved_ when no command is associated to it. For performance
+	 * reasons the creation of a code lens and resolving should be done to two stages.
+	 *
+	 * @see {@link CodeLensProvider.provideCodeLenses}
+	 * @see {@link CodeLensProvider.resolveCodeLens}
+	 */
+	export class CodeLens {
+
+		/**
+		 * The range in which this code lens is valid. Should only span a single line.
+		 */
+		range: Range;
+
+		/**
+		 * The command this code lens represents.
+		 */
+		command?: Command;
+
+		/**
+		 * `true` when there is a command associated.
+		 */
+		readonly isResolved: boolean;
+
+		/**
+		 * Creates a new code lens object.
+		 *
+		 * @param range The range to which this code lens applies.
+		 * @param command The command associated to this code lens.
+		 */
+		constructor(range: Range, command?: Command);
+	}
+
+	/**
+	 * A code lens provider adds {@link Command commands} to source text. The commands will be shown
+	 * as dedicated horizontal lines in between the source text.
+	 */
+	export interface CodeLensProvider<T extends CodeLens = CodeLens> {
+
+		/**
+		 * An optional event to signal that the code lenses from this provider have changed.
+		 */
+		onDidChangeCodeLenses?: Event<void>;
+
+		/**
+		 * Compute a list of {@link CodeLens lenses}. This call should return as fast as possible and if
+		 * computing the commands is expensive implementors should only return code lens objects with the
+		 * range set and implement {@link CodeLensProvider.resolveCodeLens resolve}.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of code lenses or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideCodeLenses(document: TextDocument, token: CancellationToken): ProviderResult<T[]>;
+
+		/**
+		 * This function will be called for each visible code lens, usually when scrolling and after
+		 * calls to {@link CodeLensProvider.provideCodeLenses compute}-lenses.
+		 *
+		 * @param codeLens Code lens that must be resolved.
+		 * @param token A cancellation token.
+		 * @returns The given, resolved code lens or thenable that resolves to such.
+		 */
+		resolveCodeLens?(codeLens: T, token: CancellationToken): ProviderResult<T>;
+	}
+
+	/**
+	 * Inlay hint kinds.
+	 *
+	 * The kind of an inline hint defines its appearance, e.g the corresponding foreground and background colors are being
+	 * used.
+	 */
+	export enum InlayHintKind {
+		/**
+		 * An inlay hint that is for a type annotation.
+		 */
+		Type = 1,
+		/**
+		 * An inlay hint that is for a parameter.
+		 */
+		Parameter = 2,
+	}
+
+	/**
+	 * An inlay hint label part allows for interactive and composite labels of inlay hints.
+	 */
+	export class InlayHintLabelPart {
+
+		/**
+		 * The value of this label part.
+		 */
+		value: string;
+
+		/**
+		 * The tooltip text when you hover over this label part.
+		 *
+		 * *Note* that this property can be set late during
+		 * {@link InlayHintsProvider.resolveInlayHint resolving} of inlay hints.
+		 */
+		tooltip?: string | MarkdownString | undefined;
+
+		/**
+		 * An optional {@link Location source code location} that represents this label
+		 * part.
+		 *
+		 * The editor will use this location for the hover and for code navigation features: This
+		 * part will become a clickable link that resolves to the definition of the symbol at the
+		 * given location (not necessarily the location itself), it shows the hover that shows at
+		 * the given location, and it shows a context menu with further code navigation commands.
+		 *
+		 * *Note* that this property can be set late during
+		 * {@link InlayHintsProvider.resolveInlayHint resolving} of inlay hints.
+		 */
+		location?: Location | undefined;
+
+		/**
+		 * An optional command for this label part.
+		 *
+		 * The editor renders parts with commands as clickable links. The command is added to the context menu
+		 * when a label part defines {@link InlayHintLabelPart.location location} and {@link InlayHintLabelPart.command command} .
+		 *
+		 * *Note* that this property can be set late during
+		 * {@link InlayHintsProvider.resolveInlayHint resolving} of inlay hints.
+		 */
+		command?: Command | undefined;
+
+		/**
+		 * Creates a new inlay hint label part.
+		 *
+		 * @param value The value of the part.
+		 */
+		constructor(value: string);
+	}
+
+	/**
+	 * Inlay hint information.
+	 */
+	export class InlayHint {
+
+		/**
+		 * The position of this hint.
+		 */
+		position: Position;
+
+		/**
+		 * The label of this hint. A human readable string or an array of {@link InlayHintLabelPart label parts}.
+		 *
+		 * *Note* that neither the string nor the label part can be empty.
+		 */
+		label: string | InlayHintLabelPart[];
+
+		/**
+		 * The tooltip text when you hover over this item.
+		 *
+		 * *Note* that this property can be set late during
+		 * {@link InlayHintsProvider.resolveInlayHint resolving} of inlay hints.
+		 */
+		tooltip?: string | MarkdownString | undefined;
+
+		/**
+		 * The kind of this hint. The inlay hint kind defines the appearance of this inlay hint.
+		 */
+		kind?: InlayHintKind;
+
+		/**
+		 * Optional {@link TextEdit text edits} that are performed when accepting this inlay hint. The default
+		 * gesture for accepting an inlay hint is the double click.
+		 *
+		 * *Note* that edits are expected to change the document so that the inlay hint (or its nearest variant) is
+		 * now part of the document and the inlay hint itself is now obsolete.
+		 *
+		 * *Note* that this property can be set late during
+		 * {@link InlayHintsProvider.resolveInlayHint resolving} of inlay hints.
+		 */
+		textEdits?: TextEdit[];
+
+		/**
+		 * Render padding before the hint. Padding will use the editor's background color,
+		 * not the background color of the hint itself. That means padding can be used to visually
+		 * align/separate an inlay hint.
+		 */
+		paddingLeft?: boolean;
+
+		/**
+		 * Render padding after the hint. Padding will use the editor's background color,
+		 * not the background color of the hint itself. That means padding can be used to visually
+		 * align/separate an inlay hint.
+		 */
+		paddingRight?: boolean;
+
+		/**
+		 * Creates a new inlay hint.
+		 *
+		 * @param position The position of the hint.
+		 * @param label The label of the hint.
+		 * @param kind The {@link InlayHintKind kind} of the hint.
+		 */
+		constructor(position: Position, label: string | InlayHintLabelPart[], kind?: InlayHintKind);
+	}
+
+	/**
+	 * The inlay hints provider interface defines the contract between extensions and
+	 * the inlay hints feature.
+	 */
+	export interface InlayHintsProvider<T extends InlayHint = InlayHint> {
+
+		/**
+		 * An optional event to signal that inlay hints from this provider have changed.
+		 */
+		onDidChangeInlayHints?: Event<void>;
+
+		/**
+		 * Provide inlay hints for the given range and document.
+		 *
+		 * *Note* that inlay hints that are not {@link Range.contains contained} by the given range are ignored.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param range The range for which inlay hints should be computed.
+		 * @param token A cancellation token.
+		 * @returns An array of inlay hints or a thenable that resolves to such.
+		 */
+		provideInlayHints(document: TextDocument, range: Range, token: CancellationToken): ProviderResult<T[]>;
+
+		/**
+		 * Given an inlay hint fill in {@link InlayHint.tooltip tooltip}, {@link InlayHint.textEdits text edits},
+		 * or complete label {@link InlayHintLabelPart parts}.
+		 *
+		 * *Note* that the editor will resolve an inlay hint at most once.
+		 *
+		 * @param hint An inlay hint.
+		 * @param token A cancellation token.
+		 * @returns The resolved inlay hint or a thenable that resolves to such. It is OK to return the given `item`. When no result is returned, the given `item` will be used.
+		 */
+		resolveInlayHint?(hint: T, token: CancellationToken): ProviderResult<T>;
+	}
+
+	/**
+	 * Provide inline value as text.
+	 */
+	export class InlineValueText {
+		/**
+		 * The document range for which the inline value applies.
+		 */
+		readonly range: Range;
+		/**
+		 * The text of the inline value.
+		 */
+		readonly text: string;
+		/**
+		 * Creates a new InlineValueText object.
+		 *
+		 * @param range The document line where to show the inline value.
+		 * @param text The value to be shown for the line.
+		 */
+		constructor(range: Range, text: string);
+	}
+
+	/**
+	 * Provide inline value through a variable lookup.
+	 * If only a range is specified, the variable name will be extracted from the underlying document.
+	 * An optional variable name can be used to override the extracted name.
+	 */
+	export class InlineValueVariableLookup {
+		/**
+		 * The document range for which the inline value applies.
+		 * The range is used to extract the variable name from the underlying document.
+		 */
+		readonly range: Range;
+		/**
+		 * If specified the name of the variable to look up.
+		 */
+		readonly variableName?: string | undefined;
+		/**
+		 * How to perform the lookup.
+		 */
+		readonly caseSensitiveLookup: boolean;
+		/**
+		 * Creates a new InlineValueVariableLookup object.
+		 *
+		 * @param range The document line where to show the inline value.
+		 * @param variableName The name of the variable to look up.
+		 * @param caseSensitiveLookup How to perform the lookup. If missing lookup is case sensitive.
+		 */
+		constructor(range: Range, variableName?: string, caseSensitiveLookup?: boolean);
+	}
+
+	/**
+	 * Provide an inline value through an expression evaluation.
+	 * If only a range is specified, the expression will be extracted from the underlying document.
+	 * An optional expression can be used to override the extracted expression.
+	 */
+	export class InlineValueEvaluatableExpression {
+		/**
+		 * The document range for which the inline value applies.
+		 * The range is used to extract the evaluatable expression from the underlying document.
+		 */
+		readonly range: Range;
+		/**
+		 * If specified the expression overrides the extracted expression.
+		 */
+		readonly expression?: string | undefined;
+		/**
+		 * Creates a new InlineValueEvaluatableExpression object.
+		 *
+		 * @param range The range in the underlying document from which the evaluatable expression is extracted.
+		 * @param expression If specified overrides the extracted expression.
+		 */
+		constructor(range: Range, expression?: string);
+	}
+
+	/**
+	 * Inline value information can be provided by different means:
+	 * - directly as a text value (class InlineValueText).
+	 * - as a name to use for a variable lookup (class InlineValueVariableLookup)
+	 * - as an evaluatable expression (class InlineValueEvaluatableExpression)
+	 * The InlineValue types combines all inline value types into one type.
+	 */
+	export type InlineValue = InlineValueText | InlineValueVariableLookup | InlineValueEvaluatableExpression;
+
+	/**
+	 * A value-object that contains contextual information when requesting inline values from a InlineValuesProvider.
+	 */
+	export interface InlineValueContext {
+
+		/**
+		 * The stack frame (as a DAP Id) where the execution has stopped.
+		 */
+		readonly frameId: number;
+
+		/**
+		 * The document range where execution has stopped.
+		 * Typically the end position of the range denotes the line where the inline values are shown.
+		 */
+		readonly stoppedLocation: Range;
+	}
+
+	/**
+	 * The inline values provider interface defines the contract between extensions and the editor's debugger inline values feature.
+	 * In this contract the provider returns inline value information for a given document range
+	 * and the editor shows this information in the editor at the end of lines.
+	 */
+	export interface InlineValuesProvider {
+
+		/**
+		 * An optional event to signal that inline values have changed.
+		 * @see {@link EventEmitter}
+		 */
+		onDidChangeInlineValues?: Event<void> | undefined;
+
+		/**
+		 * Provide "inline value" information for a given document and range.
+		 * The editor calls this method whenever debugging stops in the given document.
+		 * The returned inline values information is rendered in the editor at the end of lines.
+		 *
+		 * @param document The document for which the inline values information is needed.
+		 * @param viewPort The visible document range for which inline values should be computed.
+		 * @param context A bag containing contextual information like the current location.
+		 * @param token A cancellation token.
+		 * @returns An array of InlineValueDescriptors or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideInlineValues(document: TextDocument, viewPort: Range, context: InlineValueContext, token: CancellationToken): ProviderResult<InlineValue[]>;
 	}
 
 
@@ -8092,6 +10445,35 @@ declare module "vscode" {
 		 */
 		value: string;
 	};
+
+	/**
+	 * Provides a terminal profile for the contributed terminal profile when launched via the UI or
+	 * command.
+	 */
+	export interface TerminalProfileProvider {
+		/**
+		 * Provide the terminal profile.
+		 * @param token A cancellation token that indicates the result is no longer needed.
+		 * @returns The terminal profile.
+		 */
+		provideTerminalProfile(token: CancellationToken): ProviderResult<TerminalProfile>;
+	}
+
+	/**
+	 * A terminal profile defines how a terminal will be launched.
+	 */
+	export class TerminalProfile {
+		/**
+		 * The options that the terminal will launch with.
+		 */
+		options: TerminalOptions | ExtensionTerminalOptions;
+
+		/**
+		 * Creates a new terminal profile.
+		 * @param options The options that the terminal will launch with.
+		 */
+		constructor(options: TerminalOptions | ExtensionTerminalOptions);
+	}
 
 	/**
 	 * A file decoration represents metadata that can be rendered with a file.
@@ -8691,6 +11073,71 @@ declare module "vscode" {
 		 * @returns A promise indicating if open was successful.
 		 */
 		export function openExternal(target: Uri): Thenable<boolean>;
+
+		/**
+		 * Resolves a uri to a form that is accessible externally.
+		 *
+		 * #### `http:` or `https:` scheme
+		 *
+		 * Resolves an *external* uri, such as a `http:` or `https:` link, from where the extension is running to a
+		 * uri to the same resource on the client machine.
+		 *
+		 * This is a no-op if the extension is running on the client machine.
+		 *
+		 * If the extension is running remotely, this function automatically establishes a port forwarding tunnel
+		 * from the local machine to `target` on the remote and returns a local uri to the tunnel. The lifetime of
+		 * the port forwarding tunnel is managed by the editor and the tunnel can be closed by the user.
+		 *
+		 * *Note* that uris passed through `openExternal` are automatically resolved and you should not call `asExternalUri` on them.
+		 *
+		 * #### `vscode.env.uriScheme`
+		 *
+		 * Creates a uri that - if opened in a browser (e.g. via `openExternal`) - will result in a registered {@link UriHandler}
+		 * to trigger.
+		 *
+		 * Extensions should not make any assumptions about the resulting uri and should not alter it in any way.
+		 * Rather, extensions can e.g. use this uri in an authentication flow, by adding the uri as callback query
+		 * argument to the server to authenticate to.
+		 *
+		 * *Note* that if the server decides to add additional query parameters to the uri (e.g. a token or secret), it
+		 * will appear in the uri that is passed to the {@link UriHandler}.
+		 *
+		 * **Example** of an authentication flow:
+		 * ```typescript
+		 * vscode.window.registerUriHandler({
+		 *   handleUri(uri: vscode.Uri): vscode.ProviderResult<void> {
+		 *     if (uri.path === '/did-authenticate') {
+		 *       console.log(uri.toString());
+		 *     }
+		 *   }
+		 * });
+		 *
+		 * const callableUri = await vscode.env.asExternalUri(vscode.Uri.parse(vscode.env.uriScheme + '://my.extension/did-authenticate'));
+		 * await vscode.env.openExternal(callableUri);
+		 * ```
+		 *
+		 * *Note* that extensions should not cache the result of `asExternalUri` as the resolved uri may become invalid due to
+		 * a system or user action — for example, in remote cases, a user may close a port forwarding tunnel that was opened by
+		 * `asExternalUri`.
+		 *
+		 * #### Any other scheme
+		 *
+		 * Any other scheme will be handled as if the provided URI is a workspace URI. In that case, the method will return
+		 * a URI which, when handled, will make the editor open the workspace.
+		 *
+		 * @returns A uri that can be used on the client machine.
+		 */
+		export function asExternalUri(target: Uri): Thenable<Uri>;
+
+		/**
+		 * The current log level of the editor.
+		 */
+		export const logLevel: LogLevel;
+
+		/**
+		 * An {@link Event} which fires when the log level of the editor changes.
+		 */
+		export const onDidChangeLogLevel: Event<LogLevel>;
 
 		/**
 		 * Creates a new {@link TelemetryLogger telemetry logger}.
@@ -13760,6 +16207,1090 @@ declare module "vscode" {
 	 * Coverage details returned from {@link TestRunProfile.loadDetailedCoverage}.
 	 */
 	export type FileCoverageDetail = StatementCoverage | DeclarationCoverage;
+
+	/**
+	 * Represents the role of a chat message. This is either the user or the assistant.
+	 */
+	export enum LanguageModelChatMessageRole {
+		/**
+		 * The user role, e.g the human interacting with a language model.
+		 */
+		User = 1,
+
+		/**
+		 * The assistant role, e.g. the language model generating responses.
+		 */
+		Assistant = 2
+	}
+
+	/**
+	 * Represents a message in a chat. Can assume different roles, like user or assistant.
+	 */
+	export class LanguageModelChatMessage {
+
+		/**
+		 * Utility to create a new user message.
+		 *
+		 * @param content The content of the message.
+		 * @param name The optional name of a user for the message.
+		 */
+		static User(content: string | Array<LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelDataPart>, name?: string): LanguageModelChatMessage;
+
+		/**
+		 * Utility to create a new assistant message.
+		 *
+		 * @param content The content of the message.
+		 * @param name The optional name of a user for the message.
+		 */
+		static Assistant(content: string | Array<LanguageModelTextPart | LanguageModelToolCallPart | LanguageModelDataPart>, name?: string): LanguageModelChatMessage;
+
+		/**
+		 * The role of this message.
+		 */
+		role: LanguageModelChatMessageRole;
+
+		/**
+		 * A string or heterogeneous array of things that a message can contain as content. Some parts may be message-type
+		 * specific for some models.
+		 */
+		content: Array<LanguageModelInputPart>;
+
+		/**
+		 * The optional name of a user for this message.
+		 */
+		name: string | undefined;
+
+		/**
+		 * Create a new user message.
+		 *
+		 * @param role The role of the message.
+		 * @param content The content of the message.
+		 * @param name The optional name of a user for the message.
+		 */
+		constructor(role: LanguageModelChatMessageRole, content: string | Array<LanguageModelInputPart>, name?: string);
+	}
+
+	/**
+	 * Represents a language model response.
+	 *
+	 * @see {@link ChatRequest}
+	 */
+	export interface LanguageModelChatResponse {
+
+		/**
+		 * An async iterable that is a stream of text and tool-call parts forming the overall response. A
+		 * {@link LanguageModelTextPart} is part of the assistant's response to be shown to the user. A
+		 * {@link LanguageModelToolCallPart} is a request from the language model to call a tool. The latter will
+		 * only be returned if tools were passed in the request via {@link LanguageModelChatRequestOptions.tools}. The
+		 * `unknown`-type is used as a placeholder for future parts, like image data parts.
+		 *
+		 * *Note* that this stream will error when during data receiving an error occurs. Consumers of the stream should handle
+		 * the errors accordingly.
+		 *
+		 * To cancel the stream, the consumer can {@link CancellationTokenSource.cancel cancel} the token that was used to make
+		 * the request or break from the for-loop.
+		 *
+		 * @example
+		 * ```ts
+		 * try {
+		 *   // consume stream
+		 *   for await (const chunk of response.stream) {
+		 *      if (chunk instanceof LanguageModelTextPart) {
+		 *        console.log("TEXT", chunk);
+		 *      } else if (chunk instanceof LanguageModelToolCallPart) {
+		 *        console.log("TOOL CALL", chunk);
+		 *      }
+		 *   }
+		 *
+		 * } catch(e) {
+		 *   // stream ended with an error
+		 *   console.error(e);
+		 * }
+		 * ```
+		 */
+		stream: AsyncIterable<LanguageModelTextPart | LanguageModelToolCallPart | LanguageModelDataPart | unknown>;
+
+		/**
+		 * This is equivalent to filtering everything except for text parts from a {@link LanguageModelChatResponse.stream}.
+		 *
+		 * @see {@link LanguageModelChatResponse.stream}
+		 */
+		text: AsyncIterable<string>;
+	}
+
+	/**
+	 * Represents a language model for making chat requests.
+	 *
+	 * @see {@link lm.selectChatModels}
+	 */
+	export interface LanguageModelChat {
+
+		/**
+		 * Human-readable name of the language model.
+		 */
+		readonly name: string;
+
+		/**
+		 * Opaque identifier of the language model.
+		 */
+		readonly id: string;
+
+		/**
+		 * A well-known identifier of the vendor of the language model. An example is `copilot`, but
+		 * values are defined by extensions contributing chat models and need to be looked up with them.
+		 */
+		readonly vendor: string;
+
+		/**
+		 * Opaque family-name of the language model. Values might be `gpt-3.5-turbo`, `gpt4`, `phi2`, or `llama`
+		 * but they are defined by extensions contributing languages and subject to change.
+		 */
+		readonly family: string;
+
+		/**
+		 * Opaque version string of the model. This is defined by the extension contributing the language model
+		 * and subject to change.
+		 */
+		readonly version: string;
+
+		/**
+		 * The maximum number of tokens that can be sent to the model in a single request.
+		 */
+		readonly maxInputTokens: number;
+
+		/**
+		 * Make a chat request using a language model.
+		 *
+		 * *Note* that language model use may be subject to access restrictions and user consent. Calling this function
+		 * for the first time (for an extension) will show a consent dialog to the user and because of that this function
+		 * must _only be called in response to a user action!_ Extensions can use {@link LanguageModelAccessInformation.canSendRequest}
+		 * to check if they have the necessary permissions to make a request.
+		 *
+		 * This function will return a rejected promise if making a request to the language model is not
+		 * possible. Reasons for this can be:
+		 *
+		 * - user consent not given, see {@link LanguageModelError.NoPermissions `NoPermissions`}
+		 * - model does not exist anymore, see {@link LanguageModelError.NotFound `NotFound`}
+		 * - quota limits exceeded, see {@link LanguageModelError.Blocked `Blocked`}
+		 * - other issues in which case extension must check {@link LanguageModelError.cause `LanguageModelError.cause`}
+		 *
+		 * An extension can make use of language model tool calling by passing a set of tools to
+		 * {@link LanguageModelChatRequestOptions.tools}. The language model will return a {@link LanguageModelToolCallPart} and
+		 * the extension can invoke the tool and make another request with the result.
+		 *
+		 * @param messages An array of message instances.
+		 * @param options Options that control the request.
+		 * @param token A cancellation token which controls the request. See {@link CancellationTokenSource} for how to create one.
+		 * @returns A thenable that resolves to a {@link LanguageModelChatResponse}. The promise will reject when the request couldn't be made.
+		 */
+		sendRequest(messages: LanguageModelChatMessage[], options?: LanguageModelChatRequestOptions, token?: CancellationToken): Thenable<LanguageModelChatResponse>;
+
+		/**
+		 * Count the number of tokens in a message using the model specific tokenizer-logic.
+
+		 * @param text A string or a message instance.
+		 * @param token Optional cancellation token.  See {@link CancellationTokenSource} for how to create one.
+		 * @returns A thenable that resolves to the number of tokens.
+		 */
+		countTokens(text: string | LanguageModelChatMessage, token?: CancellationToken): Thenable<number>;
+	}
+
+	/**
+	 * Describes how to select language models for chat requests.
+	 *
+	 * @see {@link lm.selectChatModels}
+	 */
+	export interface LanguageModelChatSelector {
+
+		/**
+		 * A vendor of language models.
+		 * @see {@link LanguageModelChat.vendor}
+		 */
+		vendor?: string;
+
+		/**
+		 * A family of language models.
+		 * @see {@link LanguageModelChat.family}
+		 */
+		family?: string;
+
+		/**
+		 * The version of a language model.
+		 * @see {@link LanguageModelChat.version}
+		 */
+		version?: string;
+
+		/**
+		 * The identifier of a language model.
+		 * @see {@link LanguageModelChat.id}
+		 */
+		id?: string;
+	}
+
+	/**
+	 * An error type for language model specific errors.
+	 *
+	 * Consumers of language models should check the code property to determine specific
+	 * failure causes, like `if(someError.code === vscode.LanguageModelError.NotFound.name) {...}`
+	 * for the case of referring to an unknown language model. For unspecified errors the `cause`-property
+	 * will contain the actual error.
+	 */
+	export class LanguageModelError extends Error {
+
+		/**
+		 * The requestor does not have permissions to use this
+		 * language model
+		 */
+		static NoPermissions(message?: string): LanguageModelError;
+
+		/**
+		 * The requestor is blocked from using this language model.
+		 */
+		static Blocked(message?: string): LanguageModelError;
+
+		/**
+		 * The language model does not exist.
+		 */
+		static NotFound(message?: string): LanguageModelError;
+
+		/**
+		 * A code that identifies this error.
+		 *
+		 * Possible values are names of errors, like {@linkcode LanguageModelError.NotFound NotFound},
+		 * or `Unknown` for unspecified errors from the language model itself. In the latter case the
+		 * `cause`-property will contain the actual error.
+		 */
+		readonly code: string;
+	}
+
+	/**
+	 * Options for making a chat request using a language model.
+	 *
+	 * @see {@link LanguageModelChat.sendRequest}
+	 */
+	export interface LanguageModelChatRequestOptions {
+
+		/**
+		 * A human-readable message that explains why access to a language model is needed and what feature is enabled by it.
+		 */
+		justification?: string;
+
+		/**
+		 * A set of options that control the behavior of the language model. These options are specific to the language model
+		 * and need to be looked up in the respective documentation.
+		 */
+		modelOptions?: { [name: string]: any };
+
+		/**
+		 * An optional list of tools that are available to the language model. These could be registered tools available via
+		 * {@link lm.tools}, or private tools that are just implemented within the calling extension.
+		 *
+		 * If the LLM requests to call one of these tools, it will return a {@link LanguageModelToolCallPart} in
+		 * {@link LanguageModelChatResponse.stream}. It's the caller's responsibility to invoke the tool. If it's a tool
+		 * registered in {@link lm.tools}, that means calling {@link lm.invokeTool}.
+		 *
+		 * Then, the tool result can be provided to the LLM by creating an Assistant-type {@link LanguageModelChatMessage} with a
+		 * {@link LanguageModelToolCallPart}, followed by a User-type message with a {@link LanguageModelToolResultPart}.
+		 */
+		tools?: LanguageModelChatTool[];
+
+		/**
+		 * 	The tool-selecting mode to use. {@link LanguageModelChatToolMode.Auto} by default.
+		 */
+		toolMode?: LanguageModelChatToolMode;
+	}
+
+	/**
+	 * McpStdioServerDefinition represents an MCP server available by running
+	 * a local process and operating on its stdin and stdout streams. The process
+	 * will be spawned as a child process of the extension host and by default
+	 * will not run in a shell environment.
+	 */
+	export class McpStdioServerDefinition {
+		/**
+		 * The human-readable name of the server.
+		 */
+		readonly label: string;
+
+		/**
+		 * The working directory used to start the server.
+		 */
+		cwd?: Uri;
+
+		/**
+		 * The command used to start the server. Node.js-based servers may use
+		 * `process.execPath` to use the editor's version of Node.js to run the script.
+		 */
+		command: string;
+
+		/**
+		 * Additional command-line arguments passed to the server.
+		 */
+		args: string[];
+
+		/**
+		 * Optional additional environment information for the server. Variables
+		 * in this environment will overwrite or remove (if null) the default
+		 * environment variables of the editor's extension host.
+		 */
+		env: Record<string, string | number | null>;
+
+		/**
+		 * Optional version identification for the server. If this changes, the
+		 * editor will indicate that tools have changed and prompt to refresh them.
+		 */
+		version?: string;
+
+		/**
+		 * @param label The human-readable name of the server.
+		 * @param command The command used to start the server.
+		 * @param args Additional command-line arguments passed to the server.
+		 * @param env Optional additional environment information for the server.
+		 * @param version Optional version identification for the server.
+		 */
+		constructor(label: string, command: string, args?: string[], env?: Record<string, string | number | null>, version?: string);
+	}
+
+	/**
+	 * McpHttpServerDefinition represents an MCP server available using the
+	 * Streamable HTTP transport.
+	 */
+	export class McpHttpServerDefinition {
+		/**
+		 * The human-readable name of the server.
+		 */
+		readonly label: string;
+
+		/**
+		 * The URI of the server. The editor will make a POST request to this URI
+		 * to begin each session.
+		 */
+		uri: Uri;
+
+		/**
+		 * Optional additional heads included with each request to the server.
+		 */
+		headers: Record<string, string>;
+
+		/**
+		 * Optional version identification for the server. If this changes, the
+		 * editor will indicate that tools have changed and prompt to refresh them.
+		 */
+		version?: string;
+
+		/**
+		 * @param label The human-readable name of the server.
+		 * @param uri The URI of the server.
+		 * @param headers Optional additional heads included with each request to the server.
+		 */
+		constructor(label: string, uri: Uri, headers?: Record<string, string>, version?: string);
+	}
+
+	/**
+	 * Definitions that describe different types of Model Context Protocol servers,
+	 * which can be returned from the {@link McpServerDefinitionProvider}.
+	 */
+	export type McpServerDefinition = McpStdioServerDefinition | McpHttpServerDefinition;
+
+	/**
+	 * A type that can provide Model Context Protocol server definitions. This
+	 * should be registered using {@link lm.registerMcpServerDefinitionProvider}
+	 * during extension activation.
+	 */
+	export interface McpServerDefinitionProvider<T extends McpServerDefinition = McpServerDefinition> {
+		/**
+		 * Optional event fired to signal that the set of available servers has changed.
+		 */
+		readonly onDidChangeMcpServerDefinitions?: Event<void>;
+
+		/**
+		 * Provides available MCP servers. The editor will call this method eagerly
+		 * to ensure the availability of servers for the language model, and so
+		 * extensions should not take actions which would require user
+		 * interaction, such as authentication.
+		 *
+		 * @param token A cancellation token.
+		 * @returns An array of MCP available MCP servers
+		 */
+		provideMcpServerDefinitions(token: CancellationToken): ProviderResult<T[]>;
+
+		/**
+		 * This function will be called when the editor needs to start a MCP server.
+		 * At this point, the extension may take any actions which may require user
+		 * interaction, such as authentication. Any non-`readonly` property of the
+		 * server may be modified, and the extension should return the resolved server.
+		 *
+		 * The extension may return undefined to indicate that the server
+		 * should not be started, or throw an error. If there is a pending tool
+		 * call, the editor will cancel it and return an error message to the
+		 * language model.
+		 *
+		 * @param server The MCP server to resolve
+		 * @param token A cancellation token.
+		 * @returns The resolved server or thenable that resolves to such. This may
+		 * be the given `server` definition with non-readonly properties filled in.
+		 */
+		resolveMcpServerDefinition?(server: T, token: CancellationToken): ProviderResult<T>;
+	}
+
+	/**
+	 * The provider version of {@linkcode LanguageModelChatRequestOptions}
+	 */
+	export interface ProvideLanguageModelChatResponseOptions {
+		/**
+		 * A set of options that control the behavior of the language model. These options are specific to the language model.
+		 */
+		readonly modelOptions?: { readonly [name: string]: any };
+
+		/**
+		 * An optional list of tools that are available to the language model. These could be registered tools available via
+		 * {@link lm.tools}, or private tools that are just implemented within the calling extension.
+		 *
+		 * If the LLM requests to call one of these tools, it will return a {@link LanguageModelToolCallPart} in
+		 * {@link LanguageModelChatResponse.stream}. It's the caller's responsibility to invoke the tool. If it's a tool
+		 * registered in {@link lm.tools}, that means calling {@link lm.invokeTool}.
+		 *
+		 * Then, the tool result can be provided to the LLM by creating an Assistant-type {@link LanguageModelChatMessage} with a
+		 * {@link LanguageModelToolCallPart}, followed by a User-type message with a {@link LanguageModelToolResultPart}.
+		 */
+		readonly tools?: readonly LanguageModelChatTool[];
+
+		/**
+		 * 	The tool-selecting mode to use. The provider must implement respecting this.
+		 */
+		readonly toolMode: LanguageModelChatToolMode;
+	}
+
+	/**
+	 * Represents a language model provided by a {@linkcode LanguageModelChatProvider}.
+	 */
+	export interface LanguageModelChatInformation {
+
+		/**
+		 * Unique identifier for the language model. Must be unique per provider, but not required to be globally unique.
+		 */
+		readonly id: string;
+
+		/**
+		 * Human-readable name of the language model.
+		 */
+		readonly name: string;
+
+		/**
+		 * Opaque family-name of the language model. Values might be `gpt-3.5-turbo`, `gpt4`, `phi2`, or `llama`
+		 */
+		readonly family: string;
+
+		/**
+		 * The tooltip to render when hovering the model. Used to provide more information about the model.
+		 */
+		readonly tooltip?: string;
+
+		/**
+		 * An optional, human-readable string which will be rendered alongside the model.
+		 * Useful for distinguishing models of the same name in the UI.
+		 */
+		readonly detail?: string;
+
+		/**
+		 * Opaque version string of the model.
+		 * This is used as a lookup value in {@linkcode LanguageModelChatSelector.version}
+		 * An example is how GPT 4o has multiple versions like 2024-11-20 and 2024-08-06
+		 */
+		readonly version: string;
+
+		/**
+		 * The maximum number of tokens the model can accept as input.
+		 */
+		readonly maxInputTokens: number;
+
+		/**
+		 * The maximum number of tokens the model is capable of producing.
+		 */
+		readonly maxOutputTokens: number;
+
+		/**
+		 * Various features that the model supports such as tool calling or image input.
+		 */
+		readonly capabilities: LanguageModelChatCapabilities;
+	}
+
+	/**
+	 * Various features that the {@link LanguageModelChatInformation} supports such as tool calling or image input.
+	 */
+	export interface LanguageModelChatCapabilities {
+		/**
+		 * Whether image input is supported by the model.
+		 * Common supported images are jpg and png, but each model will vary in supported mimetypes.
+		 */
+		readonly imageInput?: boolean;
+
+		/**
+		 * Whether tool calling is supported by the model.
+		 * If a number is provided, that is the maximum number of tools that can be provided in a request to the model.
+		 */
+		readonly toolCalling?: boolean | number;
+	}
+
+	/**
+	 * The provider version of {@linkcode LanguageModelChatMessage}.
+	 */
+	export interface LanguageModelChatRequestMessage {
+		/**
+		 * The role of this message.
+		 */
+		readonly role: LanguageModelChatMessageRole;
+
+		/**
+		 * A heterogeneous array of things that a message can contain as content. Some parts may be message-type
+		 * specific for some models.
+		 */
+		readonly content: ReadonlyArray<LanguageModelInputPart | unknown>;
+
+		/**
+		 * The optional name of a user for this message.
+		 */
+		readonly name: string | undefined;
+	}
+
+	/**
+	 * The various message types which a {@linkcode LanguageModelChatProvider} can emit in the chat response stream
+	 */
+	export type LanguageModelResponsePart = LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart | LanguageModelDataPart;
+
+	/**
+	 * The various message types which can be sent via {@linkcode LanguageModelChat.sendRequest } and processed by a {@linkcode LanguageModelChatProvider}
+	 */
+	export type LanguageModelInputPart = LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart | LanguageModelDataPart;
+
+	/**
+	 * A LanguageModelChatProvider implements access to language models, which users can then use through the chat view, or through extension API by acquiring a LanguageModelChat.
+	 * An example of this would be an OpenAI provider that provides models like gpt-5, o3, etc.
+	 */
+	export interface LanguageModelChatProvider<T extends LanguageModelChatInformation = LanguageModelChatInformation> {
+
+		/**
+		 * An optional event fired when the available set of language models changes.
+		 */
+		readonly onDidChangeLanguageModelChatInformation?: Event<void>;
+
+		/**
+		 * Get the list of available language models provided by this provider
+		 * @param options Options which specify the calling context of this function
+		 * @param token A cancellation token
+		 * @returns The list of available language models
+		 */
+		provideLanguageModelChatInformation(options: PrepareLanguageModelChatModelOptions, token: CancellationToken): ProviderResult<T[]>;
+
+		/**
+		 * Returns the response for a chat request, passing the results to the progress callback.
+		 * The {@linkcode LanguageModelChatProvider} must emit the response parts to the progress callback as they are received from the language model.
+		 * @param model The language model to use
+		 * @param messages The messages to include in the request
+		 * @param options Options for the request
+		 * @param progress The progress to emit the streamed response chunks to
+		 * @param token A cancellation token
+		 * @returns A promise that resolves when the response is complete. Results are actually passed to the progress callback.
+		 */
+		provideLanguageModelChatResponse(model: T, messages: readonly LanguageModelChatRequestMessage[], options: ProvideLanguageModelChatResponseOptions, progress: Progress<LanguageModelResponsePart>, token: CancellationToken): Thenable<void>;
+
+		/**
+		 * Returns the number of tokens for a given text using the model-specific tokenizer logic
+		 * @param model The language model to use
+		 * @param text The text to count tokens for
+		 * @param token A cancellation token
+		 * @returns The number of tokens
+		 */
+		provideTokenCount(model: T, text: string | LanguageModelChatRequestMessage, token: CancellationToken): Thenable<number>;
+	}
+
+	/**
+	 * The list of options passed into {@linkcode LanguageModelChatProvider.provideLanguageModelChatInformation}
+	 */
+	export interface PrepareLanguageModelChatModelOptions {
+		/**
+		 * Whether or not the user should be prompted via some UI flow, or if models should be attempted to be resolved silently.
+		 * If silent is true, all models may not be resolved due to lack of info such as API keys.
+		 */
+		readonly silent: boolean;
+	}
+
+	/**
+	 * Namespace for language model related functionality.
+	 */
+	export namespace lm {
+
+		/**
+		 * An event that is fired when the set of available chat models changes.
+		 */
+		export const onDidChangeChatModels: Event<void>;
+
+		/**
+		 * Select chat models by a {@link LanguageModelChatSelector selector}. This can yield multiple or no chat models and
+		 * extensions must handle these cases, esp. when no chat model exists, gracefully.
+		 *
+		 * ```ts
+		 * const models = await vscode.lm.selectChatModels({ family: 'gpt-3.5-turbo' });
+		 * if (models.length > 0) {
+		 * 	const [first] = models;
+		 * 	const response = await first.sendRequest(...)
+		 * 	// ...
+		 * } else {
+		 * 	// NO chat models available
+		 * }
+		 * ```
+		 *
+		 * A selector can be written to broadly match all models of a given vendor or family, or it can narrowly select one model by ID.
+		 * Keep in mind that the available set of models will change over time, but also that prompts may perform differently in
+		 * different models.
+		 *
+		 * *Note* that extensions can hold on to the results returned by this function and use them later. However, when the
+		 * {@link onDidChangeChatModels}-event is fired the list of chat models might have changed and extensions should re-query.
+		 *
+		 * @param selector A chat model selector. When omitted all chat models are returned.
+		 * @returns An array of chat models, can be empty!
+		 */
+		export function selectChatModels(selector?: LanguageModelChatSelector): Thenable<LanguageModelChat[]>;
+
+		/**
+		 * Register a LanguageModelTool. The tool must also be registered in the package.json `languageModelTools` contribution
+		 * point. A registered tool is available in the {@link lm.tools} list for any extension to see. But in order for it to
+		 * be seen by a language model, it must be passed in the list of available tools in {@link LanguageModelChatRequestOptions.tools}.
+		 * @returns A {@link Disposable} that unregisters the tool when disposed.
+		 */
+		export function registerTool<T>(name: string, tool: LanguageModelTool<T>): Disposable;
+
+		/**
+		 * A list of all available tools that were registered by all extensions using {@link lm.registerTool}. They can be called
+		 * with {@link lm.invokeTool} with input that match their declared `inputSchema`.
+		 */
+		export const tools: readonly LanguageModelToolInformation[];
+
+		/**
+		 * Invoke a tool listed in {@link lm.tools} by name with the given input. The input will be validated against
+		 * the schema declared by the tool
+		 *
+		 * A tool can be invoked by a chat participant, in the context of handling a chat request, or globally by any extension in
+		 * any custom flow.
+		 *
+		 * In the former case, the caller shall pass the
+		 * {@link LanguageModelToolInvocationOptions.toolInvocationToken toolInvocationToken}, which comes from a
+		 * {@link ChatRequest.toolInvocationToken chat request}. This makes sure the chat UI shows the tool invocation for the
+		 * correct conversation.
+		 *
+		 * A tool {@link LanguageModelToolResult result} is an array of {@link LanguageModelTextPart text-} and
+		 * {@link LanguageModelPromptTsxPart prompt-tsx}-parts. If the tool caller is using `@vscode/prompt-tsx`, it can
+		 * incorporate the response parts into its prompt using a `ToolResult`. If not, the parts can be passed along to the
+		 * {@link LanguageModelChat} via a user message with a {@link LanguageModelToolResultPart}.
+		 *
+		 * If a chat participant wants to preserve tool results for requests across multiple turns, it can store tool results in
+		 * the {@link ChatResult.metadata} returned from the handler and retrieve them on the next turn from
+		 * {@link ChatResponseTurn.result}.
+		 *
+		 * @param name The name of the tool to call.
+		 * @param options The options to use when invoking the tool.
+		 * @param token A cancellation token. See {@link CancellationTokenSource} for how to create one.
+		 * @returns The result of the tool invocation.
+		 */
+		export function invokeTool(name: string, options: LanguageModelToolInvocationOptions<object>, token?: CancellationToken): Thenable<LanguageModelToolResult>;
+
+		/**
+		 * Registers a provider that publishes Model Context Protocol servers for the editor to
+		 * consume. This allows MCP servers to be dynamically provided to the editor in
+		 * addition to those the user creates in their configuration files.
+		 *
+		 * Before calling this method, extensions must register the `contributes.mcpServerDefinitionProviders`
+		 * extension point with the corresponding {@link id}, for example:
+		 *
+		 * ```js
+		 * 	"contributes": {
+		 * 		"mcpServerDefinitionProviders": [
+		 * 			{
+		 * 				"id": "cool-cloud-registry.mcp-servers",
+		 * 				"label": "Cool Cloud Registry",
+		 * 			}
+		 * 		]
+		 * 	}
+		 * ```
+		 *
+		 * When a new McpServerDefinitionProvider is available, the editor will, by default,
+		 * automatically invoke it to discover new servers and tools when a chat message is
+		 * submitted. To enable this flow, extensions should call
+		 * `registerMcpServerDefinitionProvider` during activation.
+		 *
+		 * @param id The ID of the provider, which is unique to the extension.
+		 * @param provider The provider to register
+		 * @returns A disposable that unregisters the provider when disposed.
+		 */
+		export function registerMcpServerDefinitionProvider(id: string, provider: McpServerDefinitionProvider): Disposable;
+
+		/**
+		 * Registers a {@linkcode LanguageModelChatProvider}
+		 * Note: You must also define the language model chat provider via the `languageModelChatProviders` contribution point in package.json
+		 * @param vendor The vendor for this provider. Must be globally unique. An example is `copilot` or `openai`.
+		 * @param provider The provider to register
+		 * @returns A disposable that unregisters the provider when disposed
+		 */
+		export function registerLanguageModelChatProvider(vendor: string, provider: LanguageModelChatProvider): Disposable;
+	}
+
+	/**
+	 * Represents extension specific information about the access to language models.
+	 */
+	export interface LanguageModelAccessInformation {
+
+		/**
+		 * An event that fires when access information changes.
+		 */
+		readonly onDidChange: Event<void>;
+
+		/**
+		 * Checks if a request can be made to a language model.
+		 *
+		 * *Note* that calling this function will not trigger a consent UI but just checks for a persisted state.
+		 *
+		 * @param chat A language model chat object.
+		 * @return `true` if a request can be made, `false` if not, `undefined` if the language
+		 * model does not exist or consent hasn't been asked for.
+		 */
+		canSendRequest(chat: LanguageModelChat): boolean | undefined;
+	}
+
+	/**
+	 * A tool that is available to the language model via {@link LanguageModelChatRequestOptions}. A language model uses all the
+	 * properties of this interface to decide which tool to call, and how to call it.
+	 */
+	export interface LanguageModelChatTool {
+		/**
+		 * The name of the tool.
+		 */
+		name: string;
+
+		/**
+		 * The description of the tool.
+		 */
+		description: string;
+
+		/**
+		 * A JSON schema for the input this tool accepts.
+		 */
+		inputSchema?: object | undefined;
+	}
+
+	/**
+	 * A tool-calling mode for the language model to use.
+	 */
+	export enum LanguageModelChatToolMode {
+		/**
+		 * The language model can choose to call a tool or generate a message. Is the default.
+		 */
+		Auto = 1,
+
+		/**
+		 * The language model must call one of the provided tools. Note- some models only support a single tool when using this
+		 * mode.
+		 */
+		Required = 2
+	}
+
+	/**
+	 * A language model response part indicating a tool call, returned from a {@link LanguageModelChatResponse}, and also can be
+	 * included as a content part on a {@link LanguageModelChatMessage}, to represent a previous tool call in a chat request.
+	 */
+	export class LanguageModelToolCallPart {
+		/**
+		 * The ID of the tool call. This is a unique identifier for the tool call within the chat request.
+		 */
+		callId: string;
+
+		/**
+		 * The name of the tool to call.
+		 */
+		name: string;
+
+		/**
+		 * The input with which to call the tool.
+		 */
+		input: object;
+
+		/**
+		 * Create a new LanguageModelToolCallPart.
+		 *
+		 * @param callId The ID of the tool call.
+		 * @param name The name of the tool to call.
+		 * @param input The input with which to call the tool.
+		 */
+		constructor(callId: string, name: string, input: object);
+	}
+
+	/**
+	 * The result of a tool call. This is the counterpart of a {@link LanguageModelToolCallPart tool call} and
+	 * it can only be included in the content of a User message
+	 */
+	export class LanguageModelToolResultPart {
+		/**
+		 * The ID of the tool call.
+		 *
+		 * *Note* that this should match the {@link LanguageModelToolCallPart.callId callId} of a tool call part.
+		 */
+		callId: string;
+
+		/**
+		 * The value of the tool result.
+		 */
+		content: Array<LanguageModelTextPart | LanguageModelPromptTsxPart | LanguageModelDataPart | unknown>;
+
+		/**
+		 * @param callId The ID of the tool call.
+		 * @param content The content of the tool result.
+		 */
+		constructor(callId: string, content: Array<LanguageModelTextPart | LanguageModelPromptTsxPart | LanguageModelDataPart | unknown>);
+	}
+
+	/**
+	 * A language model response part containing a piece of text, returned from a {@link LanguageModelChatResponse}.
+	 */
+	export class LanguageModelTextPart {
+		/**
+		 * The text content of the part.
+		 */
+		value: string;
+
+		/**
+		 * Construct a text part with the given content.
+		 * @param value The text content of the part.
+		 */
+		constructor(value: string);
+	}
+
+	/**
+	 * A language model response part containing a PromptElementJSON from `@vscode/prompt-tsx`.
+	 * @see {@link LanguageModelToolResult}
+	 */
+	export class LanguageModelPromptTsxPart {
+		/**
+		 * The value of the part.
+		 */
+		value: unknown;
+
+		/**
+		 * Construct a prompt-tsx part with the given content.
+		 * @param value The value of the part, the result of `renderElementJSON` from `@vscode/prompt-tsx`.
+		 */
+		constructor(value: unknown);
+	}
+
+	/**
+	 * A result returned from a tool invocation. If using `@vscode/prompt-tsx`, this result may be rendered using a `ToolResult`.
+	 */
+	export class LanguageModelToolResult {
+		/**
+		 * A list of tool result content parts. Includes `unknown` because this list may be extended with new content types in
+		 * the future.
+		 * @see {@link lm.invokeTool}.
+		 */
+		content: Array<LanguageModelTextPart | LanguageModelPromptTsxPart | LanguageModelDataPart | unknown>;
+
+		/**
+		 * Create a LanguageModelToolResult
+		 * @param content A list of tool result content parts
+		 */
+		constructor(content: Array<LanguageModelTextPart | LanguageModelPromptTsxPart | LanguageModelDataPart | unknown>);
+	}
+
+	/**
+	 * A language model response part containing arbitrary data. Can be used in {@link LanguageModelChatResponse responses},
+	 * {@link LanguageModelChatMessage chat messages}, {@link LanguageModelToolResult tool results}, and other language model interactions.
+	 */
+	export class LanguageModelDataPart {
+		/**
+		 * Create a new {@linkcode LanguageModelDataPart} for an image.
+		 * @param data Binary image data
+		 * @param mime The MIME type of the image. Common values are `image/png` and `image/jpeg`.
+		 */
+		static image(data: Uint8Array, mime: string): LanguageModelDataPart;
+
+		/**
+		 * Create a new {@linkcode LanguageModelDataPart} for a json.
+		 *
+		 * *Note* that this function is not expecting "stringified JSON" but
+		 * an object that can be stringified. This function will throw an error
+		 * when the passed value cannot be JSON-stringified.
+		 * @param value  A JSON-stringifyable value.
+		 * @param mime Optional MIME type, defaults to `application/json`
+		 */
+		static json(value: any, mime?: string): LanguageModelDataPart;
+
+		/**
+		 * Create a new {@linkcode LanguageModelDataPart} for text.
+		 *
+		 * *Note* that an UTF-8 encoder is used to create bytes for the string.
+		 * @param value Text data
+		 * @param mime The MIME type if any. Common values are `text/plain` and `text/markdown`.
+		 */
+		static text(value: string, mime?: string): LanguageModelDataPart;
+
+		/**
+		 * The mime type which determines how the data property is interpreted.
+		 */
+		mimeType: string;
+
+		/**
+		 * The byte data for this part.
+		 */
+		data: Uint8Array;
+
+		/**
+		 * Construct a generic data part with the given content.
+		 * @param data The byte data for this part.
+		 * @param mimeType The mime type of the data.
+		 */
+		constructor(data: Uint8Array, mimeType: string);
+	}
+
+	/**
+	 * A token that can be passed to {@link lm.invokeTool} when invoking a tool inside the context of handling a chat request.
+	 */
+	export type ChatParticipantToolToken = never;
+
+	/**
+	 * Options provided for tool invocation.
+	 */
+	export interface LanguageModelToolInvocationOptions<T> {
+		/**
+		 * An opaque object that ties a tool invocation to a chat request from a {@link ChatParticipant chat participant}.
+		 *
+		 * The _only_ way to get a valid tool invocation token is using the provided {@link ChatRequest.toolInvocationToken toolInvocationToken}
+		 * from a chat request. In that case, a progress bar will be automatically shown for the tool invocation in the chat response view, and if
+		 * the tool requires user confirmation, it will show up inline in the chat view.
+		 *
+		 * If the tool is being invoked outside of a chat request, `undefined` should be passed instead, and no special UI except for
+		 * confirmations will be shown.
+		 *
+		 * *Note* that a tool that invokes another tool during its invocation, can pass along the `toolInvocationToken` that it received.
+		 */
+		toolInvocationToken: ChatParticipantToolToken | undefined;
+
+		/**
+		 * The input with which to invoke the tool. The input must match the schema defined in
+		 * {@link LanguageModelToolInformation.inputSchema}
+		 */
+		input: T;
+
+		/**
+		 * Options to hint at how many tokens the tool should return in its response, and enable the tool to count tokens
+		 * accurately.
+		 */
+		tokenizationOptions?: LanguageModelToolTokenizationOptions;
+	}
+
+	/**
+	 * Options related to tokenization for a tool invocation.
+	 */
+	export interface LanguageModelToolTokenizationOptions {
+		/**
+		 * If known, the maximum number of tokens the tool should emit in its result.
+		 */
+		tokenBudget: number;
+
+		/**
+		 * Count the number of tokens in a message using the model specific tokenizer-logic.
+		 * @param text A string.
+		 * @param token Optional cancellation token.  See {@link CancellationTokenSource} for how to create one.
+		 * @returns A thenable that resolves to the number of tokens.
+		 */
+		countTokens(text: string, token?: CancellationToken): Thenable<number>;
+	}
+
+	/**
+	 * Information about a registered tool available in {@link lm.tools}.
+	 */
+	export interface LanguageModelToolInformation {
+		/**
+		 * A unique name for the tool.
+		 */
+		readonly name: string;
+
+		/**
+		 * A description of this tool that may be passed to a language model.
+		 */
+		readonly description: string;
+
+		/**
+		 * A JSON schema for the input this tool accepts.
+		 */
+		readonly inputSchema: object | undefined;
+
+		/**
+		 * A set of tags, declared by the tool, that roughly describe the tool's capabilities. A tool user may use these to filter
+		 * the set of tools to just ones that are relevant for the task at hand.
+		 */
+		readonly tags: readonly string[];
+	}
+
+	/**
+	 * Options for {@link LanguageModelTool.prepareInvocation}.
+	 */
+	export interface LanguageModelToolInvocationPrepareOptions<T> {
+		/**
+		 * The input that the tool is being invoked with.
+		 */
+		input: T;
+	}
+
+	/**
+	 * A tool that can be invoked by a call to a {@link LanguageModelChat}.
+	 */
+	export interface LanguageModelTool<T> {
+		/**
+		 * Invoke the tool with the given input and return a result.
+		 *
+		 * The provided {@link LanguageModelToolInvocationOptions.input} has been validated against the declared schema.
+		 */
+		invoke(options: LanguageModelToolInvocationOptions<T>, token: CancellationToken): ProviderResult<LanguageModelToolResult>;
+
+		/**
+		 * Called once before a tool is invoked. It's recommended to implement this to customize the progress message that appears
+		 * while the tool is running, and to provide a more useful message with context from the invocation input. Can also
+		 * signal that a tool needs user confirmation before running, if appropriate.
+		 *
+		 * * *Note 1:* Must be free of side-effects.
+		 * * *Note 2:* A call to `prepareInvocation` is not necessarily followed by a call to `invoke`.
+		 */
+		prepareInvocation?(options: LanguageModelToolInvocationPrepareOptions<T>, token: CancellationToken): ProviderResult<PreparedToolInvocation>;
+	}
+
+	/**
+	 * When this is returned in {@link PreparedToolInvocation}, the user will be asked to confirm before running the tool. These
+	 * messages will be shown with buttons that say "Continue" and "Cancel".
+	 */
+	export interface LanguageModelToolConfirmationMessages {
+		/**
+		 * The title of the confirmation message.
+		 */
+		title: string;
+
+		/**
+		 * The body of the confirmation message.
+		 */
+		message: string | MarkdownString;
+	}
+
+	/**
+	 * The result of a call to {@link LanguageModelTool.prepareInvocation}.
+	 */
+	export interface PreparedToolInvocation {
+		/**
+		 * A customized progress message to show while the tool runs.
+		 */
+		invocationMessage?: string | MarkdownString;
+
+		/**
+		 * The presence of this property indicates that the user should be asked to confirm before running the tool. The user
+		 * should be asked for confirmation for any tool that has a side-effect or may potentially be dangerous.
+		 */
+		confirmationMessages?: LanguageModelToolConfirmationMessages;
+	}
 }
 
 /**

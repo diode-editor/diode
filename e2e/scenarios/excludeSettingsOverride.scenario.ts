@@ -21,10 +21,12 @@ export default defineScenario({
     },
     userKeybindings: [{ key: "f6", command: "workbench.view.search" }],
     async run(editor) {
-        await editor.waitForText((t) => t.includes(explorerTitle(sampleDir)) && t.includes("__pycache__") && t.includes("README.md"));
+        await editor.waitForText(
+            (t) => t.includes(explorerTitle(sampleDir)) && t.includes("__pycache__") && t.includes("README.md"),
+        );
         await editor.capture("tree");
 
-        // Same "2 results in 2 files" total, but different files.
+        // Same "3 results in 3 files" total, but different files.
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("SEARCH"));
         for (const ch of "kettleBrightSignal") {
@@ -32,9 +34,11 @@ export default defineScenario({
         }
         await editor.waitForText(
             (t) =>
-                t.includes("2 results in 2 files") &&
-                t.includes("cpython-312") &&
+                t.includes("3 results in 3 files") &&
+                // The framed sidebar clips "__pycache__/app.cpython-312.pyc" after "cpython-31".
+                t.includes("__pycache__/app.cpython") &&
                 t.includes("app.py") &&
+                t.includes("generated.js") &&
                 !t.includes("README.md"),
         );
         await editor.capture("search");

@@ -83,7 +83,8 @@ export default defineScenario({
     name: "nerd-font-off",
     title: "diode.icons.nerdFont: off — plain Unicode icons, no file icons, back to Nerd Font live",
     open: [repoDir, join(repoDir, "src", "app.ts")],
-    settings: { "diode.icons.nerdFont": "off" },
+    // Ctrl+Shift and Shift+Alt shortcuts need an extended tier, which only an explicit setting turns on (#1049).
+    settings: { "terminal.tier": "csi-u", "diode.icons.nerdFont": "off" },
     cols: 110,
     rows: 28,
     // The TypeScript server and git run in the extension host: the CI safety net runs this on Linux only.
@@ -134,7 +135,9 @@ export default defineScenario({
         // Back to Nerd Font through the user settings file: `"off"` → `"on"`, saved, no restart.
         await runCommand(editor, "Preferences: Open User Settings (JSON)");
         await editor.waitForText((t) => t.includes('"diode.icons.nerdFont": "off"'));
+        // Line 3, after `terminal.tier`: the last key, no trailing comma.
         await editor.sendKey("Ctrl+Home");
+        await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("End");
         for (let i = 0; i < 4; i++) await editor.sendKey("Backspace");

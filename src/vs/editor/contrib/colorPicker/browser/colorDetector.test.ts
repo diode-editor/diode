@@ -31,14 +31,15 @@ class PendingProvider implements DocumentColorProvider {
     }
 }
 
-function setup(
+/** Waits out the first request's tick: it goes after the document reaches the extension host. */
+async function setup(
     provider: DocumentColorProvider,
     path = "/a.css",
-): {
+): Promise<{
     detector: ColorDetector;
     document: TextDocument;
     published: (readonly IInlineInsertion[])[];
-} {
+}> {
     const registry = new LanguageFeatureRegistry<DocumentColorProvider>();
     registry.register("*", provider);
     const document = new TextDocument("#f00 x");
@@ -52,6 +53,8 @@ function setup(
     const detector = new ColorDetector(model, registry, DEFAULT_COLOR_DECORATORS_OPTIONS, (insertions) => {
         published.push(insertions);
     });
+    if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(0);
+    else await flush();
     return { detector, document, published };
 }
 
@@ -67,9 +70,26 @@ describe("ColorDetector", () => {
         });
     });
 
+    it("the first request waits a tick: the editor is built before its document reaches the extension host", async () => {
+        const provider = new PendingProvider();
+        const registry = new LanguageFeatureRegistry<DocumentColorProvider>();
+        registry.register("*", provider);
+        const model = {
+            uri: Uri.file("/later.css"),
+            languageId: "css",
+            document: new TextDocument("#f00 x"),
+            onDidChangeLanguage: new Emitter<unknown>().event,
+        };
+        const detector = new ColorDetector(model, registry, DEFAULT_COLOR_DECORATORS_OPTIONS, () => undefined);
+        expect(provider.calls).toBe(0);
+        await flush();
+        expect(provider.calls).toBe(1);
+        detector.dispose();
+    });
+
     it("dispose removes the squares and their decorations, and an answer still on its way is dropped", async () => {
         const provider = new PendingProvider();
-        const { detector, document, published } = setup(provider);
+        const { detector, document, published } = await setup(provider);
         const ids: string[] = [];
         const delta = document.deltaDecorations.bind(document);
         vi.spyOn(document, "deltaDecorations").mockImplementation((oldIds, decorations) => {
@@ -97,7 +117,7 @@ describe("ColorDetector", () => {
 
     it("turning off while a request is on its way drops its answer", async () => {
         const provider = new PendingProvider();
-        const { detector, published } = setup(provider);
+        const { detector, published } = await setup(provider);
 
         detector.setOptions({ ...DEFAULT_COLOR_DECORATORS_OPTIONS, enabled: false });
         provider.answer([RED]);
@@ -110,7 +130,7 @@ describe("ColorDetector", () => {
     it("an answer for a text that has been edited since is dropped; the edit asks again", async () => {
         vi.useFakeTimers();
         const provider = new PendingProvider();
-        const { detector, document, published } = setup(provider, "/stale.css");
+        const { detector, document, published } = await setup(provider, "/stale.css");
 
         document.applyEdits([
             { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "  " },
@@ -127,7 +147,7 @@ describe("ColorDetector", () => {
     it("the delay runs from the first edit: typing on does not push the recompute further", async () => {
         vi.useFakeTimers();
         const provider = new PendingProvider();
-        const { detector, document } = setup(provider, "/typing.css");
+        const { detector, document } = await setup(provider, "/typing.css");
         provider.answer([RED]);
         await vi.advanceTimersByTimeAsync(0);
 
@@ -147,7 +167,7 @@ describe("ColorDetector", () => {
     it("turning off cancels a recompute scheduled by an edit, and later edits ask nothing", async () => {
         vi.useFakeTimers();
         const provider = new PendingProvider();
-        const { detector, document, published } = setup(provider, "/off.css");
+        const { detector, document, published } = await setup(provider, "/off.css");
         provider.answer([RED]);
         await vi.advanceTimersByTimeAsync(0);
 
@@ -167,7 +187,7 @@ describe("ColorDetector", () => {
 
     it("a recompute replaces the previous decorations instead of leaving them in the document", async () => {
         const provider = new PendingProvider();
-        const { detector, document } = setup(provider, "/again.css");
+        const { detector, document } = await setup(provider, "/again.css");
         const ids: string[] = [];
         const delta = document.deltaDecorations.bind(document);
         vi.spyOn(document, "deltaDecorations").mockImplementation((oldIds, decorations) => {
@@ -201,7 +221,7 @@ describe("ColorDetector", () => {
                 );
             },
         };
-        const { detector, document } = setup(slow, "/slow.css");
+        const { detector, document } = await setup(slow, "/slow.css");
         await vi.advanceTimersByTimeAsync(1000);
         expect(slow.calls).toBe(1);
 
@@ -215,9 +235,9 @@ describe("ColorDetector", () => {
         detector.dispose();
     });
 
-    it("options equal to the current ones do not ask the providers again", () => {
+    it("options equal to the current ones do not ask the providers again", async () => {
         const provider = new PendingProvider();
-        const { detector } = setup(provider);
+        const { detector } = await setup(provider);
         expect(provider.calls).toBe(1);
 
         detector.setOptions({ ...DEFAULT_COLOR_DECORATORS_OPTIONS });
@@ -237,7 +257,7 @@ describe("ColorDetector", () => {
             }
         }
 
-        const { detector, published } = setup(new FailingDefaultProvider());
+        const { detector, published } = await setup(new FailingDefaultProvider());
         await flush();
 
         expect(errors).toEqual([new Error("boom")]);

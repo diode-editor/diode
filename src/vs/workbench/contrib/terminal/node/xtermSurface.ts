@@ -13,12 +13,17 @@ import type {
 } from "@tuidom/core/common/iTerminalSurface";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type * as XtermModule from "@xterm/headless";
-import type { IBuffer, IBufferCell, Terminal } from "@xterm/headless";
+import type { IBuffer, IBufferCell, IBufferLine, Terminal } from "@xterm/headless";
 
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { importLazyModule } from "../../../../base/common/lazyModule.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { generateUuid } from "../../../../base/common/uuid.ts";
+import {
+    ShellIntegrationAddon,
+    splitProcessData,
+} from "../../../../platform/terminal/common/xterm/shellIntegrationAddon.ts";
 import { KittyKeyboardState } from "../common/kittyKeyboardState.ts";
 import type { ITerminalBuffer } from "../common/terminalBuffer.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
@@ -78,6 +83,8 @@ export interface XtermSurfaceOptions {
     cols: number;
     rows: number;
     scrollback?: number;
+    /** `TerminalOptions.shellIntegrationNonce`; absent — a fresh one. */
+    shellIntegrationNonce?: string;
 }
 
 export abstract class XtermSurface implements ITerminalSurface, IDisposable {
@@ -91,7 +98,12 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     private readonly onUpdateEmitter = new Emitter<void>();
     private readonly onExitEmitter = new Emitter<number>();
     private readonly onDidInputAfterExitEmitter = new Emitter<void>();
+    private readonly onDidInputEmitter = new Emitter<void>();
     private readonly onLineDataEmitter = new Emitter<string>();
+    private readonly onWillDataEmitter = new Emitter<string>();
+    private readonly onDidWriteDataEmitter = new Emitter<string>();
+    private readonly onDidSendTextEmitter = new Emitter<string>();
+    private readonly onDidChangeDimensionsEmitter = new Emitter<void>();
     private loading = true;
     /** While our own text (a message, a relaunch preface) is parsed: it is not output. */
     private linesMuted = false;
@@ -103,11 +115,24 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     // Viewport offset into scrollback, in lines up from the bottom (0 = live output).
     private viewportScrollOffset = 0;
     private palette: XtermPalette = DEFAULT_XTERM_PALETTE;
+    private bufferView: ITerminalBuffer | undefined;
     private readonly kittyKeyboard = new KittyKeyboardState();
     /** `terminal.integrated.enableKittyKeyboardProtocol`; off — the sequences are ignored (upstream `vtExtensions`). */
     private kittyKeyboardEnabled = true;
+    /**
+     * Upstream `shellIntegrationNonce`: one per terminal, kept across relaunches. The shell gets it as `VSCODE_NONCE`
+     * and sends it back to mark its sequences as trusted.
+     */
+    protected readonly shellIntegrationNonce: string;
+    /**
+     * What shell integration sequences in the output tell: commands, cwd, environment. A pty of an extension that
+     * writes them gets it too, as upstream.
+     */
+    public readonly shellIntegration: ShellIntegrationAddon;
 
     protected constructor(options: XtermSurfaceOptions) {
+        this.shellIntegrationNonce = options.shellIntegrationNonce ?? generateUuid();
+        this.shellIntegration = new ShellIntegrationAddon(this.shellIntegrationNonce);
         this.cols = options.cols;
         this.rows = options.rows;
         const scrollback = options.scrollback ?? 1000;
@@ -133,11 +158,15 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         // Upstream `LineDataEventAddon`: a line is complete at the line feed after it. Upstream also skips a line
         // feed onto a wrapped row, but wrapping is not a line feed: the row after one never continues a line.
         term.onLineFeed(() => {
-            if (this.linesMuted) return;
             const buffer = term.buffer.active;
-            this.sendLineData(buffer, buffer.baseY + buffer.cursorY - 1);
+            const row = buffer.baseY + buffer.cursorY - 1;
+            const line = buffer.getLine(row);
+            // Stryker disable next-line ConditionalExpression: equivalent: the row before the cursor exists; the check narrows the type
+            if (this.linesMuted || line === undefined) return;
+            this.sendLineData(buffer, row, line);
         });
         this.attachKittyKeyboard(term);
+        this.shellIntegration.activate(term);
         this.term = term;
         for (const item of this.pendingOutput.splice(0)) {
             if (typeof item === "string") this.writeToTerm(term, item);
@@ -216,12 +245,17 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         else callback();
     }
 
-    /** Wrapped rows are joined into one line; cell text carries no escape sequences. */
-    private sendLineData(buffer: IBuffer, row: number): void {
-        let text = rowText(buffer, row, true);
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,OptionalChaining: equivalent: row 0 never continues a line, and the rows above an existing row exist
-        for (let first = row; first > 0 && buffer.getLine(first)?.isWrapped === true; first--) {
-            text = rowText(buffer, first - 1, false) + text;
+    /** Wrapped rows are joined into one line; cell text carries no escape sequences. `line` is the row `row`. */
+    private sendLineData(buffer: IBuffer, row: number, line: IBufferLine): void {
+        let text = line.translateToString(true);
+        let current = line;
+        // Stryker disable next-line EqualityOperator: equivalent: row 0 never continues a line
+        for (let first = row; first > 0; first--) {
+            const above = buffer.getLine(first - 1);
+            // Stryker disable next-line ConditionalExpression: equivalent: the rows above an existing row exist; the check narrows the type
+            if (!current.isWrapped || above === undefined) break;
+            text = above.translateToString(false) + text;
+            current = above;
         }
         this.onLineDataEmitter.fire(text);
     }
@@ -231,8 +265,10 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         if (this.term === undefined) return;
         const buffer = this.term.buffer.active;
         const row = buffer.baseY + buffer.cursorY;
-        if (rowText(buffer, row, true) === "") return;
-        this.sendLineData(buffer, row);
+        const line = buffer.getLine(row);
+        // Stryker disable next-line ConditionalExpression: equivalent: the cursor row exists; the check narrows the type
+        if (line === undefined || line.translateToString(true) === "") return;
+        this.sendLineData(buffer, row, line);
     }
 
     protected abstract sendInput(data: string): void;
@@ -244,19 +280,37 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     protected abstract relaunchProcess(options: ITerminalRelaunchOptions): void;
 
     /**
+     * Process output: reported raw ({@link onWillData}) before the emulator parses it. Each shell integration `C` and `D`
+     * sequence is written on its own, so the command output stream starts and ends on them (upstream `_onProcessData`).
+     */
+    protected feedOutput(data: string): void {
+        for (const piece of splitProcessData(data)) {
+            this.onWillDataEmitter.fire(piece);
+            this.writeOutput(piece, () => {
+                this.shellIntegration.handleParsedData(piece);
+            });
+        }
+    }
+
+    /**
      * `term.write()` is async: emitUpdate runs in the write callback, after buffer.active
      * is updated, otherwise the frame lags one event behind.
      */
-    protected feedOutput(data: string): void {
-        if (this.term === undefined) this.pendingOutput.push(data);
-        else this.writeToTerm(this.term, data);
+    private writeOutput(data: string, parsed?: () => void): void {
+        if (this.term !== undefined) {
+            this.writeToTerm(this.term, data, parsed);
+            return;
+        }
+        this.pendingOutput.push(data);
+        if (parsed !== undefined) this.pendingOutput.push(parsed);
     }
 
-    private writeToTerm(term: Terminal, data: string): void {
+    private writeToTerm(term: Terminal, data: string, parsed?: () => void): void {
         term.write(data, () => {
             // New output returns the viewport to the bottom — otherwise the frame drifts against the growing baseY.
             this.viewportScrollOffset = 0;
             this.emitUpdate();
+            parsed?.();
         });
     }
 
@@ -280,6 +334,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      */
     public relaunch(options: ITerminalRelaunchOptions): void {
         const preface = options.clear === true ? CLEAR_ALL : NEW_LINE_AT_START;
+        // The exit waited for the previous process's output to be parsed: nothing of it is still on its way.
+        this.shellIntegration.reset();
         this.printMessage(options.message === undefined ? preface : `${preface}${options.message}\r\n`);
         this.exited = false;
         this.relaunchProcess(options);
@@ -297,7 +353,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         this.afterOutputParsed(() => {
             this.linesMuted = true;
         });
-        this.feedOutput(text);
+        this.writeOutput(text);
         this.afterOutputParsed(() => {
             this.linesMuted = false;
         });
@@ -308,17 +364,12 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         return Math.min(this.viewportScrollOffset, this.maxScrollOffset);
     }
 
-    /** `undefined` until the emulator loads. */
+    /** `undefined` until the emulator loads. One object over the live state: decorations read it for every cell. */
     public get buffer(): ITerminalBuffer | undefined {
-        if (this.term === undefined) return undefined;
-        const active = this.term.buffer.active;
-        return {
-            cols: this.cols,
-            rows: this.rows,
-            viewportY: active.baseY - this.scrollOffset,
-            length: active.length,
-            getLine: (y) => active.getLine(y),
-        };
+        const term = this.term;
+        if (term === undefined) return undefined;
+        this.bufferView ??= createBufferView(this, term);
+        return this.bufferView;
     }
 
     public get mouseEventsActive(): boolean {
@@ -384,11 +435,30 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         return { x, y };
     }
 
-    /** Any input returns the viewport to the bottom. */
+    public get dimensions(): { readonly cols: number; readonly rows: number } {
+        return { cols: this.cols, rows: this.rows };
+    }
+
+    /** Keys, pastes, mouse reports and emulator replies. Any input returns the viewport to the bottom. */
     public write(data: string): void {
+        if (this.deliverInput(data)) this.onDidWriteDataEmitter.fire(data);
+    }
+
+    /** Text sent on behalf of a command or an extension (upstream `sendText`), not typed into the emulator. */
+    public sendText(text: string): void {
+        if (this.deliverInput(text)) this.onDidSendTextEmitter.fire(text);
+    }
+
+    /** `false` — the process has exited, the input went nowhere. */
+    private deliverInput(data: string): boolean {
         this.setScrollOffset(0);
-        if (this.exited) this.onDidInputAfterExitEmitter.fire();
-        else this.sendInput(data);
+        if (this.exited) {
+            this.onDidInputAfterExitEmitter.fire();
+            return false;
+        }
+        this.sendInput(data);
+        this.onDidInputEmitter.fire();
+        return true;
     }
 
     public resize(cols: number, rows: number): void {
@@ -399,6 +469,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         // Reflow changes the scrollback length; the `scrollOffset` getter clamps the offset.
         this.term?.resize(cols, rows);
         if (!this.exited) this.onDidResize(cols, rows);
+        this.onDidChangeDimensionsEmitter.fire();
     }
 
     /** The emulator decides whether and how to encode a report from the program's mouse mode; col/row are 0-based. */
@@ -424,12 +495,26 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     /** Input after the process exits (the "press any key to close" key of `waitOnExit`). */
     public readonly onDidInputAfterExit = this.onDidInputAfterExitEmitter.event;
 
+    public readonly onDidInput = this.onDidInputEmitter.event;
+
     /** Upstream `onLineData`: each output line once it is complete, wrapped rows joined, without escape sequences. */
     public readonly onLineData = this.onLineDataEmitter.event;
+
+    /** Upstream `onWillData`: process output as it arrives, escape sequences included, before the emulator parses it. */
+    public readonly onWillData = this.onWillDataEmitter.event;
+
+    /** Upstream `xterm.onData`: input that came through the emulator ({@link write}), not {@link sendText}. */
+    public readonly onDidWriteData = this.onDidWriteDataEmitter.event;
+
+    public readonly onDidSendText = this.onDidSendTextEmitter.event;
+
+    /** Upstream `onDimensionsChanged`: see {@link dimensions}. */
+    public readonly onDidChangeDimensions = this.onDidChangeDimensionsEmitter.event;
 
     public dispose(): void {
         this.disposed = true;
         this.disposeProcess();
+        this.shellIntegration.dispose();
         // Stryker disable next-line OptionalChaining,CallExpression: emulator disposal isn't observable from outside
         this.term?.dispose();
     }
@@ -458,10 +543,27 @@ function param(params: readonly (number | number[])[], index: number): number {
     return params.filter((value) => typeof value === "number").at(index) ?? 0;
 }
 
-/** Rows up to the cursor always exist; the fallback is for types. */
-function rowText(buffer: IBuffer, row: number, trimRight: boolean): string {
-    // Stryker disable next-line OptionalChaining,LogicalOperator,StringLiteral: equivalent: see above
-    return buffer.getLine(row)?.translateToString(trimRight) ?? "";
+/** The active buffer as it is now: the getters follow resizes, scrolling and switches to the alternate buffer. */
+function createBufferView(surface: XtermSurface, term: Terminal): ITerminalBuffer {
+    return {
+        get type() {
+            return term.buffer.active.type;
+        },
+        get cols() {
+            return term.cols;
+        },
+        get rows() {
+            return term.rows;
+        },
+        get viewportY() {
+            return term.buffer.active.baseY - surface.scrollOffset;
+        },
+        get length() {
+            return term.buffer.active.length;
+        },
+        getLine: (y) => term.buffer.active.getLine(y),
+        registerMarker: () => term.registerMarker(0),
+    };
 }
 
 function coreMouseService(term: Terminal): ICoreMouseService {

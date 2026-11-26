@@ -17,7 +17,8 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-proposed-d
 const CHECK = "\u{eab2}";
 /** codicon `discard` — the "reject" button. */
 const DISCARD = "\u{eae2}";
-const TAB_ROW = 1;
+/** The tab label row: row 1 is the tabs' top lines, row 3 their baseline. */
+const TAB_ROW = 2;
 const TAB_TITLE = "[Proposed] sample.txt";
 
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {

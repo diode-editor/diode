@@ -3,6 +3,7 @@ import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 import type { Event } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { ShellIntegrationAddon } from "../../../../platform/terminal/common/xterm/shellIntegrationAddon.ts";
 
 import type { ITerminalBuffer } from "./terminalBuffer.ts";
 
@@ -18,6 +19,14 @@ export interface ITerminalSessionOptions {
     strictEnv?: boolean;
     /** Printed to the emulator before shell output (upstream `initialText`); never sent to the shell. */
     message?: string;
+    /** `terminal.integrated.shellIntegration.enabled` at (re)launch; absent — the shell is not injected. */
+    shellIntegrationEnabled?: boolean;
+    /** `terminal.integrated.shellIntegration.environmentReporting`: the injected shell reports its environment. */
+    shellIntegrationEnvironmentReporting?: boolean;
+    /** A task terminal (upstream `isFeatureTerminal`): never injected with shell integration. */
+    isFeatureTerminal?: boolean;
+    /** `TerminalOptions.shellIntegrationNonce`; absent — a fresh one. Kept across relaunches. */
+    shellIntegrationNonce?: string;
 }
 
 export type ITerminalRelaunchOptions = Omit<ITerminalSessionOptions, "cols" | "rows"> & {
@@ -44,10 +53,24 @@ export type ITerminalSession = ITerminalSurface &
         /** Key press for "press any key to close" (upstream `waitOnExit`). */
         readonly onDidInputAfterExit: Event<void>;
         /**
+         * Upstream `onDidInputData`: input reached the live process — keys, mouse reports, `sendText`. The extension
+         * sees it as `terminal.state.isInteractedWith`.
+         */
+        readonly onDidInput: Event<void>;
+        /**
          * Upstream `onLineData`: each output line once complete (the unterminated last one on exit, before
          * `onExit`), wrapped rows joined, without escape sequences. Task problem matchers read it.
          */
         readonly onLineData: Event<string>;
+        /** Upstream `onWillData`: raw process output, escape sequences included, before the emulator parses it. */
+        readonly onWillData: Event<string>;
+        /** Upstream `xterm.onData`: input written through the emulator (keys, mouse reports, replies). */
+        readonly onDidWriteData: Event<string>;
+        /** Like `write`, but reported as {@link onDidSendText}: text sent by a command or an extension. */
+        sendText(text: string): void;
+        readonly onDidSendText: Event<string>;
+        readonly dimensions: { readonly cols: number; readonly rows: number };
+        readonly onDidChangeDimensions: Event<void>;
         /** The emulator buffer for link detection; absent or `undefined` — no links. */
         readonly buffer?: ITerminalBuffer | undefined;
         /**
@@ -55,6 +78,8 @@ export type ITerminalSession = ITerminalSurface &
          * on our side. Relative paths in the output resolve against it (upstream reads it from shell integration).
          */
         getCwd?(): Promise<string | undefined>;
+        /** What shell integration sequences in the output tell (commands, cwd, environment); absent in fakes. */
+        readonly shellIntegration?: ShellIntegrationAddon;
     };
 
 export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerminalSession;
@@ -74,6 +99,8 @@ export interface IExtensionPtySessionOptions {
     name: string;
     onInput(data: string): void;
     onResize(cols: number, rows: number): void;
+    /** `ExtensionTerminalOptions.shellIntegrationNonce`: the pty's sequences carrying it are trusted. */
+    shellIntegrationNonce?: string;
 }
 
 export type ExtensionPtySessionFactory = (options: IExtensionPtySessionOptions) => IExtensionPtySession;

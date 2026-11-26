@@ -49,6 +49,12 @@ describe("NULL_COMMAND_SERVICE", () => {
         expect(NULL_COMMAND_SERVICE.execute("any", [1, 2])).toBeUndefined();
     });
 
+    it("holdInputUntil: no-op, there is no input to hold", () => {
+        expect(() => {
+            NULL_COMMAND_SERVICE.holdInputUntil(Promise.resolve());
+        }).not.toThrow();
+    });
+
     it("registerProxy: no-op returns a safe Disposable", () => {
         const disposable = NULL_COMMAND_SERVICE.registerProxy("any", () => undefined);
         expect(() => {

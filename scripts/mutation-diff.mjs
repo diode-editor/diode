@@ -84,6 +84,10 @@ const EXCLUDED = [
     /^src\/vs\/editor\/common\/model\/textModelSearch\.ts$/,
     /^src\/vs\/editor\/common\/core\/(textChange|wordCharacterClassifier|characterClassifier)\.ts$/,
     /^src\/vs\/base\/common\/uint\.ts$/,
+    /^src\/vs\/editor\/contrib\/snippet\/browser\/snippetParser\.ts$/,
+    /^extensions\/merge-conflict\/src\//,
+    /^extensions\/html-language-features\/(client|server)\//,
+    /^extensions\/debug-auto-launch\/src\//,
     // Test shims at upstream paths: the same kind of test helpers as src/TestUtils/.
     /^src\/vs\/editor\/test\/common\/testTextModel\.ts$/,
     /^src\/vs\/base\/test\//,

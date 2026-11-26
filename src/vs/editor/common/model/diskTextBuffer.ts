@@ -488,9 +488,8 @@ export class DiskTextBuffer implements IDocumentBuffer {
         const page = buffer.subarray(0, read);
         this.pages.set(index, page);
         if (this.pages.size > this.cachedPages) {
-            const oldest = this.pages.keys().next().value;
-            // Stryker disable next-line ConditionalExpression: the map is over its cap, so it has a first key; the check is for the type
-            if (oldest !== undefined) this.pages.delete(oldest);
+            const [oldest] = this.pages.keys();
+            this.pages.delete(oldest);
         }
         return page;
     }

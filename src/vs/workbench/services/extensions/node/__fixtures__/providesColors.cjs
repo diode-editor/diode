@@ -4,7 +4,8 @@
  * Fixture for extensionHost.colors.test.ts: a color provider for css that colors the WORDS `red` and
  * `blue` — the built-in detector does not see named colors, so a square on them can only come from the
  * extension. A document with `NONE` gets an empty answer, with `THROW` — an exception; its colors
- * are then the built-in detector's (`auto`). `providesColors.unregister` disposes the registration.
+ * are then the built-in detector's (`auto`). A document with `SLOW` is answered after 6 s, like a
+ * language server still building its project. `providesColors.unregister` disposes the registration.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -24,6 +25,13 @@ exports.activate = function activate(context) {
                     const start = document.positionAt(match.index);
                     const end = document.positionAt(match.index + match[0].length);
                     colors.push(new vscode.ColorInformation(new vscode.Range(start, end), NAMED[match[1]]));
+                }
+                if (text.includes("SLOW")) {
+                    return new Promise(function (resolve) {
+                        setTimeout(function () {
+                            resolve(colors);
+                        }, 6000);
+                    });
                 }
                 return colors;
             },

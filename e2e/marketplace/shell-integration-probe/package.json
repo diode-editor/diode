@@ -1,0 +1,23 @@
+{
+    "name": "shell-integration-probe",
+    "displayName": "Shell Integration Probe",
+    "description": "Synthetic extension: logs every shell integration event of the terminal API to its Output channel and runs commands through TerminalShellIntegration.executeCommand.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.93.0"
+    },
+    "activationEvents": [
+        "onTerminalShellIntegration:*"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "shellIntegrationProbe.executeCommand",
+                "title": "Execute Command",
+                "category": "Shell Integration Probe"
+            }
+        ]
+    }
+}

@@ -11,7 +11,8 @@ export const terminalConfiguration = {
             type: "string",
             default: "auto",
             enum: ["auto", "legacy", "csi-u", "kitty"],
-            description: 'Tier override: "auto" detects the terminal capabilities tier.',
+            description:
+                'Keyboard protocol tier. "auto" turns the extended protocol on at startup when the terminal (or tmux) confirms it and stays legacy otherwise; "legacy" keeps legacy keys and only shows in the status bar when the terminal can do more; "csi-u" and "kitty" force the extended protocol on. Applies after restart.',
         },
         "keyboard.platform": {
             scope: "machine",
@@ -152,6 +153,35 @@ export const terminalConfiguration = {
             description:
                 "Whether to enable the kitty keyboard protocol, which allows a program in the terminal to request more detailed keyboard input reporting. This can, for example, enable `Shift+Enter` to be handled by the program.",
         },
+        // Verbatim from upstream (`markdownDescription` → `description`, `{0}`/`{1}` substituted); our schema has no
+        // `restricted`. Read when a terminal (re)launches: `TerminalService` passes it to the session.
+        "terminal.integrated.shellIntegration.enabled": {
+            scope: "window",
+            type: "boolean",
+            default: true,
+            description:
+                "Determines whether or not shell integration is auto-injected to support features like enhanced command tracking and current working directory detection. \n\nShell integration works by injecting the shell with a startup script. The script gives VS Code insight into what is happening within the terminal.\n\nSupported shells:\n\n- Linux/macOS: bash, fish, pwsh, zsh\n - Windows: pwsh, git bash\n\nThis setting applies only when terminals are created, so you will need to restart your terminals for it to take effect.\n\n Note that the script injection may not work if you have custom arguments defined in the terminal profile, have enabled `#editor.accessibilitySupport#`, have a [complex bash `PROMPT_COMMAND`](https://code.visualstudio.com/docs/editor/integrated-terminal#_complex-bash-promptcommand), or other unsupported setup. To disable decorations, see `#terminal.integrated.shellIntegration.decorationsEnabled#`",
+        },
+        // Verbatim from upstream (`markdownDescription` → `description`, `{0}` substituted); the default is upstream's
+        // `product.quality !== 'stable'` — diode is a stable build.
+        "terminal.integrated.shellIntegration.environmentReporting": {
+            scope: "window",
+            type: "boolean",
+            default: false,
+            description:
+                "Controls whether to report the shell environment, enabling its use in features such as `#terminal.integrated.suggest.enabled#`. This may cause a slowdown when printing your shell's prompt.",
+        },
+        // Verbatim from upstream (`markdownDescription` → `description`, `{0}` substituted); our schema has no
+        // `restricted`. Read by every `executeCommand` of an extension (`TerminalService.runCommand`).
+        "terminal.integrated.shellIntegration.timeout": {
+            scope: "window",
+            type: "integer",
+            minimum: -1,
+            maximum: 60000,
+            default: -1,
+            description:
+                "Configures the duration in milliseconds to wait for shell integration after launch before declaring it's not there. The default value `-1` uses a variable wait time based on whether shell integration injection is enabled and whether it's a remote window. Values between 1 and 499 are clamped to 500ms. Consider setting this to a large value if your shell starts very slowly.",
+        },
         "terminal.integrated.allowChords": {
             scope: "window",
             type: "boolean",
@@ -165,6 +195,23 @@ export const terminalConfiguration = {
             default: false,
             description:
                 "Whether to allow menubar mnemonics (for example Alt+F) to trigger the open of the menubar. Note that this will cause all alt keystrokes to skip the shell when true. This does nothing on macOS.",
+        },
+        // Copied when a mouse gesture or Select All ends, not on every step of a drag: upstream copies on xterm's
+        // `onSelectionChange`. No scope upstream: window.
+        "terminal.integrated.copyOnSelection": {
+            scope: "window",
+            type: "boolean",
+            default: false,
+            description: "Controls whether text selected in the terminal will be copied to the clipboard.",
+        },
+        // `markdownDescription` goes into `description`. There are no word links yet: the separators only bound
+        // the word a double click selects.
+        "terminal.integrated.wordSeparators": {
+            scope: "window",
+            type: "string",
+            default: " ()[]{}',\"`\u2500\u2018\u2019\u201c\u201d|",
+            description:
+                "A string containing all characters to be considered word separators when double-clicking to select word and in the fallback 'word' link detection. Since this is used for link detection, including characters such as `:` that are used when detecting links will cause the line and column part of links like `file:10:5` to be ignored.",
         },
         // There is no remote here: "notRemote" behaves as "on".
         "terminal.integrated.enableFileLinks": {

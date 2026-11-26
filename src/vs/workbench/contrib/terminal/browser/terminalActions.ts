@@ -1,3 +1,5 @@
+import { basename } from "node:path";
+
 import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
@@ -5,6 +7,10 @@ import { IConfigurationServiceDIToken } from "../../../../platform/configuration
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
+import {
+    type IProductIconService,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import { resolveTabTarget } from "../../../browser/actions/editorTabTarget.ts";
 import {
     editorTabTargetArg,
@@ -14,15 +20,20 @@ import {
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
+import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { SIDE_GROUP } from "../../../services/editor/common/editorGroupColumn.ts";
 import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
+import { DefaultShellResolverDIToken } from "../common/defaultShell.ts";
+import type { IExtensionTerminalProfile } from "../common/terminalExtensionPoints.ts";
 
 import { TERMINAL_EDITOR_SCHEME, TerminalEditorPane } from "./terminalEditorPane.ts";
 import { TerminalEditorServiceDIToken } from "./terminalEditorService.ts";
 import type { TerminalTabMenuContext } from "./terminalPanelComponent.ts";
 import { SWITCH_TERMINAL_COMMAND_ID, TerminalPanelComponentDIToken } from "./terminalPanelComponent.ts";
-import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
+import { TerminalProfileServiceDIToken } from "./terminalProfileService.ts";
+import { type ITerminalInstance, TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
 import { SWITCH_TERMINAL_SHOW_TABS, terminalIndexedLabel } from "./terminalTabsList.ts";
 
 /** Tiers where Ctrl+symbol is encoded unambiguously (in legacy, Ctrl+` is NUL). */
@@ -32,7 +43,7 @@ const PLUS_ICON = codicon("plus");
 const TRASH_ICON = codicon("trash");
 
 /** Doesn't wake the lazy spawn; the view opens where it is, like upstream `showPanel`. */
-function showTerminalView(accessor: ServiceAccessor): void {
+export function showTerminalView(accessor: ServiceAccessor): void {
     accessor.get(ViewsServiceDIToken).openView(TERMINAL_VIEW_ID, false, false);
 }
 
@@ -57,7 +68,7 @@ export const toggleTerminalAction: CommandAction = {
     id: "workbench.action.terminal.toggleTerminal",
     title: "Terminal: Toggle Terminal",
     shortTitle: "Terminal",
-    menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 30 }],
+    menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 31 }],
     keybinding: parseChord("ctrl+k t"),
     keybindings: [{ keys: parseKeybinding("ctrl+`"), when: MODERN_TIER }],
     run(accessor) {
@@ -99,13 +110,85 @@ export const newTerminalAction: CommandAction = {
         { menuId: MenuId.MenubarTerminalMenu, group: "1_create", order: 1 },
     ],
     run(accessor) {
-        if (accessor.get(IConfigurationServiceDIToken).get("terminal.integrated.defaultLocation") === "editor") {
-            accessor.get(TerminalEditorServiceDIToken).createTerminal();
-        } else {
-            showTerminalView(accessor);
-            accessor.get(TerminalServiceDIToken).newTerminal();
+        createTerminal(accessor);
+    },
+};
+
+/**
+ * Upstream `createTerminal()` + reveal: in the default location, active and focused. The focus change refreshes the
+ * context keys.
+ */
+export function createTerminal(accessor: ServiceAccessor): ITerminalInstance {
+    let instance: ITerminalInstance;
+    if (accessor.get(IConfigurationServiceDIToken).get("terminal.integrated.defaultLocation") === "editor") {
+        instance = accessor.get(TerminalEditorServiceDIToken).createTerminal();
+    } else {
+        showTerminalView(accessor);
+        instance = accessor.get(TerminalServiceDIToken).newTerminal();
+    }
+    return instance;
+}
+
+const DEFAULT_PROFILE_ICON = "terminal";
+
+/** Upstream `TerminalProfileQuickpick`: a `$(id)` or bare id that names no codicon falls back to the terminal icon. */
+function profileLabel(icons: IProductIconService, icon: string | undefined, title: string): string {
+    const glyph = icon === undefined ? "" : icons.renderCodicons(icon.startsWith("$(") ? icon : `$(${icon})`);
+    return `${glyph === "" ? icons.codicon(DEFAULT_PROFILE_ICON) : glyph} ${title}`;
+}
+
+/**
+ * Upstream `workbench.action.terminal.newWithProfile` without arguments. The only profile of our own is the default
+ * shell (there is no `terminal.integrated.profiles.*`); the group label is the hint on the group's first row.
+ */
+export const newWithProfileAction: CommandAction = {
+    id: "workbench.action.terminal.newWithProfile",
+    title: "Terminal: Create New Terminal (With Profile)",
+    async run(accessor) {
+        const icons = accessor.get(ProductIconServiceDIToken);
+        const profiles = accessor.get(TerminalProfileServiceDIToken);
+        const shell = accessor.get(DefaultShellResolverDIToken)();
+        const contributed = [...profiles.contributedProfiles].sort((a, b) => a.title.localeCompare(b.title));
+        const shellItem: QuickPickItem = {
+            label: profileLabel(icons, undefined, basename(shell)),
+            description: shell,
+            hint: "profiles",
+        };
+        const contributedItems = new Map<QuickPickItem, IExtensionTerminalProfile>(
+            contributed.map((profile, index) => [
+                {
+                    label: profileLabel(icons, profile.icon, profile.title),
+                    ...(index === 0 ? { hint: "contributed" } : {}),
+                },
+                profile,
+            ]),
+        );
+        const picked = await accessor.get(QuickInputServiceDIToken).quickPick({
+            placeholder: "Select the terminal profile to create",
+            items: [shellItem, ...contributedItems.keys()],
+        });
+        if (picked === undefined) return;
+        const profile = contributedItems.get(picked);
+        if (profile === undefined) {
+            newTerminalAction.run(accessor);
+            return;
         }
-        accessor.get(WorkbenchContextKeysDIToken).update();
+        const editor =
+            accessor.get(IConfigurationServiceDIToken).get("terminal.integrated.defaultLocation") === "editor";
+        try {
+            await profiles.createContributedTerminalProfile(profile, editor ? "editor" : "panel");
+        } catch (error) {
+            // Both the service and the RPC reject with an `Error`.
+            accessor.get(NotificationServiceDIToken).show({
+                severity: "error",
+                message: (error as Error).message,
+                modal: false,
+                items: [],
+            });
+            return;
+        }
+        // The focus change (the panel's terminal, or the new editor tab) refreshes the keys.
+        if (!editor) showPanel(accessor);
     },
 };
 
@@ -353,6 +436,7 @@ export const quickOpenTermAction: CommandAction = {
 export const TERMINAL_ACTIONS: readonly CommandAction[] = [
     toggleTerminalAction,
     newTerminalAction,
+    newWithProfileAction,
     createTerminalEditorAction,
     createTerminalEditorSideAction,
     moveToEditorAction,
