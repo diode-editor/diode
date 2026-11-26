@@ -115,7 +115,6 @@ export class ExtensionsComponent extends Component {
             const enter = event.key === "Enter" && !event.ctrlKey;
             const ctrlDown = event.key === "ArrowDown" && event.ctrlKey;
             if (!enter && !ctrlDown) return;
-            event.preventDefault();
             this.focusResults();
         });
 
