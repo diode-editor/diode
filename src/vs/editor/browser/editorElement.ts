@@ -441,9 +441,17 @@ export class EditorElement extends TUIElement implements IScrollable {
     /** By the position, not by the zone: scroll, edits and new zones move the text under a still pointer. */
     private updateHoveredCodeLens(): void {
         const pointer = this.pointerCell;
-        const zone = pointer === null || pointer.x < this.gutterWidth ? undefined : this.codeLensZoneAtRow(pointer.y);
-        const action = zone === undefined ? undefined : this.codeLensActionAt(zone, pointer.x);
-        this.setHoveredCodeLens(zone === undefined || action === undefined ? null : { zone, action });
+        if (pointer === null || pointer.x < this.gutterWidth) {
+            this.setHoveredCodeLens(null);
+            return;
+        }
+        const zone = this.codeLensZoneAtRow(pointer.y);
+        if (zone === undefined) {
+            this.setHoveredCodeLens(null);
+            return;
+        }
+        const action = this.codeLensActionAt(zone, pointer.x);
+        this.setHoveredCodeLens(action === undefined ? null : { zone, action });
     }
 
     private clickCodeLens(zone: ICodeLensZone, localX: number): void {
