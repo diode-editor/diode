@@ -332,47 +332,77 @@ describe("FileTreeDataProvider", () => {
     });
 
     describe("file watching", () => {
-        it("watches an expanded directory non-recursively and without its own excludes", () => {
-            provider.watchDirectory(ws.dir);
-            provider.watchDirectory(ws.dir); // again — the same subscription
+        /** The root's subscription is made by the constructor, before any expansion. */
+        function watchOf(dirPath: string): IFakeWatch {
+            const watch = watcher.watches.find((candidate) => candidate.path === dirPath);
+            if (!watch) throw new Error(`${dirPath} is not watched`);
+            return watch;
+        }
+
+        it("the root is watched from creation, non-recursively — nothing has to be expanded", () => {
             expect(watcher.watches).toHaveLength(1);
             expect(watcher.watches[0].path).toBe(ws.dir);
             expect(watcher.watches[0].options).toEqual({ recursive: false, excludes: [] });
+        });
+
+        it("watches an expanded directory once and without its own excludes", () => {
+            const sub = ws.path("sub");
+            provider.watchDirectory(sub);
+            provider.watchDirectory(sub); // again — the same subscription
+            expect(watcher.watches.map((watch) => watch.path)).toEqual([ws.dir, sub]);
+            expect(watchOf(sub).options).toEqual(watchOf(ws.dir).options);
         });
 
         it("an event in a directory — onChange with the directory node after debounce; a batch is one notification", () => {
             vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
-            provider.watchDirectory(ws.dir);
+            const sub = ws.path("sub");
+            provider.watchDirectory(sub);
 
-            watcher.watches[0].fire([ws.path("one.ts")]);
+            watchOf(sub).fire([ws.path("sub/one.ts")]);
             vi.advanceTimersByTime(200);
-            watcher.watches[0].fire([ws.path("two.ts")]);
+            watchOf(sub).fire([ws.path("sub/two.ts")]);
             vi.advanceTimersByTime(299);
             expect(callback).not.toHaveBeenCalled();
 
             vi.advanceTimersByTime(1);
-            expect(callback).toHaveBeenCalledExactlyOnceWith({
-                name: ws.dir.slice(ws.dir.lastIndexOf("/") + 1),
-                path: ws.dir,
-                isDirectory: true,
-            });
+            expect(callback).toHaveBeenCalledExactlyOnceWith({ name: "sub", path: sub, isDirectory: true });
+        });
+
+        it("an event in the root rereads the whole top level (onChange without a node); a batch is one notification", () => {
+            vi.useFakeTimers();
+            const callback = vi.fn();
+            provider.onChange = callback;
+
+            watchOf(ws.dir).fire([ws.path("build")]);
+            vi.advanceTimersByTime(200);
+            watchOf(ws.dir).fire([ws.path("rootfile.txt"), ws.path("CMakeCache.txt")]);
+            vi.advanceTimersByTime(299);
+            expect(callback).not.toHaveBeenCalled();
+
+            vi.advanceTimersByTime(1);
+            expect(callback).toHaveBeenCalledExactlyOnceWith(undefined);
+        });
+
+        it("an event in the root before anyone subscribed to changes does not throw", () => {
+            vi.useFakeTimers();
+            watchOf(ws.dir).fire([ws.path("build")]);
+            expect(() => vi.advanceTimersByTime(300)).not.toThrow();
         });
 
         it("changes to files hidden by the setting only do not touch the tree", () => {
             vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
-            excludes = ["**/*.pyc"];
-            provider.watchDirectory(ws.dir);
+            excludes = ["**/*.pyc", "**/.git"];
 
-            watcher.watches[0].fire([ws.path("app.cpython-312.pyc")]);
+            watchOf(ws.dir).fire([ws.path("app.cpython-312.pyc"), ws.path(".git")]);
             vi.advanceTimersByTime(1000);
             expect(callback).not.toHaveBeenCalled();
 
             // Control: the batch has a non-excluded file — the tree is reread.
-            watcher.watches[0].fire([ws.path("app.cpython-312.pyc"), ws.path("app.py")]);
+            watchOf(ws.dir).fire([ws.path("app.cpython-312.pyc"), ws.path("app.py")]);
             vi.advanceTimersByTime(300);
             expect(callback).toHaveBeenCalledOnce();
         });
@@ -381,30 +411,50 @@ describe("FileTreeDataProvider", () => {
             vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
-            provider.watchDirectory(ws.dir);
-            watcher.watches[0].fire([ws.path("a.ts")]);
+            const sub = ws.path("sub");
+            provider.watchDirectory(sub);
+            watchOf(sub).fire([ws.path("sub/a.ts")]);
 
             provider.unwatchDirectory(ws.path("never-watched"));
-            expect(watcher.watches[0].disposed).toBe(false);
-            provider.unwatchDirectory(ws.dir);
-            expect(watcher.watches[0].disposed).toBe(true);
+            expect(watchOf(sub).disposed).toBe(false);
+            provider.unwatchDirectory(sub);
+            expect(watchOf(sub).disposed).toBe(true);
             vi.advanceTimersByTime(1000);
             expect(callback).not.toHaveBeenCalled();
 
             // Expanding again subscribes anew.
-            provider.watchDirectory(ws.dir);
-            expect(watcher.watches).toHaveLength(2);
+            provider.watchDirectory(sub);
+            expect(watcher.watches.filter((watch) => watch.path === sub)).toHaveLength(2);
         });
 
-        it("dispose removes subscriptions and cancels pending notifications", () => {
+        it("the root can't be unwatched: the same path through watch/unwatch keeps its one subscription and its notification", () => {
             vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
+            const root = { name: "root", path: ws.dir, isDirectory: true };
+
+            provider.watchNode(root);
             provider.watchDirectory(ws.dir);
-            watcher.watches[0].fire([ws.path("a.ts")]);
+            watchOf(ws.dir).fire([ws.path("a.ts")]);
+            provider.unwatchNode(root);
+            provider.unwatchDirectory(ws.dir);
+
+            expect(watcher.watches).toHaveLength(1);
+            expect(watcher.watches[0].disposed).toBe(false);
+            vi.advanceTimersByTime(300);
+            expect(callback).toHaveBeenCalledExactlyOnceWith(undefined);
+        });
+
+        it("dispose removes subscriptions, the root's too, and cancels pending notifications", () => {
+            vi.useFakeTimers();
+            const callback = vi.fn();
+            provider.onChange = callback;
+            provider.watchDirectory(ws.path("sub"));
+            watchOf(ws.dir).fire([ws.path("a.ts")]);
+            watchOf(ws.path("sub")).fire([ws.path("sub/a.ts")]);
 
             provider.dispose();
-            expect(watcher.watches[0].disposed).toBe(true);
+            expect(watcher.watches.map((watch) => watch.disposed)).toEqual([true, true]);
             vi.advanceTimersByTime(1000);
             expect(callback).not.toHaveBeenCalled();
         });
