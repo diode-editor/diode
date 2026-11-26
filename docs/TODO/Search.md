@@ -28,7 +28,9 @@
   `SearchRevealTargetDIToken` → EditorService, по образцу Problems).
 - **Панель как merged одно-view контейнер** — заголовок SEARCH с «⋯» рисует
   PaneHeaderElement (`ViewsService.mergeSingleView`); хедер с отступами,
-  include/exclude спрятаны за «···» (`workbench.action.search.toggleQueryDetails`,
+  поля без фона, под каждым линия (как в ttt); переключатели Aa/ab/.* — кнопки tuidom без
+  скобок, активные в цветах `inputOption.active*`; include/exclude спрятаны за шевроном на
+  линии запроса — тот же глиф, что у дерева (`workbench.action.search.toggleQueryDetails`,
   Ctrl+Shift+J, персист раскрытости по-проектно, автораскрытие при непустых
   полях).
 - **Collapse All / Expand All** — поэтапный CollapseDeepestExpandedLevel как в
@@ -49,7 +51,7 @@
 - **Сайдбар-своп** — `browser/parts/sidebar/sidebarService.ts`, команды
   `contrib/search/browser/searchActions.ts` + `showExplorerAction`.
 - e2e: сценарий `e2e/scenarios/searchInFiles.scenario.ts` (демо + скриншоты:
-  «⋯»-меню, детали за «···», list/tree, поэтапный collapse, открытие на позиции)
+  «⋯»-меню, детали за шевроном, list/tree, поэтапный collapse, открытие на позиции)
   + функциональный `e2e/searchInFiles.functional.test.ts`.
 
 ## Дальше (отложено)

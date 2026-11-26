@@ -1,4 +1,4 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
@@ -15,6 +15,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
@@ -34,6 +35,8 @@ import { type ISearchRevealTarget, SearchComponent } from "./searchComponent.ts"
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const ROOT = "/work/project";
+// What the host puts on the root without Nerd Font (widgetGlyphs.ts): the tree chevrons as plain Unicode.
+const TREE_GLYPHS = { "tree.collapsed": "\u203a", "tree.expanded": "\u2304" };
 
 function fakeSearch(
     results: IFileMatch[],
@@ -130,6 +133,7 @@ function make(
         NULL_VIEWS_SERVICE,
         NULL_JUMP_RECORDER,
         opts.configuration ?? NULL_CONFIGURATION_SERVICE,
+        new StaticProductIconService(false),
     );
 }
 
@@ -152,18 +156,46 @@ describe("SearchComponent", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it("by default: the query line and '···', include/exclude hidden (the SEARCH title is drawn by pane-header)", () => {
+    it("by default: the query line and its underline with a chevron, include/exclude hidden (the SEARCH title is drawn by pane-header)", () => {
         const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
-        const screen = render(component).screenToString();
-        expect(screen).toContain("Search");
-        expect(screen).toContain("···");
-        expect(screen).not.toContain("files to include");
-        expect(screen).not.toContain("files to exclude");
+        component.view.setGlyphs(TREE_GLYPHS);
+        const rows = render(component).screenToString().split("\n");
+        expect(rows[0]).toBe(" \u26b2 Search                   Aa  ab  .*  ");
+        expect(rows[1]).toBe(` ${"\u2500".repeat(35)} \u203a  `);
+        expect(rows.join("\n")).not.toContain("files to include");
+        expect(rows.join("\n")).not.toContain("files to exclude");
+    });
+
+    it("the chevron turns down while include/exclude are shown, each field with its own underline", () => {
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
+        component.view.setGlyphs(TREE_GLYPHS);
+        component.toggleQueryDetails();
+        const rows = render(component).screenToString().split("\n");
+        expect(rows[1]).toBe(` ${"\u2500".repeat(35)} \u2304  `);
+        expect(rows[2]).toBe("   files to include                     ");
+        expect(rows[3]).toBe(` ${"\u2500".repeat(38)} `);
+        expect(rows[4]).toBe("   files to exclude                     ");
+        expect(rows[5]).toBe(` ${"\u2500".repeat(38)} `);
+    });
+
+    it("an active toggle paints all four of its cells in the inputOption.active colors, an inactive one is dim", () => {
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
+        const regex = (component.view.querySelectorAll("ButtonElement") as ButtonElement[])[2];
+        regex.onActivate?.();
+        const backend = render(component);
+        const x = backend.screenToString().split("\n")[0].indexOf(".*") - 1;
+        for (let dx = 0; dx < 4; dx++) {
+            expect(backend.getBgAt(new Point(x + dx, 0))).toBe(theme.getRequiredColor("inputOption.activeBackground"));
+            expect(backend.getFgAt(new Point(x + dx, 0))).toBe(theme.getRequiredColor("inputOption.activeForeground"));
+        }
+        const aa = backend.screenToString().split("\n")[0].indexOf("Aa");
+        expect(backend.getFgAt(new Point(aa, 0))).toBe(theme.getRequiredColor("descriptionForeground"));
+        expect(backend.getBgAt(new Point(aa, 0))).toBe(theme.getRequiredColor("sideBar.background"));
     });
 
     it("toggleQueryDetails reveals include/exclude with a blank line between them and hides them back", () => {
         const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
-        // The "···" button is the same toggle by mouse (the 4th button after Aa/\b/.*).
+        // The chevron on the underline is the same toggle by mouse (the 4th button after Aa/ab/.*).
         const detailsBtn = (component.view.querySelectorAll("ButtonElement") as ButtonElement[])[3];
         detailsBtn.onActivate?.();
         expect(component.isQueryDetailsShown()).toBe(true);
@@ -744,7 +776,7 @@ describe("SearchComponent", () => {
             return { component, app };
         }
 
-        it("details hidden: query → list; list → query (inputs behind '···' are skipped)", () => {
+        it("details hidden: query → list; list → query (inputs behind the chevron are skipped)", () => {
             const { component, app } = makeFocusable(false);
             component.focus();
             component.focusNextInputBox();
@@ -839,6 +871,7 @@ describe("SearchComponent", () => {
             viewsService,
             NULL_JUMP_RECORDER,
             NULL_CONFIGURATION_SERVICE,
+            new StaticProductIconService(false),
         );
         expect(registered).toHaveLength(1);
         expect(registered[0].id).toBe("workbench.search.results");

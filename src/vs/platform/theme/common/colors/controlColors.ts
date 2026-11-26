@@ -134,6 +134,15 @@ export const controlColors = {
         defaults: { dark: "#3C3C3C", light: "#CECECE" },
         description: "Input box border.",
     },
+    // Upstream: `transparent(focusBorder, 0.4)` dark / `0.2` light, baked over `sideBar.background`.
+    "inputOption.activeBackground": {
+        defaults: { dark: "#16496C", light: "#C6E3F7" },
+        description: "Background hover color of options in input fields.",
+    },
+    "inputOption.activeForeground": {
+        defaults: { dark: "#FFFFFF", light: "#000000" },
+        description: "Foreground color of activated options in input fields.",
+    },
     "input.placeholderForeground": {
         // Historical Diode placeholder color (VS Code uses #989898 over transparency).
         defaults: { dark: "#6E6E6E", light: "#767676" },

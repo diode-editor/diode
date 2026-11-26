@@ -126,7 +126,7 @@ describe("Search panel (functional e2e)", () => {
         expect(counts(frameToText(await session.captureFrame()))?.matches).toBeGreaterThan(0);
     }, 120_000);
 
-    // The include/exclude fields are behind "···" (F8 here = Ctrl+Shift+J); expanding moves focus to include.
+    // The include/exclude fields are behind the chevron on the query underline (F8 here = Ctrl+Shift+J); expanding moves focus to include.
     it("include glob narrows to .txt, exclude glob drops .ts", async () => {
         const app = await openSearch();
         const { session } = app;
