@@ -97,6 +97,26 @@ describe("parseRgMatchLine", () => {
         expect(matches[0].startColumn).toBe(4);
     });
 
+    it.each([
+        ["null", null],
+        ["a number", 5],
+        ["no start", { match: { text: "foo" }, end: 3 }],
+        ["no end", { match: { text: "foo" }, start: 0 }],
+        ["a string start", { match: { text: "foo" }, start: "0", end: 3 }],
+    ])("skips a submatch that is %s", (_label, bad) => {
+        const line = JSON.stringify({
+            type: "match",
+            data: {
+                path: { text: "/a.ts" },
+                lines: { text: "foo foo\n" },
+                line_number: 1,
+                submatches: [bad, { match: { text: "foo" }, start: 4, end: 7 }],
+            },
+        });
+        const matches = parseRgMatchLine(line)!.matches;
+        expect(matches.map((m) => [m.startColumn, m.endColumn])).toEqual([[4, 7]]);
+    });
+
     it("returns null for a path reported only as bytes (non-UTF-8 filename)", () => {
         const line = JSON.stringify({
             type: "match",
@@ -175,9 +195,98 @@ describe("parseRgMatchLine", () => {
         const m = parseRgMatchLine(line)!.matches[0];
         expect(m.preview.after.length).toBe(256);
         expect(m.preview.after.startsWith(" y")).toBe(true);
+        expect(m.preview.before).toBe("x ");
         // Columns do not depend on the tail — they come from before/inside.
         expect(m.startColumn).toBe(2);
         expect(m.endColumn).toBe(8);
+    });
+
+    it("cuts preview.before to the 256 characters next to the match, columns stay exact", () => {
+        const line = matchLine({
+            path: "/a.min.js",
+            text: "x".repeat(100_000) + " needle\n",
+            lineNumber: 1,
+            submatches: [{ text: "needle", start: 100_001, end: 100_007 }],
+        });
+        const m = parseRgMatchLine(line)!.matches[0];
+        expect(m.preview.before).toBe("x".repeat(255) + " ");
+        expect(m.preview).toMatchObject({ inside: "needle", after: "" });
+        expect(m.startColumn).toBe(100_001);
+        expect(m.endColumn).toBe(100_007);
+    });
+
+    it("keeps every match of a 1 MB line with thousands of hits bounded", () => {
+        // tsconfig.tsbuildinfo: one ~1 MB line, ~5000 hits — an uncapped `before`
+        // per match ran the heap out of memory.
+        const unit = "ab df ";
+        const count = 5000;
+        const text = unit.repeat(count) + "z".repeat(1_000_000) + "\n";
+        const submatches = Array.from({ length: count }, (_, i) => ({
+            text: "df",
+            start: i * unit.length + 3,
+            end: i * unit.length + 5,
+        }));
+        const matches = parseRgMatchLine(matchLine({ path: "/a", text, lineNumber: 1, submatches }))!.matches;
+        expect(matches).toHaveLength(count);
+        const last = matches[count - 1];
+        expect(last.startColumn).toBe((count - 1) * unit.length + 3);
+        expect(last.endColumn).toBe((count - 1) * unit.length + 5);
+        for (const m of matches) {
+            expect(m.preview.before.length).toBeLessThanOrEqual(256);
+            expect(m.preview.after.length).toBeLessThanOrEqual(256);
+            expect(m.preview.inside).toBe("df");
+        }
+    });
+
+    it("counts columns across several multibyte matches on one line", () => {
+        // "é" is 2 bytes / 1 char, "😀" 4 bytes / 2 chars (a surrogate pair).
+        const text = "é foo 😀 foo é foo\n";
+        const enc = new TextEncoder();
+        const byteAt = (col: number): number => enc.encode(text.slice(0, col)).length;
+        const cols = [2, 9, 15];
+        const line = matchLine({
+            path: "/a.ts",
+            text,
+            lineNumber: 1,
+            submatches: cols.map((c) => ({ text: "foo", start: byteAt(c), end: byteAt(c + 3) })),
+        });
+        const matches = parseRgMatchLine(line)!.matches;
+        expect(matches.map((m) => [m.startColumn, m.endColumn])).toEqual(cols.map((c) => [c, c + 3]));
+        expect(matches[1].preview).toEqual({ before: "é foo 😀 ", inside: "foo", after: " é foo" });
+    });
+
+    it("does not start preview.before on the low half of a surrogate pair", () => {
+        // 255 "y" after the emoji: the 256-char window starts on its low surrogate — it moves one right.
+        const head = "😀" + "y".repeat(255);
+        const line = matchLine({
+            path: "/a.ts",
+            text: "x" + head + "needle\n",
+            lineNumber: 1,
+            submatches: [{ text: "needle", start: 1 + 4 + 255, end: 1 + 4 + 255 + 6 }],
+        });
+        const m = parseRgMatchLine(line)!.matches[0];
+        expect(m.startColumn).toBe(1 + 2 + 255);
+        expect(m.preview.before).toBe("y".repeat(255));
+    });
+
+    it("keeps the whole tail of the last line of a file, which has no newline", () => {
+        const line = matchLine({
+            path: "/a.ts",
+            text: "foo bar",
+            lineNumber: 1,
+            submatches: [{ text: "foo", start: 0, end: 3 }],
+        });
+        expect(parseRgMatchLine(line)!.matches[0].preview.after).toBe(" bar");
+    });
+
+    it("drops a CRLF line ending from preview.after", () => {
+        const line = matchLine({
+            path: "/a.ts",
+            text: "foo bar\r\n",
+            lineNumber: 1,
+            submatches: [{ text: "foo", start: 0, end: 3 }],
+        });
+        expect(parseRgMatchLine(line)!.matches[0].preview.after).toBe(" bar");
     });
 
     it("does not split a surrogate pair at the cap boundary", () => {
