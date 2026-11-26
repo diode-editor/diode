@@ -35,6 +35,7 @@ export default defineConfig({
         "src/TestUtils/eslintFixture.ts", // eslintLsp* suite harness: npm install of the library is reachable only on a cold cache (network), the rename race only in a parallel run
         "src/TestUtils/goLspSession.ts", // goLsp* suite harness: its guards are reachable only in a red run, the skip only without Go
         "src/TestUtils/clangdSession.ts", // clangd* suite harness: its guards are reachable only in a red run, the skip only without clangd
+        "src/TestUtils/bufFixture.ts", // bufLsp* suite fixture: the proto language-id miss is reachable only on a foreign file, the release-resolve and download errors only in a red run (network)
         "src/TestUtils/clangdFixture.ts", // clangd* suite fixture: the PATH miss is reachable only without clangd, the .exe name only on Windows
         "src/**/*.stories.ts",
         "src/demos/**",
