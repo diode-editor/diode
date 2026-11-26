@@ -17,6 +17,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import {
     type IProductIconService,
     NERD_FONT_SETTING,
@@ -207,6 +208,18 @@ describe("SearchComponent", () => {
         const backend = render(component);
         expect(backend.getBgAt(new Point(3, 0))).toBe(theme.getRequiredColor("sideBar.background"));
         expect(backend.getFgAt(new Point(1, 1))).toBe(theme.getRequiredColor("panel.border"));
+    });
+
+    it("typed text keeps the input foreground, not the sidebar one", () => {
+        const custom = WorkbenchTheme.fromThemeFile({
+            ...darkPlusTheme,
+            colors: { ...darkPlusTheme.colors, "input.foreground": "#FF0000", "sideBar.foreground": "#00FF00" },
+        });
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
+        typeQuery(component, "foo");
+        const backend = renderElement(component.view, 40, 14, { styleVars: computeThemeVars(custom) });
+        expect(backend.getFgAt(new Point(3, 0))).toBe(custom.getRequiredColor("input.foreground"));
+        expect(backend.getBgAt(new Point(3, 0))).toBe(custom.getRequiredColor("sideBar.background"));
     });
 
     it("the chevron is down from the start when the store had include/exclude open, and turns down when restore opens them", () => {
