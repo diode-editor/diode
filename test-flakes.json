@@ -267,6 +267,24 @@
             "test": "FileSink > serializes Error with stack",
             "action": "retry",
             "note": "the log file was still empty when read (expected '' to contain '[ERROR]') under coverage on CI (run 45790209222, PR #1273, whose diff is the Search header; logging is untouched); main green on the same base"
+        },
+        {
+            "file": "e2e/scenarios/renameSymbol.scenario.ts",
+            "test": "rename-symbol",
+            "action": "retry",
+            "platforms": [
+                "linux"
+            ],
+            "note": "waitUntil(closed main.ts reference in the REFERENCES panel) timed out after 120000ms in both e2e passes on ubuntu: main run 45801161074, run 45789149960 (PR #1269, a @tuidom/* bump), run 45725801182 (PR #1270, scrollbar mouse); the scenario waits on tsserver, none of these diffs touch it; other PRs green"
+        },
+        {
+            "file": "e2e/scenarios/terminalWordSelection.scenario.ts",
+            "test": "terminal-word-selection",
+            "action": "retry",
+            "platforms": [
+                "linux"
+            ],
+            "note": "waitUntil(the line selected) timed out after 10000ms on the triple click, first e2e pass on ubuntu (run 45725801182, PR #1270, whose diff is the scrollbar container; the terminal is not in one); green in the second pass and on main"
         }
     ]
 }
