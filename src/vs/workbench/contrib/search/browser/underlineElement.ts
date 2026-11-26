@@ -10,14 +10,6 @@ export class UnderlineElement extends TUIElement {
         this.style = { fg: "panel.border" };
     }
 
-    public override getMinIntrinsicHeight(): number {
-        return 1;
-    }
-
-    public override getMaxIntrinsicHeight(): number {
-        return 1;
-    }
-
     public override render(context: RenderContext): void {
         const { fg, bg } = this.resolvedStyle;
         context.drawText(0, 0, "─".repeat(this.layoutSize.width), { fg, bg });

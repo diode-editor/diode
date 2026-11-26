@@ -1,6 +1,6 @@
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import { ButtonElement } from "@tuidom/elements/button/buttonElement";
+import { ButtonElement, type ButtonLabel } from "@tuidom/elements/button/buttonElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
@@ -138,7 +138,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
     private readonly wordButton = new ButtonElement(WORD_GLYPH, { bare: true });
     private readonly regexButton = new ButtonElement(REGEX_GLYPH, { bare: true });
     // The same chevron as the tree twisties: the line it sits on folds the include/exclude fields.
-    private readonly detailsButton = new ButtonElement({ glyph: "tree.collapsed" }, { bare: true });
+    private readonly detailsButton: ButtonElement;
     private readonly countLabel = new TextLabelElement("");
     private readonly headerStack = new VStackElement();
     private readonly queryRow: HFlexElement;
@@ -183,6 +183,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
 
         this.viewMode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
         this.detailsExpanded = this.stateService.get(SEARCH_QUERY_DETAILS_STATE);
+        this.detailsButton = new ButtonElement(this.detailsGlyph(), { bare: true });
         this.register(
             this.stateService.onDidOpenWorkspace(() => {
                 this.restoreViewState();
@@ -219,7 +220,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.configureToggle(this.detailsButton, () => {
             this.toggleQueryDetails();
         });
-        this.syncDetailsGlyph();
         for (const input of [this.queryInput, this.includeInput, this.excludeInput]) {
             input.style = { ...input.style, bg: INHERITED_BG };
         }
@@ -236,8 +236,8 @@ export class SearchComponent extends Component implements IContextKeyContributor
 
         this.queryRow = this.buildQueryRow();
         this.detailsRow = this.buildDetailsRow();
-        this.includeRow = this.buildPromptRow(this.includeInput, "  ");
-        this.excludeRow = this.buildPromptRow(this.excludeInput, "  ");
+        this.includeRow = this.buildIndentedRow(this.includeInput);
+        this.excludeRow = this.buildIndentedRow(this.excludeInput);
         this.rebuildHeader();
         const paddedHeader = new PaddingContainerElement(this.headerStack, { left: 1, right: 1 });
 
@@ -463,14 +463,17 @@ export class SearchComponent extends Component implements IContextKeyContributor
     }
 
     private syncDetailsGlyph(): void {
-        this.detailsButton.setLabel({ glyph: this.detailsExpanded ? "tree.expanded" : "tree.collapsed" });
+        this.detailsButton.setLabel(this.detailsGlyph());
     }
 
-    private buildPromptRow(input: InputElement, prompt: string): HFlexElement {
+    private detailsGlyph(): ButtonLabel {
+        return { glyph: this.detailsExpanded ? "tree.expanded" : "tree.collapsed" };
+    }
+
+    /** include/exclude start under the query text, past the column of the search icon. */
+    private buildIndentedRow(input: InputElement): HFlexElement {
         const row = new HFlexElement();
-        const label = new TextLabelElement(prompt);
-        label.setColors("descriptionForeground", INHERITED_BG);
-        row.addChild(label, { width: hflexFixed(2), height: 1 });
+        row.addChild(new FillerElement(), { width: hflexFixed(2), height: 1 });
         row.addChild(input, { width: hflexFill(), height: 1 });
         return row;
     }

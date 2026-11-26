@@ -10,16 +10,24 @@ import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
-import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_SETTING,
+    ProductIconService,
+    StaticProductIconService,
+} from "../../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/configurationContributions.ts";
 import { SEARCH_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import type {
@@ -122,6 +130,7 @@ function make(
         state?: IStateService;
         contextKeys?: ContextKeyService;
         configuration?: IConfigurationService;
+        icons?: IProductIconService;
     } = {},
 ): SearchComponent {
     return new SearchComponent(
@@ -133,7 +142,7 @@ function make(
         NULL_VIEWS_SERVICE,
         NULL_JUMP_RECORDER,
         opts.configuration ?? NULL_CONFIGURATION_SERVICE,
-        new StaticProductIconService(false),
+        opts.icons ?? new StaticProductIconService(false),
     );
 }
 
@@ -191,6 +200,39 @@ describe("SearchComponent", () => {
         const aa = backend.screenToString().split("\n")[0].indexOf("Aa");
         expect(backend.getFgAt(new Point(aa, 0))).toBe(theme.getRequiredColor("descriptionForeground"));
         expect(backend.getBgAt(new Point(aa, 0))).toBe(theme.getRequiredColor("sideBar.background"));
+    });
+
+    it("the fields have no fill of their own: the query is on the sidebar background, the line under it is panel.border", () => {
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
+        const backend = render(component);
+        expect(backend.getBgAt(new Point(3, 0))).toBe(theme.getRequiredColor("sideBar.background"));
+        expect(backend.getFgAt(new Point(1, 1))).toBe(theme.getRequiredColor("panel.border"));
+    });
+
+    it("the chevron is down from the start when the store had include/exclude open, and turns down when restore opens them", () => {
+        const opened = fakeState();
+        opened.stored.set("workbench.search.queryDetailsExpanded", true);
+        const fromStore = make(fakeSearch([]).service, fakeWorkspace(ROOT), { state: opened.service });
+        fromStore.view.setGlyphs(TREE_GLYPHS);
+        expect(render(fromStore).screenToString().split("\n")[1]).toContain("\u2304");
+
+        const later = fakeState();
+        const restored = make(fakeSearch([]).service, fakeWorkspace(ROOT), { state: later.service });
+        restored.view.setGlyphs(TREE_GLYPHS);
+        expect(render(restored).screenToString().split("\n")[1]).toContain("\u203a");
+        later.stored.set("workbench.search.queryDetailsExpanded", true);
+        restored.restoreViewState();
+        expect(render(restored).screenToString().split("\n")[1]).toContain("\u2304");
+    });
+
+    it("the search icon follows the Nerd Font setting live", async () => {
+        const config = new InMemoryConfigurationService(new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS));
+        await config.updateValue(NERD_FONT_SETTING, "off");
+        const icons = new ProductIconService(config, "xterm-256color");
+        const component = make(fakeSearch([]).service, fakeWorkspace(ROOT), { icons });
+        expect(render(component).screenToString().split("\n")[0]).toMatch(/^ \u26b2 /u);
+        await config.updateValue(NERD_FONT_SETTING, "on");
+        expect(render(component).screenToString().split("\n")[0]).toMatch(/^ \uea6d /u);
     });
 
     it("toggleQueryDetails reveals include/exclude with a blank line between them and hides them back", () => {
