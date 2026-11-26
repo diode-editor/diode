@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import { Emitter } from "../../../../base/common/event.ts";
-import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -93,6 +93,8 @@ export class ExplorerService extends Disposable {
     ] as const;
 
     public provider: FileTreeDataProvider | null = null;
+    /** Owns the current provider: a new root disposes the old one with its watches (the root's included). */
+    private readonly providerOwner = this.register(new MutableDisposable<FileTreeDataProvider>());
 
     private rootPath: string | null = null;
     private view: IExplorerView | null = null;
@@ -147,16 +149,15 @@ export class ExplorerService extends Disposable {
 
     public setRootPath(rootPath: string): void {
         this.rootPath = rootPath;
-        this.provider = this.register(
-            new FileTreeDataProvider(
-                rootPath,
-                () => filesExcludeGlobs(this.configurationService),
-                this.files,
-                this.treeWatcher,
-                () => this.configurationService.get(COMPACT_FOLDERS_SETTING),
-                this.icons,
-            ),
+        this.provider = new FileTreeDataProvider(
+            rootPath,
+            () => filesExcludeGlobs(this.configurationService),
+            this.files,
+            this.treeWatcher,
+            () => this.configurationService.get(COMPACT_FOLDERS_SETTING),
+            this.icons,
         );
+        this.providerOwner.value = this.provider;
         this.onDidChangeRootEmitter.fire();
     }
 
