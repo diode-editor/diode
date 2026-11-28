@@ -10,8 +10,9 @@ import type {
     ITreeFileWatcher,
     ITreeFileWatchOptions,
 } from "../../../../platform/files/common/iTreeFileWatcher.ts";
+import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 
-import { FileTreeDataProvider } from "./fileTreeDataProvider.ts";
+import { FileTreeDataProvider, type IRowDecoration } from "./fileTreeDataProvider.ts";
 
 interface IFakeWatch {
     readonly path: string;
@@ -51,8 +52,11 @@ describe("FileTreeDataProvider", () => {
     let excludes: string[];
     /** `explorer.compactFolders` is off here — compaction is tested in fileTreeDataProvider.compactFolders.test.ts. */
     let compact: boolean;
+    /** What the decoration callback answers, by node path. */
+    let decorations: Map<string, IRowDecoration>;
 
     beforeEach(() => {
+        decorations = new Map();
         ws = createTempWorkspace({ prefix: "diode-test-" });
         excludes = [];
         compact = false;
@@ -64,6 +68,8 @@ describe("FileTreeDataProvider", () => {
             files,
             watcher,
             () => compact,
+            NERD_FONT_ICONS,
+            (node) => decorations.get(node.path),
         );
     });
 
@@ -276,15 +282,15 @@ describe("FileTreeDataProvider", () => {
         });
     });
 
-    describe("git status decorations", () => {
+    describe("decorations", () => {
         it("has no decoration by default", async () => {
             const item = provider.getTreeItem({ name: "main.ts", path: "/main.ts", isDirectory: false });
             expect(item.labelColor).toBeUndefined();
             expect(item.badge).toBeUndefined();
         });
 
-        it("maps a status entry onto the tree item by absolute path", async () => {
-            provider.setGitStatus(new Map([["/main.ts", { color: 0x73c991, badge: "M" }]]));
+        it("draws the row's decoration: color on the label, the badge off the edge", async () => {
+            decorations.set("/main.ts", { color: 0x73c991, badge: "M" });
 
             const decorated = provider.getTreeItem({ name: "main.ts", path: "/main.ts", isDirectory: false });
             expect(decorated.labelColor).toBe(0x73c991);
@@ -297,7 +303,7 @@ describe("FileTreeDataProvider", () => {
         });
 
         it("decorates directories as well as files", async () => {
-            provider.setGitStatus(new Map([["/src", { color: 0xe2c08d, badge: "U" }]]));
+            decorations.set("/src", { color: 0xe2c08d, badge: "U" });
 
             const dir = provider.getTreeItem({ name: "src", path: "/src", isDirectory: true });
             expect(dir.collapsible).toBe(true);
@@ -305,21 +311,9 @@ describe("FileTreeDataProvider", () => {
             expect(dir.badge).toBe("U ");
         });
 
-        it("replaces the whole status map on each call", async () => {
-            provider.setGitStatus(new Map([["/a.ts", { color: 0x111111, badge: "A" }]]));
-            provider.setGitStatus(new Map([["/b.ts", { color: 0x222222, badge: "M" }]]));
-
-            expect(provider.getTreeItem({ name: "a.ts", path: "/a.ts", isDirectory: false }).badge).toBeUndefined();
-            expect(provider.getTreeItem({ name: "b.ts", path: "/b.ts", isDirectory: false }).badge).toBe("M ");
-        });
-
-        it("supports a colour-only or badge-only entry", async () => {
-            provider.setGitStatus(
-                new Map([
-                    ["/colour-only.ts", { color: 0x73c991 }],
-                    ["/badge-only.ts", { badge: "M" }],
-                ]),
-            );
+        it("supports a colour-only or badge-only decoration", async () => {
+            decorations.set("/colour-only.ts", { color: 0x73c991 });
+            decorations.set("/badge-only.ts", { badge: "M" });
 
             const colourOnly = provider.getTreeItem({ name: "c.ts", path: "/colour-only.ts", isDirectory: false });
             expect(colourOnly.labelColor).toBe(0x73c991);

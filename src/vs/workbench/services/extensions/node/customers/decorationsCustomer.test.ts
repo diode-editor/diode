@@ -17,14 +17,12 @@ import { ColorThemeKind } from "../../../../api/common/vscodeTypes.ts";
 import { DecorationsCustomer, type GutterIconReader } from "./decorationsCustomer.ts";
 
 const ADD = 0x487e02;
-const FILE = 0x112233;
 const MERGE = packRgba(0x40, 0xc8, 0xae, 0x33);
 const FG = packRgb(0xcc, 0xcc, 0xcc);
 const COLORS: Record<string, number> = {
     "merge.currentContentBackground": MERGE,
     "editor.foreground": FG,
     "editorGutter.addedBackground": ADD,
-    "gitDecoration.modifiedResourceForeground": FILE,
 };
 
 /** `rpcLogger.warn` catches notification handler exceptions — RpcEndpoint swallows them. */
@@ -32,7 +30,6 @@ function setup(colors: Record<string, number> = COLORS, readGutterIcon?: GutterI
     const editorCalls: { uri: string; decorations: readonly IOverviewRulerDecoration[] }[] = [];
     const glyphCalls: { uri: string; owner: string; decorations: readonly IGlyphMarginDecoration[] }[] = [];
     const textCalls: { uri: string; set: IExtensionTextDecorationSet }[] = [];
-    const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
     const themeListeners: (() => void)[] = [];
     let kind = ColorThemeKind.Dark;
     const customer = new DecorationsCustomer(
@@ -41,7 +38,6 @@ function setup(colors: Record<string, number> = COLORS, readGutterIcon?: GutterI
             setExtensionTextDecorations: (uri, set) => textCalls.push({ uri, set }),
             setGlyphMarginDecorations: (uri, owner, decorations) => glyphCalls.push({ uri, owner, decorations }),
         },
-        { setFileDecorations: (entries) => fileCalls.push([...entries]) },
         {
             resolve: (id) => colors[id],
             kind: () => kind,
@@ -74,7 +70,6 @@ function setup(colors: Record<string, number> = COLORS, readGutterIcon?: GutterI
         /** The glyphs the editor holds for the owner: its last set. */
         glyphsFor: (file: string, owner: string) =>
             glyphCalls.filter((c) => c.uri === Uri.file(file).toString() && c.owner === owner).at(-1)?.decorations,
-        fileCalls,
         themes,
         rpcLogger,
         changeTheme: (next: ColorThemeKind) => {
@@ -217,51 +212,6 @@ describe("DecorationsCustomer — overview ruler marks", () => {
     });
 });
 
-describe("DecorationsCustomer — file decorations", () => {
-    it("badge and color separately; non-file is dropped; a bare uri removes", async () => {
-        const h = setup();
-        h.peer.notify("window.fileDecorationsChanged", {
-            decorations: [
-                { uri: "file:///both.md", badge: "M", colorId: "gitDecoration.modifiedResourceForeground" },
-                { uri: "file:///badge.md", badge: "A" },
-                { uri: "file:///color.md", colorId: "gitDecoration.modifiedResourceForeground" },
-                { uri: "file:///unknown-color.md", colorId: "no.such.color" },
-                { uri: "untitled:scratch", badge: "U" },
-            ],
-        });
-        await flushMicrotasks(10);
-        expect(h.fileCalls.at(-1)).toStrictEqual([
-            { path: "/both.md", color: FILE, badge: "M" },
-            { path: "/badge.md", badge: "A" },
-            { path: "/color.md", color: FILE },
-            { path: "/unknown-color.md" },
-        ]);
-
-        h.peer.notify("window.fileDecorationsChanged", { decorations: [{ uri: "file:///both.md" }] });
-        await flushMicrotasks(10);
-        expect(h.fileCalls.at(-1)?.map((e) => e.path)).toEqual(["/badge.md", "/color.md", "/unknown-color.md"]);
-    });
-
-    it("propagate reaches the tree as is and updates with the next set", async () => {
-        const h = setup();
-        h.peer.notify("window.fileDecorationsChanged", {
-            decorations: [
-                { uri: "file:///up.md", badge: "M", propagate: true },
-                { uri: "file:///gone.md", badge: "D", propagate: false },
-            ],
-        });
-        await flushMicrotasks(10);
-        expect(h.fileCalls.at(-1)).toStrictEqual([
-            { path: "/up.md", badge: "M", propagate: true },
-            { path: "/gone.md", badge: "D", propagate: false },
-        ]);
-
-        h.peer.notify("window.fileDecorationsChanged", { decorations: [{ uri: "file:///up.md", badge: "M" }] });
-        await flushMicrotasks(10);
-        expect(h.fileCalls.at(-1)?.[0]).toStrictEqual({ path: "/up.md", badge: "M" });
-    });
-});
-
 describe("DecorationsCustomer — theme", () => {
     it("a theme change re-resolves held decorations and sends the new theme to a live spawn", async () => {
         const h = setup();
@@ -275,10 +225,8 @@ describe("DecorationsCustomer — theme", () => {
             uri: Uri.file("/a.ts").toString(),
             ranges: [{ range: range(1) }],
         });
-        h.peer.notify("window.fileDecorationsChanged", { decorations: [{ uri: "file:///x.md", badge: "M" }] });
         await flushMicrotasks(10);
         const editorBefore = h.editorCalls.length;
-        const fileBefore = h.fileCalls.length;
 
         h.changeTheme(ColorThemeKind.Light);
         await flushMicrotasks(10);
@@ -286,7 +234,6 @@ describe("DecorationsCustomer — theme", () => {
         expect(h.editorCalls.slice(editorBefore)).toStrictEqual([
             { uri: Uri.file("/a.ts").toString(), decorations: [{ range: range(1), color: ADD }] },
         ]);
-        expect(h.fileCalls.slice(fileBefore)).toStrictEqual([[{ path: "/x.md", badge: "M" }]]);
         expect(h.themes).toEqual([{ kind: ColorThemeKind.Light }]);
     });
 
@@ -299,7 +246,6 @@ describe("DecorationsCustomer — theme", () => {
         await flushMicrotasks(10);
 
         expect(h.editorCalls).toEqual([]);
-        expect(h.fileCalls).toEqual([]);
         expect(h.themes).toEqual([]);
     });
 

@@ -1338,19 +1338,41 @@ export interface IWireRevealRange {
     readonly revealType: number;
 }
 
+/** Upstream `$registerDecorationProvider(handle, label)`. */
+export interface IWireFileDecorationProvider {
+    readonly handle: number;
+    readonly extensionId: string;
+}
+
+export interface IWireFileDecorationProviderHandle {
+    readonly handle: number;
+}
+
+/** Upstream `$onDidChange`: `null` means every resource. */
+export interface IWireFileDecorationsChanged {
+    readonly handle: number;
+    readonly uris: readonly string[] | null;
+}
+
+/** Upstream `$provideDecorations`: one batch of a tick's requests to one provider. */
+export interface IWireProvideFileDecorations {
+    readonly handle: number;
+    readonly requests: readonly { readonly id: number; readonly uri: string }[];
+}
+
+/** Upstream `DecorationData` as an object; `colorId` is the `ThemeColor` id. */
 export interface IWireFileDecoration {
-    readonly uri: string;
+    readonly propagate?: boolean;
+    readonly tooltip?: string;
     readonly badge?: string;
     readonly colorId?: string;
-    readonly propagate?: boolean;
 }
+
+/** By request id; a resource without a decoration (or whose provider failed) has no key. */
+export type WireFileDecorationReply = Readonly<Record<number, IWireFileDecoration>>;
 
 export interface IWireDisposeDecorationType {
     readonly key: number;
-}
-
-export interface IWireFileDecorationsChanged {
-    readonly decorations: readonly IWireFileDecoration[];
 }
 
 export function parseRange(raw: unknown): IRange | null {

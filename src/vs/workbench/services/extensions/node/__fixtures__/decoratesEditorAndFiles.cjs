@@ -6,11 +6,9 @@
  * In activate():
  *  - creates a scrollbar mark type (`overviewRulerColor` = ThemeColor), a "plain" type without
  *    overviewRulerColor (no marks) and a gutter icon type (`gutterIconPath`, GitLens's bar as a `data:` URI);
- *  - applies them to the active editor (the mark type has two ranges);
- *  - registers a FileDecorationProvider (color + badge for `notes.md`, otherwise cleared).
+ *  - applies them to the active editor (the mark type has two ranges).
  *
- * Commands `test.fireFileDecoration(fsPath)` / `test.disposeGutterType()` let
- * the test move the state after activate.
+ * Command `test.disposeGutterType()` lets the test move the state after activate.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -43,35 +41,6 @@ exports.activate = function activate(context) {
         editor.setDecorations(iconType, [new vscode.Range(2, 0, 2, 0)]);
     }
 
-    let cleared = false;
-    const emitter = new vscode.EventEmitter();
-    context.subscriptions.push(
-        vscode.window.registerFileDecorationProvider({
-            onDidChangeFileDecorations: emitter.event,
-            provideFileDecoration: function (uri) {
-                if (!cleared && uri.fsPath.endsWith("notes.md")) {
-                    return new vscode.FileDecoration(
-                        "M",
-                        "Modified",
-                        new vscode.ThemeColor("gitDecoration.modifiedResourceForeground"),
-                    );
-                }
-                return undefined;
-            },
-        }),
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand("test.fireFileDecoration", function (fsPath) {
-            emitter.fire(vscode.Uri.file(fsPath));
-        }),
-    );
-    // Switches the provider to "cleared" mode: the next provideFileDecoration returns undefined.
-    context.subscriptions.push(
-        vscode.commands.registerCommand("test.setCleared", function () {
-            cleared = true;
-        }),
-    );
     context.subscriptions.push(
         vscode.commands.registerCommand("test.disposeGutterType", function () {
             gutterType.dispose();

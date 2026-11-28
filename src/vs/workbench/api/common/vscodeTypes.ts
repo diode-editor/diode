@@ -1,5 +1,6 @@
 import type * as vscode from "vscode";
 
+import { safeIntl } from "../../../base/common/date.ts";
 import { Uri } from "../../../base/common/uri.ts";
 
 export class DisposableImpl implements vscode.Disposable {
@@ -808,7 +809,30 @@ export enum DecorationRangeBehavior {
     ClosedOpen = 3,
 }
 
+/** Upstream `nextCharLength` counts a grapheme cluster as one character (an emoji surrogate pair, a flag). */
+const GRAPHEMES = safeIntl.Segmenter(undefined, { granularity: "grapheme" });
+
 export class FileDecoration implements vscode.FileDecoration {
+    /**
+     * Upstream `FileDecoration.validate`: a badge of at most two characters, and something to show. Deviation:
+     * a codicon badge (proposed `codiconDecoration`) is not supported, so any non-string badge is invalid.
+     */
+    public static validate(d: vscode.FileDecoration): boolean {
+        const badge: unknown = d.badge;
+        if (typeof badge === "string") {
+            let count = 0;
+            for (const _ of GRAPHEMES.value.segment(badge)) {
+                if (++count > 2) throw new Error("The 'badge'-property must be undefined or a short character");
+            }
+        } else if (badge !== undefined && badge !== null) {
+            throw new Error("The 'badge'-property is not a valid ThemeIcon");
+        }
+        if (d.color === undefined && (badge === undefined || badge === "") && !d.tooltip) {
+            throw new Error("The decoration is empty");
+        }
+        return true;
+    }
+
     public badge?: string;
     public tooltip?: string;
     public color?: ThemeColor;

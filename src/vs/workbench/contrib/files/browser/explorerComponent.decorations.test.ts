@@ -2,6 +2,8 @@ import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Emitter } from "../../../../base/common/event.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -17,6 +19,15 @@ import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeF
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import type { IDecorationData } from "../../../services/decorations/common/decorations.ts";
+import {
+    DECORATION_CHANGE_DEBOUNCE_MS,
+    DecorationsService,
+} from "../../../services/decorations/common/decorationsService.ts";
+import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 
 import { ExplorerComponent } from "./explorerComponent.ts";
@@ -25,6 +36,19 @@ import { ExplorerService } from "./explorerService.ts";
 const MODIFIED = packRgb(226, 192, 141);
 const UNTRACKED = packRgb(115, 201, 145);
 const DELETED = packRgb(199, 78, 57);
+/** The dark theme's git colors: the provider names a token, the explorer resolves it. */
+const COLOR_IDS = new Map([
+    [MODIFIED, "gitDecoration.modifiedResourceForeground"],
+    [UNTRACKED, "gitDecoration.untrackedResourceForeground"],
+    [DELETED, "gitDecoration.deletedResourceForeground"],
+]);
+
+interface IEntry {
+    readonly path: string;
+    readonly color?: number;
+    readonly badge?: string;
+    readonly propagate?: boolean;
+}
 
 /** Like VS Code: a folder with changes inside takes the descendant's color and the "●" badge. A real tree over a real disk. */
 describe("ExplorerComponent — decorations bubble up to folders", () => {
@@ -33,6 +57,9 @@ describe("ExplorerComponent — decorations bubble up to folders", () => {
     let service: ExplorerService;
     let component: ExplorerComponent;
     let app: TestApp;
+    let decorations: DecorationsService;
+    let table: Map<string, IDecorationData>;
+    let onDidChange: Emitter<readonly Uri[] | undefined>;
 
     function rows(): string[] {
         app.render();
@@ -63,8 +90,24 @@ describe("ExplorerComponent — decorations bubble up to folders", () => {
         return tail;
     }
 
-    async function decorate(entries: Parameters<ExplorerService["setFileDecorations"]>[0]): Promise<void> {
-        service.setFileDecorations(entries);
+    /**
+     * The provider's whole set, as git publishes it: it reports the old and the new resources changed, the
+     * service asks it about each, and the explorer redraws when the answers are in.
+     */
+    async function decorate(entries: readonly IEntry[]): Promise<void> {
+        const changed = new Set(table.keys());
+        table.clear();
+        for (const { path, color, badge, propagate } of entries) {
+            const uri = Uri.file(path).toString();
+            table.set(uri, {
+                ...(color !== undefined ? { color: COLOR_IDS.get(color) } : {}),
+                ...(badge !== undefined ? { letter: badge } : {}),
+                ...(propagate !== undefined ? { bubble: propagate } : {}),
+            });
+            changed.add(uri);
+        }
+        onDidChange.fire([...changed].map((uri) => Uri.parse(uri)));
+        await new Promise((resolve) => setTimeout(resolve, DECORATION_CHANGE_DEBOUNCE_MS + 20));
         await service.refresh();
     }
 
@@ -81,7 +124,23 @@ describe("ExplorerComponent — decorations bubble up to folders", () => {
         });
         config = createTestConfigurationService();
         const clipboard = new InMemoryFileClipboard();
-        service = new ExplorerService(clipboard, config, diskFileService(), NULL_TREE_FILE_WATCHER);
+        decorations = new DecorationsService();
+        table = new Map();
+        onDidChange = new Emitter();
+        decorations.registerDecorationsProvider({
+            label: "test",
+            onDidChange: onDidChange.event,
+            provideDecorations: (uri) => Promise.resolve(table.get(uri.toString())),
+        });
+        service = new ExplorerService(
+            clipboard,
+            config,
+            diskFileService(),
+            NULL_TREE_FILE_WATCHER,
+            NERD_FONT_ICONS,
+            decorations,
+            new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
+        );
         const commands = new CommandRegistry();
         component = new ExplorerComponent(
             service,
@@ -105,6 +164,7 @@ describe("ExplorerComponent — decorations bubble up to folders", () => {
     afterEach(() => {
         component.dispose();
         service.dispose();
+        decorations.dispose();
         ws.dispose();
     });
 

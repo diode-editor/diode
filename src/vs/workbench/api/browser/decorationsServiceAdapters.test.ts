@@ -14,7 +14,6 @@ import { lightPlusTheme } from "../../services/themes/common/themes/lightPlus.ts
 import { ThemeService } from "../../services/themes/common/themeService.ts";
 
 import { EditorDecorationsServiceAdapter } from "./editorDecorationsServiceAdapter.ts";
-import { FileDecorationsServiceAdapter } from "./fileDecorationsServiceAdapter.ts";
 import { ThemeColorResolverAdapter } from "./themeColorResolverAdapter.ts";
 
 function fakeEditor(uri: Uri) {
@@ -92,17 +91,6 @@ describe("EditorDecorationsServiceAdapter", () => {
             { range: createRange(0, 0, 0, 0), color: 1 },
         ]);
         expect(untitled.received).toEqual([]);
-    });
-});
-
-describe("FileDecorationsServiceAdapter", () => {
-    it("delegates setFileDecorations to the target (ExplorerService)", () => {
-        const calls: unknown[] = [];
-        const explorer = { setFileDecorations: (e: unknown) => calls.push(e) };
-        const adapter = new FileDecorationsServiceAdapter(explorer);
-        const entries = [{ path: "/proj/notes.md", color: 0xe2c08d, badge: "M" }];
-        adapter.setFileDecorations(entries);
-        expect(calls).toEqual([entries]);
     });
 });
 

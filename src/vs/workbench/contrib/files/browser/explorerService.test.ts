@@ -2,6 +2,7 @@ import * as path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
@@ -14,6 +15,15 @@ import type {
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import type { LogEntry } from "../../../../platform/log/common/iLogService.ts";
+import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import {
+    type IDecorationsService,
+    type IResourceDecorationChangeEvent,
+    NULL_DECORATIONS_SERVICE,
+} from "../../../services/decorations/common/decorations.ts";
+import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
 import { ExplorerService, type IExplorerView } from "./explorerService.ts";
 import type { FileTreeNode } from "./fileTreeDataProvider.ts";
@@ -21,12 +31,17 @@ import type { FileTreeNode } from "./fileTreeDataProvider.ts";
 function createService(options?: {
     clipboard?: InMemoryFileClipboard;
     configurationService?: IConfigurationService;
+    decorations?: IDecorationsService;
+    themeService?: ThemeService;
 }): ExplorerService {
     return new ExplorerService(
         options?.clipboard ?? new InMemoryFileClipboard(),
         options?.configurationService ?? createTestConfigurationService(),
         diskFileService(),
         NULL_TREE_FILE_WATCHER,
+        NERD_FONT_ICONS,
+        options?.decorations,
+        options?.themeService,
     );
 }
 
@@ -98,14 +113,6 @@ describe("ExplorerService — operations before the root/tree is assigned", () =
         expect(() => {
             clipboard.write(["/x"], "cut");
             clipboard.clear();
-        }).not.toThrow();
-        service.dispose();
-    });
-
-    it("setFileDecorations without a provider/view is a no-op", () => {
-        const service = createService();
-        expect(() => {
-            service.setFileDecorations([{ path: "/x", color: 0x73c991, badge: "M" }]);
         }).not.toThrow();
         service.dispose();
     });
@@ -413,24 +420,42 @@ describe("ExplorerService — files.exclude", () => {
         service.dispose();
     });
 
-    it("explorer.decorations.* rebuilds decorations, an unrelated setting does not", () => {
+    it("explorer.decorations.* redraws the rows, an unrelated setting does not", () => {
         const ws = createTempWorkspace({ prefix: "diode-explorer-deco-settings-" });
         const config = emittingConfig({ "explorer.decorations.colors": true, "explorer.decorations.badges": true });
         const service = createService({ configurationService: config });
         service.setRootPath(ws.dir);
         const view = fakeView();
         service.attachView(view);
-        service.setFileDecorations([{ path: ws.path("a.ts"), badge: "M" }]);
-        expect(view.refreshCount).toBe(1);
 
         config.set("editor.tabSize", 2);
-        expect(view.refreshCount).toBe(1);
+        expect(view.refreshCount).toBe(0);
 
         config.set("explorer.decorations.badges", false);
-        expect(view.refreshCount).toBe(2);
+        expect(view.refreshCount).toBe(1);
         config.set("explorer.decorations.colors", false);
-        expect(view.refreshCount).toBe(3);
+        expect(view.refreshCount).toBe(2);
         service.dispose();
         ws.dispose();
+    });
+
+    it("a decoration change and a theme change redraw the rows; the theme's first call does not", () => {
+        const decorations = new Emitter<IResourceDecorationChangeEvent>();
+        const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
+        const service = createService({
+            decorations: { ...NULL_DECORATIONS_SERVICE, onDidChangeDecorations: decorations.event },
+            themeService,
+        });
+        const view = fakeView();
+        service.attachView(view);
+
+        decorations.fire({ affectsResource: () => true });
+        expect(view.refreshCount).toBe(1);
+        themeService.setTheme(WorkbenchTheme.fromThemeFile(darkPlusTheme));
+        expect(view.refreshCount).toBe(2);
+
+        service.dispose();
+        decorations.fire({ affectsResource: () => true });
+        expect(view.refreshCount).toBe(2);
     });
 });
