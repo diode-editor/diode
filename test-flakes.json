@@ -303,6 +303,12 @@
             "test": "ExtensionHost — extension file system providers > a resource is read end-to-end through the adapter and the core registry",
             "action": "retry",
             "note": "timed out in 5000ms in the mutation gate's Stryker initial test run (run 46155213674, PR #1279, whose diff is quick pick separators; file system providers are untouched); green in the same run's unit job"
+        },
+        {
+            "file": "src/vs/workbench/browser/workbench.saveConflict.test.ts",
+            "test": "Workbench — save conflict (dirty-write protection) > saves without a prompt when the file was not changed externally",
+            "action": "retry",
+            "note": "all tests green, but an unhandled rejection after the test: fileService stat of doc.txt hit ENOENT once afterEach had removed the temp dir (coverage job, run 46158522339, PR #1279, whose diff is quick pick separators; saving is untouched)"
         }
     ]
 }
