@@ -10,7 +10,6 @@ import {
     NULL_EDITOR_DECORATIONS_SERVICE,
 } from "../../../api/common/iEditorDecorationsService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
-import type { IFileDecorationsService } from "../../../api/common/iFileDecorationsService.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
 import type { IThemeColorResolver } from "../../../api/common/iThemeColorResolver.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
@@ -55,13 +54,9 @@ function makeLogger(): { logger: ILogger; lines: string[] } {
 
 function makeHost(colors: Record<string, number>) {
     const editorCalls: { uri: string; decorations: readonly IOverviewRulerDecoration[] }[] = [];
-    const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
     const editorDecorations: IEditorDecorationsService = {
         ...NULL_EDITOR_DECORATIONS_SERVICE,
         setOverviewRulerDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
-    };
-    const fileDecorations: IFileDecorationsService = {
-        setFileDecorations: (entries) => fileCalls.push([...entries]),
     };
     const themeListeners: (() => void)[] = [];
     const themeColorResolver: IThemeColorResolver = {
@@ -89,7 +84,6 @@ function makeHost(colors: Record<string, number>) {
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
         logger,
         editorDecorations,
-        fileDecorations,
         themeColorResolver,
         configuration,
     });
@@ -105,7 +99,6 @@ function makeHost(colors: Record<string, number>) {
     return {
         peer,
         editorCalls,
-        fileCalls,
         logLines: lines,
         configChanges,
         fireTheme: () => {

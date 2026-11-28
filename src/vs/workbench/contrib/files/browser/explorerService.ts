@@ -2,6 +2,7 @@ import * as path from "node:path";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import type { IFileClipboard } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import { FileClipboardDIToken } from "../../../../platform/clipboard/common/iFileClipboard.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -10,15 +11,22 @@ import { type IFileService, IFileServiceDIToken } from "../../../../platform/fil
 import type { ITreeFileWatcher } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { ITreeFileWatcherDIToken } from "../../../../platform/files/common/iTreeFileWatcherDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import {
     type IProductIconService,
     NERD_FONT_ICONS,
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
 import { FILES_EXCLUDE_SETTING, filesExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
+import {
+    DecorationsServiceDIToken,
+    type IDecorationsService,
+    NULL_DECORATIONS_SERVICE,
+} from "../../../services/decorations/common/decorations.ts";
+import type { ThemeService } from "../../../services/themes/common/themeService.ts";
+import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 
-import { bubbleFileDecorations, type IFileDecorationEntry } from "./bubbleFileDecorations.ts";
-import { FileTreeDataProvider, type FileTreeNode, nodeSegments } from "./fileTreeDataProvider.ts";
+import { FileTreeDataProvider, type FileTreeNode, type IRowDecoration, nodeSegments } from "./fileTreeDataProvider.ts";
 
 export const ExplorerServiceDIToken = token<ExplorerService>("ExplorerService");
 
@@ -90,6 +98,8 @@ export class ExplorerService extends Disposable {
         IFileServiceDIToken,
         ITreeFileWatcherDIToken,
         ProductIconServiceDIToken,
+        DecorationsServiceDIToken,
+        ThemeServiceDIToken,
     ] as const;
 
     public provider: FileTreeDataProvider | null = null;
@@ -100,9 +110,6 @@ export class ExplorerService extends Disposable {
     private view: IExplorerView | null = null;
     private readonly onDidChangeRootEmitter = this.register(new Emitter<void>());
     private readonly configurationService: IConfigurationService;
-    /** The last decoration set from extensions — rebuilt when `explorer.decorations.*` changes. */
-    // Stryker disable next-line ArrayDeclaration: junk in the initial set without path and propagate yields an undefined key that no tree row has
-    private fileDecorations: readonly IFileDecorationEntry[] = [];
 
     public constructor(
         fileClipboard: IFileClipboard,
@@ -110,9 +117,29 @@ export class ExplorerService extends Disposable {
         private readonly files: IFileService,
         private readonly treeWatcher: ITreeFileWatcher,
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
+        private readonly decorations: IDecorationsService = NULL_DECORATIONS_SERVICE,
+        /** Resolves the decorations' theme colors; without it the rows keep their own color. */
+        private readonly themeService: ThemeService | null = null,
     ) {
         super();
         this.configurationService = configurationService;
+        // The tree caches its rows' items until a refresh: a decoration that arrived or changed needs one. The
+        // decorations themselves come from the service's cache, so a refresh asks no provider again.
+        this.register(
+            decorations.onDidChangeDecorations(() => {
+                void this.refresh();
+            }),
+        );
+        if (themeService !== null) {
+            let seeded = false;
+            this.register(
+                themeService.onThemeChange(() => {
+                    // The first call is the current theme, not a change.
+                    if (seeded) void this.refresh();
+                    seeded = true;
+                }),
+            );
+        }
         this.register(
             icons.onDidChange(() => {
                 void this.refresh();
@@ -131,7 +158,7 @@ export class ExplorerService extends Disposable {
                     event.affectsConfiguration(DECORATION_COLORS_SETTING) ||
                     event.affectsConfiguration(DECORATION_BADGES_SETTING)
                 ) {
-                    this.applyFileDecorations();
+                    void this.refresh();
                 }
                 if (
                     !event.affectsConfiguration(FILES_EXCLUDE_SETTING) &&
@@ -156,6 +183,7 @@ export class ExplorerService extends Disposable {
             this.treeWatcher,
             () => this.configurationService.get(COMPACT_FOLDERS_SETTING),
             this.icons,
+            (node) => this.decorationOf(node),
         );
         this.providerOwner.value = this.provider;
         this.onDidChangeRootEmitter.fire();
@@ -274,24 +302,19 @@ export class ExplorerService extends Disposable {
         return node.isDirectory ? this.nodePath(node) : path.dirname(node.path);
     }
 
-    /** Decorations with `propagate` bubble up to folders; colors are already resolved; an empty list clears all. */
-    public setFileDecorations(entries: readonly IFileDecorationEntry[]): void {
-        this.fileDecorations = entries;
-        this.applyFileDecorations();
-    }
-
-    /** `explorer.decorations.colors`/`badges` turn off color and badge on all rows, as upstream does. */
-    private applyFileDecorations(): void {
-        if (!this.provider || !this.view) return;
-        const colors = this.configurationService.get(DECORATION_COLORS_SETTING);
-        const badges = this.configurationService.get(DECORATION_BADGES_SETTING);
-        const decorations = bubbleFileDecorations(this.fileDecorations, this.provider.rootPath);
-        const map = new Map<string, { color?: number; badge?: string }>();
-        for (const [filePath, { color, badge }] of decorations) {
-            map.set(filePath, { color: colors ? color : undefined, badge: badges ? badge : undefined });
-        }
-        this.provider.setGitStatus(map);
-        void this.view.refresh();
+    /**
+     * Upstream's `ResourceLabel` with `fileDecorations`: a file asks for its own decoration, a folder for its
+     * descendants' too. `explorer.decorations.colors`/`badges` turn off color and badge on all rows, as upstream.
+     */
+    private decorationOf(node: FileTreeNode): IRowDecoration | undefined {
+        const decoration = this.decorations.getDecoration(Uri.file(node.path), node.isDirectory);
+        if (decoration === undefined) return undefined;
+        const color =
+            decoration.color !== undefined && this.configurationService.get(DECORATION_COLORS_SETTING)
+                ? this.themeService?.theme.getColor(decoration.color as keyof IWorkbenchColors)
+                : undefined;
+        const badge = this.configurationService.get(DECORATION_BADGES_SETTING) ? decoration.badge : undefined;
+        return { color, badge };
     }
 
     private setCutPaths(paths: string[]): void {

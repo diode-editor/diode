@@ -38,6 +38,9 @@ import {
     type IWireDialogFilter,
     type IWireEditorEdit,
     type IWireFileDecoration,
+    type IWireFileDecorationProvider,
+    type IWireFileDecorationProviderHandle,
+    type IWireFileDecorationsChanged,
     type IWireInputBoxRequest,
     type IWireLanguageConfiguration,
     type IWireLanguageFilter,
@@ -744,18 +747,39 @@ export function parseDecorationOptions(raw: unknown): IWireDecorationOptions[] {
     return result;
 }
 
-export function parseWireFileDecorations(raw: unknown): IWireFileDecoration[] {
-    if (!Array.isArray(raw)) return [];
-    const result: IWireFileDecoration[] = [];
-    for (const item of raw) {
-        if (typeof item !== "object" || item === null) continue;
-        const d = item as { uri?: unknown; badge?: unknown; colorId?: unknown; propagate?: unknown };
-        if (typeof d.uri !== "string" || d.uri === "") continue;
-        result.push({
-            uri: d.uri,
+export function parseWireFileDecorationProvider(raw: unknown): IWireFileDecorationProvider | null {
+    const p = raw as { handle?: unknown; extensionId?: unknown } | null | undefined;
+    if (!isFiniteNumber(p?.handle) || typeof p.extensionId !== "string") return null;
+    return { handle: p.handle, extensionId: p.extensionId };
+}
+
+export function parseWireFileDecorationProviderHandle(raw: unknown): IWireFileDecorationProviderHandle | null {
+    const p = raw as { handle?: unknown } | null | undefined;
+    return isFiniteNumber(p?.handle) ? { handle: p.handle } : null;
+}
+
+/** A non-string uri is dropped from the list; `null` (not a list) means every resource. */
+export function parseWireFileDecorationsChanged(raw: unknown): IWireFileDecorationsChanged | null {
+    const p = raw as { handle?: unknown; uris?: unknown } | null | undefined;
+    if (!isFiniteNumber(p?.handle)) return null;
+    const uris = Array.isArray(p.uris)
+        ? (p.uris as unknown[]).filter((uri): uri is string => typeof uri === "string")
+        : null;
+    return { handle: p.handle, uris };
+}
+
+/** By request id; a field of a foreign type is dropped, an entry that isn't an object too. */
+export function parseWireFileDecorationReply(raw: unknown): Map<number, IWireFileDecoration> {
+    const result = new Map<number, IWireFileDecoration>();
+    if (typeof raw !== "object" || raw === null) return result;
+    for (const [key, value] of Object.entries(raw)) {
+        if (typeof value !== "object" || value === null) continue;
+        const d = value as { propagate?: unknown; tooltip?: unknown; badge?: unknown; colorId?: unknown };
+        result.set(Number(key), {
+            ...(typeof d.propagate === "boolean" ? { propagate: d.propagate } : {}),
+            ...(typeof d.tooltip === "string" ? { tooltip: d.tooltip } : {}),
             ...(typeof d.badge === "string" ? { badge: d.badge } : {}),
             ...(typeof d.colorId === "string" ? { colorId: d.colorId } : {}),
-            ...(typeof d.propagate === "boolean" ? { propagate: d.propagate } : {}),
         });
     }
     return result;

@@ -142,7 +142,6 @@ describe("Workbench: live quick diff gutter", () => {
     it("[api:ThemableDecorationRenderOptions.overviewRulerColor] an extension type marks the scrollbar, not the gutter, and leaves the git bar alone", async () => {
         const decorations = new DecorationsCustomer(
             new EditorDecorationsServiceAdapter(editors),
-            { setFileDecorations: () => undefined },
             new ThemeColorResolverAdapter(themeService),
         );
         const [hostSide, extensionSide] = createInProcessChannelPair();

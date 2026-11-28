@@ -513,6 +513,8 @@ import {
     ConfigurationResolverService,
     ConfigurationResolverServiceDIToken,
 } from "../../workbench/services/configurationResolver/browser/configurationResolverService.ts";
+import { DecorationsServiceDIToken } from "../../workbench/services/decorations/common/decorations.ts";
+import { DecorationsService } from "../../workbench/services/decorations/common/decorationsService.ts";
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import {
     FileDialogService,
@@ -649,6 +651,7 @@ export const workbenchModule: ContainerModule = (container) => {
     });
     container.bind(URLServiceDIToken, URLService);
     container.bind(LifecycleServiceDIToken, LifecycleService);
+    container.bind(DecorationsServiceDIToken, DecorationsService);
     container.bind(ExplorerServiceDIToken, ExplorerService);
     container.bind(ExplorerComponentDIToken, ExplorerComponent);
     container.bind(OpenEditorsViewDIToken, OpenEditorsView);

@@ -157,6 +157,8 @@ import type {
     IWireExecuteCommandParams,
     IWireExtensionCatalog,
     IWireExtensionId,
+    IWireFileDecorationProvider,
+    IWireFileDecorationProviderHandle,
     IWireFileDecorationsChanged,
     IWireFileOperationEvent,
     IWireFileOperationParams,
@@ -197,6 +199,7 @@ import type {
     IWireProgressEnd,
     IWireProgressReport,
     IWireProgressStart,
+    IWireProvideFileDecorations,
     IWireProviderHandle,
     IWireQuickInputCancel,
     IWireQuickPickDidSelectItem,
@@ -283,6 +286,7 @@ import type {
     IWireWorkspaceSymbolsParams,
     IWireWriteFileParams,
     WireCodeAction,
+    WireFileDecorationReply,
     WireFoldingRange,
     WireRenamePrepare,
     WireRenameResult,
@@ -386,6 +390,8 @@ export interface IHostToSubprocess {
         readonly "commands.executeCommand": readonly [IWireExecuteCommandParams, unknown];
 
         readonly "window.inputBox.validate": readonly [IWireInputBoxValidate, IWireValidationMessage | null];
+        /** Upstream `$provideDecorations`; an unknown or removed handle answers `{}`. */
+        readonly "window.provideFileDecorations": readonly [IWireProvideFileDecorations, WireFileDecorationReply];
         /** Responds once the handler has finished. */
         readonly "window.handleUri": readonly [IWireHandleUri, null];
 
@@ -643,6 +649,9 @@ export interface ISubprocessToHost {
         readonly "window.statusBarItem.dispose": IWireStatusBarItemDispose;
         readonly "window.createTextEditorDecorationType": IWireCreateDecorationType;
         readonly "window.disposeTextEditorDecorationType": IWireDisposeDecorationType;
+        /** Upstream `$registerDecorationProvider`: sent for every provider, with or without a change event. */
+        readonly "window.registerFileDecorationProvider": IWireFileDecorationProvider;
+        readonly "window.unregisterFileDecorationProvider": IWireFileDecorationProviderHandle;
         readonly "window.fileDecorationsChanged": IWireFileDecorationsChanged;
         readonly "window.quickInput.cancel": IWireQuickInputCancel;
         readonly "window.showQuickPick.items": IWireQuickPickItems;

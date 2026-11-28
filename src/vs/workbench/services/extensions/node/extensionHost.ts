@@ -130,10 +130,6 @@ import type {
     IQuickInputSink,
     IStatusBarItemSink,
 } from "../../../api/common/iExtensionWindowSinks.ts";
-import {
-    type IFileDecorationsService,
-    NULL_FILE_DECORATIONS_SERVICE,
-} from "../../../api/common/iFileDecorationsService.ts";
 import type { ILanguageStatusSink } from "../../../api/common/iLanguageStatusSink.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import type { IWorkspaceFoldersSink } from "../../../api/common/iWorkspaceFoldersSink.ts";
@@ -152,6 +148,7 @@ import {
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
 } from "../../../api/common/wireTypes.ts";
+import { type IDecorationsService, NULL_DECORATIONS_SERVICE } from "../../decorations/common/decorations.ts";
 import type { IExternalOpener } from "../../externalOpener/common/iExternalOpener.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 import {
@@ -180,6 +177,7 @@ import {
     createInMemoryEnvironmentVariableCollectionStore,
     EnvironmentVariableCollectionsCustomer,
 } from "./customers/environmentVariableCollectionsCustomer.ts";
+import { FileDecorationsCustomer } from "./customers/fileDecorationsCustomer.ts";
 import { FileOperationsCustomer } from "./customers/fileOperationsCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { LanguageConfigurationCustomer } from "./customers/languageConfigurationCustomer.ts";
@@ -255,7 +253,8 @@ export interface IExtensionHostOptions {
     readonly stderrLogger?: ILogger;
     readonly configuration?: IExtensionHostConfigProvider;
     readonly editorDecorations?: IEditorDecorationsService;
-    readonly fileDecorations?: IFileDecorationsService;
+    /** Where the providers of `window.registerFileDecorationProvider` register; without it nobody asks them. */
+    readonly fileDecorations?: IDecorationsService;
     readonly themeColorResolver?: IThemeColorResolver;
     /** `window.state` and its event; without it the window always reads as focused and active. */
     readonly windowState?: IExtensionHostWindowState;
@@ -394,7 +393,6 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.decorations = this.register(
             new DecorationsCustomer(
                 options.editorDecorations ?? NULL_EDITOR_DECORATIONS_SERVICE,
-                options.fileDecorations ?? NULL_FILE_DECORATIONS_SERVICE,
                 options.themeColorResolver ?? NULL_THEME_COLOR_RESOLVER,
                 options.gutterIconReader,
             ),
@@ -446,6 +444,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.env,
             this.fileSystem,
             this.decorations,
+            new FileDecorationsCustomer(options.fileDecorations ?? NULL_DECORATIONS_SERVICE),
             this.editor,
             this.documents,
             this.languageFeatures,

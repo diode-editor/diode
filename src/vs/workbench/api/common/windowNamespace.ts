@@ -7,6 +7,7 @@ import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/con
 import { type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 
 import { implementsApi } from "./apiSurface.ts";
+import { createFileDecorations } from "./extHostDecorations.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createProgressApi } from "./extHostProgress.ts";
 import { snippetRanges } from "./extHostSnippetInsert.ts";
@@ -49,7 +50,6 @@ import {
     type IWireEditorEdit,
     type IWireEditorLayout,
     type IWireEditorOptions,
-    type IWireFileDecoration,
     type IWireSelection,
     type IWireShowTextDocumentResult,
     type IWireTabGroupSnapshot,
@@ -76,11 +76,6 @@ function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T>
         if (disposables !== undefined) disposables.push(disposable);
         return disposable;
     };
-}
-
-function normalizeChangedUris(changed: undefined | vscode.Uri | vscode.Uri[]): vscode.Uri[] {
-    if (changed === undefined) return [];
-    return Array.isArray(changed) ? changed : [changed];
 }
 
 /** A single empty cursor at the document start: the selection of a fresh model (upstream 1:1). */
@@ -736,28 +731,6 @@ export function createWindowNamespace(
         return editorProxy;
     }
 
-    // A uri without a decoration is sent bare, so the host clears it from the file. `undefined` (all
-    // files) is not expanded: the subprocess has no list of all uris.
-    async function pushFileDecorations(
-        provider: vscode.FileDecorationProvider,
-        changed: undefined | vscode.Uri | vscode.Uri[],
-    ): Promise<void> {
-        const uris = normalizeChangedUris(changed);
-        if (uris.length === 0) return;
-        const decorations: IWireFileDecoration[] = [];
-        for (const uri of uris) {
-            const decoration = await provider.provideFileDecoration(uri, NEVER_CANCELLED_TOKEN);
-            const entry: IWireFileDecoration = {
-                uri: uri.toString(),
-                ...(decoration?.badge !== undefined ? { badge: decoration.badge } : {}),
-                ...(decoration?.color !== undefined ? { colorId: decoration.color.id } : {}),
-                ...(decoration?.propagate !== undefined ? { propagate: decoration.propagate } : {}),
-            };
-            decorations.push(entry);
-        }
-        rpc.notify("window.fileDecorationsChanged", { decorations });
-    }
-
     // Nothing goes over the wire until the item is shown: in VS Code `createStatusBarItem` does NOT show
     // the item. Deviations: `tooltip` is not shown; colors and `accessibilityInformation` have no effect.
     const createStatusBarItem = (
@@ -957,15 +930,7 @@ export function createWindowNamespace(
             return type;
         },
 
-        registerFileDecorationProvider: (provider: vscode.FileDecorationProvider): vscode.Disposable => {
-            const changeEvent = provider.onDidChangeFileDecorations;
-            if (changeEvent === undefined) {
-                return new DisposableImpl(() => undefined);
-            }
-            return changeEvent((changed) => {
-                void pushFileDecorations(provider, changed);
-            });
-        },
+        registerFileDecorationProvider: createFileDecorations(rpc, owner),
 
         // Getters, not copies: the list and the active terminal stay live.
         createTerminal: terminals.createTerminal.bind(terminals) as typeof vscode.window.createTerminal,

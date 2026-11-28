@@ -49,11 +49,16 @@ interface IDirectoryEntry {
     readonly isSymbolicLink: boolean;
 }
 
+/** What a row draws of its decoration: the color already resolved to packed RGB. */
+export interface IRowDecoration {
+    readonly color?: number;
+    readonly badge?: string;
+}
+
 export class FileTreeDataProvider extends Disposable implements ITreeDataProvider<FileTreeNode> {
     public readonly rootPath: string;
     private readonly watchers = this.register(new DisposableMap<string>());
     private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
-    private gitStatus = new Map<string, { color?: number; badge?: string }>();
     /** Chains by head. Discovered lazily, like upstream: when the head is expanded, not by peeking into every directory ahead. */
     private readonly chains = new Map<string, readonly string[]>();
     private readonly chainOf = new Map<string, readonly string[]>();
@@ -77,6 +82,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         private readonly treeWatcher: ITreeFileWatcher,
         private readonly compactFolders: () => boolean,
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
+        private readonly decorationOf: (node: FileTreeNode) => IRowDecoration | undefined = () => undefined,
     ) {
         super();
         this.rootPath = rootPath;
@@ -88,7 +94,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
 
     public getTreeItem(element: FileTreeNode): ITreeItem {
         // A symlink gets the regular type icon plus the symlink flag: TreeViewElement draws the arrow at the edge.
-        const status = this.gitStatus.get(element.path);
+        const status = this.decorationOf(element);
         // The space keeps the letter off the edge: TreeViewElement pins the badge flush and has no rightPadding.
         const badge = status?.badge && `${status.badge} `;
         if (element.isDirectory) {
@@ -115,11 +121,6 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
             labelColor: status?.color,
             badge,
         };
-    }
-
-    /** The key is an absolute path; colors are already resolved to packed RGB. */
-    public setGitStatus(map: ReadonlyMap<string, { color?: number; badge?: string }>): void {
-        this.gitStatus = new Map(map);
     }
 
     public async getChildren(element?: FileTreeNode): Promise<FileTreeNode[]> {

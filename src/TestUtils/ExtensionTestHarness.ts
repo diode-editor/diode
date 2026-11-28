@@ -79,7 +79,6 @@ import type {
     IQuickInputSink,
     IStatusBarItemSink,
 } from "../vs/workbench/api/common/iExtensionWindowSinks.ts";
-import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
 import type { ILanguageStatusSink } from "../vs/workbench/api/common/iLanguageStatusSink.ts";
 import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColorResolver.ts";
 import type { IWorkspaceFoldersSink } from "../vs/workbench/api/common/iWorkspaceFoldersSink.ts";
@@ -100,6 +99,7 @@ import { getReferences } from "../vs/workbench/contrib/references/browser/getRef
 import type { IPreparedRename } from "../vs/workbench/contrib/rename/browser/renameSymbol.ts";
 import { prepareRename, renameSymbol } from "../vs/workbench/contrib/rename/browser/renameSymbol.ts";
 import { provideCompletions as provideCompletionsFrom } from "../vs/workbench/contrib/suggest/browser/provideCompletions.ts";
+import type { IDecorationsService } from "../vs/workbench/services/decorations/common/decorations.ts";
 import { EditorService } from "../vs/workbench/services/editor/browser/editorService.ts";
 import { ExtensionConfigurationContributor } from "../vs/workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import type { IMarkerReader } from "../vs/workbench/services/extensions/node/customers/diagnosticsCustomer.ts";
@@ -231,7 +231,7 @@ export interface IExtensionHarnessOptions {
     /** The workbench's registry, when its menus (a tree row's `view/item/context`) must see the extension's commands. */
     readonly commandRegistry?: CommandRegistry;
     readonly editorDecorations?: IEditorDecorationsService;
-    readonly fileDecorations?: IFileDecorationsService;
+    readonly fileDecorations?: IDecorationsService;
     readonly themeColorResolver?: IThemeColorResolver;
     /** When not wired, extension watchers are created but never fire. */
     readonly fileWatcher?: IExtensionFileWatcher;

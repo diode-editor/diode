@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDecorationOptions, parseWireFileDecorations, themeColorIdOf } from "./hostWireParsers.ts";
+import {
+    parseDecorationOptions,
+    parseWireFileDecorationProvider,
+    parseWireFileDecorationProviderHandle,
+    parseWireFileDecorationReply,
+    parseWireFileDecorationsChanged,
+    themeColorIdOf,
+} from "./hostWireParsers.ts";
 
 describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
     describe("themeColorIdOf", () => {
@@ -62,32 +69,42 @@ describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
         });
     });
 
-    describe("parseWireFileDecorations", () => {
-        it("parses uri + optional fields; a bare uri (removal) is kept", () => {
-            expect(
-                parseWireFileDecorations([
-                    { uri: "file:///a", badge: "M", colorId: "c", propagate: true },
-                    { uri: "file:///b" },
-                    { uri: "", badge: "X" },
-                    { badge: "no-uri" },
-                    null,
-                    "junk",
-                ]),
-            ).toEqual([{ uri: "file:///a", badge: "M", colorId: "c", propagate: true }, { uri: "file:///b" }]);
+    describe("file decoration providers", () => {
+        it("a registration needs a numeric handle and a string extension id", () => {
+            expect(parseWireFileDecorationProvider({ handle: 1, extensionId: "e" })).toEqual({
+                handle: 1,
+                extensionId: "e",
+            });
+            expect(parseWireFileDecorationProvider({ handle: "1", extensionId: "e" })).toBeNull();
+            expect(parseWireFileDecorationProvider({ handle: 1 })).toBeNull();
+            expect(parseWireFileDecorationProvider(null)).toBeNull();
         });
-        it("non-array → []", () => {
-            expect(parseWireFileDecorations(null)).toEqual([]);
+        it("a handle is a finite number", () => {
+            expect(parseWireFileDecorationProviderHandle({ handle: 0 })).toEqual({ handle: 0 });
+            expect(parseWireFileDecorationProviderHandle({ handle: Number.NaN })).toBeNull();
+            expect(parseWireFileDecorationProviderHandle(undefined)).toBeNull();
         });
-        it("a function with uri is not a decoration and is dropped", () => {
-            expect(parseWireFileDecorations([Object.assign(() => undefined, { uri: "file:///a" })])).toEqual([]);
+        it("a change: a list keeps its strings, anything else means every resource", () => {
+            expect(parseWireFileDecorationsChanged({ handle: 1, uris: ["file:///a", 5, "file:///b"] })).toEqual({
+                handle: 1,
+                uris: ["file:///a", "file:///b"],
+            });
+            expect(parseWireFileDecorationsChanged({ handle: 1, uris: null })).toEqual({ handle: 1, uris: null });
+            expect(parseWireFileDecorationsChanged({ uris: [] })).toBeNull();
         });
-        it("malformed and missing optional fields leave no key at all", () => {
-            expect(
-                parseWireFileDecorations([
-                    { uri: "file:///a", badge: 5, colorId: 5, propagate: "yes" },
-                    { uri: "file:///b" },
-                ]),
-            ).toStrictEqual([{ uri: "file:///a" }, { uri: "file:///b" }]);
+        it("a reply by request id: fields of a foreign type and non-object entries are dropped", () => {
+            const reply = parseWireFileDecorationReply({
+                1: { propagate: true, tooltip: "t", badge: "M", colorId: "c" },
+                2: { propagate: "yes", tooltip: 5, badge: 5, colorId: 5 },
+                3: null,
+                4: "junk",
+            });
+            expect([...reply]).toStrictEqual([
+                [1, { propagate: true, tooltip: "t", badge: "M", colorId: "c" }],
+                [2, {}],
+            ]);
+            expect(parseWireFileDecorationReply(null).size).toBe(0);
+            expect(parseWireFileDecorationReply("junk").size).toBe(0);
         });
     });
 });

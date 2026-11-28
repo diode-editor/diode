@@ -1,0 +1,14 @@
+{
+    "name": "pull-decorations",
+    "displayName": "Pull Decorations",
+    "description": "E2E demo extension: a file decoration provider without onDidChangeFileDecorations, shaped like vscjava.vscode-maven: the explorer has to ask it about the files it shows.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ]
+}

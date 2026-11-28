@@ -13,17 +13,21 @@ import {
     registerAndActivate,
 } from "../../src/TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../src/TestUtils/timing.ts";
+import { CancellationTokenNone } from "../../src/vs/base/common/cancellation.ts";
 import { Uri } from "../../src/vs/base/common/uri.ts";
 import type { IOverviewRulerDecoration } from "../../src/vs/editor/common/model/iOverviewRulerDecoration.ts";
 import {
     type IEditorDecorationsService,
     NULL_EDITOR_DECORATIONS_SERVICE,
 } from "../../src/vs/workbench/api/common/iEditorDecorationsService.ts";
-import type { IFileDecorationsService } from "../../src/vs/workbench/api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../src/vs/workbench/api/common/iThemeColorResolver.ts";
 import { ColorThemeKind } from "../../src/vs/workbench/api/common/vscodeTypes.ts";
 import { PUBLISH_CHANGES_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/changesService.ts";
 import { GRAPH_ENABLED_COMMAND, PUBLISH_LOG_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/graphService.ts";
+import {
+    type IDecorationsService,
+    NULL_DECORATIONS_SERVICE,
+} from "../../src/vs/workbench/services/decorations/common/decorations.ts";
 import type { IExtensionRegistration } from "../../src/vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
@@ -64,14 +68,37 @@ function makeEditorSpy(): {
     };
 }
 
+/**
+ * What the explorer would learn: like the real service, every resource the provider reports changed is asked
+ * again at once; colors are resolved the way the explorer resolves them.
+ */
 function makeFileSpy(): {
-    service: IFileDecorationsService;
+    service: IDecorationsService;
     latest(): { path: string; color?: number; badge?: string; propagate?: boolean }[] | undefined;
 } {
-    const calls: { path: string; color?: number; badge?: string; propagate?: boolean }[][] = [];
+    const byPath = new Map<string, { path: string; color?: number; badge?: string; propagate?: boolean }>();
     return {
-        service: { setFileDecorations: (entries) => calls.push([...entries]) },
-        latest: () => calls.at(-1),
+        service: {
+            ...NULL_DECORATIONS_SERVICE,
+            registerDecorationsProvider: (provider) =>
+                provider.onDidChange((uris) => {
+                    for (const uri of uris ?? []) {
+                        void provider.provideDecorations(uri, CancellationTokenNone).then((data) => {
+                            if (data === undefined) {
+                                byPath.delete(uri.fsPath);
+                                return;
+                            }
+                            byPath.set(uri.fsPath, {
+                                path: uri.fsPath,
+                                ...(data.color !== undefined ? { color: COLORS[data.color] } : {}),
+                                ...(data.letter !== undefined ? { badge: data.letter } : {}),
+                                propagate: data.bubble,
+                            });
+                        });
+                    }
+                }),
+        },
+        latest: () => (byPath.size === 0 ? undefined : [...byPath.values()]),
     };
 }
 

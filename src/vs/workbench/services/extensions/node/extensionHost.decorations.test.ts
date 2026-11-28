@@ -9,15 +9,12 @@ import {
     type IEditorDecorationsService,
     NULL_EDITOR_DECORATIONS_SERVICE,
 } from "../../../api/common/iEditorDecorationsService.ts";
-import type { IFileDecorationsService } from "../../../api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../../api/common/iThemeColorResolver.ts";
 import { ColorThemeKind } from "../../../api/common/vscodeTypes.ts";
 
 // packed-RGB
 const MODIFIED_GUTTER = 0x1b81a8;
 const MODIFIED_GUTTER_LIGHT = 0x2090d3;
-const MODIFIED_FILE = 0xe2c08d;
-const MODIFIED_FILE_LIGHT = 0x895503;
 
 function makeControllableResolver(initial: Record<string, number>): {
     resolver: IThemeColorResolver;
@@ -64,19 +61,6 @@ function makeEditorSpy(): {
         calls,
         latestFor: (suffix) => calls.filter((c) => c.uri.endsWith(suffix)).at(-1),
         glyphs,
-    };
-}
-
-function makeFileSpy(): {
-    service: IFileDecorationsService;
-    calls: readonly { path: string; color?: number; badge?: string }[][];
-    latest(): readonly { path: string; color?: number; badge?: string }[] | undefined;
-} {
-    const calls: { path: string; color?: number; badge?: string }[][] = [];
-    return {
-        service: { setFileDecorations: (entries) => calls.push([...entries]) },
-        calls,
-        latest: () => calls.at(-1),
     };
 }
 
@@ -164,37 +148,6 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
             await harness.commandRegistry.execute("test.disposeGutterType");
             await settle();
             expect(editorSpy.latestFor("main.ts")?.decorations).toEqual([]);
-        } finally {
-            await harness.dispose();
-        }
-    });
-
-    it("provider file decorations reach the tree; removal deletes the entry", async () => {
-        const fileSpy = makeFileSpy();
-        const themeCtl = makeControllableResolver({
-            "gitDecoration.modifiedResourceForeground": MODIFIED_FILE,
-        });
-        const harness = await createExtensionTestHarness({
-            initialFile: { name: "main.ts", content: "x\n" },
-            extensions: [extensionFixture("test.decorates", "decoratesEditorAndFiles.cjs")],
-            fileDecorations: fileSpy.service,
-            themeColorResolver: themeCtl.resolver,
-        });
-        try {
-            const notes = harness.writeFile("notes.md", "hello");
-            await harness.commandRegistry.execute("test.fireFileDecoration", notes);
-            await settle();
-
-            const decorated = fileSpy.latest();
-            expect(decorated).toEqual([{ path: notes, color: MODIFIED_FILE, badge: "M" }]);
-
-            themeCtl.recolor({ "gitDecoration.modifiedResourceForeground": MODIFIED_FILE_LIGHT });
-            expect(fileSpy.latest()).toEqual([{ path: notes, color: MODIFIED_FILE_LIGHT, badge: "M" }]);
-
-            await harness.commandRegistry.execute("test.setCleared");
-            await harness.commandRegistry.execute("test.fireFileDecoration", notes);
-            await settle();
-            expect(fileSpy.latest()).toEqual([]);
         } finally {
             await harness.dispose();
         }

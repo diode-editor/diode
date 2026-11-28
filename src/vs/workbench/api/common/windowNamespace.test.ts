@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
-import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
@@ -10,8 +9,6 @@ import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     DecorationRangeBehavior,
-    EventEmitter,
-    FileDecoration,
     OverviewRulerLane,
     Position,
     Range,
@@ -577,77 +574,6 @@ describe("WindowNamespace", () => {
         const before = stub.notifies.length;
         window.activeTextEditor!.setDecorations({ key: "999", dispose: () => undefined }, [new Range(0, 0, 0, 1)]);
         expect(stub.notifies.length).toBe(before);
-    });
-
-    it("registerFileDecorationProvider queries the provider for changed uris and sends fileDecorationsChanged", async () => {
-        const { stub, window } = makeCtx();
-        const emitter = new EventEmitter<undefined | Uri | Uri[]>();
-        const disposable = window.registerFileDecorationProvider({
-            onDidChangeFileDecorations: emitter.event,
-            provideFileDecoration: (uri: Uri) =>
-                uri.fsPath.endsWith("notes.md")
-                    ? new FileDecoration("M", "Modified", new ThemeColor("gitDecoration.modifiedResourceForeground"))
-                    : undefined,
-        } as unknown as vscode.FileDecorationProvider);
-        emitter.fire([Uri.file("/proj/notes.md"), Uri.file("/proj/other.ts")]);
-        await flushMicrotasks();
-        expect(stub.notifies.at(-1)).toEqual({
-            method: "window.fileDecorationsChanged",
-            params: {
-                decorations: [
-                    {
-                        uri: "file:///proj/notes.md",
-                        badge: "M",
-                        colorId: "gitDecoration.modifiedResourceForeground",
-                    },
-                    // other.ts without a decoration → bare uri (the host clears it)
-                    { uri: "file:///proj/other.ts" },
-                ],
-            },
-        });
-        expect(typeof disposable.dispose).toBe("function");
-    });
-
-    it("registerFileDecorationProvider: single uri (not an array) + propagate", async () => {
-        const { stub, window } = makeCtx();
-        const emitter = new EventEmitter<undefined | Uri | Uri[]>();
-        window.registerFileDecorationProvider({
-            onDidChangeFileDecorations: emitter.event,
-            provideFileDecoration: () => {
-                const d = new FileDecoration("A");
-                d.propagate = true;
-                return d;
-            },
-        } as unknown as vscode.FileDecorationProvider);
-        emitter.fire(Uri.file("/proj/x.ts")); // a single Uri → the "not an array" branch in normalizeChangedUris
-        await flushMicrotasks();
-        expect(stub.notifies.at(-1)).toEqual({
-            method: "window.fileDecorationsChanged",
-            params: { decorations: [{ uri: "file:///proj/x.ts", badge: "A", propagate: true }] },
-        });
-    });
-
-    it("registerFileDecorationProvider: undefined change (all files) is not expanded", async () => {
-        const { stub, window } = makeCtx();
-        const emitter = new EventEmitter<undefined | Uri | Uri[]>();
-        window.registerFileDecorationProvider({
-            onDidChangeFileDecorations: emitter.event,
-            provideFileDecoration: () => new FileDecoration("M"),
-        } as unknown as vscode.FileDecorationProvider);
-        const before = stub.notifies.length;
-        emitter.fire(undefined);
-        await flushMicrotasks();
-        expect(stub.notifies.length).toBe(before);
-    });
-
-    it("registerFileDecorationProvider without onDidChangeFileDecorations returns a valid no-op Disposable", () => {
-        const { window } = makeCtx();
-        const disposable = window.registerFileDecorationProvider({
-            provideFileDecoration: () => undefined,
-        });
-        expect(() => {
-            disposable.dispose();
-        }).not.toThrow();
     });
 });
 

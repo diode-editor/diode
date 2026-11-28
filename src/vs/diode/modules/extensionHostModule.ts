@@ -45,7 +45,6 @@ import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extension
 import { ExtensionTreeViewsAdapter } from "../../workbench/api/browser/extensionTreeViewsAdapter.ts";
 import { ExtensionViewProgressAdapter } from "../../workbench/api/browser/extensionViewProgressAdapter.ts";
 import { ExtensionViewWelcomesDIToken } from "../../workbench/api/browser/extensionViewWelcomes.ts";
-import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileDialogExtensionAdapter } from "../../workbench/api/browser/fileDialogExtensionAdapter.ts";
 import { FileOperationParticipantAdapter } from "../../workbench/api/browser/fileOperationParticipantAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
@@ -74,7 +73,6 @@ import {
     bindExtensionDebuggers,
     ExtensionDebugAdapter,
 } from "../../workbench/contrib/debug/browser/extensionDebugAdapter.ts";
-import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { WorkspaceFolderOpenerDIToken } from "../../workbench/contrib/files/browser/fileActions.ts";
 import { SCM_CHANGES_VIEW_ID } from "../../workbench/contrib/scm/common/scmViews.ts";
 import {
@@ -97,6 +95,7 @@ import { TestProfileServiceDIToken } from "../../workbench/contrib/testing/commo
 import { TestResultServiceDIToken } from "../../workbench/contrib/testing/common/testResultService.ts";
 import { TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
 import { ConfigurationResolverServiceDIToken } from "../../workbench/services/configurationResolver/browser/configurationResolverService.ts";
+import { DecorationsServiceDIToken } from "../../workbench/services/decorations/common/decorations.ts";
 import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { FileDialogServiceDIToken } from "../../workbench/services/dialogs/browser/fileDialogService.ts";
 import {
@@ -285,7 +284,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
 
         const configService = container.get(IConfigurationServiceDIToken);
         const workspaceContext = container.get(IWorkspaceContextServiceDIToken);
-        const explorer = container.get(ExplorerServiceDIToken);
         const configuration = extensionHostConfigProvider(
             configService,
             container.get(ConfigurationRegistryDIToken),
@@ -306,7 +304,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         };
 
         const editorDecorations = new EditorDecorationsServiceAdapter(group);
-        const fileDecorations = new FileDecorationsServiceAdapter(explorer);
+        const fileDecorations = container.get(DecorationsServiceDIToken);
         const themeColorResolver = new ThemeColorResolverAdapter(container.get(ThemeServiceDIToken));
         const fileService = container.get(IFileServiceDIToken);
         const icons = container.get(ProductIconServiceDIToken);

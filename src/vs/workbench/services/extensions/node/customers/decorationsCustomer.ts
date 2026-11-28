@@ -5,7 +5,6 @@ import { truncateEnd } from "@tuidom/core/common/textTruncation";
 
 import { parseCssColor } from "../../../../../base/common/color.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
-import { Uri } from "../../../../../base/common/uri.ts";
 import type { IRange } from "../../../../../editor/common/core/iRange.ts";
 import type {
     IExtensionDecorationAttachment,
@@ -16,7 +15,6 @@ import type { IOverviewRulerDecoration } from "../../../../../editor/common/mode
 import { TrackedRangeStickiness } from "../../../../../editor/common/model/trackedDecorations.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorDecorationsService } from "../../../../api/common/iEditorDecorationsService.ts";
-import type { IFileDecorationsService } from "../../../../api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../../../api/common/iThemeColorResolver.ts";
 import { ColorThemeKind } from "../../../../api/common/vscodeTypes.ts";
 import type {
@@ -26,7 +24,7 @@ import type {
     SerializedDecorationRenderOptions,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
-import { parseDecorationOptions, parseWireFileDecorations, themeColorIdOf } from "../hostWireParsers.ts";
+import { parseDecorationOptions, themeColorIdOf } from "../hostWireParsers.ts";
 
 import {
     gutterIconContentOf,
@@ -52,7 +50,6 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
 
     public constructor(
         private readonly editorDecorations: IEditorDecorationsService,
-        private readonly fileDecorations: IFileDecorationsService,
         private readonly themeColorResolver: IThemeColorResolver,
         private readonly readGutterIcon: GutterIconReader = NO_GUTTER_ICONS,
     ) {
@@ -72,12 +69,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
     }
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
-        const decorations = new SpawnDecorations(
-            this.editorDecorations,
-            this.fileDecorations,
-            this.themeColorResolver,
-            this.readGutterIcon,
-        );
+        const decorations = new SpawnDecorations(this.editorDecorations, this.themeColorResolver, this.readGutterIcon);
         this.live = { rpc, decorations };
         const store = new DisposableStore();
         // overviewRulerColor marks the scrollbar, gutterIconPath puts a glyph in the gutter, backgroundColor/color
@@ -103,13 +95,6 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
                 const p: { key?: unknown; uri?: unknown; ranges?: unknown } = params;
                 if (typeof p.key !== "number" || typeof p.uri !== "string") return;
                 decorations.setRanges(p.key, p.uri, parseDecorationOptions(p.ranges));
-            }),
-        );
-        // A bare uri without color/badge means removal.
-        store.add(
-            rpc.handleNotification("window.fileDecorationsChanged", (params) => {
-                const p: { decorations?: unknown } = params;
-                decorations.mergeFileDecorations(parseWireFileDecorations(p.decorations));
             }),
         );
         // The next spawn attaches only after this one has gone, so
@@ -438,14 +423,9 @@ class SpawnDecorations {
     private readonly gutterIcons = new Map<string, IGutterIconGlyph | undefined>();
     private cleared = false;
     private readonly editorDecorationsByFile = new Map<string, Map<number, readonly IDecorationRange[]>>();
-    private readonly fileDecorationState = new Map<
-        string,
-        { badge: string | undefined; colorId: string | undefined; propagate: boolean | undefined }
-    >();
 
     public constructor(
         private readonly editorDecorations: IEditorDecorationsService,
-        private readonly fileDecorations: IFileDecorationsService,
         private readonly themeColorResolver: IThemeColorResolver,
         private readonly readGutterIcon: GutterIconReader,
     ) {}
@@ -479,19 +459,6 @@ class SpawnDecorations {
         this.pushGlyphs(uri, key, parsed);
     }
 
-    public mergeFileDecorations(changed: ReturnType<typeof parseWireFileDecorations>): void {
-        for (const d of changed) {
-            const filePath = fileUriToPath(d.uri);
-            if (filePath === null) continue;
-            if (d.badge === undefined && d.colorId === undefined) {
-                this.fileDecorationState.delete(filePath);
-            } else {
-                this.fileDecorationState.set(filePath, { badge: d.badge, colorId: d.colorId, propagate: d.propagate });
-            }
-        }
-        this.pushFileDecorations();
-    }
-
     public clearEditorDecorations(): void {
         // An icon read still in flight must not draw the dead spawn's glyphs back.
         this.cleared = true;
@@ -520,7 +487,6 @@ class SpawnDecorations {
                 this.pushGlyphs(uri, key, ranges);
             }
         }
-        this.pushFileDecorations();
     }
 
     /** Scrollbar marks of types with overviewRulerColor, the full set for the resource in key (creation) order. */
@@ -665,29 +631,4 @@ class SpawnDecorations {
     private resolveColor(color: DecorationColor | undefined): number | undefined {
         return typeof color === "string" ? this.themeColorResolver.resolve(color) : color;
     }
-
-    /** `propagate` goes as is: propagation to folders is computed by the tree, which knows its root. */
-    private pushFileDecorations(): void {
-        const entries: { path: string; color?: number; badge?: string; propagate?: boolean }[] = [];
-        for (const [path, { badge, colorId, propagate }] of this.fileDecorationState) {
-            // Stryker disable next-line ConditionalExpression: the resolver returns undefined for an unknown (including empty) id — no color in both cases
-            const color = colorId === undefined ? undefined : this.themeColorResolver.resolve(colorId);
-            entries.push({
-                path,
-                ...(color === undefined ? {} : { color }),
-                ...(badge === undefined ? {} : { badge }),
-                ...(propagate === undefined ? {} : { propagate }),
-            });
-        }
-        this.fileDecorations.setFileDecorations(entries);
-    }
-}
-
-/**
- * `null` means the resource isn't on disk: the tree is addressed by paths, and a `git:` resource as a
- * `fileDecorationState` key would silently match no path.
- */
-function fileUriToPath(uri: string): string | null {
-    const parsed = Uri.parse(uri);
-    return parsed.scheme === "file" ? parsed.fsPath : null;
 }
