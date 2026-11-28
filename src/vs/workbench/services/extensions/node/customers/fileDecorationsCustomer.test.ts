@@ -63,7 +63,12 @@ describe("FileDecorationsCustomer", () => {
         const h = setup();
         h.register();
         await settle();
-        h.table.set(file("/w/a.pull").toString(), { badge: "P", colorId: "charts.red", tooltip: "pulled", propagate: true });
+        h.table.set(file("/w/a.pull").toString(), {
+            badge: "P",
+            colorId: "charts.red",
+            tooltip: "pulled",
+            propagate: true,
+        });
 
         expect(h.service.getDecoration(file("/w/a.pull"), false)).toBeUndefined();
         await settle();

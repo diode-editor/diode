@@ -71,7 +71,10 @@ describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
 
     describe("file decoration providers", () => {
         it("a registration needs a numeric handle and a string extension id", () => {
-            expect(parseWireFileDecorationProvider({ handle: 1, extensionId: "e" })).toEqual({ handle: 1, extensionId: "e" });
+            expect(parseWireFileDecorationProvider({ handle: 1, extensionId: "e" })).toEqual({
+                handle: 1,
+                extensionId: "e",
+            });
             expect(parseWireFileDecorationProvider({ handle: "1", extensionId: "e" })).toBeNull();
             expect(parseWireFileDecorationProvider({ handle: 1 })).toBeNull();
             expect(parseWireFileDecorationProvider(null)).toBeNull();

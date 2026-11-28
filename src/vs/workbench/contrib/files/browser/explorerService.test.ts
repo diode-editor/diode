@@ -2,10 +2,10 @@ import * as path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { Emitter } from "../../../../base/common/event.ts";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
 import { createConfigurationChangeEvent } from "../../../../platform/configuration/common/configurationChangeEvent.ts";
 import type {
@@ -22,8 +22,8 @@ import {
     type IResourceDecorationChangeEvent,
     NULL_DECORATIONS_SERVICE,
 } from "../../../services/decorations/common/decorations.ts";
-import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
+import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { ExplorerService, type IExplorerView } from "./explorerService.ts";
 import type { FileTreeNode } from "./fileTreeDataProvider.ts";

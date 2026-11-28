@@ -107,7 +107,7 @@
     },
     "window.registerFileDecorationProvider": {
       "class": "A",
-      "note": "push only: provideFileDecoration runs for the uris fired in onDidChangeFileDecorations (not for undefined); the explorer never asks for the files it shows"
+      "note": "by request, as upstream: the explorer asks the provider about the files it shows (batched, cached until its event); tree views of extensions (resourceUri) don't ask yet, tooltip is carried but not drawn, codicon badges are not supported"
     },
     "window.registerTerminalLinkProvider": {
       "class": "B",

@@ -1,12 +1,12 @@
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Event } from "../../../../base/common/event.ts";
-import { Uri } from "../../../../base/common/uri.ts";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
+import { Event } from "../../../../base/common/event.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
@@ -26,8 +26,8 @@ import { makeViewsHarness } from "../../../browser/parts/views/viewsService.test
 import type { IDecorationData } from "../../../services/decorations/common/decorations.ts";
 import { DecorationsService } from "../../../services/decorations/common/decorationsService.ts";
 import { FileDecorationsCustomer } from "../../../services/extensions/node/customers/fileDecorationsCustomer.ts";
-import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
+import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 
 import { ExplorerComponent } from "./explorerComponent.ts";

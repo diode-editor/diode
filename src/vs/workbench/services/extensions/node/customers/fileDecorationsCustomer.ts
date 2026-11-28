@@ -87,7 +87,10 @@ export class FileDecorationsCustomer implements IExtensionHostCustomer {
         const store = new DisposableStore();
         const service = this.decorations;
         if (service === undefined) return store;
-        const providers = new Map<number, { readonly emitter: Emitter<readonly Uri[] | undefined>; readonly registration: IDisposable }>();
+        const providers = new Map<
+            number,
+            { readonly emitter: Emitter<readonly Uri[] | undefined>; readonly registration: IDisposable }
+        >();
         const unregister = (handle: number): void => {
             const provider = providers.get(handle);
             providers.delete(handle);

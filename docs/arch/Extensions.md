@@ -1812,8 +1812,7 @@ ext host (бюджет `roles/extension-host`) они не входят; jschard
 
 **Зависимости:** Extensions → Editor (через `ILanguageService`, `TextMateGrammarLoader`,
 `TokenizationRegistry`), Common. Host-адаптеры (`workbench/api/browser/`) **дополнительно →
-Workbench** (адаптеры над `EditorService`; мост файловых декораций типизирован портом
-`IFileDecorationsTarget`, в DI его реализует `ExplorerService`) и **→ Theme**
+Workbench** (адаптеры над `EditorService`) и **→ Theme**
 (`ThemeColorResolverAdapter` над `ThemeService`) — единственное место, где Extensions поднимается
 выше Editor.
 
@@ -2041,6 +2040,17 @@ GitLens), один треугольник (`<polygon>` или прямой `<pat
 (как у эталона). Смена темы шлёт тот же набор с `restyle: true` — координаты хоста устарели, редактор берёт новые
 цвета и оставляет трекнутые позиции (сопоставление по индексу). Смерть спавна снимает его декорации из редакторов.
 Отметки скроллбара остаются статическими (координаты последнего `setDecorations`, [TODO/TrackedDecorations.md](../TODO/TrackedDecorations.md)); глифы иконок едут со строкой (`TrackedLineDecorations`).
-Файловые декорации — в `ExplorerService.setFileDecorations`.
+Файловые декорации — по запросу, как у эталона (`extHostDecorations` ↔ `mainThreadDecorations` ↔
+`DecorationsService`). Субпроцесс (`api/common/extHostDecorations.ts`) даёт каждому провайдеру handle и шлёт
+`window.registerFileDecorationProvider` (с событием или без) / `unregisterFileDecorationProvider`; событие —
+`window.fileDecorationsChanged` (`uris: null` — «всё», больше 250 uri — кап эталона с warn). Хост
+(`customers/fileDecorationsCustomer.ts`) регистрирует провайдера в `IDecorationsService`
+(`workbench/services/decorations/common/`) и копит его запросы одного тика в один
+`window.provideFileDecorations {handle, requests: [{id, uri}]}`; субпроцесс зовёт провайдера по всем uri разом,
+бросивший uri пишет в лог, ответ без `FileDecoration.validate` эталона отбрасывает с warn. Сервис держит кэш на
+(uri целиком, провайдер) без вытеснения, промах — запрос, ответ — событие с дебаунсом 100 мс; `getDecoration(uri,
+includeChildren)` сливает провайдеров (новее — раньше: цвет первого, буквы через `", "`) и у папки добавляет
+всплывающие данные уже разрешённых потомков (`●`). Цвет хранится id токена и резолвится при отрисовке. Смерть
+спавна снимает его провайдеров вместе с декорациями.
 На `theme.onDidChange` все держимые декорации пере-резолвятся и пере-push'атся. **Ядро про источник
 декораций (git/SCM) не знает** — адаптеры отдают уже резолвнутые packed-RGB цвета.

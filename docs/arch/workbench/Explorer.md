@@ -46,9 +46,12 @@
   `getMultiSelectedResources` эталона; меню получает их в `ExplorerMenuContext.targets`,
   Delete и Copy Path/Copy Relative Path — через `explorerTargetsArg` и `getCommandTargets`, с клавиши —
   `getSelectedPaths`),
-  `setFileDecorations` (мост декораций extension-host'а: адаптер
-  `FileDecorationsServiceAdapter` типизирован минимальным интерфейсом
-  `IFileDecorationsTarget`, сервис соответствует структурно), подсветка
+  декорации строк (`decorationOf`: строка файла спрашивает
+  `IDecorationsService.getDecoration(Uri.file(path), false)`, папки — `true`,
+  у компактной цепочки — последняя папка; цвет-токен резолвит `ThemeService`,
+  `explorer.decorations.colors/badges` гасят цвет и бейдж; событие сервиса,
+  смена темы и этих настроек — `refresh` дерева, ответ берётся из кэша
+  сервиса и провайдеров заново не спрашивает), подсветка
   «вырезанных» по `IFileClipboard.onDidChange` и лог ошибок file-watcher'а
   (`filetree.watcher`, подсказка про inotify-лимит). Дерево приходит через шов
   `IExplorerView` (refresh/reveal/focus/selection/cut-keys):

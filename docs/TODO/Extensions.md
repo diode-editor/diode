@@ -66,9 +66,14 @@
 - [x] `window.onDidChangeTextEditorOptions` — события нет; `editor.options.cursorStyle` (#888) и отступы
   меняются без него. Нужен продюсер на хосте: смена отступов, переопределение формы курсора, смена
   `editor.cursorStyle`. (#1231: `options` в `editor.propertiesChanged`.)
-- [ ] `registerFileDecorationProvider` работает только «пушем»: провайдера спрашивают лишь об uri из его
-  `onDidChangeFileDecorations`, `undefined` (всё) ничего не делает, проводник не спрашивает о показанных файлах
-  (`windowNamespace.ts`, `pushFileDecorations`). Эталон тянет декорации по запросу вида (`extHostDecorations`).
+- [x] `registerFileDecorationProvider` по запросу, как эталон (#1276): проводник спрашивает провайдеров о
+  показанных файлах, сервис `workbench/services/decorations` кэширует ответы до события провайдера.
+- [ ] Файловые декорации в деревьях расширений со строкой с `resourceUri` (MAVEN → Dependencies у `vscode-maven`)
+  — следующая задача цепочки #1215.
+- [ ] Файловые декорации во вкладках (`workbench.editor.decorations.colors/badges`) и в Open Editors; tooltip
+  декорации — когда у строк дерева tuidom появится всплывающая подсказка.
+- [ ] Запрос декораций только по видимым в окне строкам дерева: нужен хук видимого диапазона в
+  `TreeViewElement` (tuidom); сейчас спрашиваем обо всех раскрытых, расход держат пакет и кэш.
 - [ ] `LogOutputChannel.trace…error` теряют `...args`, `Error` пишется как `{}` (`JSON.stringify`); эталон
   форматирует аргументы и стек (`extHostOutput`).
 - [ ] Перезапуск субпроцесса при крэше (сейчас при выходе extension host'а все RPC падают).

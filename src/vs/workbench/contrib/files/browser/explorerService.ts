@@ -11,12 +11,12 @@ import { type IFileService, IFileServiceDIToken } from "../../../../platform/fil
 import type { ITreeFileWatcher } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { ITreeFileWatcherDIToken } from "../../../../platform/files/common/iTreeFileWatcherDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import {
     type IProductIconService,
     NERD_FONT_ICONS,
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
-import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import { FILES_EXCLUDE_SETTING, filesExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
 import {
     DecorationsServiceDIToken,

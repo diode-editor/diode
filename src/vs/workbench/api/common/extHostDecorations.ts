@@ -1,7 +1,7 @@
 import type * as vscode from "vscode";
 
-import { Uri } from "../../../base/common/uri.ts";
 import { describeRejection } from "../../../base/common/describeRejection.ts";
+import { Uri } from "../../../base/common/uri.ts";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { callWithVscodeToken } from "./vscodeCancellation.ts";
@@ -44,7 +44,10 @@ export function capDecorationEvent(uris: readonly vscode.Uri[]): vscode.Uri[] {
  * Upstream `ExtHostDecorations`: every provider gets a handle and is registered with the host, which asks it about
  * the resources it shows in batches (`window.provideFileDecorations`).
  */
-export function createFileDecorations(rpc: SubprocessRpc, owner: ExtensionOwner): typeof vscode.window.registerFileDecorationProvider {
+export function createFileDecorations(
+    rpc: SubprocessRpc,
+    owner: ExtensionOwner,
+): typeof vscode.window.registerFileDecorationProvider {
     const providers = new Map<number, IProviderData>();
     let nextHandle = 0;
 
@@ -64,7 +67,9 @@ export function createFileDecorations(rpc: SubprocessRpc, owner: ExtensionOwner)
                     try {
                         FileDecoration.validate(decoration);
                     } catch (err) {
-                        console.warn(`[ext-host] INVALID decoration from extension '${extensionId}': ${describeRejection(err)}`);
+                        console.warn(
+                            `[ext-host] INVALID decoration from extension '${extensionId}': ${describeRejection(err)}`,
+                        );
                         return;
                     }
                     result[id] = {
@@ -74,7 +79,9 @@ export function createFileDecorations(rpc: SubprocessRpc, owner: ExtensionOwner)
                         ...(decoration.color !== undefined ? { colorId: decoration.color.id } : {}),
                     };
                 } catch (err) {
-                    console.error(`[ext-host] [${extensionId}] provideFileDecoration failed: ${describeRejection(err)}`);
+                    console.error(
+                        `[ext-host] [${extensionId}] provideFileDecoration failed: ${describeRejection(err)}`,
+                    );
                 }
             }),
         );
@@ -87,18 +94,22 @@ export function createFileDecorations(rpc: SubprocessRpc, owner: ExtensionOwner)
         providers.set(handle, { provider, extensionId });
         rpc.notify("window.registerFileDecorationProvider", { handle, extensionId });
         // `null` too: upstream tests `!e`.
-        const listener = provider.onDidChangeFileDecorations?.((changed: vscode.Uri | vscode.Uri[] | undefined | null) => {
-            if (changed === undefined || changed === null) {
-                rpc.notify("window.fileDecorationsChanged", { handle, uris: null });
-                return;
-            }
-            let uris = Array.isArray(changed) ? changed : [changed];
-            if (uris.length > MAX_DECORATION_EVENT_SIZE) {
-                console.warn(`[ext-host] [Decorations] CAPPING events from decorations provider ${extensionId} ${String(uris.length)}`);
-                uris = capDecorationEvent(uris);
-            }
-            rpc.notify("window.fileDecorationsChanged", { handle, uris: uris.map((uri) => uri.toString()) });
-        });
+        const listener = provider.onDidChangeFileDecorations?.(
+            (changed: vscode.Uri | vscode.Uri[] | undefined | null) => {
+                if (changed === undefined || changed === null) {
+                    rpc.notify("window.fileDecorationsChanged", { handle, uris: null });
+                    return;
+                }
+                let uris = Array.isArray(changed) ? changed : [changed];
+                if (uris.length > MAX_DECORATION_EVENT_SIZE) {
+                    console.warn(
+                        `[ext-host] [Decorations] CAPPING events from decorations provider ${extensionId} ${String(uris.length)}`,
+                    );
+                    uris = capDecorationEvent(uris);
+                }
+                rpc.notify("window.fileDecorationsChanged", { handle, uris: uris.map((uri) => uri.toString()) });
+            },
+        );
         return new DisposableImpl(() => {
             listener?.dispose();
             rpc.notify("window.unregisterFileDecorationProvider", { handle });

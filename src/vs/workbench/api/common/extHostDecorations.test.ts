@@ -44,7 +44,10 @@ describe("registerFileDecorationProvider — registration", () => {
     it("dispose unregisters the handle and stops forwarding its events", () => {
         const h = setup();
         const emitter = new EventEmitter<vscode.Uri | vscode.Uri[] | undefined>();
-        const registration = h.register({ onDidChangeFileDecorations: emitter.event, provideFileDecoration: () => undefined });
+        const registration = h.register({
+            onDidChangeFileDecorations: emitter.event,
+            provideFileDecoration: () => undefined,
+        });
         registration.dispose();
         emitter.fire(undefined);
         expect(h.notifiesOf("window.unregisterFileDecorationProvider")).toEqual([{ handle: 0 }]);
@@ -99,7 +102,9 @@ describe("registerFileDecorationProvider — change events", () => {
         expect(change.uris).toHaveLength(MAX_DECORATION_EVENT_SIZE);
         expect(change.uris[0]).toBe(top.toString());
         expect(change.uris[1]).toBe(deep[0].toString());
-        expect(warn).toHaveBeenCalledWith(expect.stringContaining("CAPPING events from decorations provider ext.id 301"));
+        expect(warn).toHaveBeenCalledWith(
+            expect.stringContaining("CAPPING events from decorations provider ext.id 301"),
+        );
     });
 });
 
@@ -132,7 +137,13 @@ describe("window.provideFileDecorations", () => {
                 return d;
             },
         });
-        const reply = await h.provide({ handle: 0, requests: [{ id: 1, uri: A }, { id: 2, uri: B }] });
+        const reply = await h.provide({
+            handle: 0,
+            requests: [
+                { id: 1, uri: A },
+                { id: 2, uri: B },
+            ],
+        });
         expect(reply).toEqual({ 1: { propagate: true, tooltip: "pulled", badge: "P", colorId: "charts.red" } });
     });
 
@@ -145,7 +156,13 @@ describe("window.provideFileDecorations", () => {
                     pending.push({ uri: uri.toString(), resolve });
                 }),
         });
-        const reply = h.provide({ handle: 0, requests: [{ id: 1, uri: A }, { id: 2, uri: B }] });
+        const reply = h.provide({
+            handle: 0,
+            requests: [
+                { id: 1, uri: A },
+                { id: 2, uri: B },
+            ],
+        });
         await vi.waitFor(() => {
             expect(pending.map((p) => p.uri)).toEqual([A, B]);
         });
@@ -165,10 +182,19 @@ describe("window.provideFileDecorations", () => {
             },
         });
         const C = Uri.file("/proj/c.txt").toString();
-        const reply = await h.provide({ handle: 0, requests: [{ id: 1, uri: A }, { id: 2, uri: B }, { id: 3, uri: C }] });
+        const reply = await h.provide({
+            handle: 0,
+            requests: [
+                { id: 1, uri: A },
+                { id: 2, uri: B },
+                { id: 3, uri: C },
+            ],
+        });
         expect(reply).toEqual({ 2: { badge: "B" } });
         expect(error).toHaveBeenCalledTimes(2);
-        expect(error).toHaveBeenCalledWith(expect.stringContaining("[ext.id] provideFileDecoration failed: Error: boom"));
+        expect(error).toHaveBeenCalledWith(
+            expect.stringContaining("[ext.id] provideFileDecoration failed: Error: boom"),
+        );
     });
 
     it("an invalid decoration is dropped with a warning", async () => {

@@ -2,12 +2,12 @@ import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Emitter } from "../../../../base/common/event.ts";
-import { Uri } from "../../../../base/common/uri.ts";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
+import { Emitter } from "../../../../base/common/event.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
 import { InMemoryFileClipboard } from "../../../../platform/clipboard/common/inMemoryFileClipboard.ts";
@@ -17,17 +17,17 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
-import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import type { IDecorationData } from "../../../services/decorations/common/decorations.ts";
 import {
     DECORATION_CHANGE_DEBOUNCE_MS,
     DecorationsService,
 } from "../../../services/decorations/common/decorationsService.ts";
-import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
+import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 
 import { ExplorerComponent } from "./explorerComponent.ts";

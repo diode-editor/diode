@@ -69,11 +69,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
     }
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
-        const decorations = new SpawnDecorations(
-            this.editorDecorations,
-            this.themeColorResolver,
-            this.readGutterIcon,
-        );
+        const decorations = new SpawnDecorations(this.editorDecorations, this.themeColorResolver, this.readGutterIcon);
         this.live = { rpc, decorations };
         const store = new DisposableStore();
         // overviewRulerColor marks the scrollbar, gutterIconPath puts a glyph in the gutter, backgroundColor/color

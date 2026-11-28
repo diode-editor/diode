@@ -51,7 +51,7 @@ Members with a gap, by the downloads of the extensions using them (top 100). The
 | `workspace.registerFileSystemProvider` | B | 16 | 130,014,285 | opens only as a diff side; directory operations are never called |
 | `FileCoverage` | C | 6 | 117,219,963 | coverage is not shown: no coverage view or gutter |
 | `TestCoverageCount` | C | 6 | 117,219,963 | coverage is not shown: no coverage view or gutter |
-| `window.registerFileDecorationProvider` | A | 11 | 116,361,382 | push only: provideFileDecoration runs for the uris fired in onDidChangeFileDecorations (not for undefined); the explorer never asks for the files it shows |
+| `window.registerFileDecorationProvider` | A | 11 | 116,361,382 | by request, as upstream: the explorer asks the provider about the files it shows (batched, cached until its event); tree views of extensions (resourceUri) don't ask yet, tooltip is carried but not drawn, codicon badges are not supported |
 | `workspace.saveAll` | B | 14 | 115,810,762 | includeUntitled does not open Save As |
 | `comments.createCommentController` | C | 8 | 106,929,686 | needs the comments surface |
 | `CommentThreadCollapsibleState.Expanded` | C | 8 | 106,929,686 | needs the comments surface |

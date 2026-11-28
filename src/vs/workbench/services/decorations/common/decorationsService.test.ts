@@ -22,7 +22,15 @@ function tableProvider(label: string, table: Record<string, IDecorationData | "t
             return answer === "throw" ? Promise.reject(new Error("boom")) : Promise.resolve(answer);
         },
     };
-    return { provider, table, asked, tokens, fire: (uris?: readonly Uri[]) => onDidChange.fire(uris) };
+    return {
+        provider,
+        table,
+        asked,
+        tokens,
+        fire: (uris?: readonly Uri[]) => {
+            onDidChange.fire(uris);
+        },
+    };
 }
 
 const file = (path: string): Uri => Uri.file(path);
@@ -135,7 +143,11 @@ describe("DecorationsService", () => {
         service.registerDecorationsProvider(blank.provider);
         service.getDecoration(file("/w/f"), false);
         await settle();
-        expect(service.getDecoration(file("/w/f"), false)).toEqual({ color: "older.color", badge: "A", tooltip: "same" });
+        expect(service.getDecoration(file("/w/f"), false)).toEqual({
+            color: "older.color",
+            badge: "A",
+            tooltip: "same",
+        });
     });
 
     it("a resource with only a color has no badge", async () => {

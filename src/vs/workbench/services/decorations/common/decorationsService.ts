@@ -139,7 +139,9 @@ export class DecorationsService extends Disposable implements IDecorationsServic
         const color = all.find((data) => data.color !== undefined)?.color;
         if (bubbled.length > 0) return { color, badge: BUBBLE_BADGE, tooltip: BUBBLE_TOOLTIP };
         const letters = own.flatMap(({ letter }) => (letter === undefined || letter === "" ? [] : [letter]));
-        const tooltips = own.flatMap(({ tooltip }) => (tooltip === undefined || tooltip.trim() === "" ? [] : [tooltip]));
+        const tooltips = own.flatMap(({ tooltip }) =>
+            tooltip === undefined || tooltip.trim() === "" ? [] : [tooltip],
+        );
         return {
             color,
             badge: letters.length === 0 ? undefined : letters.join(", "),

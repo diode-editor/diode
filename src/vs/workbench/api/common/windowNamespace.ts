@@ -7,11 +7,11 @@ import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/con
 import { type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 
 import { implementsApi } from "./apiSurface.ts";
+import { createFileDecorations } from "./extHostDecorations.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createProgressApi } from "./extHostProgress.ts";
 import { snippetRanges } from "./extHostSnippetInsert.ts";
 import { applyTextEditorEdit } from "./extHostTextEditorEdit.ts";
-import { createFileDecorations } from "./extHostDecorations.ts";
 import { createExtHostTreeViews, type ITreeViewMembers } from "./extHostTreeViews.ts";
 import {
     normalizeDecorationRanges,
@@ -77,7 +77,6 @@ function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T>
         return disposable;
     };
 }
-
 
 /** A single empty cursor at the document start: the selection of a fresh model (upstream 1:1). */
 function isInitialSelection(selections: readonly IWireSelection[]): boolean {
@@ -731,7 +730,6 @@ export function createWindowNamespace(
         });
         return editorProxy;
     }
-
 
     // Nothing goes over the wire until the item is shown: in VS Code `createStatusBarItem` does NOT show
     // the item. Deviations: `tooltip` is not shown; colors and `accessibilityInformation` have no effect.

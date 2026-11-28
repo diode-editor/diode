@@ -77,7 +77,9 @@ describe("ExtensionHost — file decorations on request (subprocess)", () => {
         await run("test.files.answer", "p", f.toString(), { badge: "2" });
         await run("test.files.fire", "p");
         await decorationOf(f, (d) => d?.badge === "2");
-        expect(((await run("test.files.asked", "p")) as string[]).filter((uri) => uri === f.toString())).toHaveLength(2);
+        expect(((await run("test.files.asked", "p")) as string[]).filter((uri) => uri === f.toString())).toHaveLength(
+            2,
+        );
     });
 
     it("(c) fire([uri]) of a file nobody shows marks its collapsed folder, as git does", async () => {
