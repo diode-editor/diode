@@ -1,5 +1,5 @@
-import type { ICancellationToken } from "../../../../../base/common/cancellation.ts";
 import { RunOnceScheduler } from "../../../../../base/common/async.ts";
+import type { ICancellationToken } from "../../../../../base/common/cancellation.ts";
 import { Emitter } from "../../../../../base/common/event.ts";
 import { DisposableMap, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../../base/common/uri.ts";

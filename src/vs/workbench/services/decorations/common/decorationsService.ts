@@ -1,6 +1,6 @@
+import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
-import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { Disposable, type IDisposable, toDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 
