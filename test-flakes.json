@@ -269,6 +269,18 @@
             "note": "the log file was still empty when read (expected '' to contain '[ERROR]') under coverage on CI (run 45790209222, PR #1273, whose diff is the Search header; logging is untouched); main green on the same base"
         },
         {
+            "file": "src/vs/platform/log/node/fileSink.test.ts",
+            "test": "FileSink > writes formatted line per entry",
+            "action": "retry",
+            "note": "the same empty log file (expected '' to be '[2026-01-02T03:04:05.000Z] [INFO ] …') under coverage on CI (run 46153049458, PR #1279, whose diff is quick pick separators; logging is untouched)"
+        },
+        {
+            "file": "src/vs/platform/log/node/fileSink.test.ts",
+            "test": "FileSink > appends args separated by tabs (json for plain values)",
+            "action": "retry",
+            "note": "failed together with 'writes formatted line per entry' in run 46153049458 (PR #1279), the same empty log file"
+        },
+        {
             "file": "e2e/scenarios/renameSymbol.scenario.ts",
             "test": "rename-symbol",
             "action": "retry",
