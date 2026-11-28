@@ -1,6 +1,5 @@
 import type * as vscode from "vscode";
 
-import { safeIntl } from "../../../base/common/date.ts";
 import { Uri } from "../../../base/common/uri.ts";
 
 export class DisposableImpl implements vscode.Disposable {
@@ -809,8 +808,11 @@ export enum DecorationRangeBehavior {
     ClosedOpen = 3,
 }
 
-/** Upstream `nextCharLength` counts a grapheme cluster as one character (an emoji surrogate pair, a flag). */
-const GRAPHEMES = safeIntl.Segmenter(undefined, { granularity: "grapheme" });
+/**
+ * Upstream `nextCharLength` counts a grapheme cluster as one character (an emoji surrogate pair, a flag). Created on
+ * first use: `Intl.*` is forbidden at module top level (the V8 snapshot).
+ */
+let graphemes: Intl.Segmenter | undefined;
 
 export class FileDecoration implements vscode.FileDecoration {
     /**
@@ -821,7 +823,8 @@ export class FileDecoration implements vscode.FileDecoration {
         const badge: unknown = d.badge;
         if (typeof badge === "string") {
             let count = 0;
-            for (const _ of GRAPHEMES.value.segment(badge)) {
+            graphemes ??= new Intl.Segmenter(undefined, { granularity: "grapheme" });
+            for (const _ of graphemes.segment(badge)) {
                 if (++count > 2) throw new Error("The 'badge'-property must be undefined or a short character");
             }
         } else if (badge !== undefined && badge !== null) {
