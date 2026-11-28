@@ -906,4 +906,126 @@ describe("ExtensionsComponent", () => {
             expect(opened).toHaveLength(0);
         });
     });
+
+    describe("Enter and Ctrl+Down in the search box focus the results", () => {
+        const TOOLS = entry({ id: "acme.tools", displayName: "Tools" });
+        const LINT = entry({ id: "acme.lint", displayName: "Lint" });
+
+        /** The viewlet shown and the catalog read: the focus is in the search box. */
+        async function shown(
+            service: FakeService,
+            target = fakeTarget().target,
+        ): Promise<{
+            app: TestApp;
+            component: ExtensionsComponent;
+            input: InputElement;
+        }> {
+            const component = make(service, target);
+            const app = TestApp.createWithContent(component.view, { width: 44, height: 16 });
+            app.render();
+            component.focus();
+            await settle();
+            app.render();
+            const input = component.view.querySelectorAll("InputElement")[0] as InputElement;
+            expect(input.isFocused).toBe(true);
+            return { app, component, input };
+        }
+
+        it.each(["Enter", "Ctrl+ArrowDown"])("%s moves the focus to the first MARKETPLACE row", async (key) => {
+            const { app, component } = await shown(new FakeService([TOOLS, LINT]));
+            typeQuery(component, "acme");
+
+            app.sendKey(key);
+            app.render();
+
+            expect(component.list.isFocused).toBe(true);
+            expect(component.list.id).toBe("extensionsList");
+            expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-tools");
+            expect(component.getQuery()).toBe("acme");
+        });
+
+        it("the cursor goes to the first row even if it was lower before", async () => {
+            const { app, component, input } = await shown(new FakeService([TOOLS, LINT]));
+            app.sendKey("Enter");
+            app.sendKey("ArrowDown");
+            expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-lint");
+            input.focus();
+
+            app.sendKey("Enter");
+
+            expect(component.list.isFocused).toBe(true);
+            expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-tools");
+        });
+
+        it("then Enter in the list opens the extension page", async () => {
+            const { target, opened } = fakeTarget();
+            const { app } = await shown(new FakeService([TOOLS, LINT]), target);
+
+            app.sendKey("Enter");
+            app.sendKey("ArrowDown");
+            app.sendKey("Enter");
+            await settle();
+
+            expect(opened).toHaveLength(1);
+            expect(renderElement(opened[0].view, 40, 20, { themeVars: true }).screenToString()).toContain("Lint");
+        });
+
+        it("nothing found: the focus stays in the search box", async () => {
+            const { app, component, input } = await shown(new FakeService([TOOLS]));
+            typeQuery(component, "zzz");
+            app.render();
+            expect(app.backend.screenToString()).toContain("No extensions found");
+
+            app.sendKey("Enter");
+            app.sendKey("Ctrl+ArrowDown");
+
+            expect(input.isFocused).toBe(true);
+        });
+
+        it("@installed: the focus stays in the search box and does not go to INSTALLED", async () => {
+            const installed = entry({ id: "acme.tools", installedVersion: "1.0.0", availability: "installed" });
+            const { app, component, input } = await shown(new FakeService([installed]));
+            typeQuery(component, "@installed");
+
+            app.sendKey("Enter");
+
+            expect(input.isFocused).toBe(true);
+            expect(component.installedList.isFocused).toBe(false);
+        });
+
+        it("while the catalog is loading the focus stays in the search box", () => {
+            const component = make(new FakeService([]));
+            const app = TestApp.createWithContent(component.view, { width: 44, height: 16 });
+            // focus() starts the read; the "Loading…" row is up until it settles.
+            component.focus();
+            app.render();
+            expect(app.backend.screenToString()).toContain("Loading extensions…");
+
+            app.sendKey("Enter");
+
+            expect((component.view.querySelectorAll("InputElement")[0] as InputElement).isFocused).toBe(true);
+        });
+
+        it("a catalog error: the focus goes to Retry, and Enter there retries", async () => {
+            const service = new FakeService([], "ENOTFOUND");
+            const { app, component } = await shown(service);
+            const before = service.refreshCalls;
+
+            app.sendKey("Enter");
+            expect(component.list.isFocused).toBe(true);
+            expect(component.list.getCursorElement()?.id).toBe("extensionsRetry");
+
+            app.sendKey("Enter");
+            expect(service.refreshCalls).toBe(before + 1);
+        });
+
+        it("plain Down and modified Enter keep the focus in the search box", async () => {
+            const { app, input } = await shown(new FakeService([TOOLS, LINT]));
+
+            for (const key of ["ArrowDown", "Shift+Enter", "Alt+Enter", "Ctrl+Enter", "Shift+ArrowDown"]) {
+                app.sendKey(key);
+                expect(input.isFocused, key).toBe(true);
+            }
+        });
+    });
 });

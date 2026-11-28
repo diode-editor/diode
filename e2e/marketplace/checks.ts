@@ -241,6 +241,31 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx", a universal vsix without the binary: the extension downloads buf from GitHub itself
+        // (the user's path with no buf on PATH). It activates only on `workspaceContains:**/*.proto`, so the folder
+        // is opened, not a lone file, as in VS Code.
+        id: "bufbuild.vscode-buf",
+        expectFiles: ["package.json", "out/src/extension.js", "syntaxes/proto.json"],
+        timeoutMs: 420_000,
+        run: async (ctx) => {
+            // A typo in the field type → buf's "cannot find `Usr`" → undercurl (StyleFlags.Undercurl === 8).
+            const folder = join(ctx.root, "proto");
+            mkdirSync(folder);
+            const file = join(folder, "demo.proto");
+            writeFileSync(file, 'syntax = "proto3";\npackage demo.v1;\n\nmessage User {\n  Usr broken = 1;\n}\n');
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [folder, file] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle from buf", timeoutMs: 180_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx": the stock Catppuccin theme (`contributes.themes`, inline tokenColors,
         // colors with alpha): `workbench.colorTheme` → the very first frame is themed (background =
         // `editor.background` from themes/mocha.json) and the theme is in the picker. The extension's

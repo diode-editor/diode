@@ -7,6 +7,7 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
@@ -54,6 +55,7 @@ describe("SearchComponent + real ripgrep", () => {
             { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService,
             NULL_JUMP_RECORDER,
             configuration,
+            new StaticProductIconService(false),
         );
     }
 

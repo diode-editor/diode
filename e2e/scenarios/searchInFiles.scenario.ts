@@ -9,13 +9,14 @@ const CHEVRON_EXPANDED = "";
 const CHEVRON_COLLAPSED = "";
 
 /**
- * The screen without the sidebar title row: its container switcher draws the same angle_down glyph, so
- * chevron checks of the result list must not see it.
+ * The screen without the sidebar title row and the query underline: the container switcher and the
+ * include/exclude chevron on the underline draw the same angle glyphs, so chevron checks of the result
+ * list must not see them.
  */
 function withoutTitle(text: string): string {
     return text
         .split("\n")
-        .filter((line) => !line.includes(" SEARCH "))
+        .filter((line) => !line.includes(" SEARCH ") && !/\u2500 [\uf105\uf107]/u.test(line))
         .join("\n");
 }
 
@@ -33,7 +34,7 @@ async function typeText(driver: { sendKey(name: string): Promise<void> }, text: 
 
 export default defineScenario({
     name: "searchInFiles",
-    title: "Search in files: header buttons and '⋯' menu, details behind '···', list/tree modes, Collapse All",
+    title: "Search in files: underlined query with Aa/ab/.* toggles, '⋯' menu, details behind the chevron, list/tree modes, Collapse All",
     open: [repoRoot],
     cols: 100,
     // Tall enough for the tree mode to reach `contrib/search/browser` from the top inside the framed sidebar.
@@ -52,7 +53,7 @@ export default defineScenario({
         await driver.waitForText((t) => t.includes(explorerTitle(repoRoot)));
 
         await driver.sendKey("F6");
-        await driver.waitForText((t) => t.includes("SEARCH") && t.includes("···"));
+        await driver.waitForText((t) => t.includes("SEARCH") && t.includes(" Aa  ab  .* "));
         await driver.capture("empty");
 
         // Case-insensitive by default, so a lowercase query matches the mixed-case identifier.
