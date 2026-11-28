@@ -1,5 +1,5 @@
 import { stripCodicons } from "../../../base/common/codicons.ts";
-import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { DisposableMap } from "../../../base/common/lifecycle.ts";
 import type {
     IProgressNotificationHandle,
     NotificationService,
@@ -42,7 +42,7 @@ class NotificationProgress {
  */
 export class ExtensionProgressAdapter implements IProgressSink {
     private readonly notified = new Map<number, NotificationProgress>();
-    private readonly activityHolds = new Map<number, IDisposable>();
+    private readonly activityHolds = new DisposableMap<number>();
 
     public constructor(
         private readonly window: IProgressSink,
@@ -102,8 +102,7 @@ export class ExtensionProgressAdapter implements IProgressSink {
 
     /** Every sink ignores a handle it doesn't know, so the view sink is told unconditionally. */
     public end(handle: number): void {
-        this.activityHolds.get(handle)?.dispose();
-        this.activityHolds.delete(handle);
+        this.activityHolds.deleteAndDispose(handle);
         this.views.end(handle);
         const entry = this.notified.get(handle);
         if (entry === undefined) {

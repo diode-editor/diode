@@ -1,5 +1,5 @@
 import { Emitter } from "../../../base/common/event.ts";
-import { Disposable, type IDisposable, toDisposable } from "../../../base/common/lifecycle.ts";
+import { Disposable, dispose, type IDisposable, toDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 // Stryker disable next-line StringLiteral: token() returns a new Token and dependency resolution goes by its reference, so the string inside is only a debug label
@@ -129,7 +129,7 @@ export class ProgressService extends Disposable {
             return await task(progress);
         } finally {
             this.end(entry);
-            for (const held of holds) held.dispose();
+            dispose(holds);
         }
     }
 

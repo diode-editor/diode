@@ -297,11 +297,12 @@ export function createWindowNamespace(
 
     // Upstream `ExtHostWindow`: the seed and every later change come as the same two messages; one event per property
     // that actually changed, with the full state.
-    let windowState: vscode.WindowState = { focused: true, active: true };
+    // Frozen and replaced on every change: the object an extension holds is a snapshot it cannot write to.
+    let windowState: vscode.WindowState = Object.freeze({ focused: true, active: true });
     const windowStateEmitter = new EventEmitter<vscode.WindowState>();
     function onDidChangeWindowProperty(property: keyof vscode.WindowState, value: boolean | null): void {
         if (value === null || value === windowState[property]) return;
-        windowState = { ...windowState, [property]: value };
+        windowState = Object.freeze({ ...windowState, [property]: value });
         windowStateEmitter.fire(windowState);
     }
     rpc.handleNotification("window.focusChanged", (params) => {
@@ -901,18 +902,10 @@ export function createWindowNamespace(
             );
         },
 
-        // Upstream `getState()`: a fresh object over the snapshot current at the read — a saved `window.state` does
-        // not follow later changes, `window.state.focused` read again does.
+        // Upstream `getState()`: the snapshot current at the read — a saved `window.state` does not follow later
+        // changes, `window.state.focused` read again does.
         get state(): vscode.WindowState {
-            const state = windowState;
-            return {
-                get focused() {
-                    return state.focused;
-                },
-                get active() {
-                    return state.active;
-                },
-            };
+            return windowState;
         },
 
         onDidChangeActiveTextEditor: (
