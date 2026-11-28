@@ -62,38 +62,46 @@ describe("ExtensionHost — window.state and onDidChangeWindowState (subprocess)
             void report().then((r) => (last = r));
             return last !== undefined && last.events.length >= count;
         });
-        return last as IReport;
+        return last!;
     }
 
-    it("activate() sees the seed: focus lost before the subprocess started reads false", { timeout: 60_000 }, async () => {
-        const w = windowState();
-        w.backend.sendFocus(false);
-        harness = await createExtensionTestHarness({ extensions: [FIXTURE], windowState: w.state });
-        const r = await report();
-        expect(r.atActivate).toStrictEqual({ focused: false, active: true });
-        // The seed is the starting state, not a change.
-        expect(r.events).toStrictEqual([]);
-    });
+    it(
+        "activate() sees the seed: focus lost before the subprocess started reads false",
+        { timeout: 60_000 },
+        async () => {
+            const w = windowState();
+            w.backend.sendFocus(false);
+            harness = await createExtensionTestHarness({ extensions: [FIXTURE], windowState: w.state });
+            const r = await report();
+            expect(r.atActivate).toStrictEqual({ focused: false, active: true });
+            // The seed is the starting state, not a change.
+            expect(r.events).toStrictEqual([]);
+        },
+    );
 
-    it("CSI O / CSI I: one event per transition, repeats dropped; window.state is a snapshot", { timeout: 60_000 }, async () => {
-        const w = windowState();
-        harness = await createExtensionTestHarness({ extensions: [FIXTURE], windowState: w.state });
-        // A gain with no loss before it is no change.
-        w.backend.sendRaw("\x1b[I");
-        w.backend.sendRaw("\x1b[O");
-        w.backend.sendRaw("\x1b[O");
-        w.backend.sendRaw("\x1b[I");
-        const r = await eventsReach(2);
-        expect(r.events).toStrictEqual([
-            { focused: false, active: true, getterFocused: false },
-            { focused: true, active: true, getterFocused: true },
-        ]);
-        w.backend.sendFocus(false);
-        const after = await eventsReach(3);
-        // The object saved in activate() keeps its snapshot; a fresh read follows.
-        expect(after.saved).toStrictEqual({ focused: true, active: true });
-        expect(after.current).toStrictEqual({ focused: false, active: true });
-    });
+    it(
+        "CSI O / CSI I: one event per transition, repeats dropped; window.state is a snapshot",
+        { timeout: 60_000 },
+        async () => {
+            const w = windowState();
+            harness = await createExtensionTestHarness({ extensions: [FIXTURE], windowState: w.state });
+            // A gain with no loss before it is no change.
+            w.backend.sendRaw("\x1b[I");
+            w.backend.sendRaw("\x1b[O");
+            w.backend.sendRaw("\x1b[O");
+            w.backend.sendRaw("\x1b[I");
+            const r = await eventsReach(2);
+            expect(r.events).toStrictEqual([
+                { focused: false, active: true, getterFocused: false },
+                { focused: true, active: true, getterFocused: true },
+            ]);
+            w.backend.sendFocus(false);
+            const after = await eventsReach(3);
+            // The object saved in activate() keeps its snapshot; a fresh read follows.
+            expect(after.saved).toStrictEqual({ focused: true, active: true });
+            expect(after.current).toStrictEqual({ focused: false, active: true });
+        },
+    );
 
     it("activity: inactive, then active again — the payload carries the whole state", { timeout: 60_000 }, async () => {
         const w = windowState();

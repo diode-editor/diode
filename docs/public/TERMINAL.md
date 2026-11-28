@@ -123,8 +123,8 @@ Mac keyboard over ssh, set `LC_DIODE_PLATFORM=mac` locally; ssh forwards `LC_*` 
 
 ## tmux
 
-Diode runs inside tmux as is. Two things need lines in `~/.tmux.conf`: extended keys and the
-window title.
+Diode runs inside tmux as is. A few things need lines in `~/.tmux.conf`: extended keys, the
+window title and focus events.
 
 ### Keys
 
@@ -182,6 +182,21 @@ setw -g automatic-rename-format '#{?#{==:#{pane_current_command},diode},#{pane_t
 `automatic-rename` off for that window. Apply with `tmux source-file ~/.tmux.conf`; to check, run
 `tmux display -p -t <pane> '#{pane_title} | #{window_name}'` from another pane while Diode is
 running.
+
+### Focus events
+
+Diode asks the terminal to report when its window gains or loses focus (focus reporting,
+DECSET 1004), and extensions hear it as `window.onDidChangeWindowState`: EditorConfig re-reads
+`.editorconfig` when you come back, and others refresh or pause background work while you are
+away. tmux passes these reports on only when told to:
+
+```tmux
+set -g focus-events on
+```
+
+With it, switching to another tmux pane or window counts as leaving Diode, as does leaving the
+terminal itself. Reattach the client after the change. Without it, and in terminals that don't
+report focus, Diode always reads as focused.
 
 ## GNU Screen
 

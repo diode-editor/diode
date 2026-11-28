@@ -1,6 +1,6 @@
-import type { MouseAction, MouseButton } from "@tuidom/core/input/rawTerminalToken";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import { BoxElement } from "@tuidom/elements/layout/boxElement";
+import type { MouseAction, MouseButton } from "@tuidom/core/input/rawTerminalToken";
+import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { TestApp } from "@tuidom/testing/TestApp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,8 +26,7 @@ function mouse(app: TestApp, action: MouseAction, button: MouseButton): void {
 }
 
 function setup() {
-    const target = new BoxElement();
-    target.tabIndex = 0;
+    const target = new ButtonElement("target");
     const app = TestApp.createWithContent(target);
     app.render();
     target.focus();

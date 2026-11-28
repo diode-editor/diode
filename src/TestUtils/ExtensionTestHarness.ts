@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import type { IExtensionHostWindowState } from "../vs/workbench/services/extensions/node/customers/windowStateCustomer.ts";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -105,6 +104,7 @@ import { EditorService } from "../vs/workbench/services/editor/browser/editorSer
 import { ExtensionConfigurationContributor } from "../vs/workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import type { IMarkerReader } from "../vs/workbench/services/extensions/node/customers/diagnosticsCustomer.ts";
 import type { IExtensionHostEnvironment } from "../vs/workbench/services/extensions/node/customers/envCustomer.ts";
+import type { IExtensionHostWindowState } from "../vs/workbench/services/extensions/node/customers/windowStateCustomer.ts";
 import { ExtensionHost, type IWorkspaceFolderInfo } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionSecretStore } from "../vs/workbench/services/extensions/node/extensionSecretsStore.ts";
 import type { IExtensionStateStore } from "../vs/workbench/services/extensions/node/extensionStateStore.ts";
