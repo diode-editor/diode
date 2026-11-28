@@ -297,6 +297,12 @@
                 "linux"
             ],
             "note": "waitUntil(the line selected) timed out after 10000ms on the triple click, first e2e pass on ubuntu (run 45725801182, PR #1270, whose diff is the scrollbar container; the terminal is not in one); green in the second pass and on main"
+        },
+        {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.fileSystem.test.ts",
+            "test": "ExtensionHost — extension file system providers > a resource is read end-to-end through the adapter and the core registry",
+            "action": "retry",
+            "note": "timed out in 5000ms in the mutation gate's Stryker initial test run (run 46155213674, PR #1279, whose diff is quick pick separators; file system providers are untouched); green in the same run's unit job"
         }
     ]
 }

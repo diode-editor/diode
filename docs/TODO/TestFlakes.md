@@ -51,6 +51,9 @@
 - [ ] `extensionHost.javaLsp.features.test.ts`, «references finds the declaration and the call»: `references for greet`
   не дождались за 60 с в initial test run Stryker'а mutation-гейта (run 44455464286, PR #1243, дифф — поля
   `CompletionItem` и список подсказок, сьют их не касается); в unit-job зелёный.
+- [ ] `extensionHost.fileSystem.test.ts`, «a resource is read end-to-end through the adapter and the core registry»:
+  таймаут 5000 мс в initial test run мутационного гейта (run 46155213674, PR #1279, дифф — разделители quick pick,
+  файловых провайдеров не касается); в юнит-джобе того же рана зелёный.
 - [ ] `embeddedTerminalSession.shellIntegrationEdges.test.ts`, «two zsh terminals started at once — both injected»: за
   10 с в выводе нет `OSC 633;A`, только маркер prompt-sp zsh, под покрытием в CI (run 44461762533, PR #1239, дифф —
   `TextEditor.visibleRanges`, терминала не касается); `main` на той же базе зелёный. Видимо, два zsh разом не успевают
