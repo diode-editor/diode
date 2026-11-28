@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import type { IExtensionHostWindowState } from "../vs/workbench/services/extensions/node/customers/windowStateCustomer.ts";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -243,6 +244,8 @@ export interface IExtensionHarnessOptions {
     readonly workspaceScanner?: IWorkspaceScanner;
     readonly workspaceContainsTimeoutMs?: number;
     readonly environment?: IExtensionHostEnvironment;
+    /** `window.state`: the terminal's focus and the user's activity; without it — always focused and active. */
+    readonly windowState?: IExtensionHostWindowState;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
     /** What the editors read pairs and `onEnterRules` from; pass the same service as {@link languageConfigurations}. */
@@ -395,6 +398,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
             ? { workspaceContainsTimeoutMs: options.workspaceContainsTimeoutMs }
             : {}),
         ...(options.environment !== undefined ? { environment: options.environment } : {}),
+        ...(options.windowState !== undefined ? { windowState: options.windowState } : {}),
         ...(options.environmentVariableCollections !== undefined
             ? { environmentVariableCollections: options.environmentVariableCollections }
             : {}),

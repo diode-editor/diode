@@ -252,6 +252,11 @@ export class HeadlessSession {
         await this.rpc("Diode.setHostColorScheme", { scheme });
     }
 
+    /** The virtual terminal reports its window lost (`false`, `CSI O`) or gained (`true`, `CSI I`) focus. */
+    public async setWindowFocus(focused: boolean): Promise<void> {
+        await this.rpc("Diode.setWindowFocus", { focused });
+    }
+
     /**
      * Extension host activated (`*`, `workspaceContains:`, `onStartupFinished`) and phase `eventually`.
      * Text on screen does not mean ready: extensions come up later, as in upstream.

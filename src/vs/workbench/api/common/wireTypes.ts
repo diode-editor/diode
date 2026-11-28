@@ -1535,6 +1535,23 @@ export function parseWireColorTheme(raw: unknown): IWireColorTheme | null {
     return { kind };
 }
 
+/** Upstream `$onDidChangeWindowFocus`: the terminal's focus report. */
+export interface IWireWindowFocus {
+    readonly focused: boolean;
+}
+
+/** Upstream `$onDidChangeWindowActive`: input within the last minute or so. */
+export interface IWireWindowActive {
+    readonly active: boolean;
+}
+
+/** The boolean `key` of a window-state message; `null` for anything else. */
+export function parseWireWindowStateFlag(raw: unknown, key: "focused" | "active"): boolean | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const value = (raw as Record<string, unknown>)[key];
+    return typeof value === "boolean" ? value : null;
+}
+
 // A quick input session is addressed by `handle` (a counter shared with window.progress.*):
 // the extension uses it to cancel the prompt with its token, and the host to request validation.
 

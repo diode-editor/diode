@@ -82,6 +82,10 @@ export class DriveClient {
         await this.rpc("TUIDom.sendMouse", params);
     }
 
+    public async setWindowFocus(focused: boolean): Promise<void> {
+        await this.rpc("Diode.setWindowFocus", { focused });
+    }
+
     public async resize(cols: number, rows: number): Promise<void> {
         await this.rpc("TUIDom.resize", { cols, rows });
     }

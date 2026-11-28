@@ -20,6 +20,7 @@ import { ViewProgressContribution } from "../../../browser/parts/views/viewProgr
 import { makeViewsHarness, testView } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { NotificationService } from "../../notification/browser/notificationService.ts";
 import { StatusBarService } from "../../statusbar/common/statusBarService.ts";
+import { UserActivityService } from "../../userActivity/common/userActivityService.ts";
 
 const CONTAINER = "workbench.view.extension.probe";
 const VIEW = "probe.items";
@@ -87,6 +88,7 @@ describe("ExtensionHost — withProgress in a view", () => {
                 new ProgressStatusBarAdapter(statusBar),
                 notifications,
                 new ExtensionViewProgressAdapter(views.service, progress, logger, SCM_VIEW),
+                new UserActivityService(),
             ),
         });
         const app = TestApp.createWithContent(views.root(CONTAINER), new Size(40, 12));
