@@ -113,6 +113,10 @@ describe("QuickPickElement — groups", () => {
 
         const tiny = render(makePicker([{ label: "label", separatorLabel: "Vegetables" }], 12));
         expect(tiny.getTextAt(new Point(0, 3), 12)).toBe("│ …  Vege… │");
+
+        // The hint alone takes the row: no room is left even for the label's ellipsis, so the group label goes.
+        const none = render(makePicker([{ label: "label", separatorLabel: "Group", hint: "hint" }], 10));
+        expect(none.getTextAt(new Point(0, 3), 10)).toBe("│   hint │");
     });
 
     it("with groups hidden neither lines nor labels are drawn", () => {

@@ -161,7 +161,8 @@ describe("ExtHostQuickPick: state and wire", () => {
             [4, "Kept"],
         ]);
 
-        pick.items = [A, sep(""), C];
+        // A separator without a label (a plain-JS extension) is a group without one, as upstream's empty textContent.
+        pick.items = [A, { kind: SEP.kind } as unknown as IValueItem, C];
         vi.runAllTimers();
         expect(sent()).toEqual([
             [0, undefined],
