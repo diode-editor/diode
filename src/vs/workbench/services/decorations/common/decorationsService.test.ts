@@ -88,11 +88,13 @@ describe("DecorationsService", () => {
         expect(p.asked).toHaveLength(1);
     });
 
-    it("an empty answer is cached as nothing: no decoration, no new ask", async () => {
+    it("an empty answer is cached as nothing: no decoration, no event, no new ask", async () => {
         const p = tableProvider("a");
         service.registerDecorationsProvider(p.provider);
+        events.length = 0;
         service.getDecoration(file("/w/plain.txt"), false);
         await settle();
+        expect(events).toHaveLength(0);
         expect(service.getDecoration(file("/w/plain.txt"), false)).toBeUndefined();
         expect(p.asked).toHaveLength(1);
     });
@@ -335,6 +337,27 @@ describe("DecorationsService", () => {
         service.getDecoration(Uri.parse(file(path).toString()), false);
         await settle();
         expect(service.getDecoration(file(path), false)?.badge).toBe("P");
+    });
+
+    it("a refetch of a decorated resource cancelled by another keeps what it showed before", async () => {
+        const answers: ((data: IDecorationData | undefined) => void)[] = [];
+        const onDidChange = new Emitter<readonly Uri[] | undefined>();
+        service.registerDecorationsProvider({
+            label: "slow",
+            onDidChange: onDidChange.event,
+            provideDecorations: () => new Promise((resolve) => answers.push(resolve)),
+        });
+        service.getDecoration(file("/w/f"), false);
+        answers[0]({ letter: "M" });
+        await settle();
+        events.length = 0;
+        onDidChange.fire([file("/w/f")]);
+        onDidChange.fire([file("/w/f")]);
+        answers[2](undefined);
+        await settle();
+        // The resource showed "M" before both refetches: the empty answer clears it and is announced.
+        expect(events).toHaveLength(1);
+        expect(service.getDecoration(file("/w/f"), false)).toBeUndefined();
     });
 
     it("a non-file resource is kept as is", async () => {

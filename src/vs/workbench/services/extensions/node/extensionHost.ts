@@ -148,7 +148,7 @@ import {
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
 } from "../../../api/common/wireTypes.ts";
-import type { IDecorationsService } from "../../decorations/common/decorations.ts";
+import { type IDecorationsService, NULL_DECORATIONS_SERVICE } from "../../decorations/common/decorations.ts";
 import type { IExternalOpener } from "../../externalOpener/common/iExternalOpener.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 import {
@@ -444,7 +444,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.env,
             this.fileSystem,
             this.decorations,
-            new FileDecorationsCustomer(options.fileDecorations),
+            new FileDecorationsCustomer(options.fileDecorations ?? NULL_DECORATIONS_SERVICE),
             this.editor,
             this.documents,
             this.languageFeatures,

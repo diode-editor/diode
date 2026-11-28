@@ -1,5 +1,6 @@
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
+import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { Disposable, type IDisposable, toDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 
@@ -21,7 +22,11 @@ const BUBBLE_TOOLTIP = "Contains emphasized items";
 
 /** A fetch in flight: a newer one for the same resource and provider cancels it. */
 class DecorationRequest {
-    public constructor(public readonly source: CancellationTokenSource) {}
+    public constructor(
+        public readonly source: CancellationTokenSource,
+        /** What the resource showed before: an empty answer over nothing changes nothing. */
+        public readonly previous: IDecorationData | null | undefined,
+    ) {}
 }
 
 type DecorationEntry = Map<IDecorationsProvider, DecorationRequest | IDecorationData | null>;
@@ -73,16 +78,13 @@ export class DecorationsService extends Disposable implements IDecorationsServic
     private readonly providers: IDecorationsProvider[] = [];
     private readonly data = new ResourceTree<DecorationEntry>();
     private pendingChanges: Uri[] = [];
-    private changeTimer: ReturnType<typeof setTimeout> | undefined;
-
-    public constructor() {
-        super();
-        this.register(
-            toDisposable(() => {
-                clearTimeout(this.changeTimer);
-            }),
-        );
-    }
+    private readonly changeScheduler = this.register(
+        new RunOnceScheduler(() => {
+            const changed = this.pendingChanges;
+            this.pendingChanges = [];
+            this.onDidChangeDecorationsEmitter.fire(new ResourceDecorationChangeEvent(changed));
+        }, DECORATION_CHANGE_DEBOUNCE_MS),
+    );
 
     public registerDecorationsProvider(provider: IDecorationsProvider): IDisposable {
         this.providers.unshift(provider);
@@ -124,20 +126,27 @@ export class DecorationsService extends Disposable implements IDecorationsServic
             }
         }
 
-        const bubbled: { readonly uri: Uri; readonly data: IDecorationData }[] = [];
+        let bubbles = false;
+        /** The first bubbling color in tree order. */
+        let bubbledColor: { readonly uri: Uri; readonly color: string } | undefined;
         if (includeChildren) {
             for (const descendant of this.data.descendants(uri)) {
                 for (const data of descendant.value.values()) {
-                    if (isData(data) && data.bubble === true) bubbled.push({ uri: descendant.uri, data });
+                    if (!isData(data) || data.bubble !== true) continue;
+                    bubbles = true;
+                    if (
+                        data.color !== undefined &&
+                        (bubbledColor === undefined || compareTreeOrder(descendant.uri, bubbledColor.uri) < 0)
+                    ) {
+                        bubbledColor = { uri: descendant.uri, color: data.color };
+                    }
                 }
             }
-            bubbled.sort((a, b) => compareTreeOrder(a.uri, b.uri));
         }
 
-        const all = [...own, ...bubbled.map(({ data }) => data)];
-        if (all.length === 0) return undefined;
-        const color = all.find((data) => data.color !== undefined)?.color;
-        if (bubbled.length > 0) return { color, badge: BUBBLE_BADGE, tooltip: BUBBLE_TOOLTIP };
+        const color = own.find((data) => data.color !== undefined)?.color ?? bubbledColor?.color;
+        if (bubbles) return { color, badge: BUBBLE_BADGE, tooltip: BUBBLE_TOOLTIP };
+        if (own.length === 0) return undefined;
         const letters = own.flatMap(({ letter }) => (letter === undefined || letter === "" ? [] : [letter]));
         const tooltips = own.flatMap(({ tooltip }) =>
             tooltip === undefined || tooltip.trim() === "" ? [] : [tooltip],
@@ -162,14 +171,17 @@ export class DecorationsService extends Disposable implements IDecorationsServic
         const pending = entry.get(provider);
         if (pending instanceof DecorationRequest) pending.source.cancel();
         const source = new CancellationTokenSource();
-        const request = new DecorationRequest(source);
+        const request = new DecorationRequest(
+            source,
+            pending instanceof DecorationRequest ? pending.previous : pending,
+        );
         entry.set(provider, request);
         provider.provideDecorations(uri, source.token).then(
             (data) => {
                 if (entry.get(provider) !== request) return;
                 entry.set(provider, data ?? null);
-                // Even an empty answer may replace what the resource showed before the refetch.
-                this.fireDelayed([uri]);
+                // No event for an empty answer over nothing: a clean file costs the explorer no redraw.
+                if (data !== undefined || isData(request.previous)) this.fireDelayed([uri]);
             },
             () => {
                 // Asked again on the next draw; no event, so a provider that keeps failing doesn't loop.
@@ -182,12 +194,6 @@ export class DecorationsService extends Disposable implements IDecorationsServic
     private fireDelayed(uris: readonly Uri[]): void {
         // A loop, not a spread: dropping a big cache would overflow the argument limit.
         for (const uri of uris) this.pendingChanges.push(uri);
-        if (this.changeTimer !== undefined) return;
-        this.changeTimer = setTimeout(() => {
-            const changed = this.pendingChanges;
-            this.pendingChanges = [];
-            this.changeTimer = undefined;
-            this.onDidChangeDecorationsEmitter.fire(new ResourceDecorationChangeEvent(changed));
-        }, DECORATION_CHANGE_DEBOUNCE_MS);
+        if (!this.changeScheduler.isScheduled()) this.changeScheduler.schedule();
     }
 }

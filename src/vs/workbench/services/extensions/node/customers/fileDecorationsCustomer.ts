@@ -1,6 +1,7 @@
 import type { ICancellationToken } from "../../../../../base/common/cancellation.ts";
+import { RunOnceScheduler } from "../../../../../base/common/async.ts";
 import { Emitter } from "../../../../../base/common/event.ts";
-import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import { DisposableMap, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IWireFileDecoration } from "../../../../api/common/wireTypes.ts";
@@ -20,10 +21,13 @@ interface IQueuedRequest {
 }
 
 /** Upstream `DecorationRequestsQueue`: the requests of one tick go to the provider as one batch. */
-class DecorationRequestsQueue {
+class DecorationRequestsQueue implements IDisposable {
     private nextId = 0;
     private requests = new Map<number, IQueuedRequest>();
-    private timer: ReturnType<typeof setTimeout> | undefined;
+    /** Dropped with the provider: a batch due after its removal is never sent. */
+    private readonly scheduler = new RunOnceScheduler(() => {
+        this.flush();
+    }, 0);
 
     public constructor(
         private readonly rpc: HostRpc,
@@ -38,16 +42,17 @@ class DecorationRequestsQueue {
         token.onCancellationRequested(() => {
             this.requests.delete(id);
         });
-        this.timer ??= setTimeout(() => {
-            this.flush();
-        }, 0);
+        if (!this.scheduler.isScheduled()) this.scheduler.schedule();
         return promise;
+    }
+
+    public dispose(): void {
+        this.scheduler.dispose();
     }
 
     private flush(): void {
         const requests = this.requests;
         this.requests = new Map();
-        this.timer = undefined;
         this.rpc
             .request("window.provideFileDecorations", {
                 handle: this.handle,
@@ -63,6 +68,10 @@ class DecorationRequestsQueue {
                 },
             );
     }
+}
+
+interface IRegisteredProvider extends IDisposable {
+    readonly emitter: Emitter<readonly Uri[] | undefined>;
 }
 
 /** Upstream's main-thread shape of an extension decoration. */
@@ -81,50 +90,38 @@ function decorationDataOf(data: IWireFileDecoration | undefined): IDecorationDat
  * does everything they decorated.
  */
 export class FileDecorationsCustomer implements IExtensionHostCustomer {
-    public constructor(private readonly decorations: IDecorationsService | undefined) {}
+    public constructor(private readonly decorations: IDecorationsService) {}
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
         const store = new DisposableStore();
-        const service = this.decorations;
-        if (service === undefined) return store;
-        const providers = new Map<
-            number,
-            { readonly emitter: Emitter<readonly Uri[] | undefined>; readonly registration: IDisposable }
-        >();
-        const unregister = (handle: number): void => {
-            const provider = providers.get(handle);
-            providers.delete(handle);
-            provider?.registration.dispose();
-            provider?.emitter.dispose();
-        };
-        store.add({
-            dispose: () => {
-                for (const handle of [...providers.keys()]) unregister(handle);
-            },
-        });
+        const providers = store.add(new DisposableMap<number, IRegisteredProvider>());
 
         store.add(
             rpc.handleNotification("window.registerFileDecorationProvider", (params) => {
                 const registration = parseWireFileDecorationProvider(params);
                 if (registration === null) return;
                 const { handle, extensionId } = registration;
-                unregister(handle);
                 const emitter = new Emitter<readonly Uri[] | undefined>();
                 const queue = new DecorationRequestsQueue(rpc, handle);
+                const serviceRegistration = this.decorations.registerDecorationsProvider({
+                    label: extensionId,
+                    onDidChange: emitter.event,
+                    provideDecorations: async (uri, token) => decorationDataOf(await queue.enqueue(uri, token)),
+                });
                 providers.set(handle, {
                     emitter,
-                    registration: service.registerDecorationsProvider({
-                        label: extensionId,
-                        onDidChange: emitter.event,
-                        provideDecorations: async (uri, token) => decorationDataOf(await queue.enqueue(uri, token)),
-                    }),
+                    dispose: () => {
+                        serviceRegistration.dispose();
+                        queue.dispose();
+                        emitter.dispose();
+                    },
                 });
             }),
         );
         store.add(
             rpc.handleNotification("window.unregisterFileDecorationProvider", (params) => {
                 const request = parseWireFileDecorationProviderHandle(params);
-                if (request !== null) unregister(request.handle);
+                if (request !== null) providers.deleteAndDispose(request.handle);
             }),
         );
         store.add(

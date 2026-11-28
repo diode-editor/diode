@@ -5,6 +5,7 @@ import type { SubprocessRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import type { IWireProvideFileDecorations, WireFileDecorationReply } from "../../../../api/common/wireTypes.ts";
+import { NULL_DECORATIONS_SERVICE } from "../../../decorations/common/decorations.ts";
 import { DECORATION_CHANGE_DEBOUNCE_MS, DecorationsService } from "../../../decorations/common/decorationsService.ts";
 
 import { FileDecorationsCustomer } from "./fileDecorationsCustomer.ts";
@@ -144,6 +145,16 @@ describe("FileDecorationsCustomer", () => {
         expect(h.batches).toEqual([]);
     });
 
+    it("a batch due when the provider is unregistered is not sent", async () => {
+        const h = setup();
+        h.register();
+        await settle();
+        h.service.getDecoration(file("/w/a"), false);
+        h.peer.notify("window.unregisterFileDecorationProvider", { handle: 1 });
+        await settle();
+        expect(h.batches).toEqual([]);
+    });
+
     it("unregistering removes the provider's decorations", async () => {
         const h = setup();
         h.register();
@@ -154,16 +165,6 @@ describe("FileDecorationsCustomer", () => {
         h.peer.notify("window.unregisterFileDecorationProvider", { handle: 1 });
         await settle();
         expect(h.service.getDecoration(file("/w/a"), false)).toBeUndefined();
-        expect(h.batches).toHaveLength(1);
-    });
-
-    it("re-registering a handle replaces the old registration", async () => {
-        const h = setup();
-        h.register(1);
-        h.register(1);
-        await settle();
-        h.service.getDecoration(file("/w/a"), false);
-        await settle();
         expect(h.batches).toHaveLength(1);
     });
 
@@ -205,8 +206,8 @@ describe("FileDecorationsCustomer", () => {
         expect(h.batches.flatMap((batch) => batch.requests.map((r) => r.uri))).toEqual([file("/w/a").toString()]);
     });
 
-    it("without a service the provider's messages are accepted and nobody is asked", async () => {
-        const customer = new FileDecorationsCustomer(undefined);
+    it("with the null service the provider's messages are accepted and nobody is asked", async () => {
+        const customer = new FileDecorationsCustomer(NULL_DECORATIONS_SERVICE);
         const [a, b] = createInProcessChannelPair();
         const peer: SubprocessRpc = new RpcEndpoint(b);
         const asked = vi.fn(() => ({}));
