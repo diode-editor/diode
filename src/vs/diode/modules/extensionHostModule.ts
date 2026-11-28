@@ -352,6 +352,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             editorDecorations,
             fileDecorations,
             themeColorResolver,
+            // Stryker disable next-line ObjectLiteral: production module wiring — the decisions live in HostService/UserActivityService/WindowStateCustomer, covered by unit tests and the harness; end-to-end — e2e editorconfig-stock and the editorconfig-window-focus scenario
             windowState: {
                 host: container.get(HostServiceDIToken),
                 userActivity: container.get(UserActivityServiceDIToken),

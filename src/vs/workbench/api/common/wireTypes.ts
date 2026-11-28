@@ -1547,8 +1547,8 @@ export interface IWireWindowActive {
 
 /** The boolean `key` of a window-state message; `null` for anything else. */
 export function parseWireWindowStateFlag(raw: unknown, key: "focused" | "active"): boolean | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const value = (raw as Record<string, unknown>)[key];
+    // A primitive indexes to `undefined` like an object without the key; only null/undefined can't be indexed.
+    const value = (raw as Partial<Record<string, unknown>> | null | undefined)?.[key];
     return typeof value === "boolean" ? value : null;
 }
 

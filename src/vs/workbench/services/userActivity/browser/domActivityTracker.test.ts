@@ -66,12 +66,24 @@ describe("DomActivityTracker", () => {
             app.sendKey("a");
         }
         expect(service.isActive).toBe(true);
+        // The tracker's first hold at start is the only event: an active user's keys don't take a new one.
+        expect(events).toStrictEqual([true]);
         vi.advanceTimersByTime(TRACKER_RELEASE + MARK_INACTIVE_DEBOUNCE);
         expect(service.isActive).toBe(false);
         events.length = 0;
         app.sendKey("a");
         expect(service.isActive).toBe(true);
         expect(events).toStrictEqual([true]);
+    });
+
+    it("a key does not restart the check: its interval keeps the phase it started with", () => {
+        const { app, service } = setup();
+        // Checks run at 30 s and 60 s from the start. A key at 29.999 s resets the count: 30 s → 1, 60 s → 2,
+        // released, inactive at 70 s. Restarting the interval on the key would push that to 100 s.
+        vi.advanceTimersByTime(CHECK_INTERVAL - 1);
+        app.sendKey("a");
+        vi.advanceTimersByTime(CHECK_INTERVAL + MARK_INACTIVE_DEBOUNCE + 1);
+        expect(service.isActive).toBe(false);
     });
 
     it("a click counts; the wheel does not", () => {
@@ -95,8 +107,17 @@ describe("DomActivityTracker", () => {
         tracker.dispose();
         vi.advanceTimersByTime(MARK_INACTIVE_DEBOUNCE);
         expect(service.isActive).toBe(false);
+        expect(vi.getTimerCount()).toBe(0);
         app.root.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "a", code: "KeyA" }));
         expect(service.isActive).toBe(false);
-        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("after dispose a key from a walked-away user (capture phase, where it listened) brings nothing back", () => {
+        const { app, service, tracker } = setup();
+        vi.advanceTimersByTime(TRACKER_RELEASE + MARK_INACTIVE_DEBOUNCE);
+        tracker.dispose();
+        app.sendKey("a");
+        mouse(app, "press", "left");
+        expect(service.isActive).toBe(false);
     });
 });

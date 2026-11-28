@@ -41,7 +41,7 @@ export class DomActivityTracker extends Disposable {
             // Was inactive: the user has come back.
             if (intervalsWithoutActivity === MIN_INTERVALS_WITHOUT_ACTIVITY) {
                 activeMutex.value = userActivityService.markActive();
-                cancelInterval();
+                // The interval is never running here: the quiet interval that got us here cancelled it.
                 intervalTimer = setInterval(onInterval, CHECK_INTERVAL);
             }
             intervalsWithoutActivity = 0;
