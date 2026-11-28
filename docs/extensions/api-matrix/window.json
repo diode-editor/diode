@@ -87,8 +87,7 @@
       "class": "ok"
     },
     "window.onDidChangeWindowState": {
-      "class": "B",
-      "note": "never fires: the window always reads as focused and active"
+      "class": "ok"
     },
     "window.onDidCloseTerminal": {
       "class": "ok"

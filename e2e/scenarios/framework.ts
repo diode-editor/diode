@@ -42,6 +42,8 @@ export interface ScenarioDriver {
     capture(shot: string): Promise<string>;
     /** The terminal reports a light/dark flip (mode 2031), as when the OS switches appearance. */
     setHostColorScheme(scheme: "dark" | "light"): Promise<void>;
+    /** The terminal reports its window lost or gained focus (mode 1004), as on a switch to another tmux pane and back. */
+    setWindowFocus(focused: boolean): Promise<void>;
     /** After `workbench.action.reloadWindow` the process replaces itself; the inspector returns on the same port. */
     reconnect(): Promise<void>;
 }
@@ -125,6 +127,7 @@ export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
         wheel: (x, y, direction) => session.wheel(x, y, direction),
         reconnect: () => session.reconnect(),
         setHostColorScheme: (scheme) => session.setHostColorScheme(scheme),
+        setWindowFocus: (focused) => session.setWindowFocus(focused),
         capture: async (shot) => {
             const frame = await session.captureFrame();
             const path = saveScreenshot(`${spec.name}-${shot}`, frame);

@@ -15,6 +15,7 @@ import { KeybindingRegistryDIToken } from "../../platform/keybinding/common/keyb
 import type { IUserKeybindingRule } from "../../platform/keybinding/common/userKeybindings.ts";
 import { UserKeybindingsDIToken } from "../../platform/keybinding/common/userKeybindings.ts";
 import { TuiApplicationDIToken } from "../../platform/layout/browser/tuiApplicationDIToken.ts";
+import { ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
 import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
 import { bindWidgetGlyphs } from "../../platform/theme/browser/widgetGlyphs.ts";
 import { ProductIconServiceDIToken } from "../../platform/theme/common/productIconService.ts";
@@ -32,6 +33,7 @@ import type { DialogService } from "../services/dialogs/browser/dialogService.ts
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 import type { IEditorService } from "../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
+import { HostServiceDIToken } from "../services/host/browser/hostService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import { attachKeyboardInputHold } from "../services/keybinding/browser/keyboardInputHold.ts";
@@ -44,6 +46,11 @@ import type { TerminalEnvironmentService } from "../services/terminalEnvironment
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import type { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
+import { DomActivityTracker } from "../services/userActivity/browser/domActivityTracker.ts";
+import {
+    PROGRESS_ACTIVITY_HOLD,
+    UserActivityServiceDIToken,
+} from "../services/userActivity/common/userActivityService.ts";
 
 import { withMacKeybindings } from "./actions/macKeybindings.ts";
 import { Component } from "./component.ts";
@@ -171,6 +178,14 @@ export class WorkbenchComponent extends Component {
                 handler(event);
                 if (event.defaultPrevented && !this.view.isLayoutDirty) this.view.markDirty();
             };
+        // Before the input hold: a key held for an extension's edit is still the user's activity.
+        const userActivity = accessor.get(UserActivityServiceDIToken);
+        this.register(new DomActivityTracker(this.view, userActivity));
+        this.register(
+            accessor.get(ProgressServiceDIToken).addTaskHold(() => userActivity.markActive(PROGRESS_ACTIVITY_HOLD)),
+        );
+        // Subscribed now, not when the extension host is built: a focus report before that must not be lost.
+        accessor.get(HostServiceDIToken);
         this.register(attachKeyboardInputHold(this.view, accessor.get(CommandRegistryDIToken)));
         // Stryker disable ObjectLiteral,BooleanLiteral: capture vs bubble only differs for a widget that swallows keydown in the target phase mid-chord; printable keys and default actions are suppressed anyway (keypress capture, preventDefault), and the dispatcher bypasses modal overlays
         this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDownCapture), {

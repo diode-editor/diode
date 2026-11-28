@@ -127,6 +127,7 @@ import {
 import { resolveMachineId } from "../../workbench/services/extensions/node/machineIdState.ts";
 import { createRipgrepWorkspaceScanner } from "../../workbench/services/extensions/node/workspaceContainsActivation.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
+import { HostServiceDIToken } from "../../workbench/services/host/browser/hostService.ts";
 import { LanguageStatusServiceDIToken } from "../../workbench/services/languageStatus/common/languageStatusService.ts";
 import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
@@ -136,6 +137,7 @@ import { FileSearchServiceDIToken } from "../../workbench/services/search/common
 import { loadRipgrepAppRoot } from "../../workbench/services/search/node/loadRipgrep.ts";
 import { StatusBarServiceDIToken } from "../../workbench/services/statusbar/common/statusBarService.ts";
 import { ThemeServiceDIToken } from "../../workbench/services/themes/common/themeTokens.ts";
+import { UserActivityServiceDIToken } from "../../workbench/services/userActivity/common/userActivityService.ts";
 
 /** `vscode.DiagnosticSeverity` (0=Error…3=Hint) → `MarkerSeverity`. */
 function toMarkerSeverity(severity: number): MarkerSeverity {
@@ -350,6 +352,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             editorDecorations,
             fileDecorations,
             themeColorResolver,
+            // Stryker disable next-line ObjectLiteral: production module wiring — the decisions live in HostService/UserActivityService/WindowStateCustomer, covered by unit tests and the harness; end-to-end — e2e editorconfig-stock and the editorconfig-window-focus scenario
+            windowState: {
+                host: container.get(HostServiceDIToken),
+                userActivity: container.get(UserActivityServiceDIToken),
+            },
             // Stryker disable next-line ArrowFunction: production module wiring — the icon decisions live in DecorationsCustomer and gutterIconGlyph, covered by unit tests; end-to-end — the gutter-icons scenario
             gutterIconReader: async (resource) => (await fileService.readFile(resource)).value,
             icons,
@@ -374,6 +381,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                     logger,
                     SCM_CHANGES_VIEW_ID,
                 ),
+                container.get(UserActivityServiceDIToken),
             ),
             statusBarItemSink: new ExtensionStatusBarAdapter(
                 container.get(StatusBarServiceDIToken),

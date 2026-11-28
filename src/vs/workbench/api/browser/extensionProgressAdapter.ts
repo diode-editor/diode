@@ -1,8 +1,13 @@
 import { stripCodicons } from "../../../base/common/codicons.ts";
+import { DisposableMap } from "../../../base/common/lifecycle.ts";
 import type {
     IProgressNotificationHandle,
     NotificationService,
 } from "../../services/notification/browser/notificationService.ts";
+import {
+    type IUserActivityService,
+    PROGRESS_ACTIVITY_HOLD,
+} from "../../services/userActivity/common/userActivityService.ts";
 import type { IProgressSink, IProgressStartOptions } from "../common/iExtensionWindowSinks.ts";
 
 import type { ExtensionViewProgressAdapter } from "./extensionViewProgressAdapter.ts";
@@ -37,14 +42,17 @@ class NotificationProgress {
  */
 export class ExtensionProgressAdapter implements IProgressSink {
     private readonly notified = new Map<number, NotificationProgress>();
+    private readonly activityHolds = new DisposableMap<number>();
 
     public constructor(
         private readonly window: IProgressSink,
         private readonly notifications: NotificationService,
         private readonly views: Pick<ExtensionViewProgressAdapter, "start" | "end">,
+        private readonly userActivity: Pick<IUserActivityService, "markActive">,
     ) {}
 
     public start(handle: number, options: IProgressStartOptions, onCancel: () => void): void {
+        this.activityHolds.set(handle, this.userActivity.markActive(PROGRESS_ACTIVITY_HOLD));
         const { location } = options;
         if (location === "window") {
             this.window.start(handle, options, onCancel);
@@ -94,6 +102,7 @@ export class ExtensionProgressAdapter implements IProgressSink {
 
     /** Every sink ignores a handle it doesn't know, so the view sink is told unconditionally. */
     public end(handle: number): void {
+        this.activityHolds.deleteAndDispose(handle);
         this.views.end(handle);
         const entry = this.notified.get(handle);
         if (entry === undefined) {

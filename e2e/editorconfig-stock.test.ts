@@ -157,6 +157,32 @@ describe.skipIf(process.platform === "win32" || MARKETPLACE_OFFLINE)("SEA binary
             expect(ind.x - end.x).toBe(3);
     });
 
+    it("re-reads .editorconfig when the window regains focus (CSI O → CSI I, window.onDidChangeWindowState)", async () => {
+        // The extension doesn't watch .editorconfig: besides switching editors, the only way it re-reads
+        // the file is `onDidChangeWindowState` with `focused: true` — the user left, edited, came back.
+        const project = copyProject();
+        session = await startEditor([path.join(project, "indent.tabbed")]);
+        const tabWidth = (s: { findText(text: string): { x: number } | null }): number | null => {
+            const ind = s.findText("indented");
+            const end = s.findText("end");
+            return ind !== null && end !== null ? ind.x - end.x : null;
+        };
+        await session.waitFor((s) => tabWidth(s) === 3, { timeoutMs: 20_000 });
+
+        const config = path.join(project, ".editorconfig");
+        fs.writeFileSync(config, fs.readFileSync(config, "utf8").replace("indent_size = 3", "indent_size = 5"));
+        // Control: without a focus report nothing re-reads the file.
+        await sleep(2_000);
+        expect(tabWidth(await session.waitFor(() => true))).toBe(3);
+
+        session.write("\x1b[O");
+        session.write("\x1b[I");
+        await session.waitFor((s) => tabWidth(s) === 5, { timeoutMs: 20_000 });
+        // The report is not a key: a phantom Tab at the cursor (line start) would make it two tabs, 10 columns.
+        await sleep(500);
+        expect(tabWidth(await session.waitFor(() => true))).toBe(5);
+    });
+
     it("applies trim_trailing_whitespace + insert_final_newline on save (delegated core commands)", async () => {
         const project = copyProject();
         const file = path.join(project, "trim.txt");

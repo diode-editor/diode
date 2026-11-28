@@ -269,7 +269,7 @@ describe("registerDiodeInspectorMethods", () => {
     describe("setHostColorScheme", () => {
         it("headless: the virtual terminal reports the scheme", async () => {
             const sendColorScheme = vi.fn();
-            const { call } = setup({ hostTerminal: { sendColorScheme } });
+            const { call } = setup({ hostTerminal: { sendColorScheme, sendFocus: vi.fn() } });
             await expect(call(DiodeInspectorMethod.setHostColorScheme, { scheme: "light" })).resolves.toEqual({});
             await call(DiodeInspectorMethod.setHostColorScheme, { scheme: "dark" });
             expect(sendColorScheme.mock.calls).toEqual([["light"], ["dark"]]);
@@ -277,7 +277,7 @@ describe("registerDiodeInspectorMethods", () => {
 
         it("an unknown scheme is a protocol error and reaches nobody", async () => {
             const sendColorScheme = vi.fn();
-            const { call } = setup({ hostTerminal: { sendColorScheme } });
+            const { call } = setup({ hostTerminal: { sendColorScheme, sendFocus: vi.fn() } });
             await expect(call(DiodeInspectorMethod.setHostColorScheme, { scheme: "sepia" })).rejects.toThrow(
                 'scheme must be "dark" or "light": sepia',
             );
@@ -288,6 +288,32 @@ describe("registerDiodeInspectorMethods", () => {
             const { call } = setup();
             await expect(call(DiodeInspectorMethod.setHostColorScheme, { scheme: "dark" })).rejects.toThrow(
                 "setHostColorScheme needs --headless",
+            );
+        });
+    });
+
+    describe("setWindowFocus", () => {
+        it("headless: the virtual terminal reports focus lost and regained", async () => {
+            const sendFocus = vi.fn();
+            const { call } = setup({ hostTerminal: { sendColorScheme: vi.fn(), sendFocus } });
+            await expect(call(DiodeInspectorMethod.setWindowFocus, { focused: false })).resolves.toEqual({});
+            await call(DiodeInspectorMethod.setWindowFocus, { focused: true });
+            expect(sendFocus.mock.calls).toEqual([[false], [true]]);
+        });
+
+        it("a non-boolean is a protocol error and reaches nobody", async () => {
+            const sendFocus = vi.fn();
+            const { call } = setup({ hostTerminal: { sendColorScheme: vi.fn(), sendFocus } });
+            await expect(call(DiodeInspectorMethod.setWindowFocus, { focused: "no" })).rejects.toThrow(
+                "'focused' must be a boolean",
+            );
+            expect(sendFocus).not.toHaveBeenCalled();
+        });
+
+        it("a real terminal: error, it reports its own focus", async () => {
+            const { call } = setup();
+            await expect(call(DiodeInspectorMethod.setWindowFocus, { focused: true })).rejects.toThrow(
+                "setWindowFocus needs --headless",
             );
         });
     });

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NULL_STATE_SERVICE } from "../../../platform/state/common/nullStateService.ts";
 import { NotificationService } from "../../services/notification/browser/notificationService.ts";
 import { StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
+import { UserActivityService } from "../../services/userActivity/common/userActivityService.ts";
 import type { IProgressStartOptions } from "../common/iExtensionWindowSinks.ts";
 
 import { ExtensionProgressAdapter, PROGRESS_NOTIFICATION_MIN_VISIBLE_MS } from "./extensionProgressAdapter.ts";
@@ -32,10 +33,15 @@ describe("ExtensionProgressAdapter", () => {
         window = new ProgressStatusBarAdapter(statusBar, 100);
         notifications = new NotificationService();
         viewCalls = [];
-        adapter = new ExtensionProgressAdapter(window, notifications, {
-            start: (handle, location, title) => viewCalls.push(["start", handle, location, title]),
-            end: (handle) => viewCalls.push(["end", handle]),
-        });
+        adapter = new ExtensionProgressAdapter(
+            window,
+            notifications,
+            {
+                start: (handle, location, title) => viewCalls.push(["start", handle, location, title]),
+                end: (handle) => viewCalls.push(["end", handle]),
+            },
+            new UserActivityService(),
+        );
         cancels = 0;
     });
 

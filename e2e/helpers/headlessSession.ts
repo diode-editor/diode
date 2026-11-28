@@ -1,8 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
-import type WebSocket from "ws";
-
 import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 import type {
     CaptureFrameResult,
@@ -14,6 +12,7 @@ import type {
     WaitForIdleParams,
     WaitForIdleResult,
 } from "@tuidom/inspector/protocol";
+import type WebSocket from "ws";
 
 import { getBinaryPath } from "./buildOnce.ts";
 import { dumpFrame, frameToText } from "./frame.ts";
@@ -32,12 +31,20 @@ const EXIT_GRACE_MS = 3000;
 export type MouseModifiers = Pick<SendMouseParams, "shiftKey" | "altKey" | "ctrlKey">;
 
 /** `settle: false` skips the automatic idle wait (race tests); an object passes `waitForIdle` params. */
-export type SettleOption = { settle?: boolean | WaitForIdleParams };
+export interface SettleOption {
+    settle?: boolean | WaitForIdleParams;
+}
 
-export type WaitOpts = { timeoutMs?: number; intervalMs?: number };
+export interface WaitOpts {
+    timeoutMs?: number;
+    intervalMs?: number;
+}
 
 /** Relative to the top-left corner of the node's box, not its center. */
-export type NodeClickOffset = { dx?: number; dy?: number };
+export interface NodeClickOffset {
+    dx?: number;
+    dy?: number;
+}
 
 export interface HeadlessSessionOptions {
     /** Positional args (files/dirs to open) and any flags except headless/inspect-tui. */
@@ -100,7 +107,14 @@ export class HeadlessSession {
         return session;
     }
 
-    private constructor(child: ChildProcess, sessionTag: string, cols: number, rows: number, port: number, ws: WebSocket) {
+    private constructor(
+        child: ChildProcess,
+        sessionTag: string,
+        cols: number,
+        rows: number,
+        port: number,
+        ws: WebSocket,
+    ) {
         this.child = child;
         this.sessionTag = sessionTag;
         this.cols = cols;
@@ -143,7 +157,7 @@ export class HeadlessSession {
             if (waiter === undefined) return;
             this.pending.delete(res.id);
             if ("error" in res) waiter.reject(new Error(res.error.message));
-            else waiter.resolve((res as InspectorSuccessResponse).result);
+            else waiter.resolve(res.result);
         });
         // A dead socket never replies: on `TUIDom.shutdown` the process exits synchronously, and
         // without this `dispose()` never returned.
@@ -175,7 +189,6 @@ export class HeadlessSession {
         });
     }
 
-
     /** No idle wait — for race tests. */
     public async sendKey(name: string): Promise<void> {
         await this.rpc("TUIDom.sendKey", { name });
@@ -190,7 +203,6 @@ export class HeadlessSession {
     public async sendMouse(params: SendMouseParams): Promise<void> {
         await this.rpc("TUIDom.sendMouse", params);
     }
-
 
     /**
      * Waits for *render* idle, not for async tails (ext-host, StateService debounce) — use a
@@ -224,7 +236,12 @@ export class HeadlessSession {
     }
 
     /** Spin the wheel over a cell (`direction` matches DOM `wheelDirection`), then settle. */
-    public async wheel(x: number, y: number, direction: "up" | "down" | "left" | "right", opts: SettleOption = {}): Promise<void> {
+    public async wheel(
+        x: number,
+        y: number,
+        direction: "up" | "down" | "left" | "right",
+        opts: SettleOption = {},
+    ): Promise<void> {
         await this.sendMouse({ action: `scroll-${direction}`, x, y });
         await this.settle(opts);
     }
@@ -238,7 +255,6 @@ export class HeadlessSession {
         return (await this.rpc<CaptureFrameResult>("TUIDom.captureFrame")).frame;
     }
 
-
     /**
      * Does not wait for readiness: methods come up with the inspector, before extensions activate —
      * for tests where the user acts before startup completes.
@@ -250,6 +266,11 @@ export class HeadlessSession {
     /** The virtual terminal reports that its scheme flipped, as a real one does when the OS switches appearance. */
     public async setHostColorScheme(scheme: "dark" | "light"): Promise<void> {
         await this.rpc("Diode.setHostColorScheme", { scheme });
+    }
+
+    /** The virtual terminal reports its window lost (`false`, `CSI O`) or gained (`true`, `CSI I`) focus. */
+    public async setWindowFocus(focused: boolean): Promise<void> {
+        await this.rpc("Diode.setWindowFocus", { focused });
     }
 
     /**
@@ -297,21 +318,24 @@ export class HeadlessSession {
                 diagnose: (last) => `last root: ${last === null ? "<null>" : (last as NodeSnapshot).type}`,
             },
         );
-        return root as NodeSnapshot;
+        return root!;
     }
 
     public async waitForText(
         predicate: (text: string) => boolean,
         opts: { timeoutMs?: number; intervalMs?: number } = {},
     ): Promise<GridSnapshot> {
-        return waitUntil(() => this.captureFrame(), (frame) => predicate(frameToText(frame)), {
-            intervalMs: 150,
-            ...opts,
-            describe: "screen text predicate",
-            diagnose: (last) => `--- last frame ---\n${dumpFrame(last as GridSnapshot)}`,
-        });
+        return waitUntil(
+            () => this.captureFrame(),
+            (frame) => predicate(frameToText(frame)),
+            {
+                intervalMs: 150,
+                ...opts,
+                describe: "screen text predicate",
+                diagnose: (last) => `--- last frame ---\n${dumpFrame(last as GridSnapshot)}`,
+            },
+        );
     }
-
 
     public async node(selector: string): Promise<NodeSnapshot | null> {
         return $((await this.getDocument()).root, selector);
@@ -327,7 +351,7 @@ export class HeadlessSession {
 
     public async waitForNode(selector: string, opts: WaitOpts = {}): Promise<NodeSnapshot> {
         const root = await this.waitForDocument((r) => $(r, selector) !== null, opts);
-        return $(root, selector) as NodeSnapshot;
+        return $(root, selector)!;
     }
 
     public async waitForNoNode(selector: string, opts: WaitOpts = {}): Promise<void> {
@@ -336,7 +360,7 @@ export class HeadlessSession {
 
     public async waitForFocus(type: string, opts: WaitOpts = {}): Promise<NodeSnapshot> {
         const root = await this.waitForDocument((r) => focusedLeaf(r)?.type === type, opts);
-        return focusedLeaf(root) as NodeSnapshot;
+        return focusedLeaf(root)!;
     }
 
     public async waitForState(
@@ -348,11 +372,13 @@ export class HeadlessSession {
             const node = $(r, selector);
             return node !== null && predicate(node.state);
         }, opts);
-        return $(root, selector) as NodeSnapshot;
+        return $(root, selector)!;
     }
 
-
-    public async clickNode(selector: string, opts: MouseModifiers & SettleOption & NodeClickOffset = {}): Promise<void> {
+    public async clickNode(
+        selector: string,
+        opts: MouseModifiers & SettleOption & NodeClickOffset = {},
+    ): Promise<void> {
         const { x, y } = await this.pointIn(selector, opts);
         const { dx: _dx, dy: _dy, ...rest } = opts;
         await this.click(x, y, rest);
