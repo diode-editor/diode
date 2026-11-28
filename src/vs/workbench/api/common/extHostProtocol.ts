@@ -274,6 +274,8 @@ import type {
     IWireWatcherDispose,
     IWireWatcherEvents,
     IWireWillSaveParams,
+    IWireWindowActive,
+    IWireWindowFocus,
     IWireWorkspaceEditOp,
     IWireWorkspaceInitialize,
     IWireWorkspaceSymbolProviderRegistration,
@@ -466,6 +468,8 @@ export interface IHostToSubprocess {
         readonly "editor.propertiesChanged": IWireEditorPropertiesChanged;
 
         readonly "window.themeChanged": IWireColorTheme;
+        readonly "window.focusChanged": IWireWindowFocus;
+        readonly "window.activeChanged": IWireWindowActive;
         readonly "window.quickPick.event": IWireQuickPickEvent;
         readonly "window.progress.cancel": IWireProgressCancel;
         readonly "window.showQuickPick.didSelectItem": IWireQuickPickDidSelectItem;

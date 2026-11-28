@@ -1809,7 +1809,7 @@ describe("ExtensionHost — handshake seeds", () => {
             .slice(0, firstActivation)
             .map((m) => (m.kind === "notif" ? m.method : `${m.kind}:${(m as { method?: string }).method ?? ""}`));
         // The order is a contract: the extension already reads configuration, the host environment
-        // (`env.machineId`/`env.shell`), layout, active editor, theme,
+        // (`env.machineId`/`env.shell`), layout, active editor, theme, window state,
         // catalog and open documents in activate().
         expect(seeds).toEqual([
             "workspace.initialize",
@@ -1817,6 +1817,8 @@ describe("ExtensionHost — handshake seeds", () => {
             "editor.layoutChanged",
             "editor.activeEditorChanged",
             "window.themeChanged",
+            "window.focusChanged",
+            "window.activeChanged",
             "extensions.catalog",
             "editor.didOpen",
         ]);

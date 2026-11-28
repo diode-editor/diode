@@ -193,6 +193,11 @@ import { TestingCustomer } from "./customers/testingCustomer.ts";
 import { TreeViewsCustomer } from "./customers/treeViewsCustomer.ts";
 import { UriHandlersCustomer } from "./customers/uriHandlersCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
+import {
+    ALWAYS_FOCUSED_AND_ACTIVE,
+    type IExtensionHostWindowState,
+    WindowStateCustomer,
+} from "./customers/windowStateCustomer.ts";
 import { WorkspaceFoldersCustomer } from "./customers/workspaceFoldersCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
 import { ExtensionPhases } from "./extensionPhases.ts";
@@ -252,6 +257,8 @@ export interface IExtensionHostOptions {
     readonly editorDecorations?: IEditorDecorationsService;
     readonly fileDecorations?: IFileDecorationsService;
     readonly themeColorResolver?: IThemeColorResolver;
+    /** `window.state` and its event; without it the window always reads as focused and active. */
+    readonly windowState?: IExtensionHostWindowState;
     /** Reads `gutterIconPath` files of decoration types; without it every icon is a plain dot. */
     readonly gutterIconReader?: GutterIconReader;
     /** Expands `$(name)` in command titles from the manifest; Nerd Font glyphs when absent. */
@@ -351,6 +358,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly terminals: TerminalCustomer;
     private readonly environmentVariableCollections: EnvironmentVariableCollectionsCustomer;
     private readonly env: EnvCustomer;
+    private readonly windowState: WindowStateCustomer;
     private readonly diagnostics: DiagnosticsCustomer;
     private readonly fileSystem: FileSystemCustomer;
     private readonly uriHandlersCustomer: UriHandlersCustomer;
@@ -431,6 +439,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             options.environment ?? fallbackExtensionHostEnvironment(),
         );
         this.diagnostics = new DiagnosticsCustomer(options.diagnosticsSink, options.markers);
+        this.windowState = new WindowStateCustomer(options.windowState ?? ALWAYS_FOCUSED_AND_ACTIVE);
         this.customers = [
             new SecretsCustomer(options.secrets ?? createInMemoryExtensionSecretStore()),
             this.commands,
@@ -450,6 +459,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 notificationSink: options.notificationSink,
                 fileDialogSink: options.fileDialogSink,
             }),
+            this.windowState,
             this.terminals,
             this.environmentVariableCollections,
             new TasksCustomer(options.taskSink),
@@ -1340,6 +1350,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.env.pushInitialState();
             this.editor.pushInitialState();
             this.decorations.pushActiveColorTheme();
+            this.windowState.pushInitialState();
             rpc.notify("extensions.catalog", this.extensionCatalog());
             this.documents.pushInitialState();
             this.diagnostics.pushInitialState();

@@ -50,6 +50,7 @@ Input (each waits for the render to go idle)
   hover <x> <y> | --node SEL | --text "…"   pointer move with no button held (hover)
   wheel up|down|left|right [<x> <y> | --node SEL] [--count N]
   resize <cols>x<rows>
+  window blur|focus      the terminal reports its window lost/gained focus (CSI O / CSI I, mode 1004)
 
 Reading
   screen [--numbered]    frame text (--numbered: with line numbers and a column ruler)
@@ -403,6 +404,15 @@ async function cmdResize(args: ParsedArgs): Promise<void> {
     });
 }
 
+async function cmdWindow(args: ParsedArgs): Promise<void> {
+    const [what] = need(args, 1, "window blur|focus");
+    if (what !== "blur" && what !== "focus") throw new UsageError(`window: ${what} (blur|focus)`);
+    await withClient(args, async (client) => {
+        await client.setWindowFocus(what === "focus");
+        await settle(client);
+    });
+}
+
 async function cmdScreen(args: ParsedArgs): Promise<void> {
     await withClient(args, async (client) => {
         const frame = await client.captureFrame();
@@ -714,6 +724,7 @@ const COMMANDS: Readonly<Record<string, (args: ParsedArgs) => Promise<void> | vo
     hover: cmdHover,
     wheel: cmdWheel,
     resize: cmdResize,
+    window: cmdWindow,
     screen: cmdScreen,
     screenshot: cmdScreenshot,
     cell: cmdCell,

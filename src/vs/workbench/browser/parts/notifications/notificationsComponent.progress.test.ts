@@ -15,6 +15,7 @@ import {
 import { ProgressStatusBarAdapter } from "../../../api/browser/progressStatusBarAdapter.ts";
 import { NotificationService } from "../../../services/notification/browser/notificationService.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
+import { UserActivityService } from "../../../services/userActivity/common/userActivityService.ts";
 
 import { NotificationsComponent } from "./notificationsComponent.ts";
 import { TOAST_CLOSE_LABEL, TOAST_SPINNER_INTERVAL_MS } from "./notificationToast.ts";
@@ -25,10 +26,15 @@ function makeWorkbench() {
     const component = new NotificationsComponent(notifications, new KeybindingRegistry(), new ContextKeyService());
     const statusBar = new StatusBarService(NULL_STATE_SERVICE);
     const window = new ProgressStatusBarAdapter(statusBar, 100);
-    const adapter = new ExtensionProgressAdapter(window, notifications, {
-        start: () => undefined,
-        end: () => undefined,
-    });
+    const adapter = new ExtensionProgressAdapter(
+        window,
+        notifications,
+        {
+            start: () => undefined,
+            end: () => undefined,
+        },
+        new UserActivityService(),
+    );
     const body = new BodyElement();
     // Stands in for the editor: where focus is before "Focus Message" and must return to after.
     const editor = new ButtonElement("editor");

@@ -1,5 +1,5 @@
 import { Emitter } from "../../../base/common/event.ts";
-import { Disposable } from "../../../base/common/lifecycle.ts";
+import { Disposable, dispose, type IDisposable, toDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 // Stryker disable next-line StringLiteral: token() returns a new Token and dependency resolution goes by its reference, so the string inside is only a debug label
@@ -94,6 +94,7 @@ export class ProgressService extends Disposable {
 
     private ticker: ReturnType<typeof setInterval> | null = null;
     private frame = 0;
+    private readonly taskHolds: (() => IDisposable)[] = [];
 
     public constructor(options?: IProgressServiceOptions) {
         super();
@@ -102,8 +103,20 @@ export class ProgressService extends Disposable {
         this.intervalMs = options?.intervalMs ?? SPINNER_INTERVAL_MS;
     }
 
+    /**
+     * `hold` runs as each task starts, and what it returns is disposed when the task ends — upstream `withProgress`
+     * keeps the user active this way through a long task.
+     */
+    public addTaskHold(hold: () => IDisposable): IDisposable {
+        this.taskHolds.push(hold);
+        return toDisposable(() => {
+            this.taskHolds.splice(this.taskHolds.indexOf(hold), 1);
+        });
+    }
+
     /** A task error also ends the progress and is rethrown untouched. */
     public async withProgress<T>(options: IProgressOptions, task: (progress: IProgress) => Promise<T>): Promise<T> {
+        const holds = this.taskHolds.map((hold) => hold());
         const entry = this.start(options);
         const progress: IProgress = {
             report: ({ percent }) => {
@@ -116,6 +129,7 @@ export class ProgressService extends Disposable {
             return await task(progress);
         } finally {
             this.end(entry);
+            dispose(holds);
         }
     }
 

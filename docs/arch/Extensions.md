@@ -1183,6 +1183,24 @@
   событием на каждое пришедшее сообщение, включая переход между двумя тёмными темами — upstream
   формулирует событие как «changed **or has changes**». До первого сообщения тема — `Dark` (дефолт
   VS Code), а не `undefined`: `activeColorTheme.kind` читают без проверок.
+- **Состояние окна (`window.state` + `onDidChangeWindowState`):** эталонные `IHostService` (только фокус,
+  `services/host/browser/hostService.ts`) и `UserActivityService` + `DomActivityTracker`
+  (`services/userActivity/`). **Отступление в источнике фокуса:** в эталоне это `document.hasFocus()`/Electron,
+  у нас — focus reporting терминала (DECSET 1004, `CSI I`/`CSI O`; tuidom включает режим в `setup` и отдаёт
+  отчёты через `ITerminalBackend.onFocusChange`). Внутри tmux «окно» — панель, и отчёты приходят только при
+  `set -g focus-events on` (рецепт — `docs/public/TERMINAL.md`); без отчётов окно всегда в фокусе. `active` —
+  перенос эталона с теми же константами: трекер держит удержание, пока за последние 30-секундные интервалы был
+  `keydown`/`mousedown` (capture на корневом view, колесо не считается), после двух тихих интервалов отпускает,
+  и через 10 с дебаунса `active` гаснет; от фокуса не зависит. Долгий прогресс (`withProgress` расширения в
+  `ExtensionProgressAdapter` и хоста через `ProgressService.addTaskHold`) продлевает активность, но не
+  включает её (`PROGRESS_ACTIVITY_HOLD`). `WindowStateCustomer` шлёт `window.focusChanged {focused}` и
+  `window.activeChanged {active}` на каждую смену и тем же парой — семя на handshake до первой активации, так
+  что и перезапущенный субпроцесс видит текущее состояние. Субпроцесс отбрасывает повтор значения и стреляет
+  одним событием на изменившееся свойство с полным `{focused, active}`; `window.state` — геттер, отдаёт замороженный
+  снимок, который при каждой смене заменяется новым (сохранённый объект не обновляется). `HostService`
+  создаёт `WorkbenchComponent` при старте, чтобы отчёт до подъёма хоста расширений не потерялся. Встроенные
+  потребители эталона (`files.autoSave: onWindowChange`, тосты, ждущие фокуса, flush состояния) у нас не
+  подключены.
 - **Уборка расширения в субпроцессе** (`services/extensions/node/extensionDeactivation.ts`):
   `deactivate()`, затем `context.subscriptions` в обратном порядке; сбой любого шага — warn
   `[ext-host] [<id>] deactivate failed` / `subscription dispose failed` в stderr, уборка доходит до

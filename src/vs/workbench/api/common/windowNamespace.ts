@@ -61,6 +61,7 @@ import {
     parseWireSaveDialogResult,
     parseWireSelectionChangeKind,
     parseWireSelections,
+    parseWireWindowStateFlag,
     type WireOutputLevel,
 } from "./wireTypes.ts";
 
@@ -292,6 +293,23 @@ export function createWindowNamespace(
             const event: vscode.TextEditorVisibleRangesChangeEvent = { textEditor: textEditor(), visibleRanges };
             for (const listener of [...visibleRangesListeners]) listener(event);
         }
+    });
+
+    // Upstream `ExtHostWindow`: the seed and every later change come as the same two messages; one event per property
+    // that actually changed, with the full state.
+    // Frozen and replaced on every change: the object an extension holds is a snapshot it cannot write to.
+    let windowState: vscode.WindowState = Object.freeze({ focused: true, active: true });
+    const windowStateEmitter = new EventEmitter<vscode.WindowState>();
+    function onDidChangeWindowProperty(property: keyof vscode.WindowState, value: boolean | null): void {
+        if (value === null || value === windowState[property]) return;
+        windowState = Object.freeze({ ...windowState, [property]: value });
+        windowStateEmitter.fire(windowState);
+    }
+    rpc.handleNotification("window.focusChanged", (params) => {
+        onDidChangeWindowProperty("focused", parseWireWindowStateFlag(params, "focused"));
+    });
+    rpc.handleNotification("window.activeChanged", (params) => {
+        onDidChangeWindowProperty("active", parseWireWindowStateFlag(params, "active"));
     });
 
     // Fire on EVERY message, even when the kind stays the same (Dark+ → Abyss): upstream
@@ -884,7 +902,11 @@ export function createWindowNamespace(
             );
         },
 
-        state: { focused: true, active: true },
+        // Upstream `getState()`: the snapshot current at the read — a saved `window.state` does not follow later
+        // changes, `window.state.focused` read again does.
+        get state(): vscode.WindowState {
+            return windowState;
+        },
 
         onDidChangeActiveTextEditor: (
             listener: (e: vscode.TextEditor | undefined) => unknown,
@@ -912,15 +934,7 @@ export function createWindowNamespace(
         },
         onDidChangeActiveColorTheme: makeListenerEvent(colorThemeListeners),
 
-        onDidChangeWindowState: (
-            _listener: (e: vscode.WindowState) => unknown,
-            _thisArgs?: unknown,
-            disposables?: vscode.Disposable[],
-        ): vscode.Disposable => {
-            const disposable = new DisposableImpl(() => undefined);
-            if (disposables !== undefined) disposables.push(disposable);
-            return disposable;
-        },
+        onDidChangeWindowState: windowStateEmitter.event,
 
         // Cast to the d.ts overloads: one implementation serves all four.
         showErrorMessage: messages.showErrorMessage as typeof vscode.window.showErrorMessage,

@@ -547,6 +547,7 @@ import {
     HistoryServiceDIToken,
     JumpRecorderDIToken,
 } from "../../workbench/services/history/browser/historyService.ts";
+import { HostService, HostServiceDIToken } from "../../workbench/services/host/browser/hostService.ts";
 import {
     KeybindingDispatcher,
     KeybindingDispatcherDIToken,
@@ -591,6 +592,10 @@ import {
     HostColorSchemeService,
     HostColorSchemeServiceDIToken,
 } from "../../workbench/services/themes/browser/hostColorSchemeService.ts";
+import {
+    UserActivityService,
+    UserActivityServiceDIToken,
+} from "../../workbench/services/userActivity/common/userActivityService.ts";
 import { IUserDataProfileServiceDIToken } from "../../workbench/services/userDataProfile/common/userDataProfile.ts";
 import {
     MENU_CONTRIBUTIONS,
@@ -753,6 +758,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(EditorContextMenuControllerDIToken, EditorContextMenuController);
     container.bind(AutoRevealContributionDIToken, AutoRevealContribution);
     container.bind(HostColorSchemeServiceDIToken, HostColorSchemeService);
+    container.bind(HostServiceDIToken, HostService);
+    container.bind(UserActivityServiceDIToken, UserActivityService);
     container.bind(ThemeConfigContributionDIToken, ThemeConfigContribution);
     container.bind(WindowTitleContributionDIToken, WindowTitleContribution);
     container.bind(OpenFileCommandContributionDIToken, OpenFileCommandContribution);

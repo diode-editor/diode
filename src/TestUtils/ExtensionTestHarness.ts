@@ -104,6 +104,7 @@ import { EditorService } from "../vs/workbench/services/editor/browser/editorSer
 import { ExtensionConfigurationContributor } from "../vs/workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import type { IMarkerReader } from "../vs/workbench/services/extensions/node/customers/diagnosticsCustomer.ts";
 import type { IExtensionHostEnvironment } from "../vs/workbench/services/extensions/node/customers/envCustomer.ts";
+import type { IExtensionHostWindowState } from "../vs/workbench/services/extensions/node/customers/windowStateCustomer.ts";
 import { ExtensionHost, type IWorkspaceFolderInfo } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionSecretStore } from "../vs/workbench/services/extensions/node/extensionSecretsStore.ts";
 import type { IExtensionStateStore } from "../vs/workbench/services/extensions/node/extensionStateStore.ts";
@@ -243,6 +244,8 @@ export interface IExtensionHarnessOptions {
     readonly workspaceScanner?: IWorkspaceScanner;
     readonly workspaceContainsTimeoutMs?: number;
     readonly environment?: IExtensionHostEnvironment;
+    /** `window.state`: the terminal's focus and the user's activity; without it — always focused and active. */
+    readonly windowState?: IExtensionHostWindowState;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
     /** What the editors read pairs and `onEnterRules` from; pass the same service as {@link languageConfigurations}. */
@@ -395,6 +398,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
             ? { workspaceContainsTimeoutMs: options.workspaceContainsTimeoutMs }
             : {}),
         ...(options.environment !== undefined ? { environment: options.environment } : {}),
+        ...(options.windowState !== undefined ? { windowState: options.windowState } : {}),
         ...(options.environmentVariableCollections !== undefined
             ? { environmentVariableCollections: options.environmentVariableCollections }
             : {}),

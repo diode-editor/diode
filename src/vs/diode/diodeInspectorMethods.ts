@@ -27,6 +27,8 @@ export const DiodeInspectorMethod = {
     advanceClock: "Diode.advanceClock",
     /** `{scheme: "dark" | "light"}` → `{}`: headless only — the terminal reports its scheme flipped (mode 2031). */
     setHostColorScheme: "Diode.setHostColorScheme",
+    /** `{focused: boolean}` → `{}`: headless only — the terminal reports its window gained or lost focus (mode 1004). */
+    setWindowFocus: "Diode.setWindowFocus",
 } as const;
 
 export interface IDiodeInspectorPorts {
@@ -44,9 +46,10 @@ export interface IDiodeInspectorPorts {
         evaluate(when: string): boolean;
     };
     readonly clock: { advance(ms: number): void };
-    /** Headless only: there is no real terminal to flip its scheme. */
+    /** Headless only: there is no real terminal to flip its scheme or to switch away from. */
     readonly hostTerminal?: {
         sendColorScheme(scheme: "dark" | "light"): void;
+        sendFocus(focused: boolean): void;
     };
     /** Resolves once startup has finished; never rejects. */
     readonly ready: Promise<void>;
@@ -116,6 +119,15 @@ export function registerDiodeInspectorMethods(register: RegisterInspectorMethod,
         if (ports.hostTerminal === undefined)
             throw new Error("setHostColorScheme needs --headless: a real terminal reports its own scheme");
         ports.hostTerminal.sendColorScheme(scheme);
+        return {};
+    });
+
+    register(DiodeInspectorMethod.setWindowFocus, (params) => {
+        const focused = field(params, "focused");
+        if (typeof focused !== "boolean") throw new Error("'focused' must be a boolean");
+        if (ports.hostTerminal === undefined)
+            throw new Error("setWindowFocus needs --headless: a real terminal reports its own focus");
+        ports.hostTerminal.sendFocus(focused);
         return {};
     });
 }
