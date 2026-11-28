@@ -36,6 +36,9 @@
 - [ ] `fileSink.test.ts`, «serializes Error with stack»: файл лога ещё пуст в момент чтения (`expected '' to contain
   '[ERROR]'`) под покрытием в CI (run 45790209222, PR #1273, дифф — заголовок Search, логирования не касается);
   `main` на той же базе зелёный. Видимо, запись не успела дойти до диска на нагруженном раннере.
+  Тот же пустой файл у «writes formatted line per entry» и «appends args separated by tabs» (run 46153049458,
+  PR #1279, дифф — разделители quick pick): оба в `test-flakes.json`. Три теста одного файла — повод
+  разобрать саму запись `FileSink` в тестах, а не копить повторы.
 - [ ] `renameSymbol.scenario.ts`, «rename-symbol» (только Linux): за 120 с в панели REFERENCES не появилась ссылка
   на закрытый `main.ts`, обе попытки e2e (main run 45801161074; run 45789149960, PR #1269, дифф — бамп `@tuidom/*`;
   run 45725801182, PR #1270, дифф — мышь на скроллбарах); сценарий ждёт tsserver, диффы его не касаются.
@@ -48,6 +51,9 @@
 - [ ] `extensionHost.javaLsp.features.test.ts`, «references finds the declaration and the call»: `references for greet`
   не дождались за 60 с в initial test run Stryker'а mutation-гейта (run 44455464286, PR #1243, дифф — поля
   `CompletionItem` и список подсказок, сьют их не касается); в unit-job зелёный.
+- [ ] `extensionHost.fileSystem.test.ts`, «a resource is read end-to-end through the adapter and the core registry»:
+  таймаут 5000 мс в initial test run мутационного гейта (run 46155213674, PR #1279, дифф — разделители quick pick,
+  файловых провайдеров не касается); в юнит-джобе того же рана зелёный.
 - [ ] `embeddedTerminalSession.shellIntegrationEdges.test.ts`, «two zsh terminals started at once — both injected»: за
   10 с в выводе нет `OSC 633;A`, только маркер prompt-sp zsh, под покрытием в CI (run 44461762533, PR #1239, дифф —
   `TextEditor.visibleRanges`, терминала не касается); `main` на той же базе зелёный. Видимо, два zsh разом не успевают
