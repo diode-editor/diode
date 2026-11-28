@@ -39,6 +39,10 @@
   Тот же пустой файл у «writes formatted line per entry» и «appends args separated by tabs» (run 46153049458,
   PR #1279, дифф — разделители quick pick): оба в `test-flakes.json`. Три теста одного файла — повод
   разобрать саму запись `FileSink` в тестах, а не копить повторы.
+- [ ] `workbench.saveConflict.test.ts`, «saves without a prompt when the file was not changed externally»: тесты
+  зелёные, но после теста — unhandled rejection: `stat` файла `doc.txt` получил ENOENT, когда `afterEach` уже удалил
+  временный каталог (coverage-джоба, run 46158522339, PR #1279, дифф — разделители quick pick, сохранения не касается).
+  Повтор не спасает — нужен фикс: дождаться отложенного `stat` или не делать его после `dispose`.
 - [ ] `renameSymbol.scenario.ts`, «rename-symbol» (только Linux): за 120 с в панели REFERENCES не появилась ссылка
   на закрытый `main.ts`, обе попытки e2e (main run 45801161074; run 45789149960, PR #1269, дифф — бамп `@tuidom/*`;
   run 45725801182, PR #1270, дифф — мышь на скроллбарах); сценарий ждёт tsserver, диффы его не касаются.
