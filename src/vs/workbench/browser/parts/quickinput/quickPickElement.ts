@@ -573,7 +573,6 @@ export class QuickPickElement extends TUIElement {
 
     /** Takes geometry from the list itself instead of recomputing the header height by hand. */
     private itemIndexFromEvent(event: TUIMouseEvent): number | null {
-        if (this.itemsValue.length === 0) return null;
         const row = event.screenY - this.list.globalPosition.y;
         if (row < 0 || row >= this.list.layoutSize.height) return null;
         // A group line and the gap under the tail of a scrolled list hold no item.

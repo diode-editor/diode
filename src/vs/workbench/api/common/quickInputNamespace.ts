@@ -164,7 +164,7 @@ export function createQuickInputApi(
             const unbind = bindCancellation(handle, token);
             const toWire = ({ item, separatorLabel }: ShownItem): IWireQuickPickItem => ({
                 ...toWireQuickPickItem(item, asRelativePath),
-                ...(separatorLabel === undefined ? {} : { separatorLabel }),
+                separatorLabel,
             });
             const reply = rpc.request("window.showQuickPick", {
                 handle,

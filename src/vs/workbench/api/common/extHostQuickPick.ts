@@ -48,7 +48,7 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> extends ExtHostQui
                 ...withResourceFields(item, this.asRelativePath),
                 detail: item.detail,
                 alwaysShow: item.alwaysShow === true,
-                ...(separatorLabel === undefined ? {} : { separatorLabel }),
+                separatorLabel,
             }),
         );
         this.update({ items: wire });

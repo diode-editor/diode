@@ -161,12 +161,17 @@ describe("QuickPickElement — groups", () => {
     });
 
     it("PageDown steps by the items in view, not by its lines", () => {
-        const picker = makePicker(groups(5, 3));
+        const picker = makePicker(groups(7, 3));
         const app = mount(picker);
 
         // Lines 0..9 hold items 0..7 (lines 3 and 7 are group lines).
         key(picker, "PageDown");
         expect(picker.selectedIndex).toBe(8);
+
+        // Scrolled by one: lines 1..10 hold items 1..8, line 0 above the view does not count.
+        app.render();
+        key(picker, "PageDown");
+        expect(picker.selectedIndex).toBe(16);
     });
 
     it("a click on a line picks nothing, a click on the item below it picks that item", () => {

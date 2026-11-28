@@ -43,12 +43,13 @@ export function attachSeparators<T extends string | vscode.QuickPickItem>(
     const grouped: IGroupedQuickPickItem<T>[] = [];
     let separatorLabel: string | undefined;
     for (const [index, item] of items.entries()) {
-        // Compared as a number: the extension's enum comes from its own copy of d.ts.
-        if (typeof item !== "string" && (item.kind as number | undefined) === (QuickPickItemKind.Separator as number)) {
-            separatorLabel = typeof item.label === "string" ? item.label : "";
+        // A string has no `kind` either. Compared as a number: the extension's enum comes from its own copy of d.ts.
+        const separator = item as Partial<vscode.QuickPickItem>;
+        if ((separator.kind as number | undefined) === (QuickPickItemKind.Separator as number)) {
+            separatorLabel = typeof separator.label === "string" ? separator.label : "";
             continue;
         }
-        grouped.push(separatorLabel === undefined ? { item, index } : { item, index, separatorLabel });
+        grouped.push({ item, index, separatorLabel });
         separatorLabel = undefined;
     }
     return grouped;
