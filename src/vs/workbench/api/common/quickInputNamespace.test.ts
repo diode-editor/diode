@@ -319,7 +319,7 @@ describe("window.showQuickPick (shim)", () => {
         await expect(api.showQuickPick(items)).resolves.toBe(items[2]);
     });
 
-    it("separators are neither shown nor picked; answer indices refer to the remaining items", async () => {
+    it("separators are not picked: their labels ride on the next item, answer indices refer to the remaining items", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [1] });
         // Shape of `Go: Choose Go Environment`: group headers between the options.
@@ -328,12 +328,34 @@ describe("window.showQuickPick (shim)", () => {
             { label: "go1.27.2" },
             { label: "Downloadable", kind: QuickPickItemKind.Separator },
             { label: "go1.26.0", kind: QuickPickItemKind.Default },
+            { label: "Trailing", kind: QuickPickItemKind.Separator },
         ];
         await expect(api.showQuickPick(items)).resolves.toBe(items[3]);
-        expect((lastRequest(stub, "window.showQuickPick").items as { label: string }[]).map((i) => i.label)).toEqual([
-            "go1.27.2",
-            "go1.26.0",
+        expect(lastRequest(stub, "window.showQuickPick").items).toEqual([
+            { label: "go1.27.2", description: undefined, separatorLabel: "Locally discovered" },
+            { label: "go1.26.0", description: undefined, separatorLabel: "Downloadable" },
         ]);
+    });
+
+    it("promised items carry their separators too; `picked` on a separator is ignored", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => new Promise(() => undefined);
+        const items: vscode.QuickPickItem[] = [
+            { label: "", kind: QuickPickItemKind.Separator, picked: true },
+            { label: "a", picked: true },
+            { label: "b" },
+        ];
+        void api.showQuickPick(Promise.resolve(items), { canPickMany: true });
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(stub.notifies.at(-1)?.params).toEqual({
+            handle: 1,
+            items: [
+                { label: "a", description: undefined, separatorLabel: "" },
+                { label: "b", description: undefined },
+            ],
+            picked: [0],
+        });
     });
 
     it("cancellation gives undefined", async () => {

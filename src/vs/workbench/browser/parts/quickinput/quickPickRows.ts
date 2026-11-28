@@ -41,6 +41,8 @@ export interface IRowColumns {
     readonly hasIcons: boolean;
     /** `undefined` means no checkbox column (single select). */
     readonly checked?: boolean;
+    /** Group labels ({@link QuickPickItem.separatorLabel}) are drawn: off while a query filters the list. */
+    readonly groups: boolean;
 }
 
 /** The selection background spans the full `innerWidth`, so the row's edge fillers provide the padding. */
@@ -50,7 +52,7 @@ export function buildItemRow(
     innerWidth: number,
     columns: IRowColumns,
 ): HFlexElement {
-    const { hasIcons, checked } = columns;
+    const { hasIcons, checked, groups } = columns;
     const row = new HFlexElement();
     row.id = rowId(index);
     row.style = {
@@ -90,6 +92,13 @@ export function buildItemRow(
     }
     if (item.hint !== undefined) {
         after.push(styled(`${GAP}${item.hint}`, "quickPick.hintForeground"));
+    }
+    const groupLabel = groups ? (item.separatorLabel ?? "") : "";
+    if (groupLabel !== "") {
+        // Upstream puts it last, after the keybinding. It is cut only once the label is down to its ellipsis.
+        const otherMeta = [...before, ...after].reduce((sum, part) => sum + textWidth(part), 0);
+        const shown = truncateEnd(`${GAP}${groupLabel}`, avail - otherMeta - 1);
+        if (shown !== "") after.push(styled(shown, "pickerGroup.foreground"));
     }
     const metaWidth = [...before, ...after].reduce((sum, part) => sum + textWidth(part), 0);
 

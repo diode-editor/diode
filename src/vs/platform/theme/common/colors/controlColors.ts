@@ -197,6 +197,15 @@ export const controlColors = {
         defaults: { dark: "#6496C8", light: "#1F6FB2" },
         description: "Quick picker item action hint color.",
     },
+    // Upstream `quickpickColors.ts`; its hcDark #FFFFFF and hcLight #0F4A85 map to dark/light here.
+    "pickerGroup.foreground": {
+        defaults: { dark: "#3794FF", light: "#0066BF" },
+        description: "Quick picker color for grouping labels.",
+    },
+    "pickerGroup.border": {
+        defaults: { dark: "#3F3F46", light: "#CCCEDB" },
+        description: "Quick picker color for grouping borders.",
+    },
     "list.highlightForeground": {
         // Historical Diode match highlight color (VS Code uses #2AAAFF).
         defaults: { dark: "#64C8FF", light: "#0066BF" },

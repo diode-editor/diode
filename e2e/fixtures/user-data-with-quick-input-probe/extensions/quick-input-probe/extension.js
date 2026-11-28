@@ -199,6 +199,54 @@ exports.activate = function activate(context) {
         show("Picked: " + describePicked(picked));
     });
 
+    // Every separator edge case: a leading one, one without a label, two in a row (the last wins), a trailing one.
+    function groupedItems() {
+        const separator = function (label) {
+            return { label: label, kind: vscode.QuickPickItemKind.Separator };
+        };
+        return [
+            separator("Fruits"),
+            { label: "apple" },
+            { label: "banana" },
+            separator(""),
+            { label: "carrot" },
+            separator("A"),
+            separator("Vegetables"),
+            { label: "leek" },
+            separator("Trailing"),
+        ];
+    }
+
+    register("diodeProbe.pickGrouped", async function () {
+        const picked = await vscode.window.showQuickPick(groupedItems(), { placeHolder: "Pick from a group" });
+        show("Grouped: " + (picked === undefined ? "cancelled" : picked.label));
+    });
+
+    register("diodeProbe.pickGroupedMany", function () {
+        return new Promise(function (resolve) {
+            const quickPick = vscode.window.createQuickPick();
+            quickPick.placeholder = "Check from the groups";
+            quickPick.canSelectMany = true;
+            quickPick.items = groupedItems();
+            quickPick.onDidAccept(function () {
+                show(
+                    "Grouped many: " +
+                        describePicked(
+                            quickPick.selectedItems.map(function (item) {
+                                return item.label;
+                            }),
+                        ),
+                );
+                quickPick.hide();
+            });
+            quickPick.onDidHide(function () {
+                quickPick.dispose();
+                resolve();
+            });
+            quickPick.show();
+        });
+    });
+
     // The list arrives as a promise: nothing changes on screen until it resolves.
     register("diodeProbe.pickAsync", async function () {
         const items = delay(SLOW_MS).then(function () {

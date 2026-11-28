@@ -131,14 +131,56 @@ describe("ExtHostQuickPick: state and wire", () => {
         expect(updates().at(-1)).toEqual({ handle: expect.any(Number) as number, title: "b" });
     });
 
-    it("a separator is not sent as a row, and the others' handles are indices in the extension's array", () => {
+    it("a separator is not sent as a row: its label rides on the next item, handles stay indices in the extension's array", () => {
         const { pick, updates } = setup();
         pick.items = [A, SEP, C];
         pick.show();
         expect(updates()[0]?.items).toEqual([
             WIRE_A,
-            { handle: 2, label: "Gamma", description: undefined, detail: undefined, alwaysShow: true },
+            {
+                handle: 2,
+                label: "Gamma",
+                description: undefined,
+                detail: undefined,
+                alwaysShow: true,
+                separatorLabel: "Group",
+            },
         ]);
+    });
+
+    it("of two separators in a row the last one wins, a trailing one is dropped, reassigned items carry theirs", () => {
+        const { pick, updates } = setup();
+        const sep = (label: string): IValueItem => ({ ...SEP, label });
+        pick.items = [sep("Lead"), A, sep("Skipped"), sep("Kept"), B, sep("Trailing")];
+        pick.show();
+        vi.runAllTimers();
+        const sent = (): unknown =>
+            (updates().at(-1)?.items as Record<string, unknown>[]).map((item) => [item.handle, item.separatorLabel]);
+        expect(sent()).toEqual([
+            [1, "Lead"],
+            [4, "Kept"],
+        ]);
+
+        // A separator without a label (a plain-JS extension) is a group without one, as upstream's empty textContent.
+        pick.items = [A, { kind: SEP.kind } as unknown as IValueItem, C];
+        vi.runAllTimers();
+        expect(sent()).toEqual([
+            [0, undefined],
+            [2, ""],
+        ]);
+    });
+
+    it("a separator among activeItems or selectedItems is ignored by the host: it has no handle there", () => {
+        const { pick, updates, hostEvent } = setup();
+        const onActive = vi.fn();
+        pick.onDidChangeActive(onActive);
+        pick.items = [A, SEP, C];
+        pick.activeItems = [SEP, C];
+        pick.show();
+        expect(updates()[0]).toMatchObject({ activeItems: [1, 2] });
+        // The host knows handles 0 and 2 only and answers with those.
+        hostEvent({ kind: "changeActive", items: [2] });
+        expect(onActive).toHaveBeenLastCalledWith([C]);
     });
 
     it("items is a copy: editing your own array after assignment leaves the picker alone", () => {

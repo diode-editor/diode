@@ -267,6 +267,8 @@ export class QuickInputService {
         view.onQueryChange = (query) => {
             // Stryker disable next-line MethodExpression: trim is cosmetic here — a leading space can't be typed into the query (in multi-select the check toggle eats it, and extra spaces inside a word don't narrow the filter anyway)
             const needle = query.trim().toLowerCase();
+            // Upstream with `sortByLabel` (always on for extensions): a query hides the groups, an empty one brings them back.
+            view.groupsVisible = needle === "";
             view.items =
                 // Stryker disable next-line ConditionalExpression,StringLiteral: the empty-query branch only skips a no-op filter pass; `includes("")` is true for any string, so the filtered list would equal the original
                 needle === "" ? source.items : source.items.filter((it) => it.label.toLowerCase().includes(needle));

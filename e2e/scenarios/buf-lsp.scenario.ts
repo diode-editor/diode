@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { findTextCell } from "../helpers/frame.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
@@ -21,7 +22,7 @@ function occurrences(text: string, needle: string): number {
 
 export default defineScenario({
     name: "buf-lsp",
-    title: "Protocol Buffers from the marketplace: buf LSP — squiggle, hover, F12, completion",
+    title: "Protocol Buffers from the marketplace: buf LSP — squiggle, grouped commands picker, hover, F12, completion",
     open: [sampleDir, mainFile],
     installVsix: ["bufbuild.vscode-buf"],
     network: true,
@@ -39,6 +40,19 @@ export default defineScenario({
             { describe: "undercurl squiggle from buf", timeoutMs: 180_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
+
+        // The status bar item of the running server opens `buf.showCommands`: a picker grouped by separators — the label
+        // of a group on the right of its first command, a line above every group but the first.
+        const statusItem = findTextCell(await editor.captureFrame(), " Buf (");
+        if (statusItem === null) throw new Error("the 'Buf (…)' status bar item is not on screen");
+        await editor.click(statusItem.x + 2, statusItem.y);
+        await editor.waitForText((t) => t.includes("Buf Language Server Commands") && t.includes("Buf Commands"), {
+            timeoutMs: 30_000,
+        });
+        await editor.capture("commands-picker");
+        for (let i = 0; i < 3; i++) await editor.sendKey("PageDown");
+        await editor.waitForText((t) => t.includes("Extension Commands"));
+        await editor.sendKey("Escape");
 
         // The caret on `User` in `rpc Get(User)` (line 15, column 11) → hover (Ctrl+K Ctrl+U): one doc comment is in
         // the buffer, the second one in the popup.

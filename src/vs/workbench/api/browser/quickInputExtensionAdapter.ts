@@ -84,6 +84,8 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
             wire.map((item) => ({
                 label: this.icons.renderCodicons(item.label),
                 description: renderLabel(item.description),
+                // Plain text, as upstream's `textContent`: `$(icon)` stays as typed.
+                separatorLabel: item.separatorLabel,
             }));
         let items = toItems(request.items);
         const lateItems =
@@ -285,6 +287,7 @@ function toSessionItem(item: IWireQuickPickSessionItem, icons: IProductIconServi
         description: labelRenderer(icons)(shown),
         detail: item.detail,
         alwaysShow: item.alwaysShow,
+        separatorLabel: item.separatorLabel,
     };
 }
 

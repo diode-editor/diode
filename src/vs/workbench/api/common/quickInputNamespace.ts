@@ -4,8 +4,12 @@ import { ExtHostInputBox, toWireValidation } from "./extHostInputBox.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import type { ExtHostQuickInput } from "./extHostQuickInput.ts";
 import { ExtHostQuickPick } from "./extHostQuickPick.ts";
-import { type AsRelativePath, withResourceFields } from "./quickInputResource.ts";
-import { QuickPickItemKind } from "./vscodeTypes.ts";
+import {
+    type AsRelativePath,
+    attachSeparators,
+    type IGroupedQuickPickItem,
+    withResourceFields,
+} from "./quickInputResource.ts";
 import {
     type IWireQuickPickItem,
     type IWireValidationMessage,
@@ -150,31 +154,35 @@ export function createQuickInputApi(
             // Upstream `$show` first, `$setItems` later: the picker takes the widget in call order, and
             // a promise that never settles can still be cancelled.
             const pending = isThenable(items);
-            let resolved = pending ? [] : pickableItems(items);
+            let shown = pending ? [] : grouped(items);
+            let resolved = shown.map(({ item }) => item);
             let loadFailure: { readonly error: unknown } | undefined;
             selectListeners.set(handle, (index) => {
                 const item = resolved.at(index);
                 if (item !== undefined) options?.onDidSelectItem?.(item);
             });
             const unbind = bindCancellation(handle, token);
-            const toWire = (item: string | vscode.QuickPickItem): IWireQuickPickItem =>
-                toWireQuickPickItem(item, asRelativePath);
+            const toWire = ({ item, separatorLabel }: ShownItem): IWireQuickPickItem => ({
+                ...toWireQuickPickItem(item, asRelativePath),
+                separatorLabel,
+            });
             const reply = rpc.request("window.showQuickPick", {
                 handle,
                 title: options?.title,
                 placeHolder: options?.placeHolder,
                 canPickMany,
-                items: resolved.map(toWire),
+                items: shown.map(toWire),
                 picked: pickedIndices(resolved, canPickMany),
                 itemsPending: pending,
             });
             if (pending) {
                 void Promise.resolve(items).then(
                     (loaded) => {
-                        resolved = pickableItems(loaded);
+                        shown = grouped(loaded);
+                        resolved = shown.map(({ item }) => item);
                         rpc.notify("window.showQuickPick.items", {
                             handle,
-                            items: resolved.map(toWire),
+                            items: shown.map(toWire),
                             picked: pickedIndices(resolved, canPickMany),
                         });
                     },
@@ -207,13 +215,11 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
     return typeof (value as { then?: unknown }).then === "function";
 }
 
-/** Our overlay has no group headers: a shown separator would become a pickable item. */
-function pickableItems(items: unknown): readonly (string | vscode.QuickPickItem)[] {
-    return (items as readonly (string | vscode.QuickPickItem)[]).filter(
-        (item) =>
-            // Stryker disable next-line ConditionalExpression,StringLiteral: the string check is a fast path; a string has no `kind` (`undefined`), so the second operand keeps it anyway
-            typeof item === "string" || (item.kind as number | undefined) !== (QuickPickItemKind.Separator as number),
-    );
+type ShownItem = IGroupedQuickPickItem<string | vscode.QuickPickItem>;
+
+/** Separators are not rows: the reply indexes the items without them, and each one rides on the item after it. */
+function grouped(items: unknown): ShownItem[] {
+    return attachSeparators(items as readonly (string | vscode.QuickPickItem)[]);
 }
 
 function pickedIndices(items: readonly (string | vscode.QuickPickItem)[], canPickMany: boolean): number[] {

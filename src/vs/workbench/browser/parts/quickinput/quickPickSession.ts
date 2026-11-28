@@ -259,6 +259,8 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
 
     private fillList(view: QuickPickElement, keepPosition: boolean): void {
         const visible = this.filtered();
+        // Upstream `filter`: a query hides the groups; a list that does not search keeps them.
+        view.groupsVisible = !this.searches() || this.state.value.trim() === "";
         if (keepPosition) view.refreshItems(visible);
         else view.items = visible;
         if (this.state.itemActivation === "none") view.clearActive();

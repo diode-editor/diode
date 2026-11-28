@@ -14,9 +14,9 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1469 |
+| ok | 1470 |
 | A | 11 |
-| B | 168 |
+| B | 167 |
 | C | 333 |
 | X | 234 |
 
@@ -32,7 +32,6 @@ Members with a gap, by the downloads of the extensions using them (top 100). The
 
 | member | class | extensions | downloads | note |
 | --- | --- | --- | --- | --- |
-| `QuickPickItemKind.Separator` | B | 51 | 512,951,567 | separators are dropped: the list draws no group headers |
 | `window.createWebviewPanel` | X | 69 | 491,966,358 | webview |
 | `SnippetTextEdit` | B | 32 | 323,063,523 | in a WorkspaceEdit the snippet goes in as plain text, without a snippet session |
 | `LanguageModelTextPart` | C | 23 | 224,344,652 | needs a chat surface and a model backend |
@@ -132,6 +131,7 @@ Members with a gap, by the downloads of the extensions using them (top 100). The
 | `NotebookCellStatusBarItem` | X | 2 | 4,673,359 | notebook |
 | `NotebookEdit` | X | 1 | 3,996,764 | notebook |
 | `NotebookCellOutputItem.json` | X | 2 | 3,029,458 | notebook |
+| `LanguageModelChatMessage` | C | 2 | 2,987,681 | needs a chat surface and a model backend |
 
 ## Proposed extensions
 
@@ -139,21 +139,21 @@ Up to 15 extensions whose whole gap is class A or B, nearest first. **Candidates
 
 | extension | downloads | gap | why |
 | --- | --- | --- | --- |
-| `ms-python.debugpy` | 64,112,874 | `QuickPickItemKind.Separator` (B) | 1 A/B gap(s), no C or X; 56 of 57 used members ready |
 | `vscjava.vscode-gradle` | 28,299,349 | `workspace.updateWorkspaceFolders` (B) | 1 A/B gap(s), no C or X; 171 of 172 used members ready |
 | `redhat.vscode-yaml` | 9,375,322 | `SnippetTextEdit` (B) | 1 A/B gap(s), no C or X; 193 of 194 used members ready |
 | `dbaeumer.vscode-eslint` | 6,739,507 | `SnippetTextEdit` (B) | 1 A/B gap(s), no C or X; 187 of 188 used members ready |
 | `GitHub.vscode-github-actions` | 4,619,083 | `authentication.getSession` (B) | 1 A/B gap(s), no C or X; 187 of 188 used members ready |
-| `Google.geminicodeassist` | 4,393,551 | `QuickPickItemKind.Separator` (B) | 1 A/B gap(s), no C or X; 213 of 214 used members ready |
 | `ritwickdey.LiveServer` | 3,183,871 | `workspace.saveAll` (B) | 1 A/B gap(s), no C or X; 13 of 14 used members ready |
 | `detachhead.basedpyright` | 3,046,489 | `SnippetTextEdit` (B) | 1 A/B gap(s), no C or X; 175 of 176 used members ready |
 | `Codeium.windsurfPyright` | 2,895,108 | `SnippetTextEdit` (B) | 1 A/B gap(s), no C or X; 172 of 173 used members ready |
 | `vscodevim.vim` | 2,019,211 | `workspace.saveAll` (B) | 1 A/B gap(s), no C or X; 65 of 66 used members ready |
 | `ms-pyright.pyright` | 1,100,698 | `SnippetTextEdit` (B) | 1 A/B gap(s), no C or X; 171 of 172 used members ready |
 | `formulahendry.code-runner` | 1,090,488 | `workspace.saveAll` (B) | 1 A/B gap(s), no C or X; 14 of 15 used members ready |
-| `timonwong.shellcheck` | 965,512 | `QuickPickItemKind.Separator` (B) | 1 A/B gap(s), no C or X; 69 of 70 used members ready |
-| `henrikdev.ag-quota` | 874,139 | `QuickPickItemKind.Separator` (B) | 1 A/B gap(s), no C or X; 12 of 13 used members ready |
 | `stylelint.vscode-stylelint` | 793,812 | `SnippetTextEdit` (B) | 1 A/B gap(s), no C or X; 171 of 172 used members ready |
+| `oxc.oxc-vscode` | 699,994 | `SnippetTextEdit` (B) | 1 A/B gap(s), no C or X; 182 of 183 used members ready |
+| `vscode.json-language-features` | 666,647 | `SnippetTextEdit` (B) | 1 A/B gap(s), no C or X; 185 of 186 used members ready |
+| `vscjava.vscode-spring-initializr` | 650,195 | `workspace.updateWorkspaceFolders` (B) | 1 A/B gap(s), no C or X; 38 of 39 used members ready |
+| `ms-vscode.makefile-tools` | 614,697 | `workspace.saveAll` (B) | 1 A/B gap(s), no C or X; 38 of 39 used members ready |
 
 ## Extension ranking
 
@@ -162,12 +162,14 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | extension | version | downloads | registry | members | gap | A | B | C | X | client |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `meta.pyrefly` | 1.4.9001 | 95,975,798 |  | 185 | 0 | 0 | 0 | 0 | 0 | 8 |
+| `ms-python.debugpy` | 2026.6.0 | 64,112,874 |  | 57 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `devsense.composer-php-vscode` | 1.76.19524 | 44,513,463 |  | 61 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `llvm-vs-code-extensions.vscode-clangd` | 0.6.0 | 31,987,099 | yes | 189 | 0 | 0 | 0 | 0 | 0 | 8 |
 | `esbenp.prettier-vscode` | 12.4.0 | 9,989,319 | yes | 38 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `PKief.material-icon-theme` | 5.40.0 | 6,957,880 |  | 9 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `Dart-Code.flutter` | 3.147.20261109 | 5,414,000 |  | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `anyscalecompute.anyscale-workspaces` | 0.2.48 | 4,492,263 |  | 31 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `Google.geminicodeassist` | 2.107.0 | 4,393,551 |  | 214 | 0 | 0 | 0 | 0 | 0 | 8 |
 | `Angular.ng-template` | 22.2.0 | 3,011,806 | yes | 174 | 0 | 0 | 0 | 0 | 0 | 8 |
 | `ms-vscode.powershell` | 2025.4.0 | 2,763,653 |  | 216 | 0 | 0 | 0 | 0 | 0 | 8 |
 | `bradlc.vscode-tailwindcss` | 0.16.0 | 2,685,486 | yes | 167 | 0 | 0 | 0 | 0 | 0 | 7 |
@@ -188,12 +190,14 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `vscode.npm` | 1.95.3 | 1,033,901 |  | 64 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `eclipse-cdt.cdt-gdb-vscode` | 3.0.0 | 1,026,439 |  | 23 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `ajsqnhort.include-autocomplete` | 0.0.4 | 986,038 |  | 8 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `timonwong.shellcheck` | 0.48.4 | 965,512 | yes | 70 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `openai.codex-audio` | 26.1111.21308 | 956,645 |  | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `aryansudhir.promptr` | 1.5.6 | 953,515 |  | 25 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `dbcode.dbcode` | 1.39.3 | 947,415 |  | 13 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `dsznajder.es7-react-js-snippets` | 4.4.3 | 939,460 |  | 8 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `bierner.markdown-mermaid` | 1.32.1 | 932,994 |  | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `ms-python.isort` | 2025.0.0 | 931,128 |  | 174 | 0 | 0 | 0 | 0 | 0 | 7 |
+| `henrikdev.ag-quota` | 1.2.3 | 874,139 |  | 13 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `ms-vscode.node-debug2` | 1.43.0 | 859,757 |  | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `xdebug.php-debug` | 1.40.2 | 827,041 |  | 14 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `aaron-bond.better-comments` | 3.2.0 | 810,083 |  | 10 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -208,10 +212,13 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `Toaock.vscode-css-custom-properties` | 0.0.5 | 672,696 |  | 15 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `k--kato.intellij-idea-keybindings` | 1.7.8 | 663,783 |  | 14 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `yandeu.five-server` | 0.5.0 | 650,789 |  | 22 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `salesforce.salesforcedx-vscode-lwc` | 68.13.8 | 643,111 |  | 189 | 0 | 0 | 0 | 0 | 0 | 8 |
 | `waderyan.gitblame` | 14.0.0 | 640,668 |  | 15 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `salesforce.salesforcedx-vscode-apex-replay-debugger` | 68.13.8 | 639,496 |  | 26 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `GraphQL.vscode-graphql` | 1.0.1 | 638,727 |  | 162 | 0 | 0 | 0 | 0 | 0 | 7 |
 | `formulahendry.auto-rename-tag` | 0.1.10 | 635,083 |  | 8 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `salesforce.salesforcedx-vscode-lightning` | 68.13.8 | 617,427 |  | 169 | 0 | 0 | 0 | 0 | 0 | 8 |
+| `salesforce.salesforcedx-vscode-visualforce` | 68.13.8 | 612,617 |  | 170 | 0 | 0 | 0 | 0 | 0 | 8 |
 | `christian-kohler.npm-intellisense` | 1.4.5 | 609,484 | yes | 11 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `oderwat.indent-rainbow` | 8.3.1 | 609,267 |  | 9 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `yossisa.cursor-usage` | 1.3.0 | 608,334 |  | 12 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -219,24 +226,24 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `christian-kohler.path-intellisense` | 2.8.0 | 594,554 |  | 15 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `formulahendry.auto-close-tag` | 0.5.15 | 569,749 | yes | 9 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `laravel.vscode-laravel` | 2.0.1 | 547,240 |  | 182 | 0 | 0 | 0 | 0 | 0 | 8 |
+| `salesforce.salesforcedx-vscode-org` | 68.13.8 | 543,217 |  | 13 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `salesforce.salesforcedx-vscode-apex-oas` | 68.13.8 | 540,821 |  | 12 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `salesforce.salesforcedx-vscode-apex-testing` | 68.13.8 | 518,245 |  | 36 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `Gruntfuggly.todo-tree` | 0.0.215 | 513,031 | yes | 46 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `ms-python.mypy-type-checker` | 2026.8.0 | 512,721 |  | 174 | 0 | 0 | 0 | 0 | 0 | 7 |
 | `KylinIdeTeam.cppdebug` | 0.4.0 | 504,276 |  | 12 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `salesforce.salesforcedx-vscode-apex-log` | 68.13.8 | 490,742 |  | 20 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `ms-python.flake8` | 2025.2.0 | 480,200 |  | 173 | 0 | 0 | 0 | 0 | 0 | 7 |
 | `KevinRose.vsc-python-indent` | 1.21.0 | 351,963 | yes | 6 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `shardulm94.trailing-spaces` | 0.4.4 | 350,923 | yes | 15 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `sainnhe.everforest` | 0.3.0 | 20,636 | yes | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `tihonove.bazel-java-tihonove` | 1.4.7 | 8,095 | yes | 40 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `ms-python.debugpy` | 2026.6.0 | 64,112,874 |  | 57 | 1 | 0 | 1 | 0 | 0 | 0 |
 | `vscjava.vscode-gradle` | 3.18.0 | 28,299,349 |  | 172 | 1 | 0 | 1 | 0 | 0 | 0 |
 | `ms-toolsai.jupyter-renderers` | 1.3.0 | 11,093,414 |  | 3 | 1 | 0 | 0 | 0 | 1 | 0 |
 | `redhat.vscode-yaml` | 2.1.2026111808 | 9,375,322 | yes | 194 | 1 | 0 | 1 | 0 | 0 | 9 |
 | `devsense.intelli-php-vscode` | 0.12.17700 | 7,978,911 |  | 145 | 1 | 0 | 0 | 0 | 1 | 0 |
 | `dbaeumer.vscode-eslint` | 3.0.34 | 6,739,507 | yes | 188 | 1 | 0 | 1 | 0 | 0 | 9 |
 | `GitHub.vscode-github-actions` | 0.32.3 | 4,619,083 |  | 188 | 1 | 0 | 1 | 0 | 0 | 7 |
-| `Google.geminicodeassist` | 2.107.0 | 4,393,551 |  | 214 | 1 | 0 | 1 | 0 | 0 | 8 |
 | `mechatroner.rainbow-csv` | 3.24.1 | 3,497,025 |  | 48 | 1 | 0 | 0 | 0 | 1 | 0 |
 | `ritwickdey.LiveServer` | 5.7.10 | 3,183,871 |  | 14 | 1 | 0 | 1 | 0 | 0 | 0 |
 | `detachhead.basedpyright` | 1.40.2 | 3,046,489 | yes | 176 | 1 | 0 | 1 | 0 | 0 | 9 |
@@ -250,17 +257,14 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `ms-pyright.pyright` | 1.1.402 | 1,100,698 |  | 172 | 1 | 0 | 1 | 0 | 0 | 9 |
 | `zhuangtongfa.material-theme` | 3.20.6 | 1,096,229 | yes | 11 | 1 | 0 | 0 | 0 | 1 | 0 |
 | `formulahendry.code-runner` | 0.12.2 | 1,090,488 |  | 15 | 1 | 0 | 1 | 0 | 0 | 0 |
-| `timonwong.shellcheck` | 0.48.4 | 965,512 | yes | 70 | 1 | 0 | 1 | 0 | 0 | 0 |
-| `henrikdev.ag-quota` | 1.2.3 | 874,139 |  | 13 | 1 | 0 | 1 | 0 | 0 | 0 |
 | `googlecloudtools.firebase-dataconnect-vscode` | 2.4.4 | 832,770 |  | 188 | 1 | 0 | 0 | 0 | 1 | 7 |
 | `stylelint.vscode-stylelint` | 3.0.0 | 793,812 |  | 172 | 1 | 0 | 1 | 0 | 0 | 9 |
 | `kombai.kombai` | 2.0.189 | 748,989 |  | 7 | 1 | 0 | 0 | 0 | 1 | 0 |
 | `oxc.oxc-vscode` | 1.64.1 | 699,994 |  | 183 | 1 | 0 | 1 | 0 | 0 | 9 |
 | `donjayamanne.githistory` | 0.6.20 | 687,374 |  | 42 | 1 | 0 | 0 | 0 | 1 | 0 |
-| `salesforce.salesforcedx-vscode-lwc` | 68.13.8 | 643,111 |  | 189 | 1 | 0 | 1 | 0 | 0 | 8 |
-| `salesforce.salesforcedx-vscode-lightning` | 68.13.8 | 617,427 |  | 169 | 1 | 0 | 1 | 0 | 0 | 8 |
+| `vscode.json-language-features` | 1.95.3 | 666,647 |  | 186 | 1 | 0 | 1 | 0 | 0 | 9 |
+| `vscjava.vscode-spring-initializr` | 0.12.1 | 650,195 |  | 39 | 1 | 0 | 1 | 0 | 0 | 0 |
 | `ms-vscode.makefile-tools` | 0.12.17 | 614,697 |  | 39 | 1 | 0 | 1 | 0 | 0 | 0 |
-| `salesforce.salesforcedx-vscode-visualforce` | 68.13.8 | 612,617 |  | 170 | 1 | 0 | 1 | 0 | 0 | 8 |
 | `tombi-toml.tombi` | 1.11.3 | 596,558 |  | 182 | 1 | 0 | 1 | 0 | 0 | 9 |
 | `ChakrounAnas.turbo-console-log` | 3.30.0 | 579,013 |  | 34 | 1 | 0 | 0 | 0 | 1 | 0 |
 | `tldraw-org.tldraw-vscode` | 2.404.3 | 578,088 |  | 11 | 1 | 0 | 0 | 0 | 1 | 0 |
@@ -269,102 +273,98 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `posit.air-vscode` | 0.32.0 | 568,326 |  | 181 | 1 | 0 | 1 | 0 | 0 | 9 |
 | `n2ns.antigravity-panel` | 2.8.5 | 554,962 |  | 36 | 1 | 0 | 0 | 0 | 1 | 0 |
 | `mtxr.sqltools-driver-pg` | 0.5.8 | 553,375 |  | 2 | 1 | 0 | 1 | 0 | 0 | 0 |
-| `salesforce.salesforcedx-vscode-org` | 68.13.8 | 543,217 |  | 13 | 1 | 0 | 1 | 0 | 0 | 0 |
 | `yoavbls.pretty-ts-errors` | 0.8.7 | 495,220 |  | 56 | 1 | 0 | 0 | 0 | 1 | 0 |
-| `salesforce.salesforcedx-vscode-apex-log` | 68.13.8 | 490,742 |  | 20 | 1 | 0 | 1 | 0 | 0 | 0 |
 | `Supermaven.supermaven` | 1.1.5 | 42,885 | yes | 36 | 1 | 0 | 0 | 0 | 1 | 0 |
+| `bufbuild.vscode-buf` | 0.8.19 | 41,840 | yes | 176 | 1 | 0 | 1 | 0 | 0 | 8 |
 | `devsense.profiler-php-vscode` | 1.76.19524 | 44,467,045 |  | 29 | 2 | 0 | 0 | 0 | 2 | 0 |
+| `vscjava.vscode-maven` | 0.45.3 | 28,842,361 | yes | 138 | 2 | 1 | 1 | 0 | 0 | 0 |
 | `charliermarsh.ruff` | 2026.96.0 | 4,285,593 | yes | 189 | 2 | 0 | 1 | 0 | 1 | 9 |
+| `rangav.vscode-thunder-client` | 3.2.6 | 3,186,695 |  | 36 | 2 | 0 | 0 | 2 | 0 | 0 |
 | `shd101wyy.markdown-preview-enhanced` | 0.8.40 | 2,561,043 |  | 70 | 2 | 0 | 0 | 0 | 2 | 0 |
+| `VMware.vscode-spring-boot` | 2.5.2026111700 | 2,075,622 |  | 191 | 2 | 1 | 0 | 1 | 0 | 8 |
+| `redhat.vscode-xml` | 0.29.2026111608 | 1,697,541 |  | 206 | 2 | 0 | 1 | 0 | 1 | 9 |
 | `highagency.pencildev` | 0.6.81 | 1,548,414 |  | 46 | 2 | 0 | 0 | 0 | 2 | 0 |
 | `huijbzhou.githd` | 2.5.7 | 1,049,700 |  | 50 | 2 | 1 | 0 | 0 | 1 | 0 |
-| `vscode.json-language-features` | 1.95.3 | 666,647 |  | 186 | 2 | 0 | 2 | 0 | 0 | 9 |
-| `vscjava.vscode-spring-initializr` | 0.12.1 | 650,195 |  | 39 | 2 | 0 | 2 | 0 | 0 | 0 |
+| `moonshot-ai.kimi-code` | 0.9.0 | 634,031 |  | 33 | 2 | 0 | 0 | 0 | 2 | 0 |
 | `salesforce.salesforcedx-vscode-soql` | 68.13.8 | 619,542 |  | 175 | 2 | 0 | 0 | 0 | 2 | 8 |
+| `muhammad-ahmad.xlsx-viewer` | 2.0.9 | 541,420 |  | 41 | 2 | 0 | 0 | 0 | 2 | 0 |
 | `sumneko.lua` | 3.19.2 | 519,363 |  | 182 | 2 | 0 | 0 | 0 | 2 | 8 |
 | `wgsl-analyzer.wgsl-analyzer` | 0.12.542 | 484,295 |  | 202 | 2 | 0 | 1 | 0 | 1 | 9 |
 | `jbangdev.jbang-vscode` | 0.12.2026111659 | 44,339 | yes | 188 | 2 | 0 | 2 | 0 | 0 | 8 |
-| `bufbuild.vscode-buf` | 0.8.19 | 41,840 | yes | 176 | 2 | 0 | 2 | 0 | 0 | 8 |
-| `vscjava.vscode-maven` | 0.45.3 | 28,842,361 | yes | 138 | 3 | 1 | 2 | 0 | 0 | 0 |
+| `ms-python.vscode-python-envs` | 1.44.0 | 47,304,307 |  | 109 | 3 | 1 | 1 | 0 | 1 | 0 |
 | `vscjava.vscode-java-pack` | 0.31.2 | 24,592,110 |  | 60 | 3 | 0 | 0 | 0 | 3 | 0 |
+| `Vue.volar` | 3.3.14 | 11,432,586 |  | 185 | 3 | 0 | 0 | 2 | 1 | 8 |
 | `rust-lang.rust-analyzer` | 0.4.3124 | 7,758,292 |  | 224 | 3 | 0 | 2 | 0 | 1 | 8 |
 | `jlcodes.antigravity-cockpit` | 2.1.53 | 5,079,015 |  | 37 | 3 | 0 | 0 | 0 | 3 | 0 |
-| `rangav.vscode-thunder-client` | 3.2.6 | 3,186,695 |  | 36 | 3 | 0 | 1 | 2 | 0 | 0 |
 | `ms-vscode.live-server` | 0.4.20 | 2,326,741 |  | 47 | 3 | 0 | 1 | 0 | 2 | 0 |
 | `ms-dotnettools.vscode-dotnet-runtime` | 3.2.0 | 2,214,078 |  | 29 | 3 | 0 | 0 | 3 | 0 | 0 |
-| `VMware.vscode-spring-boot` | 2.5.2026111700 | 2,075,622 |  | 191 | 3 | 1 | 1 | 1 | 0 | 8 |
-| `redhat.vscode-xml` | 0.29.2026111608 | 1,697,541 |  | 206 | 3 | 0 | 2 | 0 | 1 | 9 |
+| `NexrallCode.nexrall-code-vscode` | 2.0.27 | 1,173,876 |  | 46 | 3 | 0 | 0 | 0 | 3 | 0 |
+| `astro-build.astro-vscode` | 2.17.4 | 1,140,963 |  | 186 | 3 | 0 | 1 | 2 | 0 | 9 |
 | `qwtel.sqlite-viewer` | 26.9.1 | 1,059,341 |  | 55 | 3 | 0 | 2 | 0 | 1 | 0 |
 | `salesforce.salesforcedx-einstein-gpt` | 4.44.1 | 726,379 |  | 80 | 3 | 0 | 0 | 0 | 3 | 0 |
-| `moonshot-ai.kimi-code` | 0.9.0 | 634,031 |  | 33 | 3 | 0 | 1 | 0 | 2 | 0 |
 | `salesforce.salesforcedx-vscode-services` | 68.13.8 | 585,352 |  | 60 | 3 | 0 | 3 | 0 | 0 | 0 |
-| `muhammad-ahmad.xlsx-viewer` | 2.0.9 | 541,420 |  | 41 | 3 | 0 | 1 | 0 | 2 | 0 |
 | `denoland.vscode-deno` | 3.53.1 | 496,880 |  | 205 | 3 | 0 | 1 | 1 | 1 | 9 |
 | `Slint.slint-nightly` | 2026.11.1718 | 475,544 |  | 183 | 3 | 0 | 1 | 0 | 2 | 8 |
-| `ms-python.vscode-python-envs` | 1.44.0 | 47,304,307 |  | 109 | 4 | 1 | 2 | 0 | 1 | 0 |
+| `redhat.java` | 1.59.2026111808 | 48,456,343 | yes | 226 | 4 | 0 | 2 | 0 | 2 | 9 |
 | `vscjava.vscode-java-debug` | 0.60.0 | 28,929,299 |  | 88 | 4 | 0 | 1 | 3 | 0 | 0 |
 | `openai.chatgpt` | 26.51111.21308 | 13,732,117 |  | 97 | 4 | 0 | 0 | 0 | 4 | 0 |
-| `Vue.volar` | 3.3.14 | 11,432,586 |  | 185 | 4 | 0 | 1 | 2 | 1 | 8 |
+| `hashicorp.terraform` | 2.40.1 | 2,604,571 | yes | 202 | 4 | 0 | 3 | 1 | 0 | 8 |
+| `Prisma.prisma-insider` | 31.12.17 | 2,139,643 |  | 161 | 4 | 0 | 0 | 3 | 1 | 0 |
+| `Prisma.prisma` | 31.13.0 | 1,583,385 |  | 161 | 4 | 0 | 0 | 3 | 1 | 0 |
 | `vadimcn.vscode-lldb` | 1.12.3 | 1,412,074 | yes | 75 | 4 | 0 | 0 | 3 | 1 | 0 |
-| `NexrallCode.nexrall-code-vscode` | 2.0.27 | 1,173,876 |  | 46 | 4 | 0 | 1 | 0 | 3 | 0 |
-| `astro-build.astro-vscode` | 2.17.4 | 1,140,963 |  | 186 | 4 | 0 | 2 | 2 | 0 | 9 |
-| `redhat.java` | 1.59.2026111808 | 48,456,343 | yes | 226 | 5 | 0 | 3 | 0 | 2 | 9 |
+| `golang.Go` | 0.58.0 | 43,657,071 | yes | 251 | 5 | 0 | 3 | 0 | 2 | 9 |
+| `vscjava.vscode-java-dependency` | 0.27.7 | 42,375,946 |  | 101 | 5 | 0 | 2 | 3 | 0 | 0 |
 | `vscjava.vscode-java-test` | 0.47.0 | 28,740,156 |  | 101 | 5 | 0 | 0 | 5 | 0 | 0 |
 | `ms-toolsai.vscode-jupyter-slideshow` | 0.1.6 | 9,310,259 |  | 15 | 5 | 0 | 0 | 0 | 5 | 0 |
-| `hashicorp.terraform` | 2.40.1 | 2,604,571 | yes | 202 | 5 | 0 | 4 | 1 | 0 | 8 |
-| `Prisma.prisma-insider` | 31.12.17 | 2,139,643 |  | 161 | 5 | 0 | 1 | 3 | 1 | 0 |
-| `Prisma.prisma` | 31.13.0 | 1,583,385 |  | 161 | 5 | 0 | 1 | 3 | 1 | 0 |
+| `ms-vscode.js-debug` | 1.140.1 | 3,262,448 | yes | 101 | 5 | 0 | 4 | 0 | 1 | 0 |
+| `amazonwebservices.amazon-q-vscode` | 2.10.0 | 2,310,695 |  | 252 | 5 | 0 | 3 | 0 | 2 | 8 |
 | `muhammad-sammy.csharp` | 2.160.9-g01198ecc1f | 1,343,776 |  | 246 | 5 | 0 | 3 | 0 | 2 | 9 |
 | `ms-kubernetes-tools.vscode-kubernetes-tools` | 1.4.1 | 1,288,540 |  | 110 | 5 | 0 | 4 | 0 | 1 | 0 |
 | `James-Yu.latex-workshop` | 10.20.0 | 931,094 |  | 122 | 5 | 0 | 1 | 0 | 4 | 0 |
 | `coderabbit.coderabbit-vscode` | 0.26.2 | 904,406 |  | 75 | 5 | 0 | 0 | 4 | 1 | 0 |
 | `WallabyJs.console-ninja` | 1.0.549 | 620,136 |  | 5 | 5 | 0 | 0 | 5 | 0 | 0 |
 | `mongodb.mongodb-vscode` | 1.18.3 | 514,183 |  | 215 | 5 | 0 | 2 | 2 | 1 | 9 |
-| `golang.Go` | 0.58.0 | 43,657,071 | yes | 251 | 6 | 0 | 4 | 0 | 2 | 9 |
-| `vscjava.vscode-java-dependency` | 0.27.7 | 42,375,946 |  | 101 | 6 | 0 | 3 | 3 | 0 | 0 |
-| `ms-vscode.js-debug` | 1.140.1 | 3,262,448 | yes | 101 | 6 | 0 | 5 | 0 | 1 | 0 |
 | `cweijan.vscode-office` | 4.2.3 | 2,415,441 |  | 107 | 6 | 0 | 1 | 2 | 3 | 0 |
-| `amazonwebservices.amazon-q-vscode` | 2.10.0 | 2,310,695 |  | 252 | 6 | 0 | 4 | 0 | 2 | 8 |
+| `Continue.continue` | 2.1.0 | 1,798,670 |  | 102 | 6 | 0 | 1 | 0 | 5 | 0 |
 | `mtxr.sqltools` | 0.28.6 | 1,154,202 |  | 160 | 6 | 0 | 3 | 2 | 1 | 0 |
 | `firsttris.vscode-jest-runner` | 0.4.151 | 927,481 |  | 40 | 6 | 0 | 0 | 6 | 0 | 0 |
 | `dotnetdev-kr-custom.csharp` | 11.9.41 | 637,387 |  | 248 | 6 | 0 | 3 | 1 | 2 | 9 |
 | `pokey.cursorless` | 1.1.1878 | 591,656 |  | 83 | 6 | 0 | 0 | 0 | 6 | 0 |
-| `Continue.continue` | 2.1.0 | 1,798,670 |  | 102 | 7 | 0 | 2 | 0 | 5 | 0 |
+| `streetsidesoftware.code-spell-checker` | 4.10.0 | 2,270,064 |  | 235 | 7 | 0 | 1 | 0 | 6 | 9 |
 | `vitest.explorer` | 1.52.2 | 888,838 | yes | 79 | 7 | 0 | 0 | 6 | 1 | 0 |
+| `nrwl.angular-console` | 18.104.0 | 727,862 |  | 208 | 7 | 1 | 2 | 2 | 2 | 7 |
+| `devsense.phptools-vscode` | 1.76.19524 | 43,758,154 |  | 235 | 8 | 0 | 1 | 6 | 1 | 9 |
+| `ms-azuretools.vscode-containers` | 2.4.5 | 15,165,562 |  | 238 | 8 | 0 | 5 | 3 | 0 | 9 |
 | `ms-toolsai.vscode-jupyter-cell-tags` | 0.1.9 | 9,360,257 |  | 22 | 8 | 0 | 0 | 0 | 8 | 0 |
-| `streetsidesoftware.code-spell-checker` | 4.10.0 | 2,270,064 |  | 235 | 8 | 0 | 2 | 0 | 6 | 9 |
-| `nrwl.angular-console` | 18.104.0 | 727,862 |  | 208 | 8 | 1 | 3 | 2 | 2 | 7 |
-| `devsense.phptools-vscode` | 1.76.19524 | 43,758,154 |  | 235 | 9 | 0 | 2 | 6 | 1 | 9 |
-| `ms-azuretools.vscode-containers` | 2.4.5 | 15,165,562 |  | 238 | 9 | 0 | 6 | 3 | 0 | 9 |
+| `SonarSource.sonarlint-vscode` | 6.3.0 | 2,285,845 |  | 225 | 8 | 0 | 1 | 4 | 3 | 9 |
+| `Alibaba-Cloud.tongyi-lingma` | 2.6.11 | 925,710 |  | 135 | 8 | 0 | 1 | 4 | 3 | 0 |
 | `ms-vscode.cmake-tools` | 1.25.10 | 2,453,343 |  | 123 | 9 | 0 | 2 | 6 | 1 | 0 |
-| `SonarSource.sonarlint-vscode` | 6.3.0 | 2,285,845 |  | 225 | 9 | 0 | 2 | 4 | 3 | 9 |
 | `RooVeterinaryInc.roo-cline` | 3.54.0 | 2,059,733 |  | 81 | 9 | 0 | 0 | 7 | 2 | 0 |
-| `Alibaba-Cloud.tongyi-lingma` | 2.6.11 | 925,710 |  | 135 | 9 | 0 | 2 | 4 | 3 | 0 |
 | `redhat.ansible` | 26.11.0 | 734,108 |  | 229 | 9 | 0 | 5 | 2 | 2 | 9 |
+| `qwenlm.qwen-code-vscode-ide-companion` | 0.28.0 | 977,742 |  | 76 | 10 | 0 | 1 | 0 | 9 | 0 |
+| `atlassian.atlascode` | 4.1.205 | 835,989 |  | 221 | 10 | 1 | 2 | 5 | 2 | 8 |
 | `TabNine.tabnine-vscode` | 3.346.8 | 632,189 |  | 130 | 10 | 0 | 4 | 3 | 3 | 0 |
 | `Shopify.ruby-lsp` | 0.10.8 | 44,908,181 |  | 234 | 11 | 0 | 1 | 9 | 1 | 9 |
-| `qwenlm.qwen-code-vscode-ide-companion` | 0.28.0 | 977,742 |  | 76 | 11 | 0 | 2 | 0 | 9 | 0 |
 | `kade.kade` | 4.0.4 | 927,948 |  | 113 | 11 | 0 | 0 | 7 | 4 | 0 |
-| `atlassian.atlascode` | 4.1.205 | 835,989 |  | 221 | 11 | 1 | 3 | 5 | 2 | 8 |
 | `saoudrizwan.claude-dev` | 4.1.26 | 7,463,060 |  | 86 | 12 | 0 | 0 | 10 | 2 | 0 |
 | `Oracle.oracle-java` | 27.0.1 | 898,572 |  | 231 | 12 | 0 | 1 | 0 | 11 | 8 |
-| `quarto.quarto` | 1.139.0 | 4,871,022 |  | 256 | 14 | 0 | 3 | 2 | 9 | 9 |
+| `quarto.quarto` | 1.139.0 | 4,871,022 |  | 256 | 13 | 0 | 2 | 2 | 9 | 9 |
+| `posit.publisher` | 2.13.33 | 1,796,333 |  | 85 | 13 | 0 | 3 | 3 | 7 | 0 |
+| `Dart-Code.dart-code` | 3.147.20261109 | 6,283,229 |  | 266 | 14 | 0 | 3 | 9 | 2 | 9 |
 | `posit.shiny` | 1.5.1 | 3,233,865 |  | 62 | 14 | 0 | 0 | 14 | 0 | 0 |
-| `posit.publisher` | 2.13.33 | 1,796,333 |  | 85 | 14 | 0 | 4 | 3 | 7 | 0 |
-| `Dart-Code.dart-code` | 3.147.20261109 | 6,283,229 |  | 266 | 15 | 0 | 4 | 9 | 2 | 9 |
 | `Anthropic.claude-code` | 2.1.327 | 67,710,897 | yes | 110 | 16 | 0 | 1 | 4 | 11 | 0 |
+| `ms-python.python` | 2026.4.0 | 62,908,918 |  | 282 | 17 | 0 | 2 | 8 | 7 | 9 |
 | `kilocode.kilo-code` | 7.8.30 | 4,823,564 |  | 124 | 17 | 0 | 0 | 0 | 17 | 0 |
+| `GitLab.gitlab-workflow` | 7.7.1 | 3,091,208 |  | 253 | 17 | 1 | 5 | 7 | 4 | 9 |
 | `malloydata.malloy-vscode` | 0.3.1794611227 | 676,595 |  | 206 | 17 | 0 | 0 | 0 | 17 | 9 |
-| `ms-python.python` | 2026.4.0 | 62,908,918 |  | 282 | 18 | 0 | 3 | 8 | 7 | 9 |
-| `GitLab.gitlab-workflow` | 7.7.1 | 3,091,208 |  | 253 | 18 | 1 | 6 | 7 | 4 | 9 |
-| `cweijan.vscode-mysql-client2` | 9.0.2 | 1,396,472 |  | 140 | 19 | 0 | 3 | 6 | 10 | 0 |
-| `cweijan.vscode-database-client2` | 9.0.2 | 566,811 |  | 140 | 19 | 0 | 3 | 6 | 10 | 0 |
+| `cweijan.vscode-mysql-client2` | 9.0.2 | 1,396,472 |  | 140 | 18 | 0 | 2 | 6 | 10 | 0 |
+| `cweijan.vscode-database-client2` | 9.0.2 | 566,811 |  | 140 | 18 | 0 | 2 | 6 | 10 | 0 |
 | `MermaidChart.vscode-mermaid-chart` | 2.8.3 | 2,145,632 |  | 111 | 23 | 1 | 3 | 17 | 2 | 0 |
-| `amazonwebservices.aws-toolkit-vscode` | 4.19.0 | 3,996,764 |  | 286 | 28 | 1 | 5 | 0 | 22 | 8 |
-| `REditorSupport.r` | 3.5.20261116 | 2,352,863 |  | 265 | 29 | 0 | 3 | 0 | 26 | 9 |
-| `ms-toolsai.jupyter` | 2025.9.1 | 11,619,036 |  | 268 | 31 | 0 | 1 | 4 | 26 | 8 |
-| `GitHub.vscode-pull-request-github` | 0.174.0 | 6,761,099 |  | 147 | 31 | 1 | 11 | 12 | 7 | 0 |
-| `eamodio.gitlens` | 2026.11.180409 | 19,530,838 |  | 217 | 34 | 1 | 8 | 17 | 8 | 0 |
+| `amazonwebservices.aws-toolkit-vscode` | 4.19.0 | 3,996,764 |  | 286 | 27 | 1 | 4 | 0 | 22 | 8 |
+| `REditorSupport.r` | 3.5.20261116 | 2,352,863 |  | 265 | 28 | 0 | 2 | 0 | 26 | 9 |
+| `ms-toolsai.jupyter` | 2025.9.1 | 11,619,036 |  | 268 | 30 | 0 | 0 | 4 | 26 | 8 |
+| `GitHub.vscode-pull-request-github` | 0.174.0 | 6,761,099 |  | 147 | 30 | 1 | 10 | 12 | 7 | 0 |
+| `eamodio.gitlens` | 2026.11.180409 | 19,530,838 |  | 217 | 33 | 1 | 7 | 17 | 8 | 0 |
 
 ## Bundles without a visible API
 
@@ -1729,7 +1729,7 @@ Proposed API or a false hit: class X when real.
 | `QuickPickItemButtonEvent.item` | B |  | 0 | 0 |  |
 | `QuickPickItemKind` | ok |  | 0 | 0 |  |
 | `QuickPickItemKind.Default` | ok |  | 0 | 0 |  |
-| `QuickPickItemKind.Separator` | B |  | 51 | 512,951,567 |  |
+| `QuickPickItemKind.Separator` | ok |  | 51 | 512,951,567 |  |
 | `QuickPickOptions.canPickMany` | ok |  | 0 | 0 |  |
 | `QuickPickOptions.ignoreFocusOut` | B |  | 0 | 0 |  |
 | `QuickPickOptions.matchOnDescription` | B |  | 0 | 0 |  |

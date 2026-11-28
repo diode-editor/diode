@@ -892,12 +892,13 @@ export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest |
     const items: IWireQuickPickItem[] = [];
     for (const entry of p.items) {
         if (typeof entry !== "object" || entry === null) continue;
-        const it = entry as { label?: unknown; description?: unknown };
+        const it = entry as { label?: unknown; description?: unknown; separatorLabel?: unknown };
         // An item without a label has nothing to show, but it can't be dropped silently:
         // the response is addressed by index in THIS array, and a gap would shift the rest.
         items.push({
             label: typeof it.label === "string" ? it.label : "",
             description: optionalWireString(it.description),
+            ...separatorLabelField(it.separatorLabel),
         });
     }
     const canPickMany = p.canPickMany === true;
@@ -1005,9 +1006,15 @@ function parseWireQuickPickSessionItems(raw: readonly unknown[]): IWireQuickPick
             description: optionalWireString(item.description),
             detail: optionalWireString(item.detail),
             alwaysShow: item.alwaysShow === true,
+            ...separatorLabelField(item.separatorLabel),
         });
     }
     return items;
+}
+
+/** Only a string starts a group (`""` is a group without a label); a field of another type is dropped. */
+function separatorLabelField(value: unknown): { readonly separatorLabel?: string } {
+    return typeof value === "string" ? { separatorLabel: value } : {};
 }
 
 export function parseWireQuickPickDispose(raw: unknown): number | null {

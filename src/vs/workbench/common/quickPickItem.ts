@@ -10,6 +10,12 @@ export interface QuickPickItem {
     shortcut?: string;
     hint?: string;
     badge?: string;
+    /**
+     * The item starts a group: upstream's `QuickPickItemKind.Separator` right before it. A line is drawn
+     * above it and the text goes on its right, after the metadata; `""` is a group without a label.
+     * Plain text: `$(icon)` is not expanded, as upstream's `textContent`.
+     */
+    separatorLabel?: string;
     /** Byte-offset ranges in `label` to highlight as fuzzy-match hits. */
     labelMatchRanges?: readonly [number, number][];
     /** Byte-offset ranges in `description` to highlight as fuzzy-match hits. */
