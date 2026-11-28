@@ -87,6 +87,10 @@ const QUICK_PICK_ITEM: Readonly<Record<TextFields<IWireQuickPickItem>, IFieldPol
         why: "`QuickPickItem.label`: icon support is promised verbatim in `vscode.d.ts`; almost every extension writes labels this way",
     },
     description: { policy: "icons", why: "`QuickPickItem.description`: the same d.ts line" },
+    separatorLabel: {
+        policy: "verbatim",
+        why: "the label of a `QuickPickItemKind.Separator`, drawn on the right of the next item. Upstream sets it as `textContent`, so `$(…)` stays as typed",
+    },
 };
 
 const QUICK_PICK_UPDATE: Readonly<Record<TextFields<IWireQuickPickUpdate>, IFieldPolicy>> = {
@@ -106,6 +110,7 @@ const QUICK_PICK_SESSION_ITEM: Readonly<Record<TextFields<IWireQuickPickSessionI
         policy: "icons",
         why: "`QuickPickItem.detail`: icons are promised in d.ts; our single-line row shows it in place of the description when there is none",
     },
+    separatorLabel: { policy: "verbatim", why: "see `window.showQuickPick.item.separatorLabel`" },
 };
 
 const INPUT_BOX_REQUEST: Readonly<Record<TextFields<IWireInputBoxRequest>, IFieldPolicy>> = {
@@ -475,6 +480,25 @@ const CASES: readonly ISinkCase[] = [
         feed: FEED,
         shown: () =>
             showObjectPick({ items: [{ handle: 0, label: "a", detail: FEED }] }).view.items[0].description ?? "",
+    },
+    {
+        sink: "window.quickPick.update.item.separatorLabel",
+        feed: FEED,
+        shown: () =>
+            showObjectPick({ items: [{ handle: 1, label: "a", separatorLabel: FEED }] }).view.items[0].separatorLabel ??
+            "",
+    },
+    {
+        sink: "window.showQuickPick.item.separatorLabel",
+        feed: FEED,
+        shown: async () => {
+            const { adapter, component, testApp } = quickInputSetup();
+            const pending = adapter.showQuickPick(pickRequest({ items: [{ label: "a", separatorLabel: FEED }] }));
+            const shown = component.view.items[0].separatorLabel ?? "";
+            testApp.sendKey("Escape");
+            await pending;
+            return shown;
+        },
     },
     {
         sink: "window.showInputBox.title",

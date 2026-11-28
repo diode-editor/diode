@@ -2,8 +2,8 @@ import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { ExtHostQuickInput } from "./extHostQuickInput.ts";
-import { type AsRelativePath, withResourceFields } from "./quickInputResource.ts";
-import { EventEmitter, QuickPickItemKind } from "./vscodeTypes.ts";
+import { type AsRelativePath, attachSeparators, withResourceFields } from "./quickInputResource.ts";
+import { EventEmitter } from "./vscodeTypes.ts";
 import type { IWireQuickPickEvent, IWireQuickPickSessionItem } from "./wireTypes.ts";
 
 /**
@@ -42,18 +42,15 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> extends ExtHostQui
     public set items(items: readonly T[]) {
         // A copy: handles have already gone to the host for this item set.
         this.itemsValue = items.slice();
-        const wire: IWireQuickPickSessionItem[] = [];
-        for (const [handle, item] of items.entries()) {
-            // Our list does not draw separators. Compared as a number: the extension's enum
-            // comes from its own copy of d.ts.
-            if ((item.kind as number | undefined) === QuickPickItemKind.Separator) continue;
-            wire.push({
-                handle,
+        const wire = attachSeparators(items).map(
+            ({ item, index, separatorLabel }): IWireQuickPickSessionItem => ({
+                handle: index,
                 ...withResourceFields(item, this.asRelativePath),
                 detail: item.detail,
                 alwaysShow: item.alwaysShow === true,
-            });
-        }
+                ...(separatorLabel === undefined ? {} : { separatorLabel }),
+            }),
+        );
         this.update({ items: wire });
     }
 

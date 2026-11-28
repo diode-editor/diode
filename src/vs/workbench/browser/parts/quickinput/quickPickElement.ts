@@ -58,6 +58,12 @@ export class QuickPickElement extends TUIElement {
     public password = false;
     public onAcceptValue: ((value: string) => void) | null = null;
     public preferredWidth = 60;
+    /**
+     * Groups ({@link QuickPickItem.separatorLabel}) are drawn: a line above the item and its label on the right.
+     * Read when `items` are set; the owner turns it off while a query filters the list, as upstream with
+     * `sortByLabel`. A flag and not a copy of the items: picks and checks are matched by identity.
+     */
+    public groupsVisible = true;
 
     public onQueryChange: ((query: string) => void) | null = null;
     public onAccept: ((item: QuickPickItem, index: number) => void) | null = null;
@@ -95,6 +101,9 @@ export class QuickPickElement extends TUIElement {
     private structureKey = "";
     /** The list passes the element to onSelect, not its index. */
     private rowElements: TUIElement[] = [];
+    /** The content line of each row: group lines push the rows below them down. */
+    private rowLines: number[] = [];
+    private contentLines = 0;
     private suppressActiveNotification = false;
     /** The owner asked for no highlight ({@link clearActive}), as opposed to a multi-select that has none yet. */
     // Stryker disable next-line BooleanLiteral: it is read only with rows to check, and setting `items` resets it first
@@ -119,7 +128,7 @@ export class QuickPickElement extends TUIElement {
 
         this.separatorRow = new TUIElement();
 
-        this.list = new ListViewElement({ typeahead: false });
+        this.list = new ListViewElement({ typeahead: false, groupSeparatorColor: "pickerGroup.border" });
         // Focus stays in the query line: the list must not take it, and typeahead
         // would steal the query's own keystrokes to move the cursor.
         this.list.focusable = false;
@@ -238,6 +247,7 @@ export class QuickPickElement extends TUIElement {
         this.onBack = null;
         this.backVisible = false;
         this.password = false;
+        this.groupsVisible = true;
     }
 
     public setCheckedItems(items: Iterable<QuickPickItem>): void {
@@ -340,8 +350,16 @@ export class QuickPickElement extends TUIElement {
         return null;
     }
 
-    private get visibleItemCount(): number {
-        return Math.min(this.itemsValue.length, this.maxVisibleItems);
+    /** Screen lines of the list, group lines included: the picker is at most {@link maxVisibleItems} lines tall. */
+    private get visibleLineCount(): number {
+        return Math.min(this.contentLines, this.maxVisibleItems);
+    }
+
+    /** PageUp/PageDown step by the items in view, not by its lines. */
+    private get itemsInView(): number {
+        const top = this.list.scrollTop;
+        const bottom = top + this.visibleLineCount;
+        return this.rowLines.filter((line) => line >= top && line < bottom).length;
     }
 
     private get headerRows(): number {
@@ -349,7 +367,7 @@ export class QuickPickElement extends TUIElement {
     }
 
     private get totalHeight(): number {
-        const listRows = this.visibleItemCount;
+        const listRows = this.visibleLineCount;
         const chrome = BORDER_THICKNESS + this.headerRows;
         // Top border + header + [separator + rows] + bottom border.
         if (listRows === 0) return chrome + BORDER_THICKNESS;
@@ -361,7 +379,7 @@ export class QuickPickElement extends TUIElement {
         this.inputElement.placeholder = this.placeholder;
         this.inputElement.maskChar = this.password ? MASK_CHAR : undefined;
         const message = this.message;
-        const hasItems = this.visibleItemCount > 0;
+        const hasItems = this.itemsValue.length > 0;
 
         // Services set fields without setters, and syncStructure runs on every layout,
         // so the children are rebuilt only when the structure actually changed.
@@ -389,15 +407,24 @@ export class QuickPickElement extends TUIElement {
         this.rowsWidth = innerWidth;
         this.list.clear();
         this.rowElements = [];
+        this.rowLines = [];
         const hasIcons = this.itemsValue.some((item) => item.icon !== undefined);
+        const groups = this.groupsVisible;
+        let line = 0;
         for (const [index, item] of this.itemsValue.entries()) {
             const row = buildItemRow(item, index, innerWidth, {
                 hasIcons,
+                groups,
                 ...(this.canPickMany ? { checked: this.checkedValue.has(item) } : {}),
             });
+            const separatorBefore = groups && item.separatorLabel !== undefined;
+            // The list draws no line above its first row (upstream's `border-top` of `data-index="0"`).
+            if (separatorBefore && index > 0) line++;
+            this.rowLines.push(line++);
             this.rowElements.push(row);
-            this.list.appendRow(row);
+            this.list.appendRow(row, { separatorBefore });
         }
+        this.contentLines = line;
     }
 
     /** Rows are immutable: without restoring scroll and cursor, a long list would jump on every `Space`. */
@@ -443,11 +470,11 @@ export class QuickPickElement extends TUIElement {
                 break;
             case "PageDown":
                 event.preventDefault();
-                this.moveSelection(Math.max(1, this.visibleItemCount));
+                this.moveSelection(Math.max(1, this.itemsInView));
                 break;
             case "PageUp":
                 event.preventDefault();
-                this.moveSelection(-Math.max(1, this.visibleItemCount));
+                this.moveSelection(-Math.max(1, this.itemsInView));
                 break;
             case " ":
                 // Outside multi-select, Space is a query character: no preventDefault.
@@ -546,12 +573,14 @@ export class QuickPickElement extends TUIElement {
 
     /** Takes geometry from the list itself instead of recomputing the header height by hand. */
     private itemIndexFromEvent(event: TUIMouseEvent): number | null {
-        if (this.visibleItemCount === 0) return null;
+        if (this.itemsValue.length === 0) return null;
         const row = event.screenY - this.list.globalPosition.y;
-        // The list viewport is exactly as tall as the visible rows, so a hit inside it is
-        // already a valid index — no second bounds check needed.
         if (row < 0 || row >= this.list.layoutSize.height) return null;
-        return this.list.scrollTop + row;
+        // A group line and the gap under the tail of a scrolled list hold no item.
+        const line = this.list.scrollTop + row;
+        // Item `i` sits at most one line per group below line `i`: the search starts there, not from the top of Ctrl+P's thousands.
+        const index = this.rowLines.indexOf(line, Math.max(0, line - (this.contentLines - this.rowLines.length)));
+        return index < 0 ? null : index;
     }
 
     public override getMinIntrinsicWidth(_height: number): number {

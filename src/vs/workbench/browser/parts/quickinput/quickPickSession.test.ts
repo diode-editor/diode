@@ -750,3 +750,51 @@ describe("QuickPickSession — widget handed over from the typing handler", () =
         expect(view()).toMatchObject({ items: ["apple", "banana", "cherry"] });
     });
 });
+
+describe("QuickPickSession — groups", () => {
+    const GROUPED: QuickPickSessionItem[] = [
+        { label: "apple", separatorLabel: "Fruits" },
+        { label: "leek", separatorLabel: "Vegetables" },
+    ];
+
+    function frame(testApp: TestApp): string {
+        testApp.render();
+        return Array.from({ length: 24 }, (_, y) => testApp.backend.getTextAt(new Point(0, y), 80)).join("\n");
+    }
+
+    it("a query hides the groups and an empty one brings them back, with the same item objects", () => {
+        const { pick, component, testApp, type } = setup();
+        pick.update({ items: GROUPED });
+        pick.show();
+        expect(frame(testApp)).toContain("Vegetables");
+
+        type("e");
+        expect(frame(testApp)).not.toContain("Vegetables");
+        expect(frame(testApp)).not.toContain("│─");
+        expect(component.view.items).toEqual(GROUPED);
+
+        testApp.sendKey("Backspace");
+        expect(frame(testApp)).toContain("Vegetables");
+        expect(frame(testApp)).toContain("│─");
+        expect(component.view.items[1]).toBe(GROUPED[1]);
+    });
+
+    it("a list that does not search keeps its groups under any query", () => {
+        const { pick, testApp, type } = setup();
+        pick.update({ items: GROUPED, matchOnLabel: false });
+        pick.show();
+
+        type("zz");
+        expect(frame(testApp)).toContain("Vegetables");
+        expect(frame(testApp)).toContain("│─");
+    });
+
+    it("an owner's query set while open hides the groups too", () => {
+        const { pick, testApp } = setup();
+        pick.update({ items: GROUPED });
+        pick.show();
+
+        pick.update({ value: "l" });
+        expect(frame(testApp)).not.toContain("Fruits");
+    });
+});

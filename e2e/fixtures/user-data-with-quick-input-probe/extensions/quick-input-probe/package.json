@@ -23,6 +23,8 @@
             { "command": "diodeProbe.pickMany", "title": "Diode Probe: Pick Many" },
             { "command": "diodeProbe.pickManyPreselected", "title": "Diode Probe: Pick Many (preselected)" },
             { "command": "diodeProbe.pickMany100", "title": "Diode Probe: Pick Many (100)" },
+            { "command": "diodeProbe.pickGrouped", "title": "Diode Probe: Pick Grouped" },
+            { "command": "diodeProbe.pickGroupedMany", "title": "Diode Probe: Check Groups (createQuickPick)" },
             { "command": "diodeProbe.pickAsync", "title": "Diode Probe: Pick Async" },
             { "command": "diodeProbe.pickEmpty", "title": "Diode Probe: Pick Empty" },
             { "command": "diodeProbe.askThenPick", "title": "Diode Probe: Ask Then Pick" },

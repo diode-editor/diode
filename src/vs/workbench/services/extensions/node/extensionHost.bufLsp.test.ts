@@ -21,7 +21,8 @@ import {
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { WireMarker } from "../../../api/common/wireTypes.ts";
+import type { IQuickInputSink } from "../../../api/common/iExtensionWindowSinks.ts";
+import type { IWireQuickPickRequest, WireMarker } from "../../../api/common/wireTypes.ts";
 
 // Protocol Buffers "as the user has it": the REAL third-party vsix bufbuild.vscode-buf from the marketplace, installed
 // by the regular installVsix, on a real extension host subprocess, and a real `buf lsp serve`. The suite holds that
@@ -43,16 +44,29 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock bufbuild.vscode-bu
     });
 
     it(
-        "activates without errors; diagnostics, hover, F12, completion and formatting from buf",
+        "activates without errors; diagnostics, hover, F12, completion, formatting from buf and the grouped commands picker",
         { timeout: 240_000 },
         async () => {
             const published: { resource: string; markers: readonly WireMarker[] }[] = [];
             const outputLines: { level: string; value: string }[] = [];
+            const picks: IWireQuickPickRequest[] = [];
+            const quickInputSink: IQuickInputSink = {
+                showInputBox: () => Promise.resolve(undefined),
+                showQuickPick: (request) => {
+                    picks.push(request);
+                    return Promise.resolve(undefined);
+                },
+                setQuickPickItems: () => undefined,
+                cancel: () => undefined,
+                updateQuickPick: () => undefined,
+                disposeQuickPick: () => undefined,
+            };
             const harness: IExtensionHarness = await createExtensionTestHarness({
                 languageService: PROTO_LANGUAGE_SERVICE,
                 activateEvents: [],
                 configuration: { buf: { commandLine: { path: bufCli } } },
                 diagnosticsSink: (_owner, resource, markers) => published.push({ resource, markers }),
+                quickInputSink,
                 outputSink: {
                     append: (_channel, _label, level, value) => outputLines.push({ level, value }),
                     show: () => undefined,
@@ -114,6 +128,16 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock bufbuild.vscode-bu
                 });
                 const formatted = (edits ?? []).map((edit) => edit.text).join("");
                 expect(formatted).toContain("message Point {\n  int32 x = 1;\n}");
+
+                // The status bar item's `buf.showCommands`: each separator rides on the first command of its group. Four
+                // separators, but the setup group has no commands: of two in a row the last one wins, as upstream.
+                await harness.commandRegistry.execute("buf.showCommands");
+                const pick = await until("buf.showCommands picker", () => Promise.resolve(picks.at(0) ?? null));
+                const groups = pick.items.flatMap((item) =>
+                    item.separatorLabel === undefined ? [] : [item.separatorLabel],
+                );
+                expect(groups).toEqual(["Buf Language Server Commands", "Buf Commands", "Extension Commands"]);
+                expect(pick.items[0]?.separatorLabel).toBe("Buf Language Server Commands");
 
                 // The stock client's converters did not fail silently (the convention of the TS suites).
                 const crashes = outputLines.filter((l) => CLIENT_CRASH_PATTERNS.test(l.value));

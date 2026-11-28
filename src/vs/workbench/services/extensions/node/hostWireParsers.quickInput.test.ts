@@ -99,6 +99,24 @@ describe("parseWireQuickPickRequest", () => {
         expect(parsed?.items).toEqual([{ label: "" }, { label: "b" }]);
     });
 
+    it("a separator label is taken only as a string, an empty one included", () => {
+        const parsed = parseWireQuickPickRequest({
+            handle: 1,
+            items: [
+                { label: "a", separatorLabel: "Group" },
+                { label: "b", separatorLabel: "" },
+                { label: "c", separatorLabel: 7 },
+            ],
+            picked: [],
+        });
+        expect(parsed?.items).toEqual([
+            { label: "a", separatorLabel: "Group" },
+            { label: "b", separatorLabel: "" },
+            { label: "c" },
+        ]);
+        expect(parsed?.items[2]).not.toHaveProperty("separatorLabel");
+    });
+
     it("non-object items are dropped", () => {
         const parsed = parseWireQuickPickRequest({ handle: 1, items: ["a", null, { label: "b" }], picked: [] });
         expect(parsed?.items).toEqual([{ label: "b" }]);

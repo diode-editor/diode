@@ -1556,6 +1556,11 @@ export interface IWireInputBoxRequest {
 export interface IWireQuickPickItem {
     readonly label: string;
     readonly description?: string;
+    /**
+     * The label of the `QuickPickItemKind.Separator` right before this item (the last of several in a row);
+     * `""` is a separator without a label. Separators themselves are not sent, so indices do not shift.
+     */
+    readonly separatorLabel?: string;
 }
 
 export interface IWireQuickPickRequest {
@@ -1629,7 +1634,8 @@ export function parseWireQuickPickResult(raw: unknown): IWireQuickPickResult {
 // as events; `handle` is a counter shared with `showQuickPick` prompts.
 
 /**
- * `handle` is an index into the extension's `items`: separators are not sent, so positions diverge.
+ * `handle` is an index into the extension's `items`: separators are not sent, so positions diverge;
+ * a separator rides on the item after it as `separatorLabel`.
  * `detail` is needed for filtering (`matchOnDetail`) even when it is not visible on screen.
  */
 export interface IWireQuickPickSessionItem {
@@ -1638,6 +1644,8 @@ export interface IWireQuickPickSessionItem {
     readonly description?: string;
     readonly detail?: string;
     readonly alwaysShow?: boolean;
+    /** As {@link IWireQuickPickItem.separatorLabel}. */
+    readonly separatorLabel?: string;
 }
 
 /** Absent means "untouched", `null` means "reset to `undefined`" (upstream `_pendingUpdate`). */

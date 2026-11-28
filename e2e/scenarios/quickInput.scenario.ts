@@ -64,6 +64,34 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Fruit: cherry"), { timeoutMs: 20000 });
 
+        // QuickPickItemKind.Separator: "Fruits" on the right of apple with no line above it, a bare line above
+        // carrot, a line and "Vegetables" (not "A") at leek, nothing for the trailing separator.
+        await runProbeCommand(editor, "Pick Grouped");
+        await editor.waitForText((t) => t.includes("Pick from a group") && t.includes("Vegetables"), {
+            timeoutMs: 20000,
+        });
+        await editor.waitForText((t) => /apple\s+Fruits/.test(t) && !t.includes("Trailing") && !/leek\s+A\b/.test(t));
+        await editor.capture("quick-pick-groups");
+
+        await editor.sendText("a");
+        await editor.waitForText((t) => t.includes("banana") && !t.includes("Fruits") && !t.includes("Vegetables"));
+        await editor.capture("quick-pick-groups-filtered");
+        await editor.sendKey("Backspace");
+        await editor.waitForText((t) => t.includes("Fruits") && t.includes("Vegetables"));
+        for (let i = 0; i < 3; i++) await editor.sendKey("ArrowDown");
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("Grouped: leek"), { timeoutMs: 20000 });
+
+        await runProbeCommand(editor, "Check Groups");
+        await editor.waitForText((t) => t.includes("[ ] leek") && t.includes("Vegetables"), { timeoutMs: 20000 });
+        // A multi-select opens with no active row: the first step lands on apple.
+        for (let i = 0; i < 4; i++) await editor.sendKey("ArrowDown");
+        await editor.sendKey(" ");
+        await editor.waitForText((t) => t.includes("[✓] leek"));
+        await editor.capture("create-quick-pick-groups");
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("Grouped many: leek"), { timeoutMs: 20000 });
+
         await runProbeCommand(editor, "Pick Many (preselected)");
         await editor.waitForText((t) => t.includes("[✓] beta"), { timeoutMs: 20000 });
         await editor.capture("multi-select");

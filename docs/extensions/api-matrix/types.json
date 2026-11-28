@@ -4171,8 +4171,8 @@
       "class": "ok"
     },
     "QuickPickItemKind.Separator": {
-      "class": "B",
-      "note": "separators are dropped: the list draws no group headers"
+      "class": "ok",
+      "note": "a line above the group and the label on the right of its first item; a query hides them, as upstream"
     },
     "QuickPickOptions.canPickMany": {
       "class": "ok"

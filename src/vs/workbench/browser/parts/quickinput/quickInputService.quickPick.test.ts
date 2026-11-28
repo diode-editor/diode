@@ -1,4 +1,4 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
@@ -129,5 +129,40 @@ describe("QuickInputService.quickPick", () => {
         await expect(first).resolves.toBeUndefined();
         testApp.sendKey("Enter");
         await expect(second).resolves.toMatchObject({ label: "Dark Modern" });
+    });
+});
+
+describe("QuickInputService.quickPick — groups", () => {
+    const GROUPED: QuickPickItem[] = [
+        { label: "apple", separatorLabel: "Fruits" },
+        { label: "banana" },
+        { label: "leek", separatorLabel: "Vegetables" },
+    ];
+
+    function frame(testApp: TestApp): string {
+        testApp.render();
+        return Array.from({ length: 24 }, (_, y) => testApp.backend.getTextAt(new Point(0, y), 80)).join("\n");
+    }
+
+    it("a query hides the group lines and labels, matches stay in order; an empty query brings them back", async () => {
+        const { service, testApp } = createService();
+        const result = service.quickPick({ items: GROUPED });
+        expect(frame(testApp)).toContain("Vegetables");
+        expect(frame(testApp)).toContain("│─");
+
+        testApp.sendKey("a");
+        const filtered = frame(testApp);
+        expect(filtered).not.toContain("Fruits");
+        expect(filtered).not.toContain("Vegetables");
+        // Group lines run between the side borders; the frame's own lines start with a corner or a tee.
+        expect(filtered).not.toContain("│─");
+
+        testApp.sendKey("Backspace");
+        expect(frame(testApp)).toContain("Vegetables");
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("Enter");
+        // The picked item is the caller's own object.
+        await expect(result).resolves.toBe(GROUPED[2]);
     });
 });

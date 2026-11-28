@@ -94,6 +94,18 @@ describe("parseWireQuickPickUpdate", () => {
         });
     });
 
+    it("an item's separator label is taken only as a string", () => {
+        const parsed = parseWireQuickPickUpdate({
+            handle: 3,
+            items: [
+                { handle: 0, label: "a", separatorLabel: "" },
+                { handle: 1, label: "b", separatorLabel: null },
+            ],
+        });
+        expect(parsed?.items?.map((item) => item.separatorLabel)).toEqual(["", undefined]);
+        expect(parsed?.items?.[1]).not.toHaveProperty("separatorLabel");
+    });
+
     it("no handle or not an object → null", () => {
         expect(parseWireQuickPickUpdate(null)).toBeNull();
         expect(parseWireQuickPickUpdate("x")).toBeNull();
